@@ -1,0 +1,52 @@
+# Build directories
+build/
+cmake-build-*/
+
+# IDE directories
+.vs/
+.vscode/
+.idea/
+
+# Compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Test output
+Testing/
+CTestTestfile.cmake
+
+# Dependencies (downloaded by FetchContent)
+_deps/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Claude AI files (optional, keep if you want to track them)
+# .claude/

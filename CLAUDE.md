@@ -380,48 +380,43 @@ ImWidgetV4/
 每个控件应实现以下标准接口：
 
 ```cpp
-class SMyWidget : public SWidget {
+class ImMyWidget : public ImWidget {
 public:
     // 构造函数
-    SMyWidget();
-    
-    // 反射声明
-    IMW_DECLARE_REFLECTED_TYPE(SMyWidget);
+    ImMyWidget(const std::string& WidgetName);
     
     // 属性设置
-    void SetProperty(TAttribute<Type> value);
+    void SetProperty(Type value);
     Type GetProperty() const;
     
     // 事件回调
     void SetOnEvent(std::function<void()> callback);
     
     // 样式定制
-    void SetStyle(const FMyWidgetStyle& style);
+    void SetStyle(const MyWidgetStyle& style);
     
 protected:
-    // 布局计算
-    FVector2 ComputeDesiredSize(const FLayoutContext& layoutContext) const override;
+    // 渲染实现
+    virtual void Render() override;
     
-    // 子控件排列
-    std::vector<FArrangedChild> ArrangeChildren(
-        const FGeometry& allottedGeometry,
-        const FLayoutContext& layoutContext) const override;
-    
-    // 绘制实现
-    void OnPaint(FPaintContext& paintContext) const override;
+    // 布局处理
+    virtual void Relayout() override;
     
     // 输入处理
-    FReply OnInputEvent(const FInputEvent& event) override;
+    virtual void HandleEventInternal(ImEvent* event) override;
+    
+    // 获取最小尺寸
+    virtual ImVec2 GetMinSize() override;
     
 private:
-    // 样式解析
-    const FMyWidgetStyle& ResolveStyle(const FStyleSet* styleSet) const;
-    
     // 成员变量
-    TAttribute<Type> Property_;
-    std::function<void()> OnEvent_;
-    FMyWidgetStyle StyleOverride_;
-    bool bHasStyleOverride_ = false;
+    std::string m_WidgetName;
+    Type m_Property;
+    std::function<void()> m_OnEvent;
+    MyWidgetStyle m_NormalStyle;
+    MyWidgetStyle m_HoveredStyle;
+    MyWidgetStyle m_PressedStyle;
+    bool bHasStyleOverride = false;
 };
 ```
 
@@ -437,9 +432,9 @@ private:
 ### 样式继承
 
 控件样式遵循以下优先级：
-1. 控件实例的样式覆盖（`SetStyle`）
-2. 应用程序的样式集（`FApplication::GetStyleSet()`）
-3. 默认样式（`FStyleSet::MakeDefault()`）
+1. 控件实例的样式覆盖（`SetNormalStyle`, `SetHoveredStyle`, `SetPressedStyle`）
+2. 应用程序的全局样式集
+3. 控件的默认样式
 
 ---
 
@@ -591,18 +586,19 @@ int main() {
 **测试示例**:
 ```cpp
 TEST(ButtonTest, ClickEvent) {
-    auto button = std::make_shared<imw::SButton>("Test");
+    ImButton* button = new ImButton("Test");
     bool clicked = false;
-    button->SetOnClicked([&]() { clicked = true; });
+    button->OnLeftClicked.AddLambda([&]() { clicked = true; });
     
     // 模拟点击事件
-    imw::FInputEvent event;
-    event.Type = imw::EInputEventType::MouseButtonDown;
-    event.MouseButton = imw::EMouseButton::Left;
+    ImMouseDownEvent event;
+    event.Position = ImVec2(10, 10);
+    event.Button = ImMouseButton::Left;
     
-    auto reply = button->OnInputEvent(event);
-    EXPECT_TRUE(reply.bHandled);
+    button->HandleMouseDown(&event);
     EXPECT_TRUE(clicked);
+    
+    delete button;
 }
 ```
 
@@ -611,19 +607,21 @@ TEST(ButtonTest, ClickEvent) {
 使用快照导出功能进行视觉回归测试：
 ```cpp
 TEST(SnapshotTest, ButtonAppearance) {
-    auto app = std::make_shared<imw::FApplication>();
-    auto button = std::make_shared<imw::SButton>("Test");
+    ImApplication* app = new ImApplication();
+    ImButton* button = new ImButton("Test");
     app->SetRootWidget(button);
     
     // 捕获快照
-    imw::FSnapshotOptions options;
+    ImSnapshotOptions options;
     options.Width = 200;
     options.Height = 100;
-    auto snapshot = app->CaptureSnapshot(frameContext, options);
+    auto snapshot = app->CaptureSnapshot(options);
     
     // 导出并比较
-    app->ExportSnapshotToPng("test_button.png", frameContext, options);
+    app->ExportSnapshotToPng("test_button.png", options);
     // 使用图像比较工具验证
+    
+    delete app;
 }
 ```
 
@@ -653,14 +651,13 @@ TEST(SnapshotTest, ButtonAppearance) {
 
 ```cpp
 /**
- * @brief 计算控件的期望尺寸
+ * @brief 获取控件的最小尺寸
  * 
  * 在布局阶段被调用，用于确定控件在理想情况下需要的空间大小。
  * 
- * @param layoutContext 布局上下文，包含缩放比例和样式集
- * @return FVector2 期望的宽度和高度
+ * @return ImVec2 期望的宽度和高度
  */
-virtual FVector2 ComputeDesiredSize(const FLayoutContext& layoutContext) const;
+virtual ImVec2 GetMinSize();
 ```
 
 ### 错误处理
@@ -749,8 +746,8 @@ ImVerticalBox 中的子控件没有正确排列，
 ### 短期目标（当前迭代）
 
 1. 搭建基础项目结构
-2. 实现核心类（SWidget、FApplication、TAttribute）
-3. 实现基础控件（SButton、STextBlock、SHorizontalBox、SVerticalBox）
+2. 实现核心类（ImWidget、ImApplication）
+3. 实现基础控件（ImButton、ImTextBlock、ImHorizontalBox、ImVerticalBox）
 4. 实现基础样式系统
 5. 创建简单的演示程序
 

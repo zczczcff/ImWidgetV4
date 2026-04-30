@@ -72,6 +72,7 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -98,3 +99,4 @@ add_subdirectory(tests/core/reflection)
 add_subdirectory(tests/core/rop)
 add_subdirectory(tests/core)
 add_subdirectory(tests/rendering)
+add_subdirectory(tests/widgets)

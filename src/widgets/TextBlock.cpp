@@ -1,4 +1,5 @@
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 
 namespace ImWidgetV4 {
@@ -38,7 +39,7 @@ void ImTextBlock::SetWrapText(bool bWrap) {
     m_bWrapText = bWrap;
 }
 
-void ImTextBlock::Render() {
+void ImTextBlock::Paint(const FPaintContext& paintContext) {
     if (!m_bVisible || m_Text.empty()) {
         return;
     }
@@ -49,32 +50,25 @@ void ImTextBlock::Render() {
     // 计算文本位置（考虑对齐方式）
     FVector2 textPos = CalculateTextPosition(textSize);
 
-    // 设置文本颜色
-    ImU32 color = m_TextColor.ToImU32();
-
-    // 获取 ImGui 绘制列表
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-    // 绘制文本
+    // 使用 DrawContext 绘制文本
     if (m_bWrapText && m_Geometry.Size.X > 0.0f) {
-        // 带换行的文本
-        drawList->AddText(
+        // 带换行的文本需要直接访问 ImDrawList（DrawContext 暂不支持换行参数）
+        paintContext.DrawContext_.GetImDrawList()->AddText(
             nullptr,                        // 使用默认字体
             m_FontSize,                     // 字体大小
-            ImVec2(textPos.X, textPos.Y),   // 文本位置
-            color,                          // 文本颜色
+            textPos.ToImVec2(),             // 文本位置
+            m_TextColor.ToImU32(),          // 文本颜色
             m_Text.c_str(),                 // 文本内容
             nullptr,                        // 文本结束位置（nullptr 表示自动检测）
             m_Geometry.Size.X               // 换行宽度
         );
     } else {
-        // 单行文本
-        drawList->AddText(
-            nullptr,                        // 使用默认字体
-            m_FontSize,                     // 字体大小
-            ImVec2(textPos.X, textPos.Y),   // 文本位置
-            color,                          // 文本颜色
-            m_Text.c_str()                  // 文本内容
+        // 单行文本使用封装的 DrawContext 接口
+        paintContext.DrawContext_.DrawText(
+            textPos,                        // 文本位置
+            m_TextColor,                    // 文本颜色
+            m_Text,                         // 文本内容
+            m_FontSize                      // 字体大小
         );
     }
 }

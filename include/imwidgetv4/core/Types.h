@@ -244,4 +244,34 @@ struct FFrameContext {
     }
 };
 
+// 前向声明
+class DrawContext;
+struct FStyleSet;
+
+// 绘制上下文
+struct FPaintContext {
+    DrawContext& DrawContext_;
+    FGeometry Geometry;
+    const FStyleSet* StyleSet;
+    FVector2 CursorPosition;
+    bool bHasCursorPosition;
+    float DeltaTime;
+
+    FPaintContext(
+        class DrawContext& drawContext,
+        const FGeometry& geometry,
+        const FStyleSet* styleSet,
+        const FVector2& cursorPosition,
+        bool bHasCursorPosition,
+        float deltaTime
+    )
+        : DrawContext_(drawContext)
+        , Geometry(geometry)
+        , StyleSet(styleSet)
+        , CursorPosition(cursorPosition)
+        , bHasCursorPosition(bHasCursorPosition)
+        , DeltaTime(deltaTime)
+    {}
+};
+
 } // namespace ImWidgetV4

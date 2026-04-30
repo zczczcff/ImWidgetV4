@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "imwidgetv4/rendering/DrawContext.h"
+#include "imwidgetv4/core/DrawContext.h"
 #include "imwidgetv4/rendering/DrawUtils.h"
 #include <imgui.h>
 

@@ -9,9 +9,9 @@ ImWidget::ImWidget()
 {
 }
 
-void ImWidget::Render() {
-    // 基类默认不渲染任何内容
-    // 子类应重写此方法以实现自定义渲染逻辑
+void ImWidget::Paint(const FPaintContext& paintContext) {
+    // 基类默认不绘制任何内容
+    // 子类应重写此方法以实现自定义绘制逻辑
 }
 
 FVector2 ImWidget::GetMinSize() const {

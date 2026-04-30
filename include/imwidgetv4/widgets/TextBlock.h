@@ -111,11 +111,12 @@ public:
     bool GetWrapText() const { return m_bWrapText; }
 
     /**
-     * @brief 渲染控件
+     * @brief 绘制控件
      *
-     * 重写基类方法，使用 ImGui 绘制文本。
+     * 重写基类方法，使用 DrawContext 绘制文本。
+     * @param paintContext 绘制上下文，包含 DrawContext、几何信息、样式集等
      */
-    void Render() override;
+    void Paint(const FPaintContext& paintContext) override;
 
     /**
      * @brief 获取控件的最小尺寸

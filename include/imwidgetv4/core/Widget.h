@@ -41,11 +41,12 @@ public:
     bool IsVisible() const { return m_bVisible; }
 
     /**
-     * @brief 渲染控件
+     * @brief 绘制控件
      *
-     * 子类应重写此方法以实现自定义渲染逻辑。
+     * 子类应重写此方法以实现自定义绘制逻辑。
+     * @param paintContext 绘制上下文，包含 DrawContext、几何信息、样式集等
      */
-    virtual void Render();
+    virtual void Paint(const FPaintContext& paintContext);
 
     /**
      * @brief 获取控件的最小尺寸

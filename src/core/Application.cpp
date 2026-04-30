@@ -1,4 +1,5 @@
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/DrawContext.h>
 #include <cmath>
 
 namespace ImWidgetV4 {
@@ -176,14 +177,24 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
         PerformLayoutPass(frameGeometry);
     }
 
-    // 5. 绘制（简化版：暂时不绘制）
-    // 后续实现时会调用 SceneRoot_->Paint(paintContext)
-    //
-    // 完整实现将包括：
-    // 1. 创建绘制上下文
-    // 2. 调用根控件的 Paint 方法
-    // 3. 收集绘制命令
-    // 4. 提交到 ImGui
+    // 5. 绘制
+    if (frameContext.DrawList && SceneRoot_) {
+        // 创建 DrawContext
+        DrawContext drawContext(frameContext.DrawList);
+
+        // 创建 PaintContext
+        FPaintContext paintContext(
+            drawContext,
+            frameGeometry,
+            &StyleSet_,
+            LastCursorPosition_,
+            bHasCursorPosition_,
+            frameContext.FrameInfo.DeltaTime
+        );
+
+        // 调用根控件的 Paint 方法
+        SceneRoot_->Paint(paintContext);
+    }
 
     // 6. 保存几何信息
     LastFrameGeometry_ = frameGeometry;

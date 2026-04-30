@@ -1,6 +1,8 @@
 #pragma once
 #include <imwidgetv4/core/Types.h>
+#include <imgui.h>
 #include <cstdint>
+#include <vector>
 
 namespace ImWidgetV4 {
 
@@ -13,7 +15,7 @@ enum class EInputEventType {
     MouseWheel,
     KeyDown,
     KeyUp,
-    Char
+    TextInput
 };
 
 // 鼠标按钮
@@ -21,64 +23,43 @@ enum class EMouseButton {
     Left = 0,
     Right = 1,
     Middle = 2,
-    Button4 = 3,
-    Button5 = 4
+    Extra1 = 3,
+    Extra2 = 4
 };
 
-// 键盘按键（简化版，使用 ImGui 的键码）
-enum class EKey {
-    None = 0,
-    Tab,
-    LeftArrow,
-    RightArrow,
-    UpArrow,
-    DownArrow,
-    PageUp,
-    PageDown,
-    Home,
-    End,
-    Insert,
-    Delete,
-    Backspace,
-    Space,
-    Enter,
-    Escape,
-    LeftCtrl,
-    LeftShift,
-    LeftAlt,
-    LeftSuper,
-    RightCtrl,
-    RightShift,
-    RightAlt,
-    RightSuper,
-    Menu,
-    // 字母键
-    A, B, C, D, E, F, G, H, I, J, K, L, M,
-    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
-    // 数字键
-    Num0, Num1, Num2, Num3, Num4,
-    Num5, Num6, Num7, Num8, Num9,
-    // 功能键
-    F1, F2, F3, F4, F5, F6,
-    F7, F8, F9, F10, F11, F12
+// 输入修饰键
+struct FInputModifiers {
+    bool bCtrl = false;
+    bool bShift = false;
+    bool bAlt = false;
+    bool bSuper = false;
+
+    FInputModifiers() = default;
+    FInputModifiers(bool ctrl, bool shift, bool alt, bool super_)
+        : bCtrl(ctrl), bShift(shift), bAlt(alt), bSuper(super_) {}
+
+    bool HasAny() const {
+        return bCtrl || bShift || bAlt || bSuper;
+    }
+
+    bool operator==(const FInputModifiers& other) const {
+        return bCtrl == other.bCtrl &&
+               bShift == other.bShift &&
+               bAlt == other.bAlt &&
+               bSuper == other.bSuper;
+    }
 };
 
 // 输入事件
 struct FInputEvent {
     EInputEventType Type = EInputEventType::None;
-    FVector2 Position {0.0f, 0.0f};
+    FVector2 MousePosition {0.0f, 0.0f};
+    FVector2 ScrollDelta {0.0f, 0.0f};
     EMouseButton MouseButton = EMouseButton::Left;
-    float WheelDelta = 0.0f;
-    EKey Key = EKey::None;
-    int KeyCode = 0;
-    char Character = 0;
+    ImGuiKey Key = ImGuiKey_None;
+    unsigned int Codepoint = 0;
+    FInputModifiers Modifiers;
     double Timestamp = 0.0;
-
-    // 修饰键
-    bool bShiftDown = false;
-    bool bCtrlDown = false;
-    bool bAltDown = false;
-    bool bSuperDown = false;
 
     FInputEvent() = default;
 
@@ -93,13 +74,33 @@ struct FInputEvent {
     bool IsKeyboardEvent() const {
         return Type == EInputEventType::KeyDown ||
                Type == EInputEventType::KeyUp ||
-               Type == EInputEventType::Char;
+               Type == EInputEventType::TextInput;
     }
 
     bool IsMouseButtonEvent() const {
         return Type == EInputEventType::MouseButtonDown ||
                Type == EInputEventType::MouseButtonUp;
     }
+};
+
+// ImGui 输入适配器
+class FImGuiInputAdapter {
+public:
+    FImGuiInputAdapter();
+
+    /**
+     * @brief 从 ImGui IO 轮询输入事件
+     * @param io ImGui IO 对象
+     * @param timestamp 当前时间戳
+     * @return 输入事件列表
+     */
+    std::vector<FInputEvent> Poll(const ImGuiIO& io, double timestamp);
+
+private:
+    // 上一帧的状态
+    FVector2 m_LastMousePosition {0.0f, 0.0f};
+    bool m_LastMouseButtons[5] = {false};
+    bool m_LastKeys[ImGuiKey_COUNT] = {false};
 };
 
 } // namespace ImWidgetV4

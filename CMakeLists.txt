@@ -68,6 +68,7 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/core/Application.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_SOURCE_DIR}/src/core/DrawContext.cpp
+    ${CMAKE_SOURCE_DIR}/src/input/Input.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp

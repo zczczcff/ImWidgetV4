@@ -110,14 +110,89 @@ const std::vector<FInputEvent>& ImApplication::GetLastFrameEvents() const {
 }
 
 void ImApplication::RouteInputEvents() {
-    // 简化版：暂时不路由事件到控件
-    // 后续实现时会根据控件树和焦点状态路由事件
-    //
-    // 完整实现将包括：
-    // 1. 检查鼠标捕获控件
-    // 2. 检查焦点控件
-    // 3. 执行命中测试
-    // 4. 将事件分发到相应控件
+    if (!SceneRoot_) {
+        return;
+    }
+
+    // 遍历所有待处理的输入事件
+    for (const auto& inputEvent : LastFrameEvents_) {
+        std::vector<std::shared_ptr<ImWidget>> eventPath;
+
+        // 根据事件类型确定事件路径
+        if (inputEvent.IsMouseEvent()) {
+            // 鼠标事件：使用命中测试或鼠标捕获
+            if (CapturedMouseWidget_) {
+                // 如果有鼠标捕获，事件路由到捕获的控件
+                eventPath = BuildPathToSceneRoot(CapturedMouseWidget_);
+            } else {
+                // 否则执行命中测试
+                SceneRoot_->BuildHitTestPath(inputEvent.MousePosition, eventPath);
+            }
+
+            // 处理鼠标捕获逻辑
+            if (inputEvent.Type == EInputEventType::MouseButtonDown) {
+                // 鼠标按下时捕获最深的控件
+                if (!eventPath.empty()) {
+                    SetMouseCapture(eventPath.back(), inputEvent.MouseButton);
+                }
+            } else if (inputEvent.Type == EInputEventType::MouseButtonUp) {
+                // 鼠标释放时释放捕获
+                if (CapturedMouseWidget_ && inputEvent.MouseButton == CapturedMouseButton_) {
+                    ReleaseMouseCapture();
+                }
+            }
+        } else if (inputEvent.IsKeyboardEvent()) {
+            // 键盘事件：使用焦点路径
+            if (FocusedWidget_) {
+                eventPath = BuildPathToSceneRoot(FocusedWidget_);
+            }
+        }
+
+        // 路由事件到控件
+        if (!eventPath.empty()) {
+            RouteEvent(inputEvent, eventPath);
+        }
+    }
+}
+
+std::vector<std::shared_ptr<ImWidget>> ImApplication::BuildPathToSceneRoot(
+    const std::shared_ptr<ImWidget>& widget) const {
+    std::vector<std::shared_ptr<ImWidget>> path;
+
+    if (!widget || !SceneRoot_) {
+        return path;
+    }
+
+    // 简化版：暂时只返回单个控件
+    // 完整实现需要遍历控件树构建完整路径
+    path.push_back(widget);
+
+    return path;
+}
+
+bool ImApplication::RouteEvent(const FInputEvent& event,
+                               const std::vector<std::shared_ptr<ImWidget>>& eventPath) {
+    bool handled = false;
+
+    // 阶段 1: 预览阶段（从根到叶）
+    for (const auto& widget : eventPath) {
+        if (widget->OnPreviewInputEvent(event).IsHandled()) {
+            handled = true;
+            break;
+        }
+    }
+
+    // 阶段 2: 正常阶段（从叶到根）
+    if (!handled) {
+        for (auto it = eventPath.rbegin(); it != eventPath.rend(); ++it) {
+            if ((*it)->OnInputEvent(event).IsHandled()) {
+                handled = true;
+                break;
+            }
+        }
+    }
+
+    return handled;
 }
 
 // ========== 焦点管理 ==========
@@ -134,8 +209,9 @@ const std::shared_ptr<ImWidget>& ImApplication::GetKeyboardFocus() const {
     return FocusedWidget_;
 }
 
-void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget) {
+void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMouseButton button) {
     CapturedMouseWidget_ = widget;
+    CapturedMouseButton_ = button;
 }
 
 void ImApplication::ReleaseMouseCapture() {
@@ -151,11 +227,19 @@ const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const {
 void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
     ++FrameNumber_;
 
-    // 1. 处理输入事件
+    // 1. 从 ImGui 轮询输入事件
+    if (frameContext.ImGuiIo) {
+        auto events = InputAdapter_.Poll(*frameContext.ImGuiIo, frameContext.FrameInfo.CurrentTime);
+        for (const auto& event : events) {
+            PendingInput_.push_back(event);
+        }
+    }
+
+    // 2. 处理输入事件
     LastFrameEvents_ = PendingInput_;
     PendingInput_.clear();
 
-    // 2. 更新鼠标位置
+    // 3. 更新鼠标位置
     if (frameContext.ImGuiIo) {
         LastCursorPosition_ = FVector2(
             frameContext.ImGuiIo->MousePos.x,
@@ -164,10 +248,10 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
         bHasCursorPosition_ = true;
     }
 
-    // 3. 路由输入事件到控件
+    // 4. 路由输入事件到控件
     RouteInputEvents();
 
-    // 4. 布局计算
+    // 5. 布局计算
     const FGeometry frameGeometry(
         frameContext.FrameInfo.ViewportPosition,
         frameContext.FrameInfo.ViewportSize
@@ -177,7 +261,7 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
         PerformLayoutPass(frameGeometry);
     }
 
-    // 5. 绘制
+    // 6. 绘制
     if (frameContext.DrawList && SceneRoot_) {
         // 创建 DrawContext
         DrawContext drawContext(frameContext.DrawList);
@@ -196,7 +280,7 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
         SceneRoot_->Paint(paintContext);
     }
 
-    // 6. 保存几何信息
+    // 7. 保存几何信息
     LastFrameGeometry_ = frameGeometry;
     bHasLastFrameGeometry_ = true;
 }

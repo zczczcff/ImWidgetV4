@@ -141,8 +141,9 @@ public:
     /**
      * @brief 设置鼠标捕获到指定控件
      * @param widget 要捕获鼠标的控件
+     * @param button 捕获的鼠标按钮
      */
-    void SetMouseCapture(const std::shared_ptr<ImWidget>& widget);
+    void SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMouseButton button);
 
     /**
      * @brief 释放鼠标捕获
@@ -154,6 +155,12 @@ public:
      * @return 捕获鼠标的控件的共享指针
      */
     const std::shared_ptr<ImWidget>& GetMouseCapture() const;
+
+    /**
+     * @brief 获取捕获的鼠标按钮
+     * @return 捕获的鼠标按钮
+     */
+    EMouseButton GetCapturedMouseButton() const { return CapturedMouseButton_; }
 
     // ========== 帧信息 ==========
 
@@ -176,10 +183,12 @@ private:
     // ========== 输入系统 ==========
     std::vector<FInputEvent> PendingInput_;
     std::vector<FInputEvent> LastFrameEvents_;
+    FImGuiInputAdapter InputAdapter_;
 
     // ========== 焦点管理 ==========
     std::shared_ptr<ImWidget> FocusedWidget_;
     std::shared_ptr<ImWidget> CapturedMouseWidget_;
+    EMouseButton CapturedMouseButton_ = EMouseButton::Left;
 
     // ========== 鼠标状态 ==========
     FVector2 LastCursorPosition_{0.0f, 0.0f};
@@ -200,6 +209,21 @@ private:
      * 根据控件树和焦点状态，将输入事件分发到相应的控件。
      */
     void RouteInputEvents();
+
+    /**
+     * @brief 构建从根到指定控件的路径
+     * @param widget 目标控件
+     * @return 从根到目标控件的路径
+     */
+    std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(const std::shared_ptr<ImWidget>& widget) const;
+
+    /**
+     * @brief 路由单个输入事件
+     * @param event 输入事件
+     * @param eventPath 事件路径（从根到叶）
+     * @return 事件是否被处理
+     */
+    bool RouteEvent(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath);
 
     /**
      * @brief 执行布局计算

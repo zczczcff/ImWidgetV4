@@ -64,8 +64,11 @@ target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
 # 创建 imwidgetv4_core 库目标
 add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Application.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawContext.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include

@@ -1,4 +1,5 @@
 #include <imwidgetv4/core/ReflectableObject.h>
+#include <imgui.h>
 #include <stdexcept>
 #include <sstream>
 

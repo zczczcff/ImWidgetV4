@@ -66,9 +66,11 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Application.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawContext.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include

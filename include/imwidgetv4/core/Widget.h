@@ -2,34 +2,75 @@
 #include <imwidgetv4/core/Types.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ImWidgetV4 {
 
 /**
- * @brief 简化的 Widget 基类（占位符）
+ * @brief Widget 基类
  *
- * 这是一个简化版本的控件基类，用于支持 Application 类的实现。
- * 完整的 Widget 系统将在后续阶段实现。
+ * 所有 UI 控件的基类，提供基础的控件功能。
  */
 class ImWidget {
 public:
-    ImWidget() = default;
+    ImWidget();
     virtual ~ImWidget() = default;
 
     /**
      * @brief 设置控件名称
      * @param name 控件名称
      */
-    void SetName(const std::string& name) { Name_ = name; }
+    void SetName(const std::string& name) { m_Name = name; }
 
     /**
      * @brief 获取控件名称
      * @return 控件名称
      */
-    const std::string& GetName() const { return Name_; }
+    const std::string& GetName() const { return m_Name; }
 
-private:
-    std::string Name_;
+    /**
+     * @brief 设置可见性
+     * @param bVisible 是否可见
+     */
+    void SetVisible(bool bVisible) { m_bVisible = bVisible; }
+
+    /**
+     * @brief 获取可见性
+     * @return 是否可见
+     */
+    bool IsVisible() const { return m_bVisible; }
+
+    /**
+     * @brief 渲染控件
+     *
+     * 子类应重写此方法以实现自定义渲染逻辑。
+     */
+    virtual void Render();
+
+    /**
+     * @brief 获取控件的最小尺寸
+     *
+     * 子类应重写此方法以返回控件所需的最小尺寸。
+     * @return 最小尺寸
+     */
+    virtual FVector2 GetMinSize() const;
+
+    /**
+     * @brief 设置控件的几何信息（位置和大小）
+     * @param geometry 几何信息
+     */
+    void SetGeometry(const FGeometry& geometry) { m_Geometry = geometry; }
+
+    /**
+     * @brief 获取控件的几何信息
+     * @return 几何信息
+     */
+    const FGeometry& GetGeometry() const { return m_Geometry; }
+
+protected:
+    std::string m_Name;           // 控件名称
+    bool m_bVisible = true;       // 是否可见
+    FGeometry m_Geometry;         // 几何信息（位置和大小）
 };
 
 } // namespace ImWidgetV4

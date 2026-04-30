@@ -4,7 +4,7 @@
 namespace ImWidgetV4 {
 
 // 前向声明
-class FApplication;
+class ImApplication;
 
 /**
  * @brief 应用程序后端接口
@@ -12,9 +12,9 @@ class FApplication;
  * 定义了应用程序后端需要实现的接口，用于抽象不同的窗口系统和渲染后端。
  * 例如：GLFW + OpenGL3、SDL + Vulkan、Win32 + DirectX 等。
  */
-class IApplicationBackend {
+class ImApplicationBackend {
 public:
-    virtual ~IApplicationBackend() = default;
+    virtual ~ImApplicationBackend() = default;
 
     /**
      * @brief 初始化后端
@@ -84,13 +84,13 @@ public:
      * @brief 设置关联的 Application 对象
      * @param app Application 对象指针
      */
-    virtual void SetApplication(FApplication* app) = 0;
+    virtual void SetApplication(ImApplication* app) = 0;
 
     /**
      * @brief 获取关联的 Application 对象
      * @return Application 对象指针
      */
-    virtual FApplication* GetApplication() const = 0;
+    virtual ImApplication* GetApplication() const = 0;
 
     /**
      * @brief 请求关闭窗口

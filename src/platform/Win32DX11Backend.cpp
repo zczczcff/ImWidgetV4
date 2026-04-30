@@ -13,7 +13,7 @@ namespace ImWidgetV4 {
 
 // ========== 构造函数和析构函数 ==========
 
-FWin32DX11Backend::FWin32DX11Backend(
+ImWin32DX11Backend::ImWin32DX11Backend(
     const std::wstring& windowTitle,
     int width,
     int height)
@@ -34,13 +34,13 @@ FWin32DX11Backend::FWin32DX11Backend(
 {
 }
 
-FWin32DX11Backend::~FWin32DX11Backend() {
+ImWin32DX11Backend::~ImWin32DX11Backend() {
     Shutdown();
 }
 
-// ========== IApplicationBackend 接口实现 ==========
+// ========== ImApplicationBackend 接口实现 ==========
 
-bool FWin32DX11Backend::Initialize() {
+bool ImWin32DX11Backend::Initialize() {
     // 1. 注册窗口类
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
@@ -95,7 +95,7 @@ bool FWin32DX11Backend::Initialize() {
     return true;
 }
 
-void FWin32DX11Backend::Shutdown() {
+void ImWin32DX11Backend::Shutdown() {
     // 1. 清理 ImGui
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
@@ -114,7 +114,7 @@ void FWin32DX11Backend::Shutdown() {
     UnregisterClassW(L"ImWidgetV4WindowClass", HInstance_);
 }
 
-void FWin32DX11Backend::Run() {
+void ImWin32DX11Backend::Run() {
     MSG msg = {};
 
     while (!bShouldClose_) {
@@ -169,11 +169,11 @@ void FWin32DX11Backend::Run() {
     }
 }
 
-bool FWin32DX11Backend::ShouldClose() const {
+bool ImWin32DX11Backend::ShouldClose() const {
     return bShouldClose_;
 }
 
-void FWin32DX11Backend::SetWindowTitle(const std::string& title) {
+void ImWin32DX11Backend::SetWindowTitle(const std::string& title) {
     // 将 UTF-8 转换为宽字符
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     WindowTitle_ = converter.from_bytes(title);
@@ -183,7 +183,7 @@ void FWin32DX11Backend::SetWindowTitle(const std::string& title) {
     }
 }
 
-void FWin32DX11Backend::SetWindowSize(int width, int height) {
+void ImWin32DX11Backend::SetWindowSize(int width, int height) {
     WindowWidth_ = width;
     WindowHeight_ = height;
 
@@ -197,19 +197,19 @@ void FWin32DX11Backend::SetWindowSize(int width, int height) {
     }
 }
 
-void FWin32DX11Backend::GetWindowSize(int& width, int& height) const {
+void ImWin32DX11Backend::GetWindowSize(int& width, int& height) const {
     width = WindowWidth_;
     height = WindowHeight_;
 }
 
-void FWin32DX11Backend::BeginFrame() {
+void ImWin32DX11Backend::BeginFrame() {
     // 1. 开始 ImGui 新帧
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 }
 
-void FWin32DX11Backend::EndFrame() {
+void ImWin32DX11Backend::EndFrame() {
     // 1. 渲染 ImGui
     ImGui::Render();
 
@@ -226,25 +226,25 @@ void FWin32DX11Backend::EndFrame() {
     bSwapChainOccluded_ = (hr == DXGI_STATUS_OCCLUDED);
 }
 
-void FWin32DX11Backend::SetApplication(FApplication* app) {
+void ImWin32DX11Backend::SetApplication(ImApplication* app) {
     Application_ = app;
 }
 
-FApplication* FWin32DX11Backend::GetApplication() const {
+ImApplication* ImWin32DX11Backend::GetApplication() const {
     return Application_;
 }
 
-void FWin32DX11Backend::RequestClose() {
+void ImWin32DX11Backend::RequestClose() {
     bShouldClose_ = true;
 }
 
-std::string FWin32DX11Backend::GetBackendName() const {
+std::string ImWin32DX11Backend::GetBackendName() const {
     return "Win32 + DirectX 11";
 }
 
 // ========== DirectX 11 设备管理 ==========
 
-bool FWin32DX11Backend::CreateDeviceD3D() {
+bool ImWin32DX11Backend::CreateDeviceD3D() {
     // 1. 配置交换链
     DXGI_SWAP_CHAIN_DESC sd = {};
     sd.BufferCount = 2;
@@ -315,7 +315,7 @@ bool FWin32DX11Backend::CreateDeviceD3D() {
     return true;
 }
 
-void FWin32DX11Backend::CleanupDeviceD3D() {
+void ImWin32DX11Backend::CleanupDeviceD3D() {
     CleanupRenderTarget();
 
     if (SwapChain_) {
@@ -334,7 +334,7 @@ void FWin32DX11Backend::CleanupDeviceD3D() {
     }
 }
 
-void FWin32DX11Backend::CreateRenderTarget() {
+void ImWin32DX11Backend::CreateRenderTarget() {
     ID3D11Texture2D* pBackBuffer = nullptr;
     SwapChain_->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
 
@@ -344,14 +344,14 @@ void FWin32DX11Backend::CreateRenderTarget() {
     }
 }
 
-void FWin32DX11Backend::CleanupRenderTarget() {
+void ImWin32DX11Backend::CleanupRenderTarget() {
     if (MainRenderTargetView_) {
         MainRenderTargetView_->Release();
         MainRenderTargetView_ = nullptr;
     }
 }
 
-void FWin32DX11Backend::HandleResize() {
+void ImWin32DX11Backend::HandleResize() {
     if (ResizeWidth_ != 0 && ResizeHeight_ != 0) {
         CleanupRenderTarget();
         SwapChain_->ResizeBuffers(0, ResizeWidth_, ResizeHeight_, DXGI_FORMAT_UNKNOWN, 0);
@@ -363,16 +363,16 @@ void FWin32DX11Backend::HandleResize() {
 
 // ========== 窗口过程 ==========
 
-LRESULT CALLBACK FWin32DX11Backend::WndProcStatic(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK ImWin32DX11Backend::WndProcStatic(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     // 获取 this 指针
-    FWin32DX11Backend* backend = nullptr;
+    ImWin32DX11Backend* backend = nullptr;
 
     if (msg == WM_NCCREATE) {
         CREATESTRUCT* pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
-        backend = reinterpret_cast<FWin32DX11Backend*>(pCreate->lpCreateParams);
+        backend = reinterpret_cast<ImWin32DX11Backend*>(pCreate->lpCreateParams);
         SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(backend));
     } else {
-        backend = reinterpret_cast<FWin32DX11Backend*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        backend = reinterpret_cast<ImWin32DX11Backend*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
     }
 
     if (backend) {
@@ -382,7 +382,7 @@ LRESULT CALLBACK FWin32DX11Backend::WndProcStatic(HWND hWnd, UINT msg, WPARAM wP
     return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-LRESULT FWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     // 1. 转发给 ImGui
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
         return true;

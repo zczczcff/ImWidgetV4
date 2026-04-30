@@ -13,22 +13,22 @@ namespace ImWidgetV4 {
 /**
  * @brief Application 类 - UI 框架的核心
  *
- * FApplication 负责管理控件树、输入处理、焦点管理和渲染循环。
+ * ImApplication 负责管理控件树、输入处理、焦点管理和渲染循环。
  * 这是整个 UI 系统的中心协调者。
  */
-class FApplication {
+class ImApplication {
 public:
     /**
      * @brief 构造函数
      *
      * 初始化应用程序，创建默认样式集和主题包。
      */
-    FApplication();
+    ImApplication();
 
     /**
      * @brief 析构函数
      */
-    virtual ~FApplication() = default;
+    virtual ~ImApplication() = default;
 
     // ========== 控件树管理 ==========
 
@@ -36,13 +36,13 @@ public:
      * @brief 设置根控件
      * @param rootWidget 根控件的共享指针
      */
-    void SetRootWidget(const std::shared_ptr<SWidget>& rootWidget);
+    void SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget);
 
     /**
      * @brief 获取根控件
      * @return 根控件的共享指针
      */
-    const std::shared_ptr<SWidget>& GetRootWidget() const;
+    const std::shared_ptr<ImWidget>& GetRootWidget() const;
 
     // ========== 样式系统 ==========
 
@@ -123,7 +123,7 @@ public:
      * @brief 设置键盘焦点到指定控件
      * @param widget 要获得焦点的控件
      */
-    void SetKeyboardFocus(const std::shared_ptr<SWidget>& widget);
+    void SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget);
 
     /**
      * @brief 清除键盘焦点
@@ -134,7 +134,7 @@ public:
      * @brief 获取当前拥有键盘焦点的控件
      * @return 拥有焦点的控件的共享指针
      */
-    const std::shared_ptr<SWidget>& GetKeyboardFocus() const;
+    const std::shared_ptr<ImWidget>& GetKeyboardFocus() const;
 
     // ========== 鼠标捕获 ==========
 
@@ -142,7 +142,7 @@ public:
      * @brief 设置鼠标捕获到指定控件
      * @param widget 要捕获鼠标的控件
      */
-    void SetMouseCapture(const std::shared_ptr<SWidget>& widget);
+    void SetMouseCapture(const std::shared_ptr<ImWidget>& widget);
 
     /**
      * @brief 释放鼠标捕获
@@ -153,7 +153,7 @@ public:
      * @brief 获取当前捕获鼠标的控件
      * @return 捕获鼠标的控件的共享指针
      */
-    const std::shared_ptr<SWidget>& GetMouseCapture() const;
+    const std::shared_ptr<ImWidget>& GetMouseCapture() const;
 
     // ========== 帧信息 ==========
 
@@ -165,8 +165,8 @@ public:
 
 private:
     // ========== 控件树 ==========
-    std::shared_ptr<SWidget> RootWidget_;
-    std::shared_ptr<SWidget> SceneRoot_;
+    std::shared_ptr<ImWidget> RootWidget_;
+    std::shared_ptr<ImWidget> SceneRoot_;
 
     // ========== 样式系统 ==========
     FStyleSet StyleSet_;
@@ -178,8 +178,8 @@ private:
     std::vector<FInputEvent> LastFrameEvents_;
 
     // ========== 焦点管理 ==========
-    std::shared_ptr<SWidget> FocusedWidget_;
-    std::shared_ptr<SWidget> CapturedMouseWidget_;
+    std::shared_ptr<ImWidget> FocusedWidget_;
+    std::shared_ptr<ImWidget> CapturedMouseWidget_;
 
     // ========== 鼠标状态 ==========
     FVector2 LastCursorPosition_{0.0f, 0.0f};

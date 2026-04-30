@@ -14,7 +14,7 @@ namespace ImWidgetV4 {
  * 提供基于 Win32 窗口系统和 DirectX 11 渲染 API 的应用程序后端。
  * 集成 ImGui 的 Win32 和 DirectX 11 后端实现。
  */
-class FWin32DX11Backend : public IApplicationBackend {
+class ImWin32DX11Backend : public ImApplicationBackend {
 public:
     /**
      * @brief 构造函数
@@ -22,7 +22,7 @@ public:
      * @param width 窗口宽度（像素）
      * @param height 窗口高度（像素）
      */
-    FWin32DX11Backend(
+    ImWin32DX11Backend(
         const std::wstring& windowTitle = L"ImWidgetV4 Application",
         int width = 1280,
         int height = 800);
@@ -30,9 +30,9 @@ public:
     /**
      * @brief 析构函数
      */
-    ~FWin32DX11Backend() override;
+    ~ImWin32DX11Backend() override;
 
-    // ========== IApplicationBackend 接口实现 ==========
+    // ========== ImApplicationBackend 接口实现 ==========
 
     /**
      * @brief 初始化后端
@@ -101,13 +101,13 @@ public:
      * @brief 设置关联的 Application 对象
      * @param app Application 对象指针
      */
-    void SetApplication(FApplication* app) override;
+    void SetApplication(ImApplication* app) override;
 
     /**
      * @brief 获取关联的 Application 对象
      * @return Application 对象指针
      */
-    FApplication* GetApplication() const override;
+    ImApplication* GetApplication() const override;
 
     /**
      * @brief 请求关闭窗口
@@ -161,7 +161,7 @@ private:
     bool bSwapChainOccluded_;
 
     // ========== Application 引用 ==========
-    FApplication* Application_;
+    ImApplication* Application_;
 
     // ========== 内部方法 ==========
 

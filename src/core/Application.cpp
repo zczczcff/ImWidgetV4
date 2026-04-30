@@ -5,7 +5,7 @@ namespace ImWidgetV4 {
 
 // ========== 构造函数 ==========
 
-FApplication::FApplication() {
+ImApplication::ImApplication() {
     // 初始化默认样式集
     auto defaultStyleSet = FStyleSetFactory::CreateDefault();
     if (defaultStyleSet) {
@@ -46,38 +46,38 @@ FApplication::FApplication() {
 
 // ========== 控件树管理 ==========
 
-void FApplication::SetRootWidget(const std::shared_ptr<SWidget>& rootWidget) {
+void ImApplication::SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget) {
     RootWidget_ = rootWidget;
     SceneRoot_ = rootWidget;  // 简化版：直接使用根控件
 }
 
-const std::shared_ptr<SWidget>& FApplication::GetRootWidget() const {
+const std::shared_ptr<ImWidget>& ImApplication::GetRootWidget() const {
     return RootWidget_;
 }
 
 // ========== 样式系统 ==========
 
-void FApplication::SetStyleSet(const FStyleSet& styleSet) {
+void ImApplication::SetStyleSet(const FStyleSet& styleSet) {
     // FStyleSet 禁止拷贝，需要使用 Merge 方法
     StyleSet_.Clear();
     StyleSet_.Merge(styleSet);
 }
 
-const FStyleSet& FApplication::GetStyleSet() const {
+const FStyleSet& ImApplication::GetStyleSet() const {
     return StyleSet_;
 }
 
-FStyleSet& FApplication::GetStyleSet() {
+FStyleSet& ImApplication::GetStyleSet() {
     return StyleSet_;
 }
 
 // ========== 主题管理 ==========
 
-void FApplication::RegisterThemePack(FThemePack&& themePack) {
+void ImApplication::RegisterThemePack(FThemePack&& themePack) {
     ThemePacks_.push_back(std::move(themePack));
 }
 
-bool FApplication::SetActiveTheme(const std::string& name) {
+bool ImApplication::SetActiveTheme(const std::string& name) {
     for (const auto& pack : ThemePacks_) {
         if (pack.Name == name) {
             ActiveThemeName_ = name;
@@ -90,25 +90,25 @@ bool FApplication::SetActiveTheme(const std::string& name) {
     return false;
 }
 
-const std::string& FApplication::GetActiveThemeName() const {
+const std::string& ImApplication::GetActiveThemeName() const {
     return ActiveThemeName_;
 }
 
-const std::vector<FThemePack>& FApplication::GetThemePacks() const {
+const std::vector<FThemePack>& ImApplication::GetThemePacks() const {
     return ThemePacks_;
 }
 
 // ========== 输入处理 ==========
 
-void FApplication::EnqueueInput(const FInputEvent& inputEvent) {
+void ImApplication::EnqueueInput(const FInputEvent& inputEvent) {
     PendingInput_.push_back(inputEvent);
 }
 
-const std::vector<FInputEvent>& FApplication::GetLastFrameEvents() const {
+const std::vector<FInputEvent>& ImApplication::GetLastFrameEvents() const {
     return LastFrameEvents_;
 }
 
-void FApplication::RouteInputEvents() {
+void ImApplication::RouteInputEvents() {
     // 简化版：暂时不路由事件到控件
     // 后续实现时会根据控件树和焦点状态路由事件
     //
@@ -121,33 +121,33 @@ void FApplication::RouteInputEvents() {
 
 // ========== 焦点管理 ==========
 
-void FApplication::SetKeyboardFocus(const std::shared_ptr<SWidget>& widget) {
+void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget) {
     FocusedWidget_ = widget;
 }
 
-void FApplication::ClearKeyboardFocus() {
+void ImApplication::ClearKeyboardFocus() {
     FocusedWidget_.reset();
 }
 
-const std::shared_ptr<SWidget>& FApplication::GetKeyboardFocus() const {
+const std::shared_ptr<ImWidget>& ImApplication::GetKeyboardFocus() const {
     return FocusedWidget_;
 }
 
-void FApplication::SetMouseCapture(const std::shared_ptr<SWidget>& widget) {
+void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget) {
     CapturedMouseWidget_ = widget;
 }
 
-void FApplication::ReleaseMouseCapture() {
+void ImApplication::ReleaseMouseCapture() {
     CapturedMouseWidget_.reset();
 }
 
-const std::shared_ptr<SWidget>& FApplication::GetMouseCapture() const {
+const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const {
     return CapturedMouseWidget_;
 }
 
 // ========== 帧更新（核心方法） ==========
 
-void FApplication::AdvanceFrame(const FFrameContext& frameContext) {
+void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
     ++FrameNumber_;
 
     // 1. 处理输入事件
@@ -190,7 +190,7 @@ void FApplication::AdvanceFrame(const FFrameContext& frameContext) {
     bHasLastFrameGeometry_ = true;
 }
 
-bool FApplication::NeedsPrepassAndArrange(const FGeometry& frameGeometry) const {
+bool ImApplication::NeedsPrepassAndArrange(const FGeometry& frameGeometry) const {
     // 简化版：如果没有上一帧的几何信息，或者几何信息发生变化，则需要重新布局
     if (!bHasLastFrameGeometry_) {
         return true;
@@ -206,7 +206,7 @@ bool FApplication::NeedsPrepassAndArrange(const FGeometry& frameGeometry) const 
     return false;
 }
 
-void FApplication::PerformLayoutPass(const FGeometry& frameGeometry) {
+void ImApplication::PerformLayoutPass(const FGeometry& frameGeometry) {
     // 简化版：暂时不执行布局
     // 后续实现时会调用控件的布局方法
     //

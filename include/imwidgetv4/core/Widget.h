@@ -11,10 +11,10 @@ namespace ImWidgetV4 {
  * 这是一个简化版本的控件基类，用于支持 Application 类的实现。
  * 完整的 Widget 系统将在后续阶段实现。
  */
-class SWidget {
+class ImWidget {
 public:
-    SWidget() = default;
-    virtual ~SWidget() = default;
+    ImWidget() = default;
+    virtual ~ImWidget() = default;
 
     /**
      * @brief 设置控件名称

@@ -54,8 +54,19 @@ add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
 )
-target_include_directories(imgui_lib PUBLIC ${imgui_SOURCE_DIR})
+target_include_directories(imgui_lib PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+# 链接 DirectX 11 和 Windows 库
+target_link_libraries(imgui_lib PUBLIC
+    d3d11.lib
+    dxgi.lib
+    d3dcompiler.lib
+)
 
 # 创建 stb 接口库
 add_library(stb_lib INTERFACE)
@@ -73,6 +84,7 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
+    ${CMAKE_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -100,3 +112,11 @@ add_subdirectory(tests/core/rop)
 add_subdirectory(tests/core)
 add_subdirectory(tests/rendering)
 add_subdirectory(tests/widgets)
+
+# 添加演示程序选项
+option(IMWIDGETV4_BUILD_EXAMPLES "构建控件演示程序" ON)
+
+# 添加演示程序子目录
+if(IMWIDGETV4_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()

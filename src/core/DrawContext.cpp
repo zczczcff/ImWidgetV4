@@ -14,6 +14,11 @@ void DrawContext::DrawText(const FVector2& position, const FColor& color,
 {
     if (!m_DrawList) return;
 
+    // 检查 ImGui 上下文是否已初始化
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return;
+    }
+
     ImFont* font = ImGui::GetFont();
     if (fontSize <= 0.0f) {
         fontSize = ImGui::GetFontSize();

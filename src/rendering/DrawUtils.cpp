@@ -135,6 +135,11 @@ ImVec2 DrawUtils::CalcTextSize(const std::string& strText,
         return ImVec2(0.0f, 0.0f);
     }
 
+    // 检查 ImGui 上下文是否已初始化
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return ImVec2(0.0f, 0.0f);
+    }
+
     if (pFont) {
         if (fFontSize <= 0.0f) {
             fFontSize = pFont->FontSize;
@@ -146,6 +151,11 @@ ImVec2 DrawUtils::CalcTextSize(const std::string& strText,
 }
 
 ImFont* DrawUtils::GetDefaultFont() {
+    // 检查 ImGui 上下文是否已初始化
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return nullptr;
+    }
+
     return ImGui::GetFont();
 }
 

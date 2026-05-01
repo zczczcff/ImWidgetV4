@@ -82,6 +82,11 @@ FVector2 ImTextBlock::CalculateTextSize() const {
         return FVector2(0.0f, m_FontSize);
     }
 
+    // 检查 ImGui 上下文是否已初始化
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return FVector2(0.0f, m_FontSize);
+    }
+
     // 使用 ImGui 计算文本尺寸
     ImVec2 size;
     if (m_bWrapText && m_Geometry.Size.X > 0.0f) {

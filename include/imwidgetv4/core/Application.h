@@ -193,6 +193,7 @@ private:
     // ========== 鼠标状态 ==========
     FVector2 LastCursorPosition_{0.0f, 0.0f};
     bool bHasCursorPosition_ = false;
+    std::weak_ptr<ImWidget> LastHoveredWidget_;  // 上一帧悬停的控件
 
     // ========== 布局缓存 ==========
     FGeometry LastFrameGeometry_;

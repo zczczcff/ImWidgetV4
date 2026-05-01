@@ -96,13 +96,35 @@ void ImButton::Paint(const FPaintContext& paintContext) {
         return;
     }
 
-    // 1. 重新布局（如果需要）
+    // 1. 实时悬停检测（基于 paintContext 的光标位置）
+    if (paintContext.bHasCursorPosition) {
+        bool isHoveredNow = m_Geometry.Contains(paintContext.CursorPosition);
+
+        // 如果实时检测到悬停状态变化，更新状态并触发回调
+        if (isHoveredNow != m_bHovered) {
+            bool wasHovered = m_bHovered;
+            m_bHovered = isHoveredNow;
+
+            // 触发悬停开始/结束回调
+            if (m_bHovered && !wasHovered) {
+                if (m_OnHoverBegin) {
+                    m_OnHoverBegin();
+                }
+            } else if (!m_bHovered && wasHovered) {
+                if (m_OnHoverEnd) {
+                    m_OnHoverEnd();
+                }
+            }
+        }
+    }
+
+    // 2. 重新布局（如果需要）
     Relayout();
 
-    // 2. 绘制按钮背景和边框
+    // 3. 绘制按钮背景和边框
     RenderButton(paintContext);
 
-    // 3. 绘制子控件（内容）
+    // 4. 绘制子控件（内容）
     RenderChildren(paintContext);
 }
 

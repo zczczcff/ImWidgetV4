@@ -251,6 +251,39 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
     // 4. 路由输入事件到控件
     RouteInputEvents();
 
+    // 4.5. 更新悬停状态（基于当前光标位置进行命中测试）
+    if (bHasCursorPosition_ && SceneRoot_) {
+        // 执行命中测试，找到当前光标下的控件
+        std::vector<std::shared_ptr<ImWidget>> hitPath;
+        SceneRoot_->BuildHitTestPath(LastCursorPosition_, hitPath);
+
+        // 获取最深的控件（如果有）
+        std::shared_ptr<ImWidget> currentHoveredWidget;
+        if (!hitPath.empty()) {
+            currentHoveredWidget = hitPath.back();
+        }
+
+        // 获取上一帧悬停的控件
+        std::shared_ptr<ImWidget> lastHoveredWidget = LastHoveredWidget_.lock();
+
+        // 如果悬停控件发生变化
+        if (currentHoveredWidget != lastHoveredWidget) {
+            // 清除上一帧悬停控件的悬停状态
+            if (lastHoveredWidget) {
+                // 创建 MouseLeave 事件
+                FInputEvent leaveEvent;
+                leaveEvent.Type = EInputEventType::MouseMove;
+                leaveEvent.MousePosition = LastCursorPosition_;
+
+                // 通知控件鼠标离开（通过 OnInputEvent）
+                lastHoveredWidget->OnInputEvent(leaveEvent);
+            }
+
+            // 更新当前悬停控件
+            LastHoveredWidget_ = currentHoveredWidget;
+        }
+    }
+
     // 5. 布局计算
     const FGeometry frameGeometry(
         frameContext.FrameInfo.ViewportPosition,

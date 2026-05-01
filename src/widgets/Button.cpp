@@ -1,109 +1,124 @@
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 
 namespace ImWidgetV4 {
 
 ImButton::ImButton()
-    : ImWidget()
-    , m_Text("")
+    : ImPanelWidget()
     , m_Style()
     , m_bHovered(false)
     , m_bPressed(false)
     , m_bDisabled(false)
-    , m_MinSize(100.0f, 30.0f)
+    , m_OriginalMinSize(100.0f, 30.0f)
 {
     // 按钮默认支持键盘焦点
     SetSupportsKeyboardFocus(true);
 
     // 按钮默认参与命中测试
     SetHitTestVisible(true);
+
+    // 创建一个空的 Slot（索引 0）
+    SetChildAt(0, nullptr, false);
+}
+
+// ==================== 内容管理 ====================
+
+void ImButton::SetContent(ImWidget* child, bool bDeleteOld) {
+    SetChildAt(0, child, bDeleteOld);
+}
+
+ImWidget* ImButton::GetContent() {
+    return GetChildAt(0);
+}
+
+ImPaddingSlot* ImButton::GetContentSlot() {
+    ImSlot* slot = GetSlotAt(0);
+    return dynamic_cast<ImPaddingSlot*>(slot);
+}
+
+// ==================== 便捷方法（向后兼容） ====================
+
+void ImButton::SetText(const std::string& text) {
+    // 检查当前内容是否是 ImTextBlock
+    ImWidget* content = GetContent();
+    ImTextBlock* textBlock = dynamic_cast<ImTextBlock*>(content);
+
+    if (textBlock) {
+        // 如果已经是 ImTextBlock，直接设置文本
+        textBlock->SetText(text);
+    } else {
+        // 否则创建新的 ImTextBlock
+        ImTextBlock* newTextBlock = new ImTextBlock();
+        newTextBlock->SetText(text);
+        newTextBlock->SetTextColor(FColor::Black);
+        SetContent(newTextBlock, true);
+    }
+}
+
+std::string ImButton::GetText() const {
+    // 检查当前内容是否是 ImTextBlock
+    const ImWidget* content = GetChildAt(0);
+    const ImTextBlock* textBlock = dynamic_cast<const ImTextBlock*>(content);
+
+    if (textBlock) {
+        return textBlock->GetText();
+    }
+
+    return "";
 }
 
 // ==================== 重写基类方法 ====================
+
+ImSlot* ImButton::CreateSlot(ImWidget* content) {
+    // 创建带内边距的 Slot
+    ImPaddingSlot* slot = new ImPaddingSlot(content, this);
+
+    // 设置默认内边距
+    slot->PaddingLeft = 10.0f;
+    slot->PaddingRight = 10.0f;
+    slot->PaddingTop = 5.0f;
+    slot->PaddingBottom = 5.0f;
+
+    return slot;
+}
 
 void ImButton::Paint(const FPaintContext& paintContext) {
     if (!m_bVisible) {
         return;
     }
 
-    // 获取当前状态的样式
-    const FButtonStateStyle& currentStyle = GetCurrentStateStyle();
+    // 1. 重新布局（如果需要）
+    Relayout();
 
-    // 获取按钮的几何信息
-    const FGeometry& geometry = GetGeometry();
-    FVector2 min = geometry.Position;
-    FVector2 max = geometry.Position + geometry.Size;
+    // 2. 绘制按钮背景和边框
+    RenderButton(paintContext);
 
-    // 绘制背景
-    paintContext.DrawContext_.DrawRectFilled(
-        min,
-        max,
-        currentStyle.BackgroundColor,
-        currentStyle.CornerRadius
-    );
-
-    // 绘制边框（如果启用）
-    if (currentStyle.bHasBorder) {
-        paintContext.DrawContext_.DrawRect(
-            min,
-            max,
-            currentStyle.BorderColor,
-            currentStyle.CornerRadius,
-            currentStyle.BorderThickness
-        );
-    }
-
-    // 绘制文本（如果有）
-    if (!m_Text.empty() && ImGui::GetCurrentContext() != nullptr) {
-        // 计算文本尺寸
-        ImVec2 textSize = ImGui::CalcTextSize(m_Text.c_str());
-
-        // 计算文本居中位置
-        FVector2 textPos(
-            geometry.Position.X + (geometry.Size.X - textSize.x) * 0.5f,
-            geometry.Position.Y + (geometry.Size.Y - textSize.y) * 0.5f
-        );
-
-        // 绘制文本
-        paintContext.DrawContext_.DrawText(
-            textPos,
-            currentStyle.TextColor,
-            m_Text,
-            0.0f  // 使用默认字体大小
-        );
-    }
-
-    // 绘制子控件（如果有）
-    for (const auto& child : m_Children) {
-        if (child && child->IsVisible()) {
-            child->Paint(paintContext);
-        }
-    }
+    // 3. 绘制子控件（内容）
+    RenderChild(paintContext);
 }
 
 FVector2 ImButton::GetMinSize() const {
-    // 如果有文本，计算文本尺寸
-    if (!m_Text.empty() && ImGui::GetCurrentContext() != nullptr) {
-        ImVec2 textSize = ImGui::CalcTextSize(m_Text.c_str());
+    // 获取子控件的最小尺寸
+    const ImWidget* content = GetChildAt(0);
+    const ImPaddingSlot* slot = dynamic_cast<const ImPaddingSlot*>(GetSlotAt(0));
 
-        // 添加内边距
-        const float paddingX = 20.0f;
-        const float paddingY = 10.0f;
+    if (content && slot) {
+        FVector2 contentMinSize = content->GetMinSize();
 
-        FVector2 textMinSize(
-            textSize.x + paddingX * 2.0f,
-            textSize.y + paddingY * 2.0f
-        );
+        // 加上内边距
+        contentMinSize.X += slot->PaddingLeft + slot->PaddingRight;
+        contentMinSize.Y += slot->PaddingTop + slot->PaddingBottom;
 
-        // 返回文本尺寸和最小尺寸的最大值
+        // 返回内容尺寸和原始最小尺寸的最大值
         return FVector2(
-            std::max(textMinSize.X, m_MinSize.X),
-            std::max(textMinSize.Y, m_MinSize.Y)
+            std::max(contentMinSize.X, m_OriginalMinSize.X),
+            std::max(contentMinSize.Y, m_OriginalMinSize.Y)
         );
     }
 
-    return m_MinSize;
+    return m_OriginalMinSize;
 }
 
 FReply ImButton::OnInputEvent(const FInputEvent& event) {
@@ -178,6 +193,18 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
     return FReply::Unhandled();
 }
 
+void ImButton::Relayout() {
+    ImPaddingSlot* slot = GetContentSlot();
+    if (slot) {
+        // 设置 Slot 的位置和大小为按钮的几何信息
+        slot->SetSlotPosition(m_Geometry.Position);
+        slot->SetSlotSize(m_Geometry.Size);
+
+        // 应用布局（计算子控件的实际位置和大小）
+        slot->ApplyLayout();
+    }
+}
+
 // ==================== 内部方法 ====================
 
 const FButtonStateStyle& ImButton::GetCurrentStateStyle() const {
@@ -197,6 +224,35 @@ const FButtonStateStyle& ImButton::GetCurrentStateStyle() const {
 void ImButton::TriggerClick() {
     if (m_OnClicked) {
         m_OnClicked();
+    }
+}
+
+void ImButton::RenderButton(const FPaintContext& paintContext) {
+    // 获取当前状态的样式
+    const FButtonStateStyle& currentStyle = GetCurrentStateStyle();
+
+    // 获取按钮的几何信息
+    const FGeometry& geometry = GetGeometry();
+    FVector2 min = geometry.Position;
+    FVector2 max = geometry.Position + geometry.Size;
+
+    // 绘制背景
+    paintContext.DrawContext_.DrawRectFilled(
+        min,
+        max,
+        currentStyle.BackgroundColor,
+        currentStyle.CornerRadius
+    );
+
+    // 绘制边框（如果启用）
+    if (currentStyle.bHasBorder) {
+        paintContext.DrawContext_.DrawRect(
+            min,
+            max,
+            currentStyle.BorderColor,
+            currentStyle.CornerRadius,
+            currentStyle.BorderThickness
+        );
     }
 }
 

@@ -1,0 +1,123 @@
+#pragma once
+#include <imwidgetv4/core/Types.h>
+
+namespace ImWidgetV4 {
+
+class ImWidget;
+
+/**
+ * @brief Slot 基类
+ *
+ * Slot 负责管理子控件的布局和渲染。
+ * 它将布局逻辑与控件逻辑分离，使得容器控件更加灵活和可复用。
+ */
+class ImSlot {
+public:
+    /**
+     * @brief 构造函数
+     * @param content 子控件指针
+     * @param parent 父控件指针
+     */
+    ImSlot(ImWidget* content, ImWidget* parent);
+
+    /**
+     * @brief 虚析构函数
+     */
+    virtual ~ImSlot();
+
+    /**
+     * @brief 获取子控件
+     * @return 子控件指针
+     */
+    ImWidget* GetContent() const { return m_Content; }
+
+    /**
+     * @brief 设置子控件
+     * @param content 子控件指针
+     */
+    void SetContent(ImWidget* content) { m_Content = content; }
+
+    /**
+     * @brief 获取父控件
+     * @return 父控件指针
+     */
+    ImWidget* GetParent() const { return m_Parent; }
+
+    /**
+     * @brief 设置 Slot 的位置
+     * @param position Slot 位置
+     */
+    void SetSlotPosition(const FVector2& position) { m_SlotPosition = position; }
+
+    /**
+     * @brief 获取 Slot 的位置
+     * @return Slot 位置
+     */
+    const FVector2& GetSlotPosition() const { return m_SlotPosition; }
+
+    /**
+     * @brief 设置 Slot 的大小
+     * @param size Slot 大小
+     */
+    void SetSlotSize(const FVector2& size) { m_SlotSize = size; }
+
+    /**
+     * @brief 获取 Slot 的大小
+     * @return Slot 大小
+     */
+    const FVector2& GetSlotSize() const { return m_SlotSize; }
+
+    /**
+     * @brief 应用布局
+     *
+     * 根据 Slot 的位置和大小，计算并设置子控件的实际位置和大小。
+     * 子类可以重写此方法以实现自定义布局逻辑（如添加内边距）。
+     */
+    virtual void ApplyLayout();
+
+    /**
+     * @brief 渲染子控件
+     * @param paintContext 绘制上下文
+     */
+    virtual void Render(const FPaintContext& paintContext);
+
+protected:
+    ImWidget* m_Content;        // 子控件
+    ImWidget* m_Parent;         // 父控件
+    FVector2 m_SlotPosition;    // Slot 位置
+    FVector2 m_SlotSize;        // Slot 大小
+};
+
+/**
+ * @brief 带内边距的 Slot
+ *
+ * 在基础 Slot 的基础上添加内边距功能。
+ * 子控件的实际可用空间 = Slot 大小 - 内边距
+ */
+class ImPaddingSlot : public ImSlot {
+public:
+    /**
+     * @brief 构造函数
+     * @param content 子控件指针
+     * @param parent 父控件指针
+     */
+    ImPaddingSlot(ImWidget* content, ImWidget* parent);
+
+    /**
+     * @brief 虚析构函数
+     */
+    virtual ~ImPaddingSlot() = default;
+
+    /**
+     * @brief 应用布局（考虑内边距）
+     */
+    virtual void ApplyLayout() override;
+
+    // 内边距属性
+    float PaddingLeft = 0.0f;
+    float PaddingRight = 0.0f;
+    float PaddingTop = 0.0f;
+    float PaddingBottom = 0.0f;
+};
+
+} // namespace ImWidgetV4

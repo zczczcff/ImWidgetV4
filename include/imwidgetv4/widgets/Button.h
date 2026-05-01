@@ -1,5 +1,5 @@
 #pragma once
-#include <imwidgetv4/core/Widget.h>
+#include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ButtonStyle.h>
 #include <functional>
 #include <string>
@@ -10,26 +10,55 @@ namespace ImWidgetV4 {
  * @brief 按钮控件
  *
  * 可点击的按钮控件，支持多种状态和样式。
+ * 作为单子项容器控件，可以包含任何 ImWidget 作为内容（文本、图片、复杂布局等）。
  * 参考 ImWidget 项目的按钮实现设计。
  */
-class ImButton : public ImWidget {
+class ImButton : public ImPanelWidget {
 public:
     ImButton();
     virtual ~ImButton() = default;
 
-    // ==================== 文本和内容 ====================
+    // ==================== 内容管理 ====================
 
     /**
-     * @brief 设置按钮文本
+     * @brief 设置按钮内容
+     * @param child 子控件指针
+     * @param bDeleteOld 是否删除旧的子控件
+     */
+    void SetContent(ImWidget* child, bool bDeleteOld = true);
+
+    /**
+     * @brief 获取按钮内容
+     * @return 子控件指针
+     */
+    ImWidget* GetContent();
+
+    /**
+     * @brief 获取内容 Slot
+     * @return ImPaddingSlot 指针
+     */
+    ImPaddingSlot* GetContentSlot();
+
+    // ==================== 便捷方法（向后兼容） ====================
+
+    /**
+     * @brief 设置按钮文本（便捷方法）
+     *
+     * 内部会自动创建 ImTextBlock 作为内容。
+     * 如果已有内容，会被替换。
+     *
      * @param text 按钮文本
      */
-    void SetText(const std::string& text) { m_Text = text; }
+    void SetText(const std::string& text);
 
     /**
-     * @brief 获取按钮文本
+     * @brief 获取按钮文本（便捷方法）
+     *
+     * 如果内容是 ImTextBlock，返回其文本；否则返回空字符串。
+     *
      * @return 按钮文本
      */
-    const std::string& GetText() const { return m_Text; }
+    std::string GetText() const;
 
     // ==================== 样式设置 ====================
 
@@ -130,6 +159,13 @@ public:
     // ==================== 重写基类方法 ====================
 
     /**
+     * @brief 创建 Slot（重写以返回 ImPaddingSlot）
+     * @param content 子控件指针
+     * @return ImPaddingSlot 指针
+     */
+    virtual ImSlot* CreateSlot(ImWidget* content) override;
+
+    /**
      * @brief 绘制按钮
      * @param paintContext 绘制上下文
      */
@@ -148,6 +184,13 @@ public:
      */
     virtual FReply OnInputEvent(const FInputEvent& event) override;
 
+    /**
+     * @brief 重新布局
+     *
+     * 设置 Slot 的位置和大小，并应用布局。
+     */
+    virtual void Relayout();
+
 protected:
     /**
      * @brief 获取当前状态的样式
@@ -160,10 +203,13 @@ protected:
      */
     void TriggerClick();
 
-private:
-    // 文本和内容
-    std::string m_Text;
+    /**
+     * @brief 绘制按钮背景和边框
+     * @param paintContext 绘制上下文
+     */
+    void RenderButton(const FPaintContext& paintContext);
 
+private:
     // 样式
     FButtonStyle m_Style;
 
@@ -179,8 +225,8 @@ private:
     std::function<void()> m_OnHoverBegin;
     std::function<void()> m_OnHoverEnd;
 
-    // 最小尺寸
-    FVector2 m_MinSize {100.0f, 30.0f};
+    // 原始最小尺寸
+    FVector2 m_OriginalMinSize {100.0f, 30.0f};
 };
 
 } // namespace ImWidgetV4

@@ -302,14 +302,16 @@ bool ImApplication::NeedsPrepassAndArrange(const FGeometry& frameGeometry) const
 }
 
 void ImApplication::PerformLayoutPass(const FGeometry& frameGeometry) {
-    // 简化版：暂时不执行布局
-    // 后续实现时会调用控件的布局方法
-    //
-    // 完整实现将包括：
-    // 1. 计算期望尺寸（Prepass）
-    // 2. 排列子控件（Arrange）
-    // 3. 更新控件几何信息
-    // 4. 处理滚动和裁剪
+    if (!RootWidget_) {
+        return;
+    }
+
+    // 更新根控件的几何信息
+    // 根控件应该填充整个视口
+    RootWidget_->SetGeometry(frameGeometry);
+
+    // 注意：布局更新会在 Paint 方法中自动触发
+    // HorizontalBox、VerticalBox 和 Button 等控件会在 Paint 中调用 Relayout()
 }
 
 } // namespace ImWidgetV4

@@ -39,6 +39,7 @@ struct FButtonStyle {
     FButtonStateStyle Normal;    // 正常状态
     FButtonStateStyle Hovered;   // 悬停状态
     FButtonStateStyle Pressed;   // 按下状态
+    FButtonStateStyle Focused;   // 焦点状态
     FButtonStateStyle Disabled;  // 禁用状态
 
     FButtonStyle() {
@@ -61,6 +62,13 @@ struct FButtonStyle {
             FColor::FromBytes(190, 220, 245, 255),  // 背景：更深蓝色
             FColor::FromBytes(100, 150, 210, 255),  // 边框：深蓝色
             FColor::FromBytes(20, 20, 20, 255),     // 文本：黑色
+            2.0f, 0.0f, true
+        );
+
+        Focused = FButtonStateStyle(
+            FColor::FromBytes(235, 245, 255, 255),  // 背景：浅蓝白色
+            FColor::FromBytes(0, 120, 215, 255),    // 边框：蓝色（焦点指示）
+            FColor::FromBytes(30, 30, 30, 255),     // 文本：深灰色
             2.0f, 0.0f, true
         );
 
@@ -95,6 +103,12 @@ struct FButtonStyle {
             FColor::FromBytes(255, 255, 255, 255),  // 文本：白色
             2.0f, 4.0f, true
         );
+        style.Focused = FButtonStateStyle(
+            FColor::FromBytes(0, 130, 225, 255),    // 背景：中蓝色
+            FColor::FromBytes(255, 255, 255, 255),  // 边框：白色（焦点指示）
+            FColor::FromBytes(255, 255, 255, 255),  // 文本：白色
+            2.0f, 4.0f, true
+        );
         style.Disabled = FButtonStateStyle(
             FColor::FromBytes(200, 200, 200, 255),  // 背景：灰色
             FColor::FromBytes(180, 180, 180, 255),  // 边框：浅灰色
@@ -124,6 +138,12 @@ struct FButtonStyle {
         style.Pressed = FButtonStateStyle(
             FColor::FromBytes(200, 33, 49, 255),    // 背景：深红色
             FColor::FromBytes(180, 13, 29, 255),    // 边框：更深红色
+            FColor::FromBytes(255, 255, 255, 255),  // 文本：白色
+            2.0f, 4.0f, true
+        );
+        style.Focused = FButtonStateStyle(
+            FColor::FromBytes(230, 63, 79, 255),    // 背景：中红色
+            FColor::FromBytes(255, 255, 255, 255),  // 边框：白色（焦点指示）
             FColor::FromBytes(255, 255, 255, 255),  // 文本：白色
             2.0f, 4.0f, true
         );

@@ -91,4 +91,30 @@ std::shared_ptr<ImWidget> ImWidget::GetParent() const {
     return m_Parent.lock();
 }
 
+// ==================== 失效系统 ====================
+
+void ImWidget::Invalidate(EInvalidateReason reason) {
+    // 标记控件需要更新
+    // 注意：这里可以添加失效标志的存储和向上传播逻辑
+    // 当前简化版本：直接触发重绘
+    // TODO: 实现完整的失效传播机制
+}
+
+// ==================== 焦点状态管理 ====================
+
+void ImWidget::NotifyFocusChanged(bool bHasFocus) {
+    if (m_bHasKeyboardFocus == bHasFocus) {
+        return;
+    }
+
+    m_bHasKeyboardFocus = bHasFocus;
+    Invalidate(EInvalidateReason::Focus | EInvalidateReason::Paint);
+    OnFocusChanged(bHasFocus);
+}
+
+void ImWidget::OnFocusChanged(bool bHasFocus) {
+    // 基类默认不处理焦点变化
+    // 子类可以重写此方法以实现自定义焦点变化处理逻辑
+}
+
 } // namespace ImWidgetV4

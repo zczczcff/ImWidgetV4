@@ -1,8 +1,33 @@
 #pragma once
 #include <imgui.h>
 #include <cmath>
+#include <cstdint>
 
 namespace ImWidgetV4 {
+
+// 失效原因枚举（用于标记控件需要更新的方面）
+enum class EInvalidateReason : uint8_t {
+    None = 0,
+    Layout = 1 << 0,      // 布局需要更新
+    Paint = 1 << 1,       // 绘制需要更新
+    ChildOrder = 1 << 2,  // 子控件顺序需要更新
+    Focus = 1 << 3,       // 焦点状态需要更新
+    All = Layout | Paint | ChildOrder | Focus
+};
+
+// 位运算符重载
+inline EInvalidateReason operator|(EInvalidateReason a, EInvalidateReason b) {
+    return static_cast<EInvalidateReason>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+}
+
+inline EInvalidateReason operator&(EInvalidateReason a, EInvalidateReason b) {
+    return static_cast<EInvalidateReason>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+}
+
+inline EInvalidateReason& operator|=(EInvalidateReason& a, EInvalidateReason b) {
+    a = a | b;
+    return a;
+}
 
 // 二维向量
 struct FVector2 {

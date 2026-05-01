@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 
@@ -39,12 +40,19 @@ protected:
         // 开始新帧（这会初始化字体指针和其他内部状态）
         ImGui::NewFrame();
 
+        // 创建 Application 实例（用于焦点管理）
+        m_App = std::make_shared<ImApplication>();
+
         // 创建按钮实例
         m_Button = std::make_shared<ImButton>();
+
+        // 将按钮设置为根控件（这样 Application 才能管理它的焦点）
+        m_App->SetRootWidget(m_Button);
     }
 
     void TearDown() override {
         m_Button.reset();
+        m_App.reset();
 
         // 结束当前帧（清理 ImGui 状态）
         if (ImGui::GetCurrentContext()) {
@@ -72,6 +80,7 @@ protected:
         return event;
     }
 
+    std::shared_ptr<ImApplication> m_App;
     std::shared_ptr<ImButton> m_Button;
 };
 
@@ -266,7 +275,10 @@ TEST_F(ButtonTest, KeyboardActivation) {
     // 测试键盘激活（Enter 和 Space 键）
     bool clicked = false;
     m_Button->SetOnClicked([&]() { clicked = true; });
-    m_Button->SetHasKeyboardFocus(true);
+
+    // 通过 Application 设置焦点
+    m_App->SetKeyboardFocus(m_Button);
+    EXPECT_TRUE(m_Button->HasKeyboardFocus());
 
     // 测试 Enter 键
     FInputEvent enterEvent = CreateKeyEvent(EInputEventType::KeyDown, ImGuiKey_Enter);
@@ -286,7 +298,9 @@ TEST_F(ButtonTest, KeyboardWithoutFocus) {
     // 测试没有焦点时键盘不触发
     bool clicked = false;
     m_Button->SetOnClicked([&]() { clicked = true; });
-    m_Button->SetHasKeyboardFocus(false);
+
+    // 确保按钮没有焦点（默认状态）
+    EXPECT_FALSE(m_Button->HasKeyboardFocus());
 
     FInputEvent enterEvent = CreateKeyEvent(EInputEventType::KeyDown, ImGuiKey_Enter);
     FReply reply = m_Button->OnInputEvent(enterEvent);

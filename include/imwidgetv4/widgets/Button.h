@@ -197,6 +197,12 @@ protected:
     const FButtonStateStyle& GetCurrentStateStyle() const;
 
     /**
+     * @brief 设置按下状态
+     * @param bPressed 是否按下
+     */
+    void SetPressed(bool bPressed);
+
+    /**
      * @brief 触发点击事件
      */
     void TriggerClick();

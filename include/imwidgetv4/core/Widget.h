@@ -69,16 +69,24 @@ public:
     bool SupportsKeyboardFocus() const { return m_bSupportsKeyboardFocus; }
 
     /**
-     * @brief 设置是否拥有键盘焦点
-     * @param bHasFocus 是否拥有焦点
-     */
-    void SetHasKeyboardFocus(bool bHasFocus) { m_bHasKeyboardFocus = bHasFocus; }
-
-    /**
      * @brief 获取是否拥有键盘焦点
      * @return 是否拥有焦点
      */
     bool HasKeyboardFocus() const { return m_bHasKeyboardFocus; }
+
+    /**
+     * @brief 标记控件需要更新
+     * @param reason 失效原因
+     */
+    void Invalidate(EInvalidateReason reason);
+
+    /**
+     * @brief 焦点状态变化回调（子类可重写）
+     * @param bHasFocus 是否拥有焦点
+     */
+    virtual void OnFocusChanged(bool bHasFocus);
+
+    // ==================== 绘制和布局 ====================
 
     /**
      * @brief 绘制控件
@@ -138,6 +146,8 @@ public:
      */
     virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath);
 
+    // ==================== 子控件管理 ====================
+
     /**
      * @brief 添加子控件
      * @param child 子控件
@@ -160,6 +170,19 @@ public:
      * @return 父控件的共享指针
      */
     std::shared_ptr<ImWidget> GetParent() const;
+
+protected:
+
+private:
+    friend class ImApplication;   // 允许 Application 访问私有方法
+    friend class ImSlot;          // 允许 Slot 访问 protected 方法
+    friend class ImPaddingSlot;   // 允许 PaddingSlot 访问 protected 方法
+
+    /**
+     * @brief 通知控件焦点状态变化（由 Application 调用）
+     * @param bHasFocus 是否拥有焦点
+     */
+    void NotifyFocusChanged(bool bHasFocus);
 
 protected:
     std::string m_Name;                     // 控件名称

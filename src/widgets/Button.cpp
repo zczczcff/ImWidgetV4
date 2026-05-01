@@ -180,7 +180,7 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
         event.MouseButton == EMouseButton::Left &&
         m_Geometry.Contains(event.MousePosition)) {
 
-        m_bPressed = true;
+        SetPressed(true);
 
         // 触发按下回调
         if (m_OnPressed) {
@@ -197,7 +197,7 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
         bool wasPressed = m_bPressed;
         bool isInside = m_Geometry.Contains(event.MousePosition);
 
-        m_bPressed = false;
+        SetPressed(false);
 
         // 触发释放回调
         if (m_OnReleased) {
@@ -239,7 +239,7 @@ void ImButton::Relayout() {
 // ==================== 内部方法 ====================
 
 const FButtonStateStyle& ImButton::GetCurrentStateStyle() const {
-    // 状态优先级：Disabled > Pressed > Hovered > Normal
+    // 状态优先级：Disabled > Pressed > Hovered > Focused > Normal
     if (m_bDisabled) {
         return m_Style.Disabled;
     }
@@ -249,7 +249,19 @@ const FButtonStateStyle& ImButton::GetCurrentStateStyle() const {
     if (m_bHovered) {
         return m_Style.Hovered;
     }
+    if (HasKeyboardFocus()) {
+        return m_Style.Focused;
+    }
     return m_Style.Normal;
+}
+
+void ImButton::SetPressed(bool bPressed) {
+    if (m_bPressed == bPressed) {
+        return;
+    }
+
+    m_bPressed = bPressed;
+    Invalidate(EInvalidateReason::Paint);
 }
 
 void ImButton::TriggerClick() {

@@ -136,6 +136,12 @@ public:
      */
     const std::shared_ptr<ImWidget>& GetKeyboardFocus() const;
 
+    /**
+     * @brief 获取焦点路径（从根到焦点控件）
+     * @return 焦点路径
+     */
+    std::vector<std::shared_ptr<ImWidget>> GetFocusPath() const;
+
     // ========== 鼠标捕获 ==========
 
     /**

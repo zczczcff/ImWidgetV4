@@ -198,7 +198,36 @@ bool ImApplication::RouteEvent(const FInputEvent& event,
 // ========== 焦点管理 ==========
 
 void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget) {
+    // 1. 验证控件是否支持焦点
+    if (widget && !widget->SupportsKeyboardFocus()) {
+        return;
+    }
+
+    // 2. 验证控件是否在场景树中（通过 BuildPathToSceneRoot 验证）
+    if (widget) {
+        auto path = BuildPathToSceneRoot(widget);
+        if (path.empty()) {
+            return;  // 控件不在场景树中
+        }
+    }
+
+    // 3. 如果焦点没有变化，直接返回
+    if (FocusedWidget_ == widget) {
+        return;
+    }
+
+    // 4. 通知旧控件失去焦点
+    if (FocusedWidget_) {
+        FocusedWidget_->NotifyFocusChanged(false);
+    }
+
+    // 5. 更新焦点控件
     FocusedWidget_ = widget;
+
+    // 6. 通知新控件获得焦点
+    if (FocusedWidget_) {
+        FocusedWidget_->NotifyFocusChanged(true);
+    }
 }
 
 void ImApplication::ClearKeyboardFocus() {
@@ -207,6 +236,13 @@ void ImApplication::ClearKeyboardFocus() {
 
 const std::shared_ptr<ImWidget>& ImApplication::GetKeyboardFocus() const {
     return FocusedWidget_;
+}
+
+std::vector<std::shared_ptr<ImWidget>> ImApplication::GetFocusPath() const {
+    if (FocusedWidget_) {
+        return BuildPathToSceneRoot(FocusedWidget_);
+    }
+    return {};
 }
 
 void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMouseButton button) {

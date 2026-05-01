@@ -8,40 +8,22 @@ class ImWidget;
 /**
  * @brief Slot 基类
  *
- * Slot 负责管理子控件的布局和渲染。
+ * Slot 负责管理子控件的布局信息。
  * 它将布局逻辑与控件逻辑分离，使得容器控件更加灵活和可复用。
+ *
+ * 注意：Slot 不持有子控件，子控件由父控件的 m_Children 统一管理。
  */
 class ImSlot {
 public:
     /**
      * @brief 构造函数
-     * @param content 子控件指针
-     * @param parent 父控件指针
      */
-    ImSlot(ImWidget* content, ImWidget* parent);
+    ImSlot();
 
     /**
      * @brief 虚析构函数
      */
     virtual ~ImSlot();
-
-    /**
-     * @brief 获取子控件
-     * @return 子控件指针
-     */
-    ImWidget* GetContent() const { return m_Content; }
-
-    /**
-     * @brief 设置子控件
-     * @param content 子控件指针
-     */
-    void SetContent(ImWidget* content) { m_Content = content; }
-
-    /**
-     * @brief 获取父控件
-     * @return 父控件指针
-     */
-    ImWidget* GetParent() const { return m_Parent; }
 
     /**
      * @brief 设置 Slot 的位置
@@ -68,22 +50,16 @@ public:
     const FVector2& GetSlotSize() const { return m_SlotSize; }
 
     /**
-     * @brief 应用布局
+     * @brief 应用布局到子控件
      *
      * 根据 Slot 的位置和大小，计算并设置子控件的实际位置和大小。
      * 子类可以重写此方法以实现自定义布局逻辑（如添加内边距）。
+     *
+     * @param child 要布局的子控件
      */
-    virtual void ApplyLayout();
-
-    /**
-     * @brief 渲染子控件
-     * @param paintContext 绘制上下文
-     */
-    virtual void Render(const FPaintContext& paintContext);
+    virtual void ApplyLayout(ImWidget* child);
 
 protected:
-    ImWidget* m_Content;        // 子控件
-    ImWidget* m_Parent;         // 父控件
     FVector2 m_SlotPosition;    // Slot 位置
     FVector2 m_SlotSize;        // Slot 大小
 };
@@ -98,10 +74,8 @@ class ImPaddingSlot : public ImSlot {
 public:
     /**
      * @brief 构造函数
-     * @param content 子控件指针
-     * @param parent 父控件指针
      */
-    ImPaddingSlot(ImWidget* content, ImWidget* parent);
+    ImPaddingSlot();
 
     /**
      * @brief 虚析构函数
@@ -110,8 +84,9 @@ public:
 
     /**
      * @brief 应用布局（考虑内边距）
+     * @param child 要布局的子控件
      */
-    virtual void ApplyLayout() override;
+    virtual void ApplyLayout(ImWidget* child) override;
 
     // 内边距属性
     float PaddingLeft = 0.0f;

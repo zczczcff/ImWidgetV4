@@ -145,16 +145,21 @@ public:
     virtual void AddChild(const Ptr& child);
 
     /**
-     * @brief 移除子控件
-     * @param child 子控件
+     * @brief 清除所有子控件
      */
-    virtual void RemoveChild(const Ptr& child);
+    virtual void ClearChildren();
 
     /**
      * @brief 获取所有子控件
      * @return 子控件列表
      */
     const std::vector<Ptr>& GetChildren() const { return m_Children; }
+
+    /**
+     * @brief 获取父控件
+     * @return 父控件的共享指针
+     */
+    std::shared_ptr<ImWidget> GetParent() const;
 
 protected:
     std::string m_Name;                     // 控件名称
@@ -163,7 +168,8 @@ protected:
     bool m_bSupportsKeyboardFocus = false;  // 是否支持键盘焦点
     bool m_bHasKeyboardFocus = false;       // 是否拥有键盘焦点
     FGeometry m_Geometry;                   // 几何信息（位置和大小）
-    std::vector<Ptr> m_Children;            // 子控件列表
+    std::vector<Ptr> m_Children;            // 子控件列表（强引用）
+    std::weak_ptr<ImWidget> m_Parent;       // 父控件（弱引用，避免循环引用）
 };
 
 } // namespace ImWidgetV4

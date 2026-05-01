@@ -6,20 +6,18 @@ namespace ImWidgetV4 {
 
 // ==================== ImSlot ====================
 
-ImSlot::ImSlot(ImWidget* content, ImWidget* parent)
-    : m_Content(content)
-    , m_Parent(parent)
-    , m_SlotPosition(0.0f, 0.0f)
+ImSlot::ImSlot()
+    : m_SlotPosition(0.0f, 0.0f)
     , m_SlotSize(0.0f, 0.0f)
 {
 }
 
 ImSlot::~ImSlot() {
-    // 不删除 content 和 parent，它们由外部管理
+    // Slot 不持有子控件，无需释放
 }
 
-void ImSlot::ApplyLayout() {
-    if (!m_Content) {
+void ImSlot::ApplyLayout(ImWidget* child) {
+    if (!child) {
         return;
     }
 
@@ -27,19 +25,13 @@ void ImSlot::ApplyLayout() {
     FGeometry geometry;
     geometry.Position = m_SlotPosition;
     geometry.Size = m_SlotSize;
-    m_Content->SetGeometry(geometry);
-}
-
-void ImSlot::Render(const FPaintContext& paintContext) {
-    if (m_Content && m_Content->IsVisible()) {
-        m_Content->Paint(paintContext);
-    }
+    child->SetGeometry(geometry);
 }
 
 // ==================== ImPaddingSlot ====================
 
-ImPaddingSlot::ImPaddingSlot(ImWidget* content, ImWidget* parent)
-    : ImSlot(content, parent)
+ImPaddingSlot::ImPaddingSlot()
+    : ImSlot()
     , PaddingLeft(0.0f)
     , PaddingRight(0.0f)
     , PaddingTop(0.0f)
@@ -47,8 +39,8 @@ ImPaddingSlot::ImPaddingSlot(ImWidget* content, ImWidget* parent)
 {
 }
 
-void ImPaddingSlot::ApplyLayout() {
-    if (!m_Content) {
+void ImPaddingSlot::ApplyLayout(ImWidget* child) {
+    if (!child) {
         return;
     }
 
@@ -73,7 +65,7 @@ void ImPaddingSlot::ApplyLayout() {
     FGeometry geometry;
     geometry.Position = rectMin;
     geometry.Size = widgetSize;
-    m_Content->SetGeometry(geometry);
+    child->SetGeometry(geometry);
 }
 
 } // namespace ImWidgetV4

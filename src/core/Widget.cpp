@@ -60,18 +60,35 @@ bool ImWidget::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outP
 // ==================== 子控件管理 ====================
 
 void ImWidget::AddChild(const Ptr& child) {
-    if (child) {
-        m_Children.push_back(child);
+    if (!child) {
+        return;
     }
+
+    // 设置父指针（弱引用）
+    child->m_Parent = shared_from_this();
+
+    // 添加到子控件列表
+    m_Children.push_back(child);
 }
 
-void ImWidget::RemoveChild(const Ptr& child) {
-    if (child) {
-        auto it = std::find(m_Children.begin(), m_Children.end(), child);
-        if (it != m_Children.end()) {
-            m_Children.erase(it);
+void ImWidget::ClearChildren() {
+    if (m_Children.empty()) {
+        return;
+    }
+
+    // 清除所有子控件的父指针
+    for (const Ptr& child : m_Children) {
+        if (child) {
+            child->m_Parent.reset();
         }
     }
+
+    // 清空子控件列表
+    m_Children.clear();
+}
+
+std::shared_ptr<ImWidget> ImWidget::GetParent() const {
+    return m_Parent.lock();
 }
 
 } // namespace ImWidgetV4

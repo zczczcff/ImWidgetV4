@@ -31,40 +31,34 @@ protected:
 // ==================== DrawContext 基础测试 ====================
 
 TEST_F(DrawContextTest, ConstructorAndGetDrawList) {
-    // 测试构造函数和 GetDrawList 方法
+    // 测试构造函数和 GetImDrawList 方法
     ASSERT_NE(m_pDrawContext, nullptr);
-    EXPECT_EQ(m_pDrawContext->GetDrawList(), m_pDrawList);
+    EXPECT_EQ(m_pDrawContext->GetImDrawList(), m_pDrawList);
 }
 
 TEST_F(DrawContextTest, DrawMethodsWithNullDrawList) {
     // 测试当 DrawList 为 nullptr 时，所有绘制方法都不会崩溃
-    ImVec2 vMin(10.0f, 10.0f);
-    ImVec2 vMax(100.0f, 100.0f);
-    ImU32 uColor = IM_COL32(255, 0, 0, 255);
+    FVector2 vMin(10.0f, 10.0f);
+    FVector2 vMax(100.0f, 100.0f);
+    FColor color = FColor::Red;
 
     // 矩形绘制
-    EXPECT_NO_THROW(m_pDrawContext->DrawRectFilled(vMin, vMax, uColor));
-    EXPECT_NO_THROW(m_pDrawContext->DrawRect(vMin, vMax, uColor));
-    EXPECT_NO_THROW(m_pDrawContext->DrawRectangle(vMin, vMax, uColor, uColor));
+    EXPECT_NO_THROW(m_pDrawContext->DrawRectFilled(vMin, vMax, color));
+    EXPECT_NO_THROW(m_pDrawContext->DrawRect(vMin, vMax, color));
 
     // 圆形绘制
-    ImVec2 vCenter(50.0f, 50.0f);
+    FVector2 vCenter(50.0f, 50.0f);
     float fRadius = 25.0f;
-    EXPECT_NO_THROW(m_pDrawContext->DrawCircleFilled(vCenter, fRadius, uColor));
-    EXPECT_NO_THROW(m_pDrawContext->DrawCircle(vCenter, fRadius, uColor));
-
-    // 三角形绘制
-    ImVec2 vP1(10.0f, 10.0f);
-    ImVec2 vP2(50.0f, 10.0f);
-    ImVec2 vP3(30.0f, 50.0f);
-    EXPECT_NO_THROW(m_pDrawContext->DrawTriangleFilled(vP1, vP2, vP3, uColor));
-    EXPECT_NO_THROW(m_pDrawContext->DrawTriangle(vP1, vP2, vP3, uColor));
+    EXPECT_NO_THROW(m_pDrawContext->DrawCircleFilled(vCenter, fRadius, color));
+    EXPECT_NO_THROW(m_pDrawContext->DrawCircle(vCenter, fRadius, color));
 
     // 线条绘制
-    EXPECT_NO_THROW(m_pDrawContext->DrawLine(vP1, vP2, uColor));
+    FVector2 vP1(10.0f, 10.0f);
+    FVector2 vP2(50.0f, 10.0f);
+    EXPECT_NO_THROW(m_pDrawContext->DrawLine(vP1, vP2, color));
 
     // 文本绘制
-    EXPECT_NO_THROW(m_pDrawContext->DrawText(vMin, uColor, "Test"));
+    EXPECT_NO_THROW(m_pDrawContext->DrawText(vMin, color, "Test"));
 
     // 图像绘制
     ImTextureID pTextureId = reinterpret_cast<ImTextureID>(1);

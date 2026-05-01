@@ -1,6 +1,7 @@
 #pragma once
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/core/Slot.h>
+#include <memory>
 #include <vector>
 
 namespace ImWidgetV4 {
@@ -10,6 +11,8 @@ namespace ImWidgetV4 {
  *
  * ImPanelWidget 是所有容器控件的基类，提供子控件管理和 Slot 系统。
  * 它使用 Slot 来管理子控件的布局，将布局逻辑与控件逻辑分离。
+ *
+ * 注意：子控件统一由基类的 m_Children 管理，Slot 只存储布局信息。
  */
 class ImPanelWidget : public ImWidget {
 public:
@@ -22,10 +25,16 @@ public:
      * 子类可以重写此方法以创建特定类型的 Slot。
      * 例如，ImButton 重写此方法返回 ImPaddingSlot。
      *
-     * @param content 子控件指针
      * @return 创建的 Slot 指针
      */
-    virtual ImSlot* CreateSlot(ImWidget* content);
+    virtual std::unique_ptr<ImSlot> CreateSlot();
+
+    /**
+     * @brief 添加子控件和对应的 Slot
+     * @param child 子控件
+     * @param slot Slot（如果为 nullptr，则使用 CreateSlot 创建）
+     */
+    void AddSlot(const Ptr& child, std::unique_ptr<ImSlot> slot = nullptr);
 
     /**
      * @brief 获取指定索引的 Slot
@@ -42,44 +51,24 @@ public:
     const ImSlot* GetSlotAt(int index) const;
 
     /**
-     * @brief 设置指定索引的子控件
-     * @param index Slot 索引
-     * @param child 子控件指针
-     * @param bDeleteOld 是否删除旧的子控件
+     * @brief 获取子控件对应的 Slot
+     * @param child 子控件
+     * @return Slot 指针，如果未找到返回 nullptr
      */
-    void SetChildAt(int index, ImWidget* child, bool bDeleteOld = true);
+    ImSlot* GetSlotForChild(const Ptr& child);
 
     /**
-     * @brief 获取指定索引的子控件
-     * @param index Slot 索引
-     * @return 子控件指针，如果索引无效返回 nullptr
+     * @brief 获取子控件对应的 Slot（const 版本）
+     * @param child 子控件
+     * @return Slot 指针，如果未找到返回 nullptr
      */
-    ImWidget* GetChildAt(int index);
-
-    /**
-     * @brief 获取指定索引的子控件（const 版本）
-     * @param index Slot 索引
-     * @return 子控件指针，如果索引无效返回 nullptr
-     */
-    const ImWidget* GetChildAt(int index) const;
+    const ImSlot* GetSlotForChild(const Ptr& child) const;
 
     /**
      * @brief 渲染所有子控件
      * @param paintContext 绘制上下文
      */
-    void RenderChild(const FPaintContext& paintContext);
-
-    /**
-     * @brief 命中测试
-     *
-     * 检查指定位置是否命中此控件或其子控件。
-     * 子控件优先于父控件进行命中测试。
-     *
-     * @param position 测试位置
-     * @param outPath 输出命中路径（从根到叶）
-     * @return 如果命中返回 true
-     */
-    virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath) override;
+    void RenderChildren(const FPaintContext& paintContext);
 
     /**
      * @brief 获取 Slot 数量
@@ -88,7 +77,8 @@ public:
     int GetSlotCount() const { return static_cast<int>(m_Slots.size()); }
 
 protected:
-    std::vector<ImSlot*> m_Slots;  // Slot 列表
+    // Slot 列表（只存储布局信息，不持有子控件）
+    std::vector<std::unique_ptr<ImSlot>> m_Slots;
 };
 
 } // namespace ImWidgetV4

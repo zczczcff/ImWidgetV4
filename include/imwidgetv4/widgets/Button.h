@@ -22,16 +22,15 @@ public:
 
     /**
      * @brief 设置按钮内容
-     * @param child 子控件指针
-     * @param bDeleteOld 是否删除旧的子控件
+     * @param child 子控件（智能指针）
      */
-    void SetContent(ImWidget* child, bool bDeleteOld = true);
+    void SetContent(const Ptr& child);
 
     /**
      * @brief 获取按钮内容
-     * @return 子控件指针
+     * @return 子控件（智能指针）
      */
-    ImWidget* GetContent();
+    Ptr GetContent();
 
     /**
      * @brief 获取内容 Slot
@@ -160,10 +159,9 @@ public:
 
     /**
      * @brief 创建 Slot（重写以返回 ImPaddingSlot）
-     * @param content 子控件指针
      * @return ImPaddingSlot 指针
      */
-    virtual ImSlot* CreateSlot(ImWidget* content) override;
+    virtual std::unique_ptr<ImSlot> CreateSlot() override;
 
     /**
      * @brief 绘制按钮

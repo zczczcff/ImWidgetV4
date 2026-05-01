@@ -86,6 +86,9 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/BoxSlot.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC

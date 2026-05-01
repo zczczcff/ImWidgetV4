@@ -18,52 +18,59 @@ ImButton::ImButton()
 
     // 按钮默认参与命中测试
     SetHitTestVisible(true);
-
-    // 创建一个空的 Slot（索引 0）
-    SetChildAt(0, nullptr, false);
 }
 
 // ==================== 内容管理 ====================
 
-void ImButton::SetContent(ImWidget* child, bool bDeleteOld) {
-    SetChildAt(0, child, bDeleteOld);
+void ImButton::SetContent(const Ptr& child) {
+    // 清除所有子控件
+    ClearChildren();
+
+    // 添加新的子控件和 Slot
+    if (child) {
+        AddSlot(child);
+    }
 }
 
-ImWidget* ImButton::GetContent() {
-    return GetChildAt(0);
+ImButton::Ptr ImButton::GetContent() {
+    const auto& children = GetChildren();
+    if (!children.empty()) {
+        return children[0];
+    }
+    return nullptr;
 }
 
 ImPaddingSlot* ImButton::GetContentSlot() {
-    ImSlot* slot = GetSlotAt(0);
-    return dynamic_cast<ImPaddingSlot*>(slot);
+    return dynamic_cast<ImPaddingSlot*>(GetSlotAt(0));
 }
 
 // ==================== 便捷方法（向后兼容） ====================
 
 void ImButton::SetText(const std::string& text) {
     // 检查当前内容是否是 ImTextBlock
-    ImWidget* content = GetContent();
-    ImTextBlock* textBlock = dynamic_cast<ImTextBlock*>(content);
+    auto content = GetContent();
+    auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(content);
 
     if (textBlock) {
         // 如果已经是 ImTextBlock，直接设置文本
         textBlock->SetText(text);
     } else {
         // 否则创建新的 ImTextBlock
-        ImTextBlock* newTextBlock = new ImTextBlock();
+        auto newTextBlock = std::make_shared<ImTextBlock>();
         newTextBlock->SetText(text);
         newTextBlock->SetTextColor(FColor::Black);
-        SetContent(newTextBlock, true);
+        SetContent(newTextBlock);
     }
 }
 
 std::string ImButton::GetText() const {
     // 检查当前内容是否是 ImTextBlock
-    const ImWidget* content = GetChildAt(0);
-    const ImTextBlock* textBlock = dynamic_cast<const ImTextBlock*>(content);
-
-    if (textBlock) {
-        return textBlock->GetText();
+    const auto& children = GetChildren();
+    if (!children.empty()) {
+        auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(children[0]);
+        if (textBlock) {
+            return textBlock->GetText();
+        }
     }
 
     return "";
@@ -71,9 +78,9 @@ std::string ImButton::GetText() const {
 
 // ==================== 重写基类方法 ====================
 
-ImSlot* ImButton::CreateSlot(ImWidget* content) {
+std::unique_ptr<ImSlot> ImButton::CreateSlot() {
     // 创建带内边距的 Slot
-    ImPaddingSlot* slot = new ImPaddingSlot(content, this);
+    auto slot = std::make_unique<ImPaddingSlot>();
 
     // 设置默认内边距
     slot->PaddingLeft = 10.0f;
@@ -96,16 +103,16 @@ void ImButton::Paint(const FPaintContext& paintContext) {
     RenderButton(paintContext);
 
     // 3. 绘制子控件（内容）
-    RenderChild(paintContext);
+    RenderChildren(paintContext);
 }
 
 FVector2 ImButton::GetMinSize() const {
     // 获取子控件的最小尺寸
-    const ImWidget* content = GetChildAt(0);
+    const auto& children = GetChildren();
     const ImPaddingSlot* slot = dynamic_cast<const ImPaddingSlot*>(GetSlotAt(0));
 
-    if (content && slot) {
-        FVector2 contentMinSize = content->GetMinSize();
+    if (!children.empty() && slot) {
+        FVector2 contentMinSize = children[0]->GetMinSize();
 
         // 加上内边距
         contentMinSize.X += slot->PaddingLeft + slot->PaddingRight;
@@ -195,13 +202,15 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
 
 void ImButton::Relayout() {
     ImPaddingSlot* slot = GetContentSlot();
-    if (slot) {
+    const auto& children = GetChildren();
+
+    if (slot && !children.empty()) {
         // 设置 Slot 的位置和大小为按钮的几何信息
         slot->SetSlotPosition(m_Geometry.Position);
         slot->SetSlotSize(m_Geometry.Size);
 
         // 应用布局（计算子控件的实际位置和大小）
-        slot->ApplyLayout();
+        slot->ApplyLayout(children[0].get());
     }
 }
 

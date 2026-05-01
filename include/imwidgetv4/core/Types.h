@@ -141,6 +141,20 @@ struct FGeometry {
     }
 };
 
+// 边距
+struct FMargin {
+    float Left = 0.0f;
+    float Right = 0.0f;
+    float Top = 0.0f;
+    float Bottom = 0.0f;
+
+    FMargin() = default;
+    FMargin(float left, float right, float top, float bottom)
+        : Left(left), Right(right), Top(top), Bottom(bottom) {}
+    FMargin(float uniform)
+        : Left(uniform), Right(uniform), Top(uniform), Bottom(uniform) {}
+};
+
 // 颜色
 struct FColor {
     float R = 1.0f;

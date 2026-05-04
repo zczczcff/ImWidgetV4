@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -136,6 +137,20 @@ TEST(SnapshotTest, CaptureSnapshotWithTextProducesNonBackgroundPixels) {
     EXPECT_TRUE(ImageHasAnyPixelDifferentFrom(image, clearColor));
 }
 
+TEST(SnapshotTest, PlaceholderImageSnapshotProducesNonBackgroundPixels) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+    auto image = std::make_shared<ImImage>();
+    application.SetRootWidget(image);
+
+    const FColor clearColor = FColor::FromBytes(10, 12, 16, 255);
+    const FSnapshotImage snapshot = application.CaptureSnapshot(
+        MakeFrameContext(160.0f, 120.0f),
+        FSnapshotOptions {160, 120, clearColor});
+
+    EXPECT_TRUE(ImageHasAnyPixelDifferentFrom(snapshot, clearColor));
+}
+
 TEST(SnapshotTest, SnapshotHashAndCompareAreDeterministicForSameTree) {
     FImGuiScope imguiScope;
     ImApplication application;
@@ -261,6 +276,41 @@ TEST(SnapshotTest, ScrollBoxSnapshotChangesAfterWheelScroll) {
     const FSnapshotImage afterScroll = application.CaptureSnapshot(frameContext, options);
     EXPECT_NE(FSnapshotRenderer::ComputeHash(beforeScroll), FSnapshotRenderer::ComputeHash(afterScroll));
     EXPECT_FALSE(FSnapshotRenderer::Compare(beforeScroll, afterScroll, 0).IsMatch());
+}
+
+TEST(SnapshotTest, ImageSnapshotChangesWhenRuntimeTextureReplacesPlaceholder) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto image = std::make_shared<ImImage>();
+    image->SetDesiredSize(FVector2(140.0f, 90.0f));
+    application.SetRootWidget(image);
+
+    const FFrameContext frameContext = MakeFrameContext(160.0f, 120.0f, 0.0);
+    const FSnapshotOptions options {160, 120, FColor::FromBytes(8, 10, 14, 255)};
+    const FSnapshotImage placeholder = application.CaptureSnapshot(frameContext, options);
+
+    std::vector<std::uint8_t> pixels(12U * 8U * 4U, 0U);
+    for (int y = 0; y < 8; ++y) {
+        for (int x = 0; x < 12; ++x) {
+            const std::size_t offset = (static_cast<std::size_t>(y) * 12U + static_cast<std::size_t>(x)) * 4U;
+            pixels[offset] = static_cast<std::uint8_t>(32 + x * 16);
+            pixels[offset + 1] = static_cast<std::uint8_t>(64 + y * 20);
+            pixels[offset + 2] = 220;
+            pixels[offset + 3] = 255;
+        }
+    }
+
+    const ImTextureID textureId = application.CreateRuntimeTextureFromRgba(pixels, 12, 8);
+    ASSERT_NE(textureId, nullptr);
+    image->SetTexture(textureId, FVector2(12.0f, 8.0f));
+
+    const FSnapshotImage textured = application.CaptureSnapshot(frameContext, options);
+    EXPECT_NE(FSnapshotRenderer::ComputeHash(placeholder), FSnapshotRenderer::ComputeHash(textured));
+    EXPECT_FALSE(FSnapshotRenderer::Compare(placeholder, textured, 0).IsMatch());
+
+    const FSnapshotImage texturedAgain = application.CaptureSnapshot(frameContext, options);
+    EXPECT_EQ(FSnapshotRenderer::ComputeHash(textured), FSnapshotRenderer::ComputeHash(texturedAgain));
 }
 
 TEST(SnapshotTest, TextListSnapshotChangesAfterTextSelection) {

@@ -1,9 +1,12 @@
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include "../snapshot/TextureRegistry.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <codecvt>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <filesystem>
 #include <locale>
@@ -134,6 +137,12 @@ struct ImApplication::FWindowWidgetTarget {
 
 namespace {
 
+struct FSoftwareTextureToken {
+    std::uint64_t Id = 0;
+};
+
+std::uint64_t GNextSoftwareTextureTokenId = 1;
+
 FSnapshotOptions ResolveSnapshotOptions(const FFrameContext& frameContext, const FSnapshotOptions& requestedOptions)
 {
     FSnapshotOptions resolvedOptions = requestedOptions;
@@ -195,6 +204,47 @@ std::string PathToUtf8(const std::filesystem::path& path)
 #else
     return path.string();
 #endif
+}
+
+std::array<std::uint8_t, 4> SamplePlaceholderColor(
+    int x,
+    int y,
+    int width,
+    int height)
+{
+    static constexpr const char* GlyphRows[] = {
+        "..####..",
+        ".##..##.",
+        ".....##.",
+        "....##..",
+        "...##...",
+        "...##...",
+        "...##...",
+        "........",
+        "...##...",
+        "...##...",
+        "........",
+        "........"
+    };
+    static constexpr int GlyphWidth = 8;
+    static constexpr int GlyphHeight = 12;
+
+    const std::uint8_t backgroundR = 58;
+    const std::uint8_t backgroundG = 66;
+    const std::uint8_t backgroundB = 78;
+    const std::uint8_t foregroundR = 233;
+    const std::uint8_t foregroundG = 238;
+    const std::uint8_t foregroundB = 244;
+
+    const int clampedWidth = std::max(1, width);
+    const int clampedHeight = std::max(1, height);
+    const int sourceX = std::clamp((x * GlyphWidth) / clampedWidth, 0, GlyphWidth - 1);
+    const int sourceY = std::clamp((y * GlyphHeight) / clampedHeight, 0, GlyphHeight - 1);
+    const bool bForeground = GlyphRows[sourceY][sourceX] == '#';
+
+    return bForeground
+        ? std::array<std::uint8_t, 4> {foregroundR, foregroundG, foregroundB, 255}
+        : std::array<std::uint8_t, 4> {backgroundR, backgroundG, backgroundB, 255};
 }
 
 std::filesystem::path GetWindowsFontDirectory()
@@ -419,7 +469,18 @@ ImApplication::ImApplication()
     SetActiveTheme("Default");
 }
 
-ImApplication::~ImApplication() = default;
+ImApplication::~ImApplication()
+{
+    std::vector<ImTextureID> textureIds;
+    textureIds.reserve(RuntimeTextures_.size());
+    for (const auto& entry : RuntimeTextures_) {
+        textureIds.push_back(entry.first);
+    }
+
+    for (ImTextureID textureId : textureIds) {
+        ReleaseRuntimeTexture(textureId);
+    }
+}
 
 std::shared_ptr<ImWindow> ImApplication::EnsureMainWindow()
 {
@@ -497,6 +558,23 @@ const std::string& ImApplication::GetActiveThemeName() const
 const std::vector<FThemePack>& ImApplication::GetThemePacks() const
 {
     return ThemePacks_;
+}
+
+void ImApplication::SetBackend(ImApplicationBackend* backend)
+{
+    Backend_ = backend;
+    if (Backend_ != nullptr && DefaultImagePlaceholderBrush_.IsValid()) {
+        FRuntimeTextureData placeholderData;
+        if (FindRuntimeTextureData(DefaultImagePlaceholderBrush_.TextureId, placeholderData) &&
+            !placeholderData.bUsesBackendTexture) {
+            ReleaseRuntimeTexture(DefaultImagePlaceholderBrush_.TextureId);
+        }
+    }
+}
+
+ImApplicationBackend* ImApplication::GetBackend() const
+{
+    return Backend_;
 }
 
 void ImApplication::SetIniSettingsPath(const std::filesystem::path& path)
@@ -578,6 +656,86 @@ void ImApplication::EnsureDefaultFontConfigured()
         io.Fonts->Build();
         bDefaultFontConfigured_ = true;
     }
+}
+
+ImTextureID ImApplication::CreateRuntimeTextureFromRgba(
+    const std::vector<std::uint8_t>& pixels,
+    int width,
+    int height)
+{
+    if (width <= 0 || height <= 0 ||
+        pixels.size() < static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U) {
+        return nullptr;
+    }
+
+    ImTextureID textureId = nullptr;
+    bool bUsesBackendTexture = false;
+    if (Backend_ != nullptr) {
+        textureId = Backend_->CreateTextureFromRGBA(pixels.data(), width, height);
+        bUsesBackendTexture = textureId != nullptr;
+    }
+
+    if (textureId == nullptr) {
+        textureId = new FSoftwareTextureToken {GNextSoftwareTextureTokenId++};
+    }
+
+    FRuntimeTextureData textureData;
+    textureData.Pixels = pixels;
+    textureData.Width = width;
+    textureData.Height = height;
+    textureData.BytesPerPixel = 4;
+    textureData.bUsesBackendTexture = bUsesBackendTexture;
+
+    RuntimeTextures_[textureId] = textureData;
+
+    SnapshotInternal::FRegisteredTextureData snapshotData;
+    snapshotData.Pixels = textureData.Pixels;
+    snapshotData.Width = textureData.Width;
+    snapshotData.Height = textureData.Height;
+    snapshotData.BytesPerPixel = textureData.BytesPerPixel;
+    SnapshotInternal::RegisterTexture(textureId, snapshotData);
+    return textureId;
+}
+
+void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
+{
+    const auto it = RuntimeTextures_.find(textureId);
+    if (it == RuntimeTextures_.end()) {
+        return;
+    }
+
+    if (it->second.bUsesBackendTexture) {
+        if (Backend_ != nullptr) {
+            Backend_->ReleaseTexture(textureId);
+        }
+    } else {
+        delete static_cast<FSoftwareTextureToken*>(textureId);
+    }
+
+    SnapshotInternal::UnregisterTexture(textureId);
+    RuntimeTextures_.erase(it);
+
+    if (DefaultImagePlaceholderBrush_.TextureId == textureId) {
+        DefaultImagePlaceholderBrush_ = FImageBrush();
+        bDefaultImagePlaceholderInitialized_ = false;
+    }
+}
+
+bool ImApplication::FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const
+{
+    const auto it = RuntimeTextures_.find(textureId);
+    if (it == RuntimeTextures_.end()) {
+        return false;
+    }
+
+    outData = it->second;
+    return true;
+}
+
+const FImageBrush& ImApplication::GetDefaultImagePlaceholderBrush() const
+{
+    EnsureDefaultImagePlaceholderInitialized();
+    return DefaultImagePlaceholderBrush_;
 }
 
 void ImApplication::EnqueueInput(const FInputEvent& inputEvent)
@@ -1156,6 +1314,43 @@ std::shared_ptr<ImWidget> ImApplication::ResolveHoveredWidget(const FVector2& po
 {
     const FWindowWidgetTarget target = ResolveMouseTarget(position);
     return target.WidgetPath.empty() ? nullptr : target.WidgetPath.back();
+}
+
+void ImApplication::EnsureDefaultImagePlaceholderInitialized() const
+{
+    if (bDefaultImagePlaceholderInitialized_ && DefaultImagePlaceholderBrush_.IsValid()) {
+        return;
+    }
+
+    const std::vector<std::uint8_t> pixels = BuildDefaultImagePlaceholderPixels(16, 16);
+    ImTextureID textureId = const_cast<ImApplication*>(this)->CreateRuntimeTextureFromRgba(pixels, 16, 16);
+    DefaultImagePlaceholderBrush_.TextureId = textureId;
+    DefaultImagePlaceholderBrush_.SourceSize = FVector2(16.0f, 16.0f);
+    DefaultImagePlaceholderBrush_.Uv0 = FVector2(0.0f, 0.0f);
+    DefaultImagePlaceholderBrush_.Uv1 = FVector2(1.0f, 1.0f);
+    DefaultImagePlaceholderBrush_.TintColor = FColor::White;
+    bDefaultImagePlaceholderInitialized_ = textureId != nullptr;
+}
+
+std::vector<std::uint8_t> ImApplication::BuildDefaultImagePlaceholderPixels(int width, int height)
+{
+    std::vector<std::uint8_t> pixels(
+        static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U,
+        0U);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const std::array<std::uint8_t, 4> color = SamplePlaceholderColor(x, y, width, height);
+            const std::size_t offset =
+                (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(x)) * 4U;
+            pixels[offset] = color[0];
+            pixels[offset + 1] = color[1];
+            pixels[offset + 2] = color[2];
+            pixels[offset + 3] = color[3];
+        }
+    }
+
+    return pixels;
 }
 
 } // namespace ImWidgetV4

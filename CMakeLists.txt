@@ -112,6 +112,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ExpandableBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalSplitter.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Image.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PanelWidget.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ScrollBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Slider.h
@@ -133,6 +134,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/input/Input.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/snapshot/Snapshot.cpp
+    ${CMAKE_SOURCE_DIR}/src/snapshot/TextureRegistry.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/BoxSlot.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
@@ -143,6 +145,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/widgets/ExpandableBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalSplitter.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/Image.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/ScrollBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Slider.cpp

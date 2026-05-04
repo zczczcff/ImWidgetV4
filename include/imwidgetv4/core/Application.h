@@ -6,14 +6,17 @@
 #include <imwidgetv4/input/Input.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/style/StyleSet.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace ImWidgetV4 {
 
+class ImApplicationBackend;
 class ImApplication {
 public:
     ImApplication();
@@ -33,6 +36,8 @@ public:
     void SetIniSettingsPath(const std::filesystem::path& path);
     const std::filesystem::path& GetIniSettingsPath() const;
     void EnsureDefaultFontConfigured();
+    void SetBackend(ImApplicationBackend* backend);
+    ImApplicationBackend* GetBackend() const;
 
     void AdvanceFrame(const FFrameContext& frameContext);
     FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);
@@ -56,6 +61,21 @@ public:
 
     ImWindowManager& GetWindowManager();
     const ImWindowManager& GetWindowManager() const;
+
+    ImTextureID CreateRuntimeTextureFromRgba(const std::vector<std::uint8_t>& pixels, int width, int height);
+    void ReleaseRuntimeTexture(ImTextureID textureId);
+
+    struct FRuntimeTextureData {
+        std::vector<std::uint8_t> Pixels;
+        int Width = 0;
+        int Height = 0;
+        int BytesPerPixel = 4;
+        bool bUsesBackendTexture = false;
+    };
+
+    bool FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const;
+
+    const FImageBrush& GetDefaultImagePlaceholderBrush() const;
 
     std::uint64_t GetFrameNumber() const { return FrameNumber_; }
 
@@ -83,6 +103,10 @@ private:
     std::uint64_t FrameNumber_ = 0;
     std::filesystem::path IniSettingsPath_;
     std::string IniSettingsPathUtf8Cache_;
+    ImApplicationBackend* Backend_ = nullptr;
+    std::unordered_map<ImTextureID, FRuntimeTextureData> RuntimeTextures_;
+    mutable bool bDefaultImagePlaceholderInitialized_ = false;
+    mutable FImageBrush DefaultImagePlaceholderBrush_ {};
 
     std::vector<FInputEvent> CollectFrameInputs(const FFrameContext& frameContext);
     void RouteInputEvents();
@@ -102,6 +126,8 @@ private:
     void PaintWindows(const FFrameContext& frameContext, const FGeometry& viewportGeometry);
     FWindowWidgetTarget ResolveMouseTarget(const FVector2& position) const;
     std::shared_ptr<ImWidget> ResolveHoveredWidget(const FVector2& position) const;
+    void EnsureDefaultImagePlaceholderInitialized() const;
+    static std::vector<std::uint8_t> BuildDefaultImagePlaceholderPixels(int width, int height);
 };
 
 } // namespace ImWidgetV4

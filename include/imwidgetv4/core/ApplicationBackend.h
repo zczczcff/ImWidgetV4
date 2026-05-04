@@ -1,5 +1,8 @@
 #pragma once
+#include <cstdint>
 #include <string>
+#include <vector>
+#include <imgui.h>
 
 namespace ImWidgetV4 {
 
@@ -104,6 +107,24 @@ public:
      * @return 后端名称字符串（例如："GLFW + OpenGL3"）
      */
     virtual std::string GetBackendName() const = 0;
+
+    /**
+     * @brief 从 RGBA8 像素数据创建运行时纹理
+     * @param rgbaPixels 按行连续存储的 RGBA8 像素
+     * @param width 纹理宽度
+     * @param height 纹理高度
+     * @return 创建成功时返回纹理 ID，否则返回 nullptr
+     */
+    virtual ImTextureID CreateTextureFromRGBA(
+        const std::uint8_t* rgbaPixels,
+        int width,
+        int height) = 0;
+
+    /**
+     * @brief 释放运行时创建的纹理
+     * @param textureId 纹理 ID
+     */
+    virtual void ReleaseTexture(ImTextureID textureId) = 0;
 };
 
 } // namespace ImWidgetV4

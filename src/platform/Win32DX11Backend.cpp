@@ -268,6 +268,7 @@ void ImWin32DX11Backend::EndFrame() {
 void ImWin32DX11Backend::SetApplication(ImApplication* app) {
     Application_ = app;
     if (Application_ != nullptr) {
+        Application_->SetBackend(this);
         Application_->SetIniSettingsPath(Application_->GetIniSettingsPath());
         Application_->EnsureDefaultFontConfigured();
     }
@@ -297,6 +298,60 @@ std::string ImWin32DX11Backend::GetBackendName() const {
 }
 
 // ========== DirectX 11 设备管理 ==========
+
+ImTextureID ImWin32DX11Backend::CreateTextureFromRGBA(
+    const std::uint8_t* rgbaPixels,
+    int width,
+    int height)
+{
+    if (rgbaPixels == nullptr || width <= 0 || height <= 0 || D3DDevice_ == nullptr) {
+        return nullptr;
+    }
+
+    D3D11_TEXTURE2D_DESC description = {};
+    description.Width = static_cast<UINT>(width);
+    description.Height = static_cast<UINT>(height);
+    description.MipLevels = 1;
+    description.ArraySize = 1;
+    description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    description.SampleDesc.Count = 1;
+    description.Usage = D3D11_USAGE_DEFAULT;
+    description.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA subresourceData = {};
+    subresourceData.pSysMem = rgbaPixels;
+    subresourceData.SysMemPitch = static_cast<UINT>(width * 4);
+
+    ID3D11Texture2D* texture = nullptr;
+    HRESULT hr = D3DDevice_->CreateTexture2D(&description, &subresourceData, &texture);
+    if (FAILED(hr) || texture == nullptr) {
+        return nullptr;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC viewDescription = {};
+    viewDescription.Format = description.Format;
+    viewDescription.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    viewDescription.Texture2D.MipLevels = 1;
+
+    ID3D11ShaderResourceView* textureView = nullptr;
+    hr = D3DDevice_->CreateShaderResourceView(texture, &viewDescription, &textureView);
+    texture->Release();
+    if (FAILED(hr) || textureView == nullptr) {
+        return nullptr;
+    }
+
+    return reinterpret_cast<ImTextureID>(textureView);
+}
+
+void ImWin32DX11Backend::ReleaseTexture(ImTextureID textureId)
+{
+    if (textureId == nullptr) {
+        return;
+    }
+
+    ID3D11ShaderResourceView* textureView = reinterpret_cast<ID3D11ShaderResourceView*>(textureId);
+    textureView->Release();
+}
 
 bool ImWin32DX11Backend::CreateDeviceD3D() {
     // 1. 配置交换链

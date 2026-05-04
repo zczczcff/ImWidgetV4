@@ -1,4 +1,5 @@
 #include <imwidgetv4/snapshot/Snapshot.h>
+#include "TextureRegistry.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -55,6 +56,16 @@ float EdgeFunction(const ImVec2& a, const ImVec2& b, const ImVec2& c) {
 
 FTextureSampleSource ResolveTextureSource(ImTextureID textureId) {
     FTextureSampleSource source;
+    if (const SnapshotInternal::FRegisteredTextureData* registeredTexture =
+            SnapshotInternal::FindTexture(textureId)) {
+        source.Pixels = registeredTexture->Pixels.data();
+        source.Width = registeredTexture->Width;
+        source.Height = registeredTexture->Height;
+        source.BytesPerPixel = registeredTexture->BytesPerPixel;
+        source.bAlphaOnly = registeredTexture->BytesPerPixel == 1;
+        return source;
+    }
+
     if (ImGui::GetCurrentContext() == nullptr) {
         return source;
     }

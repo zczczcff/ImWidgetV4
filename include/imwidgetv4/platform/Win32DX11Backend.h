@@ -126,6 +126,11 @@ public:
      * @return 后端名称字符串
      */
     std::string GetBackendName() const override;
+    ImTextureID CreateTextureFromRGBA(
+        const std::uint8_t* rgbaPixels,
+        int width,
+        int height) override;
+    void ReleaseTexture(ImTextureID textureId) override;
 
     // ========== DirectX 11 特定接口 ==========
 

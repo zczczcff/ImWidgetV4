@@ -60,6 +60,18 @@ target_link_libraries(expandable_box_test PRIVATE
 
 add_test(NAME ExpandableBoxTest COMMAND expandable_box_test)
 
+add_executable(image_test
+    image_test.cpp
+)
+
+target_link_libraries(image_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME ImageTest COMMAND image_test)
+
 add_executable(combobox_test
     combobox_test.cpp
 )

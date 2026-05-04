@@ -112,6 +112,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalSplitter.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PanelWidget.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ScrollBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Slider.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextBlock.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/VerticalBox.h
@@ -140,6 +141,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalSplitter.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/ScrollBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Slider.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp

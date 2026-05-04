@@ -72,6 +72,18 @@ target_link_libraries(slider_test PRIVATE
 
 add_test(NAME SliderTest COMMAND slider_test)
 
+add_executable(scroll_box_test
+    scroll_box_test.cpp
+)
+
+target_link_libraries(scroll_box_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME ScrollBoxTest COMMAND scroll_box_test)
+
 add_executable(splitter_test
     splitter_test.cpp
 )

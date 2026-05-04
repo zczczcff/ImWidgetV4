@@ -3,7 +3,9 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
 #include <filesystem>
 #include <memory>
@@ -222,6 +224,42 @@ TEST(SnapshotTest, MultiWindowSnapshotChangesWhenModalAppears) {
     const FSnapshotImage withModal = application.CaptureSnapshot(frameContext, options);
     EXPECT_NE(FSnapshotRenderer::ComputeHash(withoutModal), FSnapshotRenderer::ComputeHash(withModal));
     EXPECT_FALSE(FSnapshotRenderer::Compare(withoutModal, withModal, 0).IsMatch());
+}
+
+TEST(SnapshotTest, ScrollBoxSnapshotChangesAfterWheelScroll) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto list = std::make_shared<ImVerticalBox>();
+    list->SetSpacing(6.0f);
+    for (int index = 0; index < 18; ++index) {
+        auto row = std::make_shared<ImTextBlock>();
+        row->SetText("Scrollable Row " + std::to_string(index));
+        row->SetTextColor(index % 2 == 0 ? FColor::White : FColor::FromBytes(255, 214, 102));
+        list->AddChild(row, FMargin(12.0f, 12.0f, 6.0f, 0.0f));
+    }
+
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    scrollBox->SetContent(list);
+    application.SetRootWidget(scrollBox);
+
+    const FFrameContext frameContext = MakeFrameContext(220.0f, 140.0f, 0.0);
+    const FSnapshotOptions options {220, 140, FColor::FromBytes(8, 10, 14, 255)};
+    const FSnapshotImage beforeScroll = application.CaptureSnapshot(frameContext, options);
+
+    FInputEvent wheelEvent;
+    wheelEvent.Type = EInputEventType::MouseWheel;
+    wheelEvent.MousePosition = FVector2(110.0f, 70.0f);
+    wheelEvent.ScrollDelta = FVector2(0.0f, -4.0f);
+    std::vector<FInputEvent> inputEvents {wheelEvent};
+
+    FFrameContext wheelContext = frameContext;
+    wheelContext.InputEvents = &inputEvents;
+    application.AdvanceFrame(wheelContext);
+
+    const FSnapshotImage afterScroll = application.CaptureSnapshot(frameContext, options);
+    EXPECT_NE(FSnapshotRenderer::ComputeHash(beforeScroll), FSnapshotRenderer::ComputeHash(afterScroll));
+    EXPECT_FALSE(FSnapshotRenderer::Compare(beforeScroll, afterScroll, 0).IsMatch());
 }
 
 TEST(SnapshotTest, CompareReportsDimensionAndToleranceDifferences) {

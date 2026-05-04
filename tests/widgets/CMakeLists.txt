@@ -24,6 +24,18 @@ target_link_libraries(checkbox_test PRIVATE
 
 add_test(NAME CheckBoxTest COMMAND checkbox_test)
 
+add_executable(canvas_panel_test
+    canvas_panel_test.cpp
+)
+
+target_link_libraries(canvas_panel_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME CanvasPanelTest COMMAND canvas_panel_test)
+
 add_executable(editable_text_test
     editable_text_test.cpp
 )

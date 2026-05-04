@@ -1,5 +1,6 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
 
@@ -99,6 +100,88 @@ public:
         return FReply::Unhandled();
     }
 };
+
+namespace {
+
+FSnapshotOptions ResolveSnapshotOptions(const FFrameContext& frameContext, const FSnapshotOptions& requestedOptions) {
+    FSnapshotOptions resolvedOptions = requestedOptions;
+    if (resolvedOptions.Width <= 0) {
+        resolvedOptions.Width = std::max(
+            1,
+            static_cast<int>(std::lround(std::max(1.0f, frameContext.FrameInfo.ViewportSize.X))));
+    }
+
+    if (resolvedOptions.Height <= 0) {
+        resolvedOptions.Height = std::max(
+            1,
+            static_cast<int>(std::lround(std::max(1.0f, frameContext.FrameInfo.ViewportSize.Y))));
+    }
+
+    return resolvedOptions;
+}
+
+ImVec2 ResolveSnapshotDisplaySize(const FFrameContext& frameContext, const FSnapshotOptions& options) {
+    return ImVec2(
+        frameContext.FrameInfo.ViewportSize.X > 0.0f ? frameContext.FrameInfo.ViewportSize.X
+                                                     : static_cast<float>(options.Width),
+        frameContext.FrameInfo.ViewportSize.Y > 0.0f ? frameContext.FrameInfo.ViewportSize.Y
+                                                     : static_cast<float>(options.Height));
+}
+
+class FScopedSnapshotImGuiFrame {
+public:
+    FScopedSnapshotImGuiFrame(const FFrameContext& frameContext, const FSnapshotOptions& options) {
+        Context_ = ImGui::GetCurrentContext();
+        if (Context_ == nullptr) {
+            return;
+        }
+
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.Fonts != nullptr && io.Fonts->TexID == nullptr) {
+            SavedFontTextureId_ = io.Fonts->TexID;
+            io.Fonts->SetTexID(reinterpret_cast<ImTextureID>(io.Fonts));
+            bRestoreFontTextureId_ = true;
+        }
+
+        if (Context_->WithinFrameScope) {
+            return;
+        }
+
+        SavedDisplaySize_ = io.DisplaySize;
+        SavedDeltaTime_ = io.DeltaTime;
+        io.DisplaySize = ResolveSnapshotDisplaySize(frameContext, options);
+        io.DeltaTime = frameContext.FrameInfo.DeltaTime > 0.0f ? frameContext.FrameInfo.DeltaTime : 1.0f / 60.0f;
+        ImGui::NewFrame();
+        bOwnsFrame_ = true;
+    }
+
+    ~FScopedSnapshotImGuiFrame() {
+        if (Context_ == nullptr) {
+            return;
+        }
+
+        ImGuiIO& io = ImGui::GetIO();
+        if (bOwnsFrame_) {
+            ImGui::EndFrame();
+            io.DisplaySize = SavedDisplaySize_;
+            io.DeltaTime = SavedDeltaTime_;
+        }
+
+        if (bRestoreFontTextureId_ && io.Fonts != nullptr) {
+            io.Fonts->SetTexID(SavedFontTextureId_);
+        }
+    }
+
+private:
+    ImGuiContext* Context_ = nullptr;
+    bool bOwnsFrame_ = false;
+    bool bRestoreFontTextureId_ = false;
+    ImTextureID SavedFontTextureId_ = nullptr;
+    ImVec2 SavedDisplaySize_ = ImVec2(0.0f, 0.0f);
+    float SavedDeltaTime_ = 0.0f;
+};
+
+} // namespace
 
 ImApplication::ImApplication()
     : InputQueue_(std::make_unique<FInputQueue>())
@@ -315,6 +398,67 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
 
     LastFrameGeometry_ = frameGeometry;
     bHasLastFrameGeometry_ = true;
+}
+
+FSnapshotImage ImApplication::CaptureSnapshot(
+    const FFrameContext& frameContext,
+    const FSnapshotOptions& options) {
+    const FSnapshotOptions resolvedOptions = ResolveSnapshotOptions(frameContext, options);
+    const ImVec2 displaySize = ResolveSnapshotDisplaySize(frameContext, resolvedOptions);
+
+    ImDrawData emptyDrawData;
+    emptyDrawData.Valid = true;
+    emptyDrawData.DisplayPos = frameContext.FrameInfo.ViewportPosition.ToImVec2();
+    emptyDrawData.DisplaySize = displaySize;
+    emptyDrawData.FramebufferScale = ImVec2(1.0f, 1.0f);
+
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return FSnapshotRenderer::Rasterize(emptyDrawData, resolvedOptions);
+    }
+
+    FScopedSnapshotImGuiFrame scopedSnapshotFrame(frameContext, resolvedOptions);
+    ImDrawList drawList(ImGui::GetDrawListSharedData());
+    drawList._ResetForNewFrame();
+
+    if (ImGui::GetIO().Fonts != nullptr) {
+        drawList.PushTextureID(ImGui::GetIO().Fonts->TexID);
+    }
+
+    drawList.PushClipRect(
+        frameContext.FrameInfo.ViewportPosition.ToImVec2(),
+        ImVec2(
+            frameContext.FrameInfo.ViewportPosition.X + displaySize.x,
+            frameContext.FrameInfo.ViewportPosition.Y + displaySize.y),
+        false);
+
+    DrawContext drawContext(&drawList);
+    FFrameContext captureContext = frameContext;
+    captureContext.DrawContext_ = &drawContext;
+    AdvanceFrame(captureContext);
+
+    drawList.PopClipRect();
+    if (ImGui::GetIO().Fonts != nullptr) {
+        drawList.PopTextureID();
+    }
+
+    ImDrawData drawData;
+    drawData.Valid = true;
+    drawData.CmdLists.push_back(&drawList);
+    drawData.CmdListsCount = 1;
+    drawData.TotalIdxCount = drawList.IdxBuffer.Size;
+    drawData.TotalVtxCount = drawList.VtxBuffer.Size;
+    drawData.DisplayPos = frameContext.FrameInfo.ViewportPosition.ToImVec2();
+    drawData.DisplaySize = displaySize;
+    drawData.FramebufferScale = ImVec2(1.0f, 1.0f);
+
+    return FSnapshotRenderer::Rasterize(drawData, resolvedOptions);
+}
+
+bool ImApplication::ExportSnapshotToPng(
+    const std::filesystem::path& filePath,
+    const FFrameContext& frameContext,
+    const FSnapshotOptions& options) {
+    return FSnapshotRenderer::SavePng(filePath, CaptureSnapshot(frameContext, options));
 }
 
 std::vector<FInputEvent> ImApplication::CollectFrameInputs(const FFrameContext& frameContext) {

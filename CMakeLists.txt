@@ -82,6 +82,7 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/core/Slot.cpp
     ${CMAKE_SOURCE_DIR}/src/input/Input.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
+    ${CMAKE_SOURCE_DIR}/src/snapshot/Snapshot.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
@@ -99,6 +100,7 @@ target_link_libraries(imwidgetv4_core PUBLIC
     nlohmann_json::nlohmann_json
     imgui_lib
     uectti
+    stb_lib
 )
 
 add_library(imwidgetv4_platform_win32_dx11 STATIC
@@ -131,6 +133,7 @@ add_subdirectory(tests/core)
 add_subdirectory(tests/core/application)
 add_subdirectory(tests/input)
 add_subdirectory(tests/rendering)
+add_subdirectory(tests/snapshot)
 add_subdirectory(tests/widgets)
 
 # 添加演示程序选项

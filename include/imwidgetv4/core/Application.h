@@ -3,8 +3,10 @@
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/input/Input.h>
+#include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/style/StyleSet.h>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,6 +31,11 @@ public:
     const std::vector<FThemePack>& GetThemePacks() const;
 
     void AdvanceFrame(const FFrameContext& frameContext);
+    FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);
+    bool ExportSnapshotToPng(
+        const std::filesystem::path& filePath,
+        const FFrameContext& frameContext,
+        const FSnapshotOptions& options);
 
     void EnqueueInput(const FInputEvent& inputEvent);
     const std::vector<FInputEvent>& GetLastFrameEvents() const;

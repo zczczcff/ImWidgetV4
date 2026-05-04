@@ -27,11 +27,13 @@ public:
     Ptr GetActiveWindow() const { return ActiveWindow_; }
     Ptr GetMainWindow() const { return MainWindow_; }
     std::vector<Ptr> GetOpenWindows() const;
+    Ptr FindWindowForWidget(const std::shared_ptr<ImWidget>& widget) const;
 
 private:
     friend class ImApplication;
     friend class ImWindow;
 
+    void SetOwnerApplication(ImApplication* application);
     void OpenWindowInternal(const Ptr& window);
     void SetMainWindowInternal(const Ptr& window);
     void SetActiveWindowInternal(const Ptr& window);
@@ -56,6 +58,7 @@ private:
     Ptr MainWindow_;
     Ptr ActiveWindow_;
     Ptr ModalWindow_;
+    ImApplication* OwnerApplication_ = nullptr;
 };
 
 } // namespace ImWidgetV4

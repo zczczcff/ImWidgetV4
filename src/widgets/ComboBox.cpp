@@ -1,0 +1,713 @@
+#include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/core/Window.h>
+#include <imwidgetv4/core/WindowManager.h>
+#include <imgui.h>
+#include <algorithm>
+#include <cfloat>
+
+namespace ImWidgetV4 {
+
+namespace {
+
+constexpr int InvalidComboIndex = -1;
+
+float Clamp01(float value)
+{
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+float MeasureTextWidthWithFont(const std::string& text, float fontSize)
+{
+    if (text.empty()) {
+        return 0.0f;
+    }
+
+    if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
+        return ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str()).x;
+    }
+
+    return fontSize * 0.55f * static_cast<float>(text.size());
+}
+
+} // namespace
+
+class ImComboPopupList : public ImWidget {
+public:
+    explicit ImComboPopupList(ImComboBox* owner)
+        : Owner_(owner)
+    {
+        SetHitTestVisible(true);
+    }
+
+    virtual void Paint(const FPaintContext& paintContext) override
+    {
+        if (Owner_ == nullptr) {
+            return;
+        }
+
+        const FComboBoxStyle& style = Owner_->m_Style;
+        const float itemHeight = style.PopupItemHeight;
+        const float scrollOffset = Owner_->m_PopupScrollOffset;
+        const int firstVisibleIndex = std::max(0, static_cast<int>(scrollOffset / itemHeight));
+        const int lastVisibleIndex = std::min(
+            static_cast<int>(Owner_->m_Items.size()),
+            firstVisibleIndex + Owner_->m_MaxVisibleItems + 1);
+
+        paintContext.DrawContext_.DrawRect(
+            m_Geometry.GetMin(),
+            m_Geometry.GetMax(),
+            style.PopupOutlineColor,
+            style.CornerRadius,
+            style.BorderThickness);
+
+        paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
+        for (int index = firstVisibleIndex; index < lastVisibleIndex; ++index) {
+            const float rowY = m_Geometry.Position.Y + static_cast<float>(index) * itemHeight - scrollOffset;
+            const FVector2 rowMin(m_Geometry.Position.X, rowY);
+            const FVector2 rowMax(m_Geometry.Position.X + m_Geometry.Size.X, rowY + itemHeight);
+
+            if (rowMax.Y <= m_Geometry.Position.Y || rowMin.Y >= m_Geometry.Position.Y + m_Geometry.Size.Y) {
+                continue;
+            }
+
+            const bool bSelected = Owner_->m_SelectedIndex == index;
+            const bool bHovered = Owner_->m_HoveredPopupIndex == index || Owner_->m_HighlightedIndex == index;
+            FColor rowColor = FColor::Transparent;
+            if (bSelected) {
+                rowColor = bHovered ? style.PopupRowSelectedHoveredColor : style.PopupRowSelectedColor;
+            } else if (bHovered) {
+                rowColor = style.PopupRowHoveredColor;
+            }
+
+            if (rowColor.A > 0.0f) {
+                paintContext.DrawContext_.DrawRectFilled(
+                    rowMin,
+                    rowMax,
+                    rowColor,
+                    0.0f);
+            }
+
+            const float textY = rowMin.Y + std::max(0.0f, (itemHeight - style.FontSize) * 0.5f);
+            paintContext.DrawContext_.DrawText(
+                FVector2(rowMin.X + style.Padding.Left, textY),
+                style.TextColor,
+                Owner_->m_Items[static_cast<std::size_t>(index)],
+                style.FontSize);
+        }
+        paintContext.DrawContext_.PopClipRect();
+    }
+
+    virtual FVector2 GetMinSize() const override
+    {
+        if (Owner_ == nullptr) {
+            return FVector2(0.0f, 0.0f);
+        }
+
+        const FGeometry ownerGeometry = Owner_->GetGeometry();
+        return FVector2(
+            ownerGeometry.Size.X,
+            Owner_->ResolvePopupHeight());
+    }
+
+    virtual FReply OnInputEvent(const FInputEvent& event) override
+    {
+        if (Owner_ == nullptr) {
+            return FReply::Unhandled();
+        }
+
+        if (event.Type == EInputEventType::MouseMove) {
+            Owner_->m_HoveredPopupIndex = ResolveIndexAt(event.MousePosition);
+            if (Owner_->m_HoveredPopupIndex != InvalidComboIndex) {
+                Owner_->m_HighlightedIndex = Owner_->m_HoveredPopupIndex;
+                Owner_->EnsurePopupSelectionVisible();
+            }
+            Owner_->Invalidate(EInvalidateReason::Paint);
+            return FReply::Handled();
+        }
+
+        if (event.Type == EInputEventType::MouseLeave) {
+            Owner_->m_HoveredPopupIndex = InvalidComboIndex;
+            Owner_->m_PressedPopupIndex = InvalidComboIndex;
+            Owner_->Invalidate(EInvalidateReason::Paint);
+            return FReply::Handled();
+        }
+
+        if (event.Type == EInputEventType::MouseWheel) {
+            if (Owner_->m_Items.size() > static_cast<std::size_t>(Owner_->m_MaxVisibleItems)) {
+                Owner_->m_PopupScrollOffset -= event.ScrollDelta.Y * Owner_->m_Style.PopupItemHeight;
+                Owner_->ClampPopupScrollOffset();
+                Owner_->Invalidate(EInvalidateReason::Paint);
+            }
+            return FReply::Handled();
+        }
+
+        if (event.Type == EInputEventType::MouseButtonDown &&
+            event.MouseButton == EMouseButton::Left) {
+            Owner_->m_PressedPopupIndex = ResolveIndexAt(event.MousePosition);
+            if (Owner_->m_PressedPopupIndex != InvalidComboIndex) {
+                Owner_->m_HighlightedIndex = Owner_->m_PressedPopupIndex;
+                Owner_->Invalidate(EInvalidateReason::Paint);
+                return FReply::Handled();
+            }
+        }
+
+        if (event.Type == EInputEventType::MouseButtonUp &&
+            event.MouseButton == EMouseButton::Left) {
+            const int releasedIndex = ResolveIndexAt(event.MousePosition);
+            const int pressedIndex = Owner_->m_PressedPopupIndex;
+            Owner_->m_PressedPopupIndex = InvalidComboIndex;
+            if (pressedIndex != InvalidComboIndex && pressedIndex == releasedIndex) {
+                Owner_->SetSelectedIndexInternal(releasedIndex, true);
+                Owner_->ClosePopup();
+                return FReply::Handled();
+            }
+            Owner_->Invalidate(EInvalidateReason::Paint);
+        }
+
+        return FReply::Unhandled();
+    }
+
+private:
+    int ResolveIndexAt(const FVector2& position) const
+    {
+        if (!m_Geometry.Contains(position) || Owner_ == nullptr || Owner_->m_Items.empty()) {
+            return InvalidComboIndex;
+        }
+
+        const float localY = position.Y - m_Geometry.Position.Y + Owner_->m_PopupScrollOffset;
+        const int index = static_cast<int>(localY / Owner_->m_Style.PopupItemHeight);
+        if (index < 0 || index >= static_cast<int>(Owner_->m_Items.size())) {
+            return InvalidComboIndex;
+        }
+
+        return index;
+    }
+
+    ImComboBox* Owner_ = nullptr;
+};
+
+ImComboBox::ImComboBox()
+    : ImWidget()
+{
+    SetSupportsKeyboardFocus(true);
+    SetHitTestVisible(true);
+}
+
+void ImComboBox::SetItems(const std::vector<std::string>& items)
+{
+    m_Items = items;
+    if (m_SelectedIndex >= static_cast<int>(m_Items.size())) {
+        m_SelectedIndex = InvalidComboIndex;
+    }
+    if (m_HighlightedIndex >= static_cast<int>(m_Items.size())) {
+        m_HighlightedIndex = m_SelectedIndex >= 0 ? m_SelectedIndex : (m_Items.empty() ? InvalidComboIndex : 0);
+    }
+    m_PopupScrollOffset = 0.0f;
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::AddItem(const std::string& item)
+{
+    m_Items.push_back(item);
+    if (m_HighlightedIndex == InvalidComboIndex) {
+        m_HighlightedIndex = 0;
+    }
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::ClearItems()
+{
+    m_Items.clear();
+    m_SelectedIndex = InvalidComboIndex;
+    m_HighlightedIndex = InvalidComboIndex;
+    m_HoveredPopupIndex = InvalidComboIndex;
+    m_PressedPopupIndex = InvalidComboIndex;
+    m_PopupScrollOffset = 0.0f;
+    ClosePopup();
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetSelectedIndex(int index)
+{
+    SetSelectedIndexInternal(index, true);
+}
+
+std::string ImComboBox::GetSelectedText() const
+{
+    if (!HasSelection()) {
+        return {};
+    }
+
+    return m_Items[static_cast<std::size_t>(m_SelectedIndex)];
+}
+
+void ImComboBox::ClearSelection()
+{
+    SetSelectedIndexInternal(InvalidComboIndex, true);
+}
+
+void ImComboBox::SetPlaceholderText(const std::string& text)
+{
+    if (m_PlaceholderText == text) {
+        return;
+    }
+
+    m_PlaceholderText = text;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetMaxVisibleItems(int count)
+{
+    const int clamped = std::max(1, count);
+    if (m_MaxVisibleItems == clamped) {
+        return;
+    }
+
+    m_MaxVisibleItems = clamped;
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetStyle(const FComboBoxStyle& style)
+{
+    m_Style = style;
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetDisabled(bool bDisabled)
+{
+    if (m_bDisabled == bDisabled) {
+        return;
+    }
+
+    m_bDisabled = bDisabled;
+    if (m_bDisabled) {
+        ClosePopup();
+    }
+    Invalidate(EInvalidateReason::Paint);
+}
+
+bool ImComboBox::IsPopupOpen() const
+{
+    return m_bPopupOpen && m_PopupWindow && m_PopupWindow->IsOpen();
+}
+
+void ImComboBox::OpenPopup()
+{
+    SyncPopupStateFromWindow();
+    if (m_bDisabled || m_Items.empty() || IsPopupOpen() || GetApplication() == nullptr) {
+        return;
+    }
+
+    ImWindowManager& windowManager = GetApplication()->GetWindowManager();
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ComboPopup";
+    popupOptions.Position = m_Geometry.Position;
+    popupOptions.Size = FVector2(m_Geometry.Size.X, ResolvePopupHeight());
+    popupOptions.ParentWindow = windowManager.FindWindowForWidget(shared_from_this());
+    popupOptions.Style.BackgroundColor = m_Style.BackgroundColor;
+    popupOptions.Style.InactiveBackgroundColor = m_Style.BackgroundColor;
+    popupOptions.Style.BorderColor = m_Style.PopupOutlineColor;
+    popupOptions.Style.ActiveBorderColor = m_Style.PopupOutlineColor;
+    popupOptions.Style.CornerRadius = m_Style.CornerRadius;
+    popupOptions.Style.BorderThickness = m_Style.BorderThickness;
+    popupOptions.Style.bDrawShadow = true;
+
+    if (!m_PopupList) {
+        m_PopupList = std::make_shared<ImComboPopupList>(this);
+    }
+
+    popupOptions.RootWidget = m_PopupList;
+    m_PopupWindow = windowManager.CreatePopup(popupOptions);
+    m_bPopupOpen = m_PopupWindow != nullptr;
+    m_HoveredPopupIndex = InvalidComboIndex;
+    m_PressedPopupIndex = InvalidComboIndex;
+    m_HighlightedIndex = HasSelection() ? m_SelectedIndex : (m_Items.empty() ? InvalidComboIndex : 0);
+    m_PopupScrollOffset = 0.0f;
+    UpdatePopupWindowLayout();
+    EnsurePopupSelectionVisible();
+    if (m_bPopupOpen) {
+        OnPopupOpened.Broadcast(*this);
+    }
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImComboBox::ClosePopup()
+{
+    SyncPopupStateFromWindow();
+    if (!m_bPopupOpen) {
+        return;
+    }
+
+    if (m_PopupWindow) {
+        m_PopupWindow->Close();
+    }
+
+    m_bPopupOpen = false;
+    m_HoveredPopupIndex = InvalidComboIndex;
+    m_PressedPopupIndex = InvalidComboIndex;
+    OnPopupClosed.Broadcast(*this);
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImComboBox::TogglePopup()
+{
+    if (IsPopupOpen()) {
+        ClosePopup();
+    } else {
+        OpenPopup();
+    }
+}
+
+void ImComboBox::Paint(const FPaintContext& paintContext)
+{
+    SyncPopupStateFromWindow();
+    if (!m_bVisible) {
+        return;
+    }
+
+    if (IsPopupOpen()) {
+        UpdatePopupWindowLayout();
+    }
+
+    FColor background = m_Style.BackgroundColor;
+    if (m_bDisabled) {
+        background = m_Style.DisabledBackgroundColor;
+    } else if (m_bPressed || IsPopupOpen()) {
+        background = m_Style.PressedBackgroundColor;
+    } else if (m_bHovered) {
+        background = m_Style.HoveredBackgroundColor;
+    }
+
+    const FColor outline = HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor;
+    const std::string displayText = HasSelection() ? GetSelectedText() : m_PlaceholderText;
+    const FColor textColor = HasSelection()
+        ? (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor)
+        : m_Style.PlaceholderTextColor;
+    const float textY = m_Geometry.Position.Y +
+        std::max(0.0f, (m_Geometry.Size.Y - m_Style.FontSize) * 0.5f);
+    const float arrowHalf = m_Style.ArrowSize * 0.5f;
+    const FVector2 arrowCenter(
+        m_Geometry.Position.X + m_Geometry.Size.X - m_Style.Padding.Right - arrowHalf,
+        m_Geometry.Position.Y + m_Geometry.Size.Y * 0.5f);
+
+    paintContext.DrawContext_.DrawRectFilled(
+        m_Geometry.GetMin(),
+        m_Geometry.GetMax(),
+        background,
+        m_Style.CornerRadius);
+    paintContext.DrawContext_.DrawRect(
+        m_Geometry.GetMin(),
+        m_Geometry.GetMax(),
+        outline,
+        m_Style.CornerRadius,
+        m_Style.BorderThickness);
+
+    const float textRight = arrowCenter.X - m_Style.ArrowSize - 10.0f;
+    const FVector2 clipMin(
+        m_Geometry.Position.X + m_Style.Padding.Left,
+        m_Geometry.Position.Y);
+    const FVector2 clipMax(
+        textRight,
+        m_Geometry.Position.Y + m_Geometry.Size.Y);
+    paintContext.DrawContext_.PushClipRect(clipMin, clipMax, true);
+    paintContext.DrawContext_.DrawText(
+        FVector2(m_Geometry.Position.X + m_Style.Padding.Left, textY),
+        textColor,
+        displayText,
+        m_Style.FontSize);
+    paintContext.DrawContext_.PopClipRect();
+
+    const FColor arrowColor = m_bDisabled ? m_Style.DisabledTextColor : m_Style.ArrowColor;
+    const float direction = IsPopupOpen() ? -1.0f : 1.0f;
+    paintContext.DrawContext_.PathLineTo(FVector2(arrowCenter.X - arrowHalf, arrowCenter.Y - 3.0f * direction));
+    paintContext.DrawContext_.PathLineTo(FVector2(arrowCenter.X + arrowHalf, arrowCenter.Y - 3.0f * direction));
+    paintContext.DrawContext_.PathLineTo(FVector2(arrowCenter.X, arrowCenter.Y + 3.0f * direction));
+    paintContext.DrawContext_.PathFill(arrowColor);
+}
+
+FVector2 ImComboBox::GetMinSize() const
+{
+    float longestTextWidth = MeasureTextWidth(m_PlaceholderText);
+    for (const std::string& item : m_Items) {
+        longestTextWidth = std::max(longestTextWidth, MeasureTextWidth(item));
+    }
+
+    return FVector2(
+        std::max(
+            m_Style.MinDesiredSize.X,
+            m_Style.Padding.Left + longestTextWidth + m_Style.Padding.Right + m_Style.ArrowSize + 18.0f),
+        std::max(
+            m_Style.MinDesiredSize.Y,
+            m_Style.Padding.Top + m_Style.FontSize + m_Style.Padding.Bottom));
+}
+
+FReply ImComboBox::OnInputEvent(const FInputEvent& event)
+{
+    SyncPopupStateFromWindow();
+    if (m_bDisabled) {
+        return FReply::Unhandled();
+    }
+
+    if (event.Type == EInputEventType::MouseEnter) {
+        SetHovered(true);
+        return FReply::Unhandled();
+    }
+
+    if (event.Type == EInputEventType::MouseLeave) {
+        SetHovered(false);
+        SetPressed(false);
+        return FReply::Unhandled();
+    }
+
+    if (event.Type == EInputEventType::MouseButtonDown &&
+        event.MouseButton == EMouseButton::Left &&
+        m_Geometry.Contains(event.MousePosition)) {
+        SetHovered(true);
+        SetPressed(true);
+        TogglePopup();
+        return FReply::Handled().SetKeyboardFocus(shared_from_this());
+    }
+
+    if (event.Type == EInputEventType::MouseButtonUp &&
+        event.MouseButton == EMouseButton::Left &&
+        m_bPressed) {
+        SetPressed(false);
+        return FReply::Handled();
+    }
+
+    if (!HasKeyboardFocus() || event.Type != EInputEventType::KeyDown) {
+        return FReply::Unhandled();
+    }
+
+    switch (event.Key) {
+    case EKey::Enter:
+    case EKey::Space:
+        if (IsPopupOpen()) {
+            CommitHighlightedItem();
+        } else {
+            OpenPopup();
+        }
+        return FReply::Handled();
+    case EKey::Escape:
+        if (IsPopupOpen()) {
+            ClosePopup();
+            return FReply::Handled();
+        }
+        break;
+    case EKey::Down:
+        if (!IsPopupOpen()) {
+            OpenPopup();
+            MoveHighlight(1);
+        } else {
+            MoveHighlight(1);
+        }
+        return FReply::Handled();
+    case EKey::Up:
+        if (!IsPopupOpen()) {
+            OpenPopup();
+            MoveHighlight(-1);
+        } else {
+            MoveHighlight(-1);
+        }
+        return FReply::Handled();
+    default:
+        break;
+    }
+
+    return FReply::Unhandled();
+}
+
+void ImComboBox::OnFocusChanged(bool bHasFocus)
+{
+    ImWidget::OnFocusChanged(bHasFocus);
+    if (!bHasFocus && !IsPopupOpen()) {
+        SetPressed(false);
+    }
+}
+
+void ImComboBox::SyncPopupStateFromWindow()
+{
+    if (m_PopupWindow && !m_PopupWindow->IsOpen() && m_bPopupOpen) {
+        m_bPopupOpen = false;
+        m_HoveredPopupIndex = InvalidComboIndex;
+        m_PressedPopupIndex = InvalidComboIndex;
+        OnPopupClosed.Broadcast(*this);
+        Invalidate(EInvalidateReason::Paint);
+    }
+}
+
+void ImComboBox::EnsurePopupSelectionVisible()
+{
+    if (m_HighlightedIndex == InvalidComboIndex) {
+        return;
+    }
+
+    const float itemHeight = m_Style.PopupItemHeight;
+    const float popupHeight = ResolvePopupHeight();
+    const float itemTop = static_cast<float>(m_HighlightedIndex) * itemHeight;
+    const float itemBottom = itemTop + itemHeight;
+
+    if (itemTop < m_PopupScrollOffset) {
+        m_PopupScrollOffset = itemTop;
+    } else if (itemBottom > m_PopupScrollOffset + popupHeight) {
+        m_PopupScrollOffset = itemBottom - popupHeight;
+    }
+
+    ClampPopupScrollOffset();
+}
+
+void ImComboBox::ClampPopupScrollOffset()
+{
+    const float itemHeight = m_Style.PopupItemHeight;
+    const float popupHeight = ResolvePopupHeight();
+    const float maxScroll = std::max(0.0f, static_cast<float>(m_Items.size()) * itemHeight - popupHeight);
+    m_PopupScrollOffset = std::clamp(m_PopupScrollOffset, 0.0f, maxScroll);
+}
+
+void ImComboBox::UpdatePopupWindowLayout()
+{
+    if (!m_PopupWindow || !m_PopupWindow->IsOpen()) {
+        return;
+    }
+
+    ImWindowManager& windowManager = GetApplication()->GetWindowManager();
+    const std::shared_ptr<ImWindow> mainWindow = windowManager.GetMainWindow();
+    const FGeometry viewportGeometry = mainWindow != nullptr
+        ? mainWindow->GetWindowGeometry()
+        : FGeometry(FVector2(0.0f, 0.0f), FVector2(1920.0f, 1080.0f));
+
+    const float popupHeight = ResolvePopupHeight();
+    const float spaceBelow = viewportGeometry.Position.Y + viewportGeometry.Size.Y - (m_Geometry.Position.Y + m_Geometry.Size.Y);
+    const float popupY = spaceBelow >= popupHeight
+        ? (m_Geometry.Position.Y + m_Geometry.Size.Y)
+        : (m_Geometry.Position.Y - popupHeight);
+
+    m_PopupWindow->SetPosition(FVector2(m_Geometry.Position.X, popupY));
+    m_PopupWindow->SetSize(FVector2(m_Geometry.Size.X, popupHeight));
+}
+
+void ImComboBox::RefreshPopupWindowContent()
+{
+    if (m_PopupList) {
+        m_PopupList->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    }
+    if (m_PopupWindow && m_PopupWindow->IsOpen()) {
+        UpdatePopupWindowLayout();
+    }
+}
+
+void ImComboBox::SetHovered(bool bHovered)
+{
+    if (m_bHovered == bHovered) {
+        return;
+    }
+
+    m_bHovered = bHovered;
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetPressed(bool bPressed)
+{
+    if (m_bPressed == bPressed) {
+        return;
+    }
+
+    m_bPressed = bPressed;
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetSelectedIndexInternal(int index, bool bBroadcast)
+{
+    const int clampedIndex =
+        (index >= 0 && index < static_cast<int>(m_Items.size())) ? index : InvalidComboIndex;
+    if (m_SelectedIndex == clampedIndex) {
+        return;
+    }
+
+    m_SelectedIndex = clampedIndex;
+    m_HighlightedIndex = clampedIndex >= 0 ? clampedIndex : (m_Items.empty() ? InvalidComboIndex : 0);
+    EnsurePopupSelectionVisible();
+    Invalidate(EInvalidateReason::Paint);
+    if (bBroadcast) {
+        OnSelectionChanged.Broadcast(*this, m_SelectedIndex);
+    }
+}
+
+void ImComboBox::MoveSelection(int direction)
+{
+    if (m_Items.empty()) {
+        return;
+    }
+
+    if (m_SelectedIndex == InvalidComboIndex) {
+        SetSelectedIndexInternal(direction < 0 ? static_cast<int>(m_Items.size()) - 1 : 0, true);
+        return;
+    }
+
+    SetSelectedIndexInternal(
+        std::clamp(m_SelectedIndex + direction, 0, static_cast<int>(m_Items.size()) - 1),
+        true);
+}
+
+void ImComboBox::MoveHighlight(int direction)
+{
+    if (m_Items.empty()) {
+        return;
+    }
+
+    if (m_HighlightedIndex == InvalidComboIndex) {
+        m_HighlightedIndex = HasSelection()
+            ? m_SelectedIndex
+            : (direction < 0 ? static_cast<int>(m_Items.size()) - 1 : 0);
+    } else {
+        m_HighlightedIndex = std::clamp(
+            m_HighlightedIndex + direction,
+            0,
+            static_cast<int>(m_Items.size()) - 1);
+    }
+
+    EnsurePopupSelectionVisible();
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImComboBox::CommitHighlightedItem()
+{
+    if (m_HighlightedIndex == InvalidComboIndex) {
+        return;
+    }
+
+    SetSelectedIndexInternal(m_HighlightedIndex, true);
+    ClosePopup();
+}
+
+void ImComboBox::SetPopupHighlightedIndex(int index)
+{
+    if (m_HighlightedIndex == index) {
+        return;
+    }
+
+    m_HighlightedIndex = index;
+    EnsurePopupSelectionVisible();
+    RefreshPopupWindowContent();
+}
+
+float ImComboBox::MeasureTextWidth(const std::string& text) const
+{
+    return MeasureTextWidthWithFont(text, m_Style.FontSize);
+}
+
+float ImComboBox::ResolvePopupHeight() const
+{
+    const float visibleItems = static_cast<float>(std::min(m_MaxVisibleItems, static_cast<int>(m_Items.size())));
+    return std::max(m_Style.PopupItemHeight, visibleItems * m_Style.PopupItemHeight);
+}
+
+} // namespace ImWidgetV4

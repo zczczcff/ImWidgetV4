@@ -313,6 +313,8 @@ ImApplication::ImApplication()
     , EventRouter_(std::make_unique<FEventRouter>())
     , PathResolver_(std::make_unique<FWidgetPathResolver>())
 {
+    WindowManager_.SetOwnerApplication(this);
+
     auto defaultStyleSet = FStyleSetFactory::CreateDefault();
     if (defaultStyleSet) {
         StyleSet_ = std::move(*defaultStyleSet);

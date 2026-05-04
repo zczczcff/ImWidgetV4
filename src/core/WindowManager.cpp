@@ -5,9 +5,28 @@ namespace ImWidgetV4 {
 
 ImWindowManager::ImWindowManager() = default;
 
+ImWindowManager::Ptr ImWindowManager::FindWindowForWidget(const std::shared_ptr<ImWidget>& widget) const
+{
+    return FindOwningWindow(widget);
+}
+
+void ImWindowManager::SetOwnerApplication(ImApplication* application)
+{
+    OwnerApplication_ = application;
+
+    for (const Ptr& window : Windows_) {
+        if (window && window->RootWidget_) {
+            window->RootWidget_->SetApplicationRecursive(application);
+        }
+    }
+}
+
 ImWindowManager::Ptr ImWindowManager::CreateWindow(const FWindowOptions& options)
 {
     Ptr window = std::shared_ptr<ImWindow>(new ImWindow(this, EWindowKind::Normal, options));
+    if (options.RootWidget) {
+        window->SetRootWidget(options.RootWidget);
+    }
     Windows_.push_back(window);
     OpenWindowInternal(window);
     return window;
@@ -16,6 +35,9 @@ ImWindowManager::Ptr ImWindowManager::CreateWindow(const FWindowOptions& options
 ImWindowManager::Ptr ImWindowManager::CreatePopup(const FPopupOptions& options)
 {
     Ptr window = std::shared_ptr<ImWindow>(new ImWindow(this, EWindowKind::Popup, options));
+    if (options.RootWidget) {
+        window->SetRootWidget(options.RootWidget);
+    }
     if (options.ParentWindow) {
         options.ParentWindow->AddChildWindow(window);
     }
@@ -33,6 +55,9 @@ ImWindowManager::Ptr ImWindowManager::CreateModal(const FPopupOptions& options)
     }
 
     Ptr window = std::shared_ptr<ImWindow>(new ImWindow(this, EWindowKind::Modal, options));
+    if (options.RootWidget) {
+        window->SetRootWidget(options.RootWidget);
+    }
     if (options.ParentWindow) {
         options.ParentWindow->AddChildWindow(window);
     }

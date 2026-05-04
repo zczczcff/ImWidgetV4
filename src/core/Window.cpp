@@ -49,7 +49,14 @@ ImWindow::ImWindow(ImWindowManager* manager, EWindowKind kind, const FPopupOptio
 
 void ImWindow::SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget)
 {
+    if (RootWidget_) {
+        RootWidget_->SetApplicationRecursive(nullptr);
+    }
+
     RootWidget_ = rootWidget;
+    if (RootWidget_) {
+        RootWidget_->SetApplicationRecursive(Manager_ != nullptr ? Manager_->OwnerApplication_ : nullptr);
+    }
 }
 
 void ImWindow::SetSize(const FVector2& size)

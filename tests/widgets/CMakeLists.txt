@@ -36,6 +36,18 @@ target_link_libraries(editable_text_test PRIVATE
 
 add_test(NAME EditableTextTest COMMAND editable_text_test)
 
+add_executable(combobox_test
+    combobox_test.cpp
+)
+
+target_link_libraries(combobox_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME ComboBoxTest COMMAND combobox_test)
+
 add_executable(slider_test
     slider_test.cpp
 )

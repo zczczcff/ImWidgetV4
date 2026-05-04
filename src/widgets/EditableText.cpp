@@ -8,8 +8,17 @@ namespace ImWidgetV4 {
 
 namespace {
 
+std::string GFallbackClipboardText;
+
 bool IsContinuationByte(unsigned char value) {
     return (value & 0xC0U) == 0x80U;
+}
+
+bool IsAsciiWordCharacter(unsigned char value) {
+    return (value >= '0' && value <= '9') ||
+           (value >= 'A' && value <= 'Z') ||
+           (value >= 'a' && value <= 'z') ||
+           value == '_';
 }
 
 std::size_t FindPreviousCodepointStart(const std::string& text, std::size_t byteIndex) {
@@ -35,6 +44,53 @@ std::size_t FindNextCodepointStart(const std::string& text, std::size_t byteInde
     while (cursor < text.size() && IsContinuationByte(static_cast<unsigned char>(text[cursor]))) {
         ++cursor;
     }
+    return cursor;
+}
+
+bool IsWordCharacterAt(const std::string& text, std::size_t byteIndex) {
+    if (byteIndex >= text.size()) {
+        return false;
+    }
+
+    const unsigned char value = static_cast<unsigned char>(text[byteIndex]);
+    return value >= 0x80U || IsAsciiWordCharacter(value);
+}
+
+std::size_t FindPreviousWordBoundary(const std::string& text, std::size_t byteIndex) {
+    std::size_t cursor = std::min(byteIndex, text.size());
+
+    while (cursor > 0) {
+        const std::size_t previous = FindPreviousCodepointStart(text, cursor);
+        if (IsWordCharacterAt(text, previous)) {
+            break;
+        }
+        cursor = previous;
+    }
+
+    while (cursor > 0) {
+        const std::size_t previous = FindPreviousCodepointStart(text, cursor);
+        if (!IsWordCharacterAt(text, previous)) {
+            break;
+        }
+        cursor = previous;
+    }
+
+    return cursor;
+}
+
+std::size_t FindNextWordBoundary(const std::string& text, std::size_t byteIndex) {
+    std::size_t cursor = std::min(byteIndex, text.size());
+
+    if (cursor < text.size() && IsWordCharacterAt(text, cursor)) {
+        while (cursor < text.size() && IsWordCharacterAt(text, cursor)) {
+            cursor = FindNextCodepointStart(text, cursor);
+        }
+    }
+
+    while (cursor < text.size() && !IsWordCharacterAt(text, cursor)) {
+        cursor = FindNextCodepointStart(text, cursor);
+    }
+
     return cursor;
 }
 
@@ -82,6 +138,29 @@ FVector2 MeasureTextWithFont(const std::string& text, float fontSize) {
     return FVector2(size.x, size.y);
 }
 
+const char* GetClipboardTextSafe() {
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.GetClipboardTextFn != nullptr) {
+            const char* text = io.GetClipboardTextFn(io.ClipboardUserData);
+            return text != nullptr ? text : "";
+        }
+    }
+
+    return GFallbackClipboardText.c_str();
+}
+
+void SetClipboardTextSafe(const std::string& text) {
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.SetClipboardTextFn != nullptr) {
+            io.SetClipboardTextFn(io.ClipboardUserData, text.c_str());
+        }
+    }
+
+    GFallbackClipboardText = text;
+}
+
 } // namespace
 
 ImEditableText::ImEditableText()
@@ -98,6 +177,7 @@ void ImEditableText::SetText(const std::string& text) {
 
     m_Text = text;
     m_CursorByteIndex = ClampByteIndex(m_CursorByteIndex);
+    m_SelectionAnchorByteIndex = m_CursorByteIndex;
     EnsureCursorVisible();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     NotifyTextChanged();
@@ -124,7 +204,18 @@ void ImEditableText::SetDisabled(bool bDisabled) {
     }
 
     m_bDisabled = bDisabled;
+    if (m_bDisabled) {
+        m_bDraggingSelection = false;
+    }
     Invalidate(EInvalidateReason::Paint);
+}
+
+std::size_t ImEditableText::GetSelectionStartByteIndex() const {
+    return std::min(m_SelectionAnchorByteIndex, m_CursorByteIndex);
+}
+
+std::size_t ImEditableText::GetSelectionEndByteIndex() const {
+    return std::max(m_SelectionAnchorByteIndex, m_CursorByteIndex);
 }
 
 void ImEditableText::Paint(const FPaintContext& paintContext) {
@@ -167,31 +258,78 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
 
     paintContext.DrawContext_.PushClipRect(innerMin, innerMax, true);
 
-    const std::string& displayText = m_Text.empty() ? m_HintText : m_Text;
-    const FColor textColor = m_Text.empty()
+    const bool bShowingHint = m_Text.empty();
+    const std::string& displayText = bShowingHint ? m_HintText : m_Text;
+    const FColor baseTextColor = bShowingHint
         ? m_Style.HintTextColor
         : (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor);
     const FVector2 textSize = MeasureText(displayText);
-    const FVector2 textPosition(
-        innerMin.X - m_HorizontalScrollOffset,
-        innerMin.Y + std::max(0.0f, (innerMax.Y - innerMin.Y - textSize.Y) * 0.5f));
+    const float textBaseY = innerMin.Y + std::max(0.0f, (innerMax.Y - innerMin.Y - textSize.Y) * 0.5f);
+    const float textBaseX = innerMin.X - m_HorizontalScrollOffset;
 
     if (!displayText.empty()) {
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
-            paintContext.DrawContext_.GetImDrawList()->AddText(
-                ImGui::GetFont(),
-                m_Style.FontSize,
-                textPosition.ToImVec2(),
-                textColor.ToImU32(),
-                displayText.c_str()
+        const auto drawText = [&](const FColor& color) {
+            if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
+                paintContext.DrawContext_.GetImDrawList()->AddText(
+                    ImGui::GetFont(),
+                    m_Style.FontSize,
+                    ImVec2(textBaseX, textBaseY),
+                    color.ToImU32(),
+                    displayText.c_str()
+                );
+            } else {
+                paintContext.DrawContext_.DrawText(
+                    FVector2(textBaseX, textBaseY),
+                    color,
+                    displayText,
+                    m_Style.FontSize
+                );
+            }
+        };
+        const auto drawTextClipped = [&](const FVector2& clipMin, const FVector2& clipMax, const FColor& color) {
+            if (clipMax.X <= clipMin.X || clipMax.Y <= clipMin.Y) {
+                return;
+            }
+
+            paintContext.DrawContext_.PushClipRect(clipMin, clipMax, true);
+            drawText(color);
+            paintContext.DrawContext_.PopClipRect();
+        };
+
+        if (!bShowingHint && HasSelection()) {
+            const std::size_t selectionStart = GetSelectionStartByteIndex();
+            const std::size_t selectionEnd = GetSelectionEndByteIndex();
+            const float beforeWidth = MeasureText(m_Text.substr(0, selectionStart)).X;
+            const float selectedWidth = MeasureText(m_Text.substr(selectionStart, selectionEnd - selectionStart)).X;
+            const FVector2 selectionTextClipMin(
+                textBaseX + beforeWidth,
+                innerMin.Y
             );
+            const FVector2 selectionTextClipMax(
+                selectionTextClipMin.X + selectedWidth,
+                innerMax.Y
+            );
+            const FVector2 selectionBackgroundMin(
+                selectionTextClipMin.X,
+                innerMin.Y + 1.0f
+            );
+            const FVector2 selectionBackgroundMax(
+                selectionTextClipMax.X,
+                innerMax.Y - 1.0f
+            );
+
+            paintContext.DrawContext_.DrawRectFilled(
+                selectionBackgroundMin,
+                selectionBackgroundMax,
+                m_Style.SelectionBackgroundColor,
+                3.0f
+            );
+
+            drawTextClipped(innerMin, FVector2(selectionTextClipMin.X, innerMax.Y), baseTextColor);
+            drawTextClipped(selectionTextClipMin, selectionTextClipMax, m_Style.SelectedTextColor);
+            drawTextClipped(FVector2(selectionTextClipMax.X, innerMin.Y), innerMax, baseTextColor);
         } else {
-            paintContext.DrawContext_.DrawText(
-                textPosition,
-                textColor,
-                displayText,
-                m_Style.FontSize
-            );
+            drawText(baseTextColor);
         }
     }
 
@@ -234,8 +372,27 @@ FReply ImEditableText::OnInputEvent(const FInputEvent& event) {
     if (event.Type == EInputEventType::MouseButtonDown &&
         event.MouseButton == EMouseButton::Left &&
         m_Geometry.Contains(event.MousePosition)) {
-        SetCursorByteIndex(ResolveCursorByteIndexAt(event.MousePosition));
-        return FReply::Handled().SetKeyboardFocus(shared_from_this());
+        SetCursorByteIndex(
+            ResolveCursorByteIndexAt(event.MousePosition),
+            event.Modifiers.bShift
+        );
+        SetDraggingSelection(true);
+        return FReply::Handled()
+            .SetKeyboardFocus(shared_from_this())
+            .CaptureMouse(shared_from_this(), EMouseButton::Left);
+    }
+
+    if (event.Type == EInputEventType::MouseMove && m_bDraggingSelection) {
+        SetCursorByteIndex(ResolveCursorByteIndexAt(event.MousePosition), true);
+        return FReply::Handled();
+    }
+
+    if (event.Type == EInputEventType::MouseButtonUp &&
+        event.MouseButton == EMouseButton::Left &&
+        m_bDraggingSelection) {
+        SetCursorByteIndex(ResolveCursorByteIndexAt(event.MousePosition), true);
+        SetDraggingSelection(false);
+        return FReply::Handled().ReleaseMouseCapture();
     }
 
     if (!HasKeyboardFocus()) {
@@ -254,18 +411,49 @@ FReply ImEditableText::OnInputEvent(const FInputEvent& event) {
         return FReply::Unhandled();
     }
 
+    if (event.Modifiers.bCtrl) {
+        switch (event.Key) {
+        case EKey::A:
+            SelectAll();
+            return FReply::Handled();
+        case EKey::C:
+            CopySelectionToClipboard();
+            return FReply::Handled();
+        case EKey::X:
+            CutSelectionToClipboard();
+            return FReply::Handled();
+        case EKey::V:
+            PasteFromClipboard();
+            return FReply::Handled();
+        case EKey::Left:
+            MoveCursorWordLeft(event.Modifiers.bShift);
+            return FReply::Handled();
+        case EKey::Right:
+            MoveCursorWordRight(event.Modifiers.bShift);
+            return FReply::Handled();
+        case EKey::Backspace:
+            DeletePreviousWord();
+            return FReply::Handled();
+        case EKey::DeleteKey:
+            DeleteNextWord();
+            return FReply::Handled();
+        default:
+            break;
+        }
+    }
+
     switch (event.Key) {
     case EKey::Left:
-        MoveCursorLeft();
+        MoveCursorLeft(event.Modifiers.bShift);
         return FReply::Handled();
     case EKey::Right:
-        MoveCursorRight();
+        MoveCursorRight(event.Modifiers.bShift);
         return FReply::Handled();
     case EKey::Home:
-        MoveCursorToStart();
+        MoveCursorToStart(event.Modifiers.bShift);
         return FReply::Handled();
     case EKey::End:
-        MoveCursorToEnd();
+        MoveCursorToEnd(event.Modifiers.bShift);
         return FReply::Handled();
     case EKey::Backspace:
         DeletePreviousCodepoint();
@@ -291,6 +479,7 @@ void ImEditableText::OnFocusChanged(bool bHasFocus) {
         return;
     }
 
+    SetDraggingSelection(false);
     if (m_bTextDirty) {
         CommitText();
     }
@@ -321,9 +510,14 @@ std::size_t ImEditableText::ResolveCursorByteIndexAt(const FVector2& mousePositi
     return m_Text.size();
 }
 
-void ImEditableText::SetCursorByteIndex(std::size_t byteIndex) {
+void ImEditableText::SetCursorByteIndex(std::size_t byteIndex, bool bExtendSelection) {
     const std::size_t clampedIndex = ClampByteIndex(byteIndex);
-    if (m_CursorByteIndex == clampedIndex) {
+
+    if (!bExtendSelection) {
+        m_SelectionAnchorByteIndex = clampedIndex;
+    }
+
+    if (m_CursorByteIndex == clampedIndex && (!bExtendSelection || m_SelectionAnchorByteIndex == clampedIndex)) {
         EnsureCursorVisible();
         return;
     }
@@ -342,11 +536,14 @@ void ImEditableText::EnsureCursorVisible() {
 
     const float textWidth = MeasureCaretX(m_Text.size());
     const float caretX = MeasureCaretX(m_CursorByteIndex);
+    const float selectionAnchorX = MeasureCaretX(m_SelectionAnchorByteIndex);
+    const float visibleMinX = std::min(caretX, selectionAnchorX);
+    const float visibleMaxX = std::max(caretX, selectionAnchorX);
 
-    if (caretX < m_HorizontalScrollOffset) {
-        m_HorizontalScrollOffset = caretX;
-    } else if (caretX > m_HorizontalScrollOffset + visibleWidth) {
-        m_HorizontalScrollOffset = caretX - visibleWidth;
+    if (visibleMinX < m_HorizontalScrollOffset) {
+        m_HorizontalScrollOffset = visibleMinX;
+    } else if (visibleMaxX > m_HorizontalScrollOffset + visibleWidth) {
+        m_HorizontalScrollOffset = visibleMaxX - visibleWidth;
     }
 
     const float maxScroll = std::max(0.0f, textWidth - visibleWidth);
@@ -377,14 +574,39 @@ void ImEditableText::InsertText(const std::string& text) {
         return;
     }
 
+    if (HasSelection()) {
+        DeleteSelection();
+    }
+
     m_Text.insert(m_CursorByteIndex, text);
     m_CursorByteIndex += text.size();
+    m_SelectionAnchorByteIndex = m_CursorByteIndex;
     EnsureCursorVisible();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     NotifyTextChanged();
 }
 
+void ImEditableText::DeleteSelection() {
+    if (!HasSelection()) {
+        return;
+    }
+
+    const std::size_t selectionStart = GetSelectionStartByteIndex();
+    const std::size_t selectionEnd = GetSelectionEndByteIndex();
+    m_Text.erase(selectionStart, selectionEnd - selectionStart);
+    m_CursorByteIndex = selectionStart;
+    m_SelectionAnchorByteIndex = selectionStart;
+    EnsureCursorVisible();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
 void ImEditableText::DeletePreviousCodepoint() {
+    if (HasSelection()) {
+        DeleteSelection();
+        NotifyTextChanged();
+        return;
+    }
+
     if (m_CursorByteIndex == 0 || m_Text.empty()) {
         return;
     }
@@ -392,37 +614,136 @@ void ImEditableText::DeletePreviousCodepoint() {
     const std::size_t previous = FindPreviousCodepointStart(m_Text, m_CursorByteIndex);
     m_Text.erase(previous, m_CursorByteIndex - previous);
     m_CursorByteIndex = previous;
+    m_SelectionAnchorByteIndex = previous;
     EnsureCursorVisible();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     NotifyTextChanged();
 }
 
 void ImEditableText::DeleteNextCodepoint() {
+    if (HasSelection()) {
+        DeleteSelection();
+        NotifyTextChanged();
+        return;
+    }
+
     if (m_CursorByteIndex >= m_Text.size() || m_Text.empty()) {
         return;
     }
 
     const std::size_t next = FindNextCodepointStart(m_Text, m_CursorByteIndex);
     m_Text.erase(m_CursorByteIndex, next - m_CursorByteIndex);
+    m_SelectionAnchorByteIndex = m_CursorByteIndex;
     EnsureCursorVisible();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     NotifyTextChanged();
 }
 
-void ImEditableText::MoveCursorLeft() {
-    SetCursorByteIndex(FindPreviousCodepointStart(m_Text, m_CursorByteIndex));
+void ImEditableText::DeletePreviousWord() {
+    if (HasSelection()) {
+        DeleteSelection();
+        NotifyTextChanged();
+        return;
+    }
+
+    if (m_CursorByteIndex == 0 || m_Text.empty()) {
+        return;
+    }
+
+    const std::size_t previous = FindPreviousWordBoundary(m_Text, m_CursorByteIndex);
+    m_Text.erase(previous, m_CursorByteIndex - previous);
+    m_CursorByteIndex = previous;
+    m_SelectionAnchorByteIndex = previous;
+    EnsureCursorVisible();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    NotifyTextChanged();
 }
 
-void ImEditableText::MoveCursorRight() {
-    SetCursorByteIndex(FindNextCodepointStart(m_Text, m_CursorByteIndex));
+void ImEditableText::DeleteNextWord() {
+    if (HasSelection()) {
+        DeleteSelection();
+        NotifyTextChanged();
+        return;
+    }
+
+    if (m_CursorByteIndex >= m_Text.size() || m_Text.empty()) {
+        return;
+    }
+
+    const std::size_t next = FindNextWordBoundary(m_Text, m_CursorByteIndex);
+    m_Text.erase(m_CursorByteIndex, next - m_CursorByteIndex);
+    m_SelectionAnchorByteIndex = m_CursorByteIndex;
+    EnsureCursorVisible();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    NotifyTextChanged();
 }
 
-void ImEditableText::MoveCursorToStart() {
-    SetCursorByteIndex(0);
+void ImEditableText::MoveCursorLeft(bool bExtendSelection) {
+    SetCursorByteIndex(FindPreviousCodepointStart(m_Text, m_CursorByteIndex), bExtendSelection);
 }
 
-void ImEditableText::MoveCursorToEnd() {
-    SetCursorByteIndex(m_Text.size());
+void ImEditableText::MoveCursorRight(bool bExtendSelection) {
+    SetCursorByteIndex(FindNextCodepointStart(m_Text, m_CursorByteIndex), bExtendSelection);
+}
+
+void ImEditableText::MoveCursorWordLeft(bool bExtendSelection) {
+    SetCursorByteIndex(FindPreviousWordBoundary(m_Text, m_CursorByteIndex), bExtendSelection);
+}
+
+void ImEditableText::MoveCursorWordRight(bool bExtendSelection) {
+    SetCursorByteIndex(FindNextWordBoundary(m_Text, m_CursorByteIndex), bExtendSelection);
+}
+
+void ImEditableText::MoveCursorToStart(bool bExtendSelection) {
+    SetCursorByteIndex(0, bExtendSelection);
+}
+
+void ImEditableText::MoveCursorToEnd(bool bExtendSelection) {
+    SetCursorByteIndex(m_Text.size(), bExtendSelection);
+}
+
+void ImEditableText::SelectAll() {
+    m_SelectionAnchorByteIndex = 0;
+    m_CursorByteIndex = m_Text.size();
+    EnsureCursorVisible();
+    Invalidate(EInvalidateReason::Paint);
+}
+
+std::string ImEditableText::GetSelectedText() const {
+    if (!HasSelection()) {
+        return {};
+    }
+
+    const std::size_t selectionStart = GetSelectionStartByteIndex();
+    const std::size_t selectionEnd = GetSelectionEndByteIndex();
+    return m_Text.substr(selectionStart, selectionEnd - selectionStart);
+}
+
+void ImEditableText::CopySelectionToClipboard() const {
+    if (!HasSelection()) {
+        return;
+    }
+
+    SetClipboardTextSafe(GetSelectedText());
+}
+
+void ImEditableText::CutSelectionToClipboard() {
+    if (!HasSelection()) {
+        return;
+    }
+
+    CopySelectionToClipboard();
+    DeleteSelection();
+    NotifyTextChanged();
+}
+
+void ImEditableText::PasteFromClipboard() {
+    const char* clipboardText = GetClipboardTextSafe();
+    if (clipboardText == nullptr || clipboardText[0] == '\0') {
+        return;
+    }
+
+    InsertText(clipboardText);
 }
 
 float ImEditableText::MeasureCaretX(std::size_t byteIndex) const {
@@ -440,6 +761,10 @@ void ImEditableText::SetHovered(bool bHovered) {
 
     m_bHovered = bHovered;
     Invalidate(EInvalidateReason::Paint);
+}
+
+void ImEditableText::SetDraggingSelection(bool bDraggingSelection) {
+    m_bDraggingSelection = bDraggingSelection;
 }
 
 } // namespace ImWidgetV4

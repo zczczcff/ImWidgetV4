@@ -54,6 +54,18 @@ protected:
         return event;
     }
 
+    FInputEvent CreateModifiedKeyEvent(
+        EInputEventType type,
+        EKey key,
+        bool bCtrl = false,
+        bool bShift = false) {
+        FInputEvent event;
+        event.Type = type;
+        event.Key = key;
+        event.Modifiers = FInputModifiers(bCtrl, bShift, false, false);
+        return event;
+    }
+
     FInputEvent CreateTextEvent(unsigned int codepoint) {
         FInputEvent event;
         event.Type = EInputEventType::TextInput;
@@ -128,6 +140,86 @@ TEST_F(EditableTextTest, MouseClickPlacesCaretNearRequestedPosition) {
 
     AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(120.0f, 20.0f))});
     EXPECT_EQ(EditableText->GetCursorByteIndex(), 4u);
+}
+
+TEST_F(EditableTextTest, ShiftSelectionCanBeReplacedAndDeleted) {
+    EditableText->SetText("Slate");
+    App->SetKeyboardFocus(EditableText);
+    AdvanceWithEvents({CreateKeyEvent(EInputEventType::KeyDown, EKey::End)});
+
+    AdvanceWithEvents({
+        CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Left, false, true),
+        CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Left, false, true)
+    });
+    EXPECT_TRUE(EditableText->HasSelection());
+    EXPECT_EQ(EditableText->GetSelectionStartByteIndex(), 3u);
+    EXPECT_EQ(EditableText->GetSelectionEndByteIndex(), 5u);
+
+    AdvanceWithEvents({CreateTextEvent('X')});
+    EXPECT_EQ(EditableText->GetText(), "SlaX");
+    EXPECT_FALSE(EditableText->HasSelection());
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 4u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::A, true, false)});
+    EXPECT_TRUE(EditableText->HasSelection());
+    AdvanceWithEvents({CreateKeyEvent(EInputEventType::KeyDown, EKey::DeleteKey)});
+    EXPECT_EQ(EditableText->GetText(), "");
+    EXPECT_FALSE(EditableText->HasSelection());
+}
+
+TEST_F(EditableTextTest, ClipboardShortcutsCopyCutAndPasteSelection) {
+    EditableText->SetText("Slate");
+    App->SetKeyboardFocus(EditableText);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::A, true, false)});
+    EXPECT_TRUE(EditableText->HasSelection());
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::C, true, false)});
+    EXPECT_EQ(EditableText->GetText(), "Slate");
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::X, true, false)});
+    EXPECT_EQ(EditableText->GetText(), "");
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 0u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::V, true, false)});
+    EXPECT_EQ(EditableText->GetText(), "Slate");
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 5u);
+}
+
+TEST_F(EditableTextTest, CtrlNavigationAndDeletionOperateOnWords) {
+    EditableText->SetText("alpha beta_gamma 42 delta");
+    App->SetKeyboardFocus(EditableText);
+    AdvanceWithEvents({CreateKeyEvent(EInputEventType::KeyDown, EKey::End)});
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Left, true, false)});
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 20u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Left, true, false)});
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 17u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Backspace, true, false)});
+    EXPECT_EQ(EditableText->GetText(), "alpha 42 delta");
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 6u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::Right, true, false)});
+    EXPECT_EQ(EditableText->GetCursorByteIndex(), 9u);
+
+    AdvanceWithEvents({CreateModifiedKeyEvent(EInputEventType::KeyDown, EKey::DeleteKey, true, false)});
+    EXPECT_EQ(EditableText->GetText(), "alpha 42 ");
+}
+
+TEST_F(EditableTextTest, MouseDragSelectionUsesCaptureAndReleasesOnMouseUp) {
+    EditableText->SetText("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f))});
+    EXPECT_EQ(App->GetMouseCapture(), EditableText);
+
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseMove, FVector2(220.0f, 20.0f))});
+    EXPECT_TRUE(EditableText->HasSelection());
+    EXPECT_GT(EditableText->GetSelectionEndByteIndex(), EditableText->GetSelectionStartByteIndex());
+
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(220.0f, 20.0f))});
+    EXPECT_EQ(App->GetMouseCapture(), nullptr);
 }
 
 TEST_F(EditableTextTest, EnterAndFocusLossCommitText) {

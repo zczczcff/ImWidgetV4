@@ -56,8 +56,17 @@ private:
         Vertical
     };
 
+    enum class EActiveScrollbar {
+        None,
+        Horizontal,
+        Vertical
+    };
+
     void ClampScrollOffset();
     void UpdateHoveredScrollbar(const FVector2& cursorPosition);
+    void BeginScrollbarDrag(EActiveScrollbar activeScrollbar, float grabOffset);
+    void UpdateScrollbarDrag(const FVector2& cursorPosition);
+    void EndScrollbarDrag();
     bool IsDescendantOfContent(const std::shared_ptr<ImWidget>& widget) const;
 
     FScrollBoxStyle m_Style;
@@ -73,6 +82,8 @@ private:
     bool m_bShowHorizontalScrollbar = false;
     bool m_bShowVerticalScrollbar = false;
     EHoveredScrollbar m_HoveredScrollbar = EHoveredScrollbar::None;
+    EActiveScrollbar m_ActiveScrollbar = EActiveScrollbar::None;
+    float m_ActiveGrabOffset = 0.0f;
 };
 
 } // namespace ImWidgetV4

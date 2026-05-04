@@ -211,6 +211,7 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
     }
 
     if (m_bShowHorizontalScrollbar && m_HorizontalScrollbarGeometry.IsValid()) {
+        const bool bHorizontalActive = m_ActiveScrollbar == EActiveScrollbar::Horizontal;
         paintContext.DrawContext_.DrawRectFilled(
             m_HorizontalScrollbarGeometry.GetMin(),
             m_HorizontalScrollbarGeometry.GetMax(),
@@ -219,13 +220,14 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             m_HorizontalThumbGeometry.GetMin(),
             m_HorizontalThumbGeometry.GetMax(),
-            m_HoveredScrollbar == EHoveredScrollbar::Horizontal
+            (bHorizontalActive || m_HoveredScrollbar == EHoveredScrollbar::Horizontal)
                 ? m_Style.ScrollbarThumbHoveredColor
                 : m_Style.ScrollbarThumbColor,
             m_Style.ScrollbarThickness * 0.5f);
     }
 
     if (m_bShowVerticalScrollbar && m_VerticalScrollbarGeometry.IsValid()) {
+        const bool bVerticalActive = m_ActiveScrollbar == EActiveScrollbar::Vertical;
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalScrollbarGeometry.GetMin(),
             m_VerticalScrollbarGeometry.GetMax(),
@@ -234,7 +236,7 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalThumbGeometry.GetMin(),
             m_VerticalThumbGeometry.GetMax(),
-            m_HoveredScrollbar == EHoveredScrollbar::Vertical
+            (bVerticalActive || m_HoveredScrollbar == EHoveredScrollbar::Vertical)
                 ? m_Style.ScrollbarThumbHoveredColor
                 : m_Style.ScrollbarThumbColor,
             m_Style.ScrollbarThickness * 0.5f);
@@ -254,12 +256,41 @@ FReply ImScrollBox::OnInputEvent(const FInputEvent& event)
     Relayout();
 
     switch (event.Type) {
+    case EInputEventType::MouseButtonDown:
+        if (event.MouseButton == EMouseButton::Left) {
+            if (m_bShowHorizontalScrollbar && m_HorizontalThumbGeometry.Contains(event.MousePosition)) {
+                BeginScrollbarDrag(
+                    EActiveScrollbar::Horizontal,
+                    event.MousePosition.X - m_HorizontalThumbGeometry.Position.X);
+                return FReply::Handled().CaptureMouse(shared_from_this(), EMouseButton::Left);
+            }
+
+            if (m_bShowVerticalScrollbar && m_VerticalThumbGeometry.Contains(event.MousePosition)) {
+                BeginScrollbarDrag(
+                    EActiveScrollbar::Vertical,
+                    event.MousePosition.Y - m_VerticalThumbGeometry.Position.Y);
+                return FReply::Handled().CaptureMouse(shared_from_this(), EMouseButton::Left);
+            }
+        }
+        break;
+    case EInputEventType::MouseButtonUp:
+        if (event.MouseButton == EMouseButton::Left && m_ActiveScrollbar != EActiveScrollbar::None) {
+            UpdateScrollbarDrag(event.MousePosition);
+            EndScrollbarDrag();
+            UpdateHoveredScrollbar(event.MousePosition);
+            return FReply::Handled().ReleaseMouseCapture();
+        }
+        break;
     case EInputEventType::MouseEnter:
     case EInputEventType::MouseMove:
+        if (m_ActiveScrollbar != EActiveScrollbar::None) {
+            UpdateScrollbarDrag(event.MousePosition);
+            return FReply::Handled();
+        }
         UpdateHoveredScrollbar(event.MousePosition);
         return FReply::Unhandled();
     case EInputEventType::MouseLeave:
-        if (m_HoveredScrollbar != EHoveredScrollbar::None) {
+        if (m_ActiveScrollbar == EActiveScrollbar::None && m_HoveredScrollbar != EHoveredScrollbar::None) {
             m_HoveredScrollbar = EHoveredScrollbar::None;
             Invalidate(EInvalidateReason::Paint);
         }
@@ -439,9 +470,9 @@ void ImScrollBox::ClampScrollOffset()
 void ImScrollBox::UpdateHoveredScrollbar(const FVector2& cursorPosition)
 {
     EHoveredScrollbar nextHovered = EHoveredScrollbar::None;
-    if (m_bShowHorizontalScrollbar && m_HorizontalScrollbarGeometry.Contains(cursorPosition)) {
+    if (m_bShowHorizontalScrollbar && m_HorizontalThumbGeometry.Contains(cursorPosition)) {
         nextHovered = EHoveredScrollbar::Horizontal;
-    } else if (m_bShowVerticalScrollbar && m_VerticalScrollbarGeometry.Contains(cursorPosition)) {
+    } else if (m_bShowVerticalScrollbar && m_VerticalThumbGeometry.Contains(cursorPosition)) {
         nextHovered = EHoveredScrollbar::Vertical;
     }
 
@@ -450,6 +481,63 @@ void ImScrollBox::UpdateHoveredScrollbar(const FVector2& cursorPosition)
     }
 
     m_HoveredScrollbar = nextHovered;
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImScrollBox::BeginScrollbarDrag(EActiveScrollbar activeScrollbar, float grabOffset)
+{
+    m_ActiveScrollbar = activeScrollbar;
+    m_ActiveGrabOffset = std::max(0.0f, grabOffset);
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImScrollBox::UpdateScrollbarDrag(const FVector2& cursorPosition)
+{
+    if (m_ActiveScrollbar == EActiveScrollbar::None) {
+        return;
+    }
+
+    FVector2 nextOffset = m_ScrollOffset;
+
+    if (m_ActiveScrollbar == EActiveScrollbar::Horizontal && m_HorizontalScrollbarGeometry.Size.X > 0.0f) {
+        const float trackWidth = m_HorizontalScrollbarGeometry.Size.X;
+        const float thumbWidth = m_HorizontalThumbGeometry.Size.X;
+        const float availableTrack = std::max(0.0f, trackWidth - thumbWidth);
+        if (availableTrack <= 0.0f || m_MaxScrollOffset.X <= 0.0f) {
+            nextOffset.X = 0.0f;
+        } else {
+            const float thumbPosition = std::clamp(
+                cursorPosition.X - m_HorizontalScrollbarGeometry.Position.X - m_ActiveGrabOffset,
+                0.0f,
+                availableTrack);
+            nextOffset.X = (thumbPosition / availableTrack) * m_MaxScrollOffset.X;
+        }
+    } else if (m_ActiveScrollbar == EActiveScrollbar::Vertical && m_VerticalScrollbarGeometry.Size.Y > 0.0f) {
+        const float trackHeight = m_VerticalScrollbarGeometry.Size.Y;
+        const float thumbHeight = m_VerticalThumbGeometry.Size.Y;
+        const float availableTrack = std::max(0.0f, trackHeight - thumbHeight);
+        if (availableTrack <= 0.0f || m_MaxScrollOffset.Y <= 0.0f) {
+            nextOffset.Y = 0.0f;
+        } else {
+            const float thumbPosition = std::clamp(
+                cursorPosition.Y - m_VerticalScrollbarGeometry.Position.Y - m_ActiveGrabOffset,
+                0.0f,
+                availableTrack);
+            nextOffset.Y = (thumbPosition / availableTrack) * m_MaxScrollOffset.Y;
+        }
+    }
+
+    SetScrollOffset(nextOffset);
+}
+
+void ImScrollBox::EndScrollbarDrag()
+{
+    if (m_ActiveScrollbar == EActiveScrollbar::None) {
+        return;
+    }
+
+    m_ActiveScrollbar = EActiveScrollbar::None;
+    m_ActiveGrabOffset = 0.0f;
     Invalidate(EInvalidateReason::Paint);
 }
 

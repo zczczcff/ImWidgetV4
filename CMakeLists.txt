@@ -89,6 +89,8 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/widgets/BoxSlot.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalSplitter.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/VerticalSplitter.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include

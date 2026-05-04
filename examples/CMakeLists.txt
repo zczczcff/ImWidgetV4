@@ -8,6 +8,7 @@ add_subdirectory(ExpandableBoxDemo)
 add_subdirectory(InputWidgetsDemo)
 add_subdirectory(ScrollBoxDemo)
 add_subdirectory(SplitterDemo)
+add_subdirectory(TextListDemo)
 add_subdirectory(WindowDemo)
 # add_subdirectory(TextBlockDemo)
 # 后续添加更多演示...

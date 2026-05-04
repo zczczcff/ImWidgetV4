@@ -4,6 +4,7 @@
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
@@ -260,6 +261,55 @@ TEST(SnapshotTest, ScrollBoxSnapshotChangesAfterWheelScroll) {
     const FSnapshotImage afterScroll = application.CaptureSnapshot(frameContext, options);
     EXPECT_NE(FSnapshotRenderer::ComputeHash(beforeScroll), FSnapshotRenderer::ComputeHash(afterScroll));
     EXPECT_FALSE(FSnapshotRenderer::Compare(beforeScroll, afterScroll, 0).IsMatch());
+}
+
+TEST(SnapshotTest, TextListSnapshotChangesAfterTextSelection) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto list = std::make_shared<ImTextList>();
+    list->SetItems({
+        "A wrapped entry with enough text to make the control visually distinct even before any interaction happens.",
+        "A second entry that can be partially selected through routed input.",
+        "A third entry that keeps the viewport looking like a real log list."
+    });
+    application.SetRootWidget(list);
+
+    const FFrameContext frameContext = MakeFrameContext(260.0f, 140.0f, 0.0);
+    const FSnapshotOptions options {260, 140, FColor::FromBytes(8, 10, 14, 255)};
+    const FSnapshotImage normal = application.CaptureSnapshot(frameContext, options);
+
+    std::vector<FInputEvent> inputEvents {
+        [] {
+            FInputEvent event;
+            event.Type = EInputEventType::MouseButtonDown;
+            event.MousePosition = FVector2(40.0f, 70.0f);
+            event.MouseButton = EMouseButton::Left;
+            return event;
+        }(),
+        [] {
+            FInputEvent event;
+            event.Type = EInputEventType::MouseMove;
+            event.MousePosition = FVector2(170.0f, 96.0f);
+            event.MouseButton = EMouseButton::Left;
+            return event;
+        }(),
+        [] {
+            FInputEvent event;
+            event.Type = EInputEventType::MouseButtonUp;
+            event.MousePosition = FVector2(170.0f, 96.0f);
+            event.MouseButton = EMouseButton::Left;
+            return event;
+        }()
+    };
+
+    FFrameContext inputContext = frameContext;
+    inputContext.InputEvents = &inputEvents;
+    application.AdvanceFrame(inputContext);
+
+    const FSnapshotImage selected = application.CaptureSnapshot(frameContext, options);
+    EXPECT_NE(FSnapshotRenderer::ComputeHash(normal), FSnapshotRenderer::ComputeHash(selected));
+    EXPECT_FALSE(FSnapshotRenderer::Compare(normal, selected, 0).IsMatch());
 }
 
 TEST(SnapshotTest, CompareReportsDimensionAndToleranceDifferences) {

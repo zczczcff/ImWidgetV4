@@ -107,3 +107,15 @@ target_link_libraries(splitter_test PRIVATE
 )
 
 add_test(NAME SplitterTest COMMAND splitter_test)
+
+add_executable(text_list_test
+    text_list_test.cpp
+)
+
+target_link_libraries(text_list_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME TextListTest COMMAND text_list_test)

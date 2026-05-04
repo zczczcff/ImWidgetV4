@@ -6,6 +6,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include "../DemoPaths.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -92,6 +93,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"ScrollBoxDemo.ini"));
     backend->SetApplication(app.get());
 
     auto root = std::make_shared<ImVerticalBox>();

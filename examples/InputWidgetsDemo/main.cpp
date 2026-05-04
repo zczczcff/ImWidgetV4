@@ -8,6 +8,7 @@
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include "../DemoPaths.h"
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -48,6 +49,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"InputWidgetsDemo.ini"));
     backend->SetApplication(app.get());
 
     auto root = std::make_shared<ImVerticalBox>();

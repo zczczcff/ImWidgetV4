@@ -85,6 +85,10 @@ bool ImWin32DX11Backend::Initialize() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    if (Application_ != nullptr) {
+        Application_->SetIniSettingsPath(Application_->GetIniSettingsPath());
+        Application_->EnsureDefaultFontConfigured();
+    }
 
     // 6. 设置 ImGui 样式
     ImGui::StyleColorsDark();
@@ -242,6 +246,7 @@ void ImWin32DX11Backend::EndFrame() {
 void ImWin32DX11Backend::SetApplication(ImApplication* app) {
     Application_ = app;
     if (Application_ != nullptr) {
+        Application_->SetIniSettingsPath(Application_->GetIniSettingsPath());
         Application_->EnsureDefaultFontConfigured();
     }
 }

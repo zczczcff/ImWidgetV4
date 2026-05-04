@@ -1,6 +1,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/Button.h>
+#include "../DemoPaths.h"
 #include <memory>
 #include <Windows.h>
 
@@ -24,6 +25,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // 创建应用程序实例
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"ButtonDemo.ini"));
 
     // 设置应用程序到后端
     backend->SetApplication(app.get());

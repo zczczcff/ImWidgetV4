@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imgui.h>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -465,6 +466,28 @@ TEST(ApplicationFontTest, ApplicationConfiguresDefaultFontForEmptyAtlas) {
         EXPECT_GT(io.Fonts->Fonts.Size, 0);
         EXPECT_NE(io.FontDefault, nullptr);
     }
+
+    ImGui::DestroyContext(context);
+}
+
+TEST(ApplicationIniSettingsTest, ApplicationSynchronizesIniFilenameWithCurrentContext) {
+    IMGUI_CHECKVERSION();
+    ImGuiContext* context = ImGui::CreateContext();
+    ASSERT_NE(context, nullptr);
+
+    ImApplication application;
+    const std::filesystem::path iniPath =
+        std::filesystem::temp_directory_path() / "imwidgetv4" / "application_test_imgui.ini";
+
+    application.SetIniSettingsPath(iniPath);
+
+    EXPECT_EQ(application.GetIniSettingsPath(), iniPath);
+    ASSERT_NE(ImGui::GetIO().IniFilename, nullptr);
+    EXPECT_EQ(std::string(ImGui::GetIO().IniFilename), iniPath.string());
+
+    application.SetIniSettingsPath({});
+    EXPECT_TRUE(application.GetIniSettingsPath().empty());
+    EXPECT_EQ(ImGui::GetIO().IniFilename, nullptr);
 
     ImGui::DestroyContext(context);
 }

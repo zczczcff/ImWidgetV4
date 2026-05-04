@@ -6,6 +6,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
+#include "../DemoPaths.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -52,6 +53,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"SplitterDemo.ini"));
     backend->SetApplication(app.get());
 
     FHorizontalSplitterStyle horizontalStyle;

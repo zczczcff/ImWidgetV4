@@ -4,6 +4,7 @@
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include "../DemoPaths.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -41,6 +42,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"BoxPanelDemo.ini"));
     backend->SetApplication(app.get());
 
     auto rootVBox = std::make_shared<ImVerticalBox>();

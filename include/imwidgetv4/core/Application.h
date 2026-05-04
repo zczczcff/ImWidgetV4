@@ -30,6 +30,8 @@ public:
     bool SetActiveTheme(const std::string& name);
     const std::string& GetActiveThemeName() const;
     const std::vector<FThemePack>& GetThemePacks() const;
+    void SetIniSettingsPath(const std::filesystem::path& path);
+    const std::filesystem::path& GetIniSettingsPath() const;
     void EnsureDefaultFontConfigured();
 
     void AdvanceFrame(const FFrameContext& frameContext);
@@ -79,6 +81,8 @@ private:
     bool bHasLastFrameGeometry_ = false;
     bool bDefaultFontConfigured_ = false;
     std::uint64_t FrameNumber_ = 0;
+    std::filesystem::path IniSettingsPath_;
+    std::string IniSettingsPathUtf8Cache_;
 
     std::vector<FInputEvent> CollectFrameInputs(const FFrameContext& frameContext);
     void RouteInputEvents();

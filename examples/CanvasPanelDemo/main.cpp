@@ -5,6 +5,7 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include "../DemoPaths.h"
 #include <memory>
 #include <string>
 #include <Windows.h>
@@ -24,6 +25,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     auto app = std::make_shared<ImApplication>();
+    app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"CanvasPanelDemo.ini"));
     backend->SetApplication(app.get());
 
     auto canvas = std::make_shared<ImCanvasPanel>();

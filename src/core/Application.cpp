@@ -188,6 +188,15 @@ std::string WideToUtf8(const std::wstring& text)
     return converter.to_bytes(text);
 }
 
+std::string PathToUtf8(const std::filesystem::path& path)
+{
+#if defined(_WIN32)
+    return WideToUtf8(path.wstring());
+#else
+    return path.string();
+#endif
+}
+
 std::filesystem::path GetWindowsFontDirectory()
 {
 #if defined(_WIN32)
@@ -488,6 +497,25 @@ const std::string& ImApplication::GetActiveThemeName() const
 const std::vector<FThemePack>& ImApplication::GetThemePacks() const
 {
     return ThemePacks_;
+}
+
+void ImApplication::SetIniSettingsPath(const std::filesystem::path& path)
+{
+    IniSettingsPath_ = path;
+    IniSettingsPathUtf8Cache_ = IniSettingsPath_.empty() ? std::string() : PathToUtf8(IniSettingsPath_);
+
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    if (context == nullptr) {
+        return;
+    }
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = IniSettingsPathUtf8Cache_.empty() ? nullptr : IniSettingsPathUtf8Cache_.c_str();
+}
+
+const std::filesystem::path& ImApplication::GetIniSettingsPath() const
+{
+    return IniSettingsPath_;
 }
 
 void ImApplication::EnsureDefaultFontConfigured()

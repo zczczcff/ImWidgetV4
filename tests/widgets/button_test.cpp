@@ -93,7 +93,11 @@ TEST_F(ButtonTest, DisabledState) {
 
 TEST_F(ButtonTest, ClickEvent) {
     bool clicked = false;
-    Button->SetOnClicked([&]() { clicked = true; });
+    ImButton* sender = nullptr;
+    Button->OnClicked.AddLambda([&](ImButton& button) {
+        clicked = true;
+        sender = &button;
+    });
 
     FReply downReply = Button->OnInputEvent(
         CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(50.0f, 15.0f)));
@@ -106,11 +110,12 @@ TEST_F(ButtonTest, ClickEvent) {
     EXPECT_TRUE(upReply.IsHandled());
     EXPECT_FALSE(Button->IsPressed());
     EXPECT_TRUE(clicked);
+    EXPECT_EQ(sender, Button.get());
 }
 
 TEST_F(ButtonTest, ClickOutsideDoesNotTrigger) {
     bool clicked = false;
-    Button->SetOnClicked([&]() { clicked = true; });
+    Button->OnClicked.AddLambda([&](ImButton&) { clicked = true; });
 
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(50.0f, 15.0f)));
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(200.0f, 200.0f)));
@@ -121,7 +126,7 @@ TEST_F(ButtonTest, ClickOutsideDoesNotTrigger) {
 
 TEST_F(ButtonTest, DisabledButtonDoesNotRespond) {
     bool clicked = false;
-    Button->SetOnClicked([&]() { clicked = true; });
+    Button->OnClicked.AddLambda([&](ImButton&) { clicked = true; });
     Button->SetDisabled(true);
 
     FReply reply = Button->OnInputEvent(
@@ -134,24 +139,35 @@ TEST_F(ButtonTest, DisabledButtonDoesNotRespond) {
 TEST_F(ButtonTest, HoverUsesExplicitEnterLeaveEvents) {
     bool hoverBegin = false;
     bool hoverEnd = false;
-    Button->SetOnHoverBegin([&]() { hoverBegin = true; });
-    Button->SetOnHoverEnd([&]() { hoverEnd = true; });
+    ImButton* hoverBeginSender = nullptr;
+    ImButton* hoverEndSender = nullptr;
+
+    Button->OnHoverBegin.AddLambda([&](ImButton& button) {
+        hoverBegin = true;
+        hoverBeginSender = &button;
+    });
+    Button->OnHoverEnd.AddLambda([&](ImButton& button) {
+        hoverEnd = true;
+        hoverEndSender = &button;
+    });
 
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseEnter, FVector2(50.0f, 15.0f)));
     EXPECT_TRUE(Button->IsHovered());
     EXPECT_TRUE(hoverBegin);
     EXPECT_FALSE(hoverEnd);
+    EXPECT_EQ(hoverBeginSender, Button.get());
 
     hoverBegin = false;
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseLeave, FVector2(200.0f, 200.0f)));
     EXPECT_FALSE(Button->IsHovered());
     EXPECT_FALSE(hoverBegin);
     EXPECT_TRUE(hoverEnd);
+    EXPECT_EQ(hoverEndSender, Button.get());
 }
 
 TEST_F(ButtonTest, KeyboardActivation) {
     bool clicked = false;
-    Button->SetOnClicked([&]() { clicked = true; });
+    Button->OnClicked.AddLambda([&](ImButton&) { clicked = true; });
 
     App->SetKeyboardFocus(Button);
     EXPECT_TRUE(Button->HasKeyboardFocus());
@@ -168,7 +184,7 @@ TEST_F(ButtonTest, KeyboardActivation) {
 
 TEST_F(ButtonTest, KeyboardWithoutFocus) {
     bool clicked = false;
-    Button->SetOnClicked([&]() { clicked = true; });
+    Button->OnClicked.AddLambda([&](ImButton&) { clicked = true; });
 
     FReply reply = Button->OnInputEvent(CreateKeyEvent(EInputEventType::KeyDown, EKey::Enter));
     EXPECT_FALSE(reply.IsHandled());
@@ -178,17 +194,28 @@ TEST_F(ButtonTest, KeyboardWithoutFocus) {
 TEST_F(ButtonTest, PressedAndReleasedCallbacks) {
     bool pressed = false;
     bool released = false;
-    Button->SetOnPressed([&]() { pressed = true; });
-    Button->SetOnReleased([&]() { released = true; });
+    ImButton* pressedSender = nullptr;
+    ImButton* releasedSender = nullptr;
+
+    Button->OnPressed.AddLambda([&](ImButton& button) {
+        pressed = true;
+        pressedSender = &button;
+    });
+    Button->OnReleased.AddLambda([&](ImButton& button) {
+        released = true;
+        releasedSender = &button;
+    });
 
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(50.0f, 15.0f)));
     EXPECT_TRUE(pressed);
     EXPECT_FALSE(released);
+    EXPECT_EQ(pressedSender, Button.get());
 
     pressed = false;
     Button->OnInputEvent(CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(50.0f, 15.0f)));
     EXPECT_FALSE(pressed);
     EXPECT_TRUE(released);
+    EXPECT_EQ(releasedSender, Button.get());
 }
 
 TEST_F(ButtonTest, MinSizeWithText) {
@@ -207,9 +234,9 @@ TEST_F(ButtonTest, ApplicationRoutesHoverCaptureAndClick) {
     bool hoverEnd = false;
     bool clicked = false;
 
-    Button->SetOnHoverBegin([&]() { hoverBegin = true; });
-    Button->SetOnHoverEnd([&]() { hoverEnd = true; });
-    Button->SetOnClicked([&]() { clicked = true; });
+    Button->OnHoverBegin.AddLambda([&](ImButton&) { hoverBegin = true; });
+    Button->OnHoverEnd.AddLambda([&](ImButton&) { hoverEnd = true; });
+    Button->OnClicked.AddLambda([&](ImButton&) { clicked = true; });
 
     AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseMove, FVector2(50.0f, 15.0f))});
     EXPECT_TRUE(Button->IsHovered());

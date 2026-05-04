@@ -121,9 +121,7 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
         m_Geometry.Contains(event.MousePosition)) {
         SetPressed(true);
 
-        if (m_OnPressed) {
-            m_OnPressed();
-        }
+        OnPressed.Broadcast(*this);
 
         return FReply::Handled()
             .SetKeyboardFocus(shared_from_this())
@@ -137,9 +135,7 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
 
         SetPressed(false);
 
-        if (m_OnReleased) {
-            m_OnReleased();
-        }
+        OnReleased.Broadcast(*this);
 
         if (wasPressed && isInside) {
             TriggerClick();
@@ -206,18 +202,14 @@ void ImButton::SetHovered(bool bHovered) {
     Invalidate(EInvalidateReason::Paint);
 
     if (m_bHovered) {
-        if (m_OnHoverBegin) {
-            m_OnHoverBegin();
-        }
-    } else if (m_OnHoverEnd) {
-        m_OnHoverEnd();
+        OnHoverBegin.Broadcast(*this);
+    } else {
+        OnHoverEnd.Broadcast(*this);
     }
 }
 
 void ImButton::TriggerClick() {
-    if (m_OnClicked) {
-        m_OnClicked();
-    }
+    OnClicked.Broadcast(*this);
 }
 
 void ImButton::RenderButton(const FPaintContext& paintContext) {

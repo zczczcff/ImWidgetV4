@@ -5,6 +5,7 @@ add_executable(ButtonDemo
 
 target_link_libraries(ButtonDemo PRIVATE
     imwidgetv4_core
+    imwidgetv4_platform_win32_dx11
 )
 
 # 设置输出目录

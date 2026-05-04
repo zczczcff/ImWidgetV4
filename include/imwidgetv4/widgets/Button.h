@@ -103,7 +103,14 @@ public:
      * @brief 设置是否禁用
      * @param bDisabled 是否禁用
      */
-    void SetDisabled(bool bDisabled) { m_bDisabled = bDisabled; }
+    void SetDisabled(bool bDisabled) {
+        if (m_bDisabled == bDisabled) {
+            return;
+        }
+
+        m_bDisabled = bDisabled;
+        Invalidate(EInvalidateReason::Paint);
+    }
 
     /**
      * @brief 获取是否禁用
@@ -201,6 +208,7 @@ protected:
      * @param bPressed 是否按下
      */
     void SetPressed(bool bPressed);
+    void SetHovered(bool bHovered);
 
     /**
      * @brief 触发点击事件

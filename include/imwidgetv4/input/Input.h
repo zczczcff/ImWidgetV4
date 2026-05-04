@@ -1,15 +1,16 @@
 #pragma once
+
 #include <imwidgetv4/core/Types.h>
-#include <imgui.h>
 #include <cstdint>
 #include <vector>
 
 namespace ImWidgetV4 {
 
-// 输入事件类型
 enum class EInputEventType {
     None,
     MouseMove,
+    MouseEnter,
+    MouseLeave,
     MouseButtonDown,
     MouseButtonUp,
     MouseWheel,
@@ -18,7 +19,6 @@ enum class EInputEventType {
     TextInput
 };
 
-// 鼠标按钮
 enum class EMouseButton {
     Left = 0,
     Right = 1,
@@ -27,7 +27,73 @@ enum class EMouseButton {
     Extra2 = 4
 };
 
-// 输入修饰键
+enum class EKey {
+    None = 0,
+    Enter,
+    Space,
+    Tab,
+    Escape,
+    Backspace,
+    DeleteKey,
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+    Num0,
+    Num1,
+    Num2,
+    Num3,
+    Num4,
+    Num5,
+    Num6,
+    Num7,
+    Num8,
+    Num9,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    Count
+};
+
 struct FInputModifiers {
     bool bCtrl = false;
     bool bShift = false;
@@ -50,22 +116,24 @@ struct FInputModifiers {
     }
 };
 
-// 输入事件
 struct FInputEvent {
     EInputEventType Type = EInputEventType::None;
     FVector2 MousePosition {0.0f, 0.0f};
     FVector2 ScrollDelta {0.0f, 0.0f};
     EMouseButton MouseButton = EMouseButton::Left;
-    ImGuiKey Key = ImGuiKey_None;
+    EKey Key = EKey::None;
+    std::int32_t NativeKeyCode = 0;
+    std::int32_t ScanCode = 0;
     unsigned int Codepoint = 0;
     FInputModifiers Modifiers;
     double Timestamp = 0.0;
 
     FInputEvent() = default;
 
-    // 工具方法
     bool IsMouseEvent() const {
         return Type == EInputEventType::MouseMove ||
+               Type == EInputEventType::MouseEnter ||
+               Type == EInputEventType::MouseLeave ||
                Type == EInputEventType::MouseButtonDown ||
                Type == EInputEventType::MouseButtonUp ||
                Type == EInputEventType::MouseWheel;
@@ -83,24 +151,10 @@ struct FInputEvent {
     }
 };
 
-// ImGui 输入适配器
-class FImGuiInputAdapter {
+class IInputSource {
 public:
-    FImGuiInputAdapter();
-
-    /**
-     * @brief 从 ImGui IO 轮询输入事件
-     * @param io ImGui IO 对象
-     * @param timestamp 当前时间戳
-     * @return 输入事件列表
-     */
-    std::vector<FInputEvent> Poll(const ImGuiIO& io, double timestamp);
-
-private:
-    // 上一帧的状态
-    FVector2 m_LastMousePosition {0.0f, 0.0f};
-    bool m_LastMouseButtons[5] = {false};
-    bool m_LastKeys[ImGuiKey_COUNT] = {false};
+    virtual ~IInputSource() = default;
+    virtual std::vector<FInputEvent> Poll(const FFrameInfo& frameInfo) = 0;
 };
 
 } // namespace ImWidgetV4

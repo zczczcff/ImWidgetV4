@@ -1,6 +1,7 @@
 #pragma once
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/Types.h>
+#include <imwidgetv4/platform/ImGuiInputSource.h>
 #include <string>
 #include <Windows.h>
 #include <d3d11.h>
@@ -162,6 +163,7 @@ private:
 
     // ========== Application 引用 ==========
     ImApplication* Application_;
+    FImGuiInputSource InputSource_;
 
     // ========== 内部方法 ==========
 

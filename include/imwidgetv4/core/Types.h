@@ -2,6 +2,7 @@
 #include <imgui.h>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace ImWidgetV4 {
 
@@ -271,21 +272,23 @@ struct FFrameInfo {
 };
 
 // 帧上下文
+class DrawContext;
+class IInputSource;
+struct FInputEvent;
+struct FStyleSet;
+
 struct FFrameContext {
     FFrameInfo FrameInfo {};
-    ImDrawList* DrawList = nullptr;
-    ImGuiIO* ImGuiIo = nullptr;
+    class DrawContext* DrawContext_ = nullptr;
+    IInputSource* InputSource = nullptr;
+    const std::vector<FInputEvent>* InputEvents = nullptr;
 
     FFrameContext() = default;
 
-    bool IsValid() const {
-        return DrawList != nullptr && ImGuiIo != nullptr;
+    bool HasDrawContext() const {
+        return DrawContext_ != nullptr;
     }
 };
-
-// 前向声明
-class DrawContext;
-struct FStyleSet;
 
 // 绘制上下文
 struct FPaintContext {

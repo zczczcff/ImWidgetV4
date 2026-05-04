@@ -6,6 +6,7 @@ add_executable(BoxPanelDemo
 
 target_link_libraries(BoxPanelDemo PRIVATE
     imwidgetv4_core
+    imwidgetv4_platform_win32_dx11
 )
 
 # 设置输出目录

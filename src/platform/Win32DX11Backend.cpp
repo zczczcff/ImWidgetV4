@@ -1,5 +1,6 @@
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>
 #include <backends/imgui_impl_dx11.h>
@@ -150,6 +151,10 @@ void ImWin32DX11Backend::Run() {
         if (Application_) {
             const ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImGuiIO& io = ImGui::GetIO();
+            FImGuiInputSnapshot inputSnapshot;
+            PopulateImGuiInputSnapshotFromIo(io, inputSnapshot);
+            InputSource_.SetSnapshot(inputSnapshot);
+            DrawContext drawContext(ImGui::GetBackgroundDrawList());
 
             FFrameContext frameContext;
             frameContext.FrameInfo.ViewportPosition =
@@ -158,8 +163,8 @@ void ImWin32DX11Backend::Run() {
                 FVector2(viewport->Size.x, viewport->Size.y);
             frameContext.FrameInfo.DeltaTime = io.DeltaTime;
             frameContext.FrameInfo.CurrentTime = ImGui::GetTime();
-            frameContext.DrawList = ImGui::GetBackgroundDrawList();
-            frameContext.ImGuiIo = &io;
+            frameContext.DrawContext_ = &drawContext;
+            frameContext.InputSource = &InputSource_;
 
             Application_->AdvanceFrame(frameContext);
         }

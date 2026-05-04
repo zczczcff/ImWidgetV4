@@ -89,7 +89,6 @@ add_library(imwidgetv4_core STATIC
     ${CMAKE_SOURCE_DIR}/src/widgets/BoxSlot.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
-    ${CMAKE_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -98,6 +97,18 @@ target_link_libraries(imwidgetv4_core PUBLIC
     nlohmann_json::nlohmann_json
     imgui_lib
     uectti
+)
+
+add_library(imwidgetv4_platform_win32_dx11 STATIC
+    ${CMAKE_SOURCE_DIR}/src/platform/ImGuiInputSource.cpp
+    ${CMAKE_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
+)
+target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
+    imwidgetv4_core
+    imgui_lib
 )
 
 # 启用测试
@@ -115,6 +126,8 @@ FetchContent_MakeAvailable(googletest)
 add_subdirectory(tests/core/reflection)
 add_subdirectory(tests/core/rop)
 add_subdirectory(tests/core)
+add_subdirectory(tests/core/application)
+add_subdirectory(tests/input)
 add_subdirectory(tests/rendering)
 add_subdirectory(tests/widgets)
 

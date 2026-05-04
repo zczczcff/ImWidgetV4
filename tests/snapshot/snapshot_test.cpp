@@ -186,6 +186,44 @@ TEST(SnapshotTest, ThemeSwitchChangesSnapshotWithoutRebuildingRoot) {
     EXPECT_FALSE(FSnapshotRenderer::Compare(defaultTheme, darkTheme, 0).IsMatch());
 }
 
+TEST(SnapshotTest, MultiWindowSnapshotChangesWhenModalAppears) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto mainText = std::make_shared<ImTextBlock>();
+    mainText->SetText("Main Content");
+    mainText->SetTextColor(FColor::White);
+    application.SetRootWidget(mainText);
+
+    FWindowOptions toolsOptions;
+    toolsOptions.Title = "Tools";
+    toolsOptions.Position = FVector2(28.0f, 18.0f);
+    toolsOptions.Size = FVector2(140.0f, 84.0f);
+    auto toolsText = std::make_shared<ImTextBlock>();
+    toolsText->SetText("Floating");
+    toolsText->SetTextColor(FColor::FromBytes(255, 214, 102));
+    toolsOptions.RootWidget = toolsText;
+    application.GetWindowManager().CreateWindow(toolsOptions);
+
+    const FFrameContext frameContext = MakeFrameContext(240.0f, 140.0f, 0.0);
+    const FSnapshotOptions options {240, 140, FColor::FromBytes(8, 10, 14, 255)};
+    const FSnapshotImage withoutModal = application.CaptureSnapshot(frameContext, options);
+
+    FPopupOptions modalOptions;
+    modalOptions.Title = "Confirm";
+    modalOptions.Position = FVector2(70.0f, 42.0f);
+    modalOptions.Size = FVector2(120.0f, 70.0f);
+    auto modalText = std::make_shared<ImTextBlock>();
+    modalText->SetText("Modal");
+    modalText->SetTextColor(FColor::White);
+    modalOptions.RootWidget = modalText;
+    application.GetWindowManager().CreateModal(modalOptions);
+
+    const FSnapshotImage withModal = application.CaptureSnapshot(frameContext, options);
+    EXPECT_NE(FSnapshotRenderer::ComputeHash(withoutModal), FSnapshotRenderer::ComputeHash(withModal));
+    EXPECT_FALSE(FSnapshotRenderer::Compare(withoutModal, withModal, 0).IsMatch());
+}
+
 TEST(SnapshotTest, CompareReportsDimensionAndToleranceDifferences) {
     FSnapshotImage expected;
     expected.Reset(2, 1);

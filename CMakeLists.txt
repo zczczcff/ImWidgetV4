@@ -83,6 +83,8 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Reply.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Slot.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Types.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Window.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/WindowManager.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Widget.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/detail/const_string.hpp
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/detail/parser.hpp
@@ -120,6 +122,8 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Slot.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Window.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/WindowManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_SOURCE_DIR}/src/input/Input.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp

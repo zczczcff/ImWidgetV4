@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Types.h>
+#include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/input/Input.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
@@ -50,6 +51,9 @@ public:
     const std::shared_ptr<ImWidget>& GetMouseCapture() const;
     EMouseButton GetCapturedMouseButton() const;
 
+    ImWindowManager& GetWindowManager();
+    const ImWindowManager& GetWindowManager() const;
+
     std::uint64_t GetFrameNumber() const { return FrameNumber_; }
 
 private:
@@ -58,12 +62,12 @@ private:
     class FEventRouter;
     class FWidgetPathResolver;
 
-    std::shared_ptr<ImWidget> RootWidget_;
-    std::shared_ptr<ImWidget> SceneRoot_;
+    struct FWindowWidgetTarget;
 
     FStyleSet StyleSet_;
     std::vector<FThemePack> ThemePacks_;
     std::string ActiveThemeName_;
+    ImWindowManager WindowManager_;
 
     std::unique_ptr<FInputQueue> InputQueue_;
     std::unique_ptr<FInteractionState> InteractionState_;
@@ -76,14 +80,22 @@ private:
 
     std::vector<FInputEvent> CollectFrameInputs(const FFrameContext& frameContext);
     void RouteInputEvents();
-    void UpdateHoveredWidget(const FVector2& cursorPosition, double timestamp);
+    void UpdateHoveredWidget(
+        const std::shared_ptr<ImWidget>& hoveredWidget,
+        const FVector2& cursorPosition,
+        double timestamp);
     void ProcessReply(const FReply& reply);
     void ResetInteractionState();
+    void CleanupInteractionState();
+    void ClearKeyboardFocusIfOutsideActiveWindow(const std::shared_ptr<ImWindow>& activeWindow);
 
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(const std::shared_ptr<ImWidget>& widget) const;
     FReply RouteEvent(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath);
-    void PerformLayoutPass(const FGeometry& frameGeometry);
-    bool NeedsPrepassAndArrange(const FGeometry& frameGeometry) const;
+    void PerformLayoutPass();
+    std::shared_ptr<ImWindow> EnsureMainWindow();
+    void PaintWindows(const FFrameContext& frameContext, const FGeometry& viewportGeometry);
+    FWindowWidgetTarget ResolveMouseTarget(const FVector2& position) const;
+    std::shared_ptr<ImWidget> ResolveHoveredWidget(const FVector2& position) const;
 };
 
 } // namespace ImWidgetV4

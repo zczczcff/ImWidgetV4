@@ -1,5 +1,6 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
@@ -8,23 +9,25 @@ namespace ImWidgetV4 {
 
 class ImApplication::FInputQueue {
 public:
-    void Enqueue(const FInputEvent& inputEvent) {
+    void Enqueue(const FInputEvent& inputEvent)
+    {
         PendingInput_.push_back(inputEvent);
     }
 
-    void BeginFrame(std::vector<FInputEvent>&& frameEvents) {
+    void BeginFrame(std::vector<FInputEvent>&& frameEvents)
+    {
         LastFrameEvents_.clear();
         LastFrameEvents_.reserve(PendingInput_.size() + frameEvents.size());
         LastFrameEvents_.insert(LastFrameEvents_.end(), PendingInput_.begin(), PendingInput_.end());
         LastFrameEvents_.insert(
             LastFrameEvents_.end(),
             std::make_move_iterator(frameEvents.begin()),
-            std::make_move_iterator(frameEvents.end())
-        );
+            std::make_move_iterator(frameEvents.end()));
         PendingInput_.clear();
     }
 
-    const std::vector<FInputEvent>& GetLastFrameEvents() const {
+    const std::vector<FInputEvent>& GetLastFrameEvents() const
+    {
         return LastFrameEvents_;
     }
 
@@ -41,13 +44,17 @@ public:
     std::weak_ptr<ImWidget> HoveredWidget_;
     FVector2 LastCursorPosition_ {0.0f, 0.0f};
     bool bHasCursorPosition_ = false;
+    std::shared_ptr<ImWindow> DraggedWindow_;
+    FVector2 WindowDragOffset_ {0.0f, 0.0f};
+    std::shared_ptr<ImWindow> PressedCloseWindow_;
 };
 
 class ImApplication::FWidgetPathResolver {
 public:
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(
         const std::shared_ptr<ImWidget>& sceneRoot,
-        const std::shared_ptr<ImWidget>& widget) const {
+        const std::shared_ptr<ImWidget>& widget) const
+    {
         std::vector<std::shared_ptr<ImWidget>> path;
         if (!sceneRoot || !widget) {
             return path;
@@ -69,7 +76,8 @@ public:
 
     std::vector<std::shared_ptr<ImWidget>> BuildHitTestPath(
         const std::shared_ptr<ImWidget>& sceneRoot,
-        const FVector2& position) const {
+        const FVector2& position) const
+    {
         std::vector<std::shared_ptr<ImWidget>> path;
         if (!sceneRoot) {
             return path;
@@ -82,7 +90,8 @@ public:
 
 class ImApplication::FEventRouter {
 public:
-    FReply Route(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath) const {
+    FReply Route(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath) const
+    {
         for (const auto& widget : eventPath) {
             FReply reply = widget->OnPreviewInputEvent(event);
             if (reply.IsHandled()) {
@@ -101,9 +110,15 @@ public:
     }
 };
 
+struct ImApplication::FWindowWidgetTarget {
+    std::shared_ptr<ImWindow> Window;
+    std::vector<std::shared_ptr<ImWidget>> WidgetPath;
+};
+
 namespace {
 
-FSnapshotOptions ResolveSnapshotOptions(const FFrameContext& frameContext, const FSnapshotOptions& requestedOptions) {
+FSnapshotOptions ResolveSnapshotOptions(const FFrameContext& frameContext, const FSnapshotOptions& requestedOptions)
+{
     FSnapshotOptions resolvedOptions = requestedOptions;
     if (resolvedOptions.Width <= 0) {
         resolvedOptions.Width = std::max(
@@ -120,7 +135,8 @@ FSnapshotOptions ResolveSnapshotOptions(const FFrameContext& frameContext, const
     return resolvedOptions;
 }
 
-ImVec2 ResolveSnapshotDisplaySize(const FFrameContext& frameContext, const FSnapshotOptions& options) {
+ImVec2 ResolveSnapshotDisplaySize(const FFrameContext& frameContext, const FSnapshotOptions& options)
+{
     return ImVec2(
         frameContext.FrameInfo.ViewportSize.X > 0.0f ? frameContext.FrameInfo.ViewportSize.X
                                                      : static_cast<float>(options.Width),
@@ -128,9 +144,116 @@ ImVec2 ResolveSnapshotDisplaySize(const FFrameContext& frameContext, const FSnap
                                                      : static_cast<float>(options.Height));
 }
 
+FVector2 MeasureText(const std::string& text, float fontSize)
+{
+    if (text.empty()) {
+        return FVector2(0.0f, fontSize);
+    }
+
+    if (ImGui::GetCurrentContext() != nullptr) {
+        const ImFont* font = ImGui::GetFont();
+        if (font != nullptr) {
+            const ImVec2 size = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str());
+            return FVector2(size);
+        }
+    }
+
+    return FVector2(fontSize * 0.55f * static_cast<float>(text.size()), fontSize);
+}
+
+void DrawWindowChrome(
+    DrawContext& drawContext,
+    const ImWindow& window,
+    const FGeometry& viewportGeometry)
+{
+    const FWindowStyle& style = window.GetStyle();
+    const FGeometry windowGeometry = window.GetWindowGeometry();
+    const FVector2 windowMin = windowGeometry.GetMin();
+    const FVector2 windowMax = windowGeometry.GetMax();
+    const bool bActive = window.IsActive();
+
+    if (window.GetKind() == EWindowKind::Modal) {
+        drawContext.DrawRectFilled(
+            viewportGeometry.GetMin(),
+            viewportGeometry.GetMax(),
+            style.ModalOverlayColor);
+    }
+
+    if (window.HasBackground()) {
+        if (style.bDrawShadow) {
+            drawContext.DrawRectFilled(
+                windowMin + style.ShadowOffset,
+                windowMax + style.ShadowOffset,
+                style.ShadowColor,
+                style.CornerRadius);
+        }
+
+        drawContext.DrawRectFilled(
+            windowMin,
+            windowMax,
+            bActive ? style.BackgroundColor : style.InactiveBackgroundColor,
+            style.CornerRadius);
+    }
+
+    if (window.HasTitleBar()) {
+        const FGeometry titleBarGeometry = window.GetTitleBarGeometry();
+        drawContext.DrawRectFilled(
+            titleBarGeometry.GetMin(),
+            titleBarGeometry.GetMax(),
+            bActive ? style.ActiveTitleBarColor : style.TitleBarColor,
+            style.CornerRadius);
+
+        const FVector2 titleTextSize = MeasureText(window.GetTitle(), style.TitleFontSize);
+        const float titleX = titleBarGeometry.Position.X + 12.0f;
+        const float titleY = titleBarGeometry.Position.Y +
+            std::max(0.0f, (titleBarGeometry.Size.Y - titleTextSize.Y) * 0.5f);
+        drawContext.DrawText(
+            FVector2(titleX, titleY),
+            bActive ? style.TitleTextColor : style.InactiveTitleTextColor,
+            window.GetTitle(),
+            style.TitleFontSize);
+
+        if (window.IsClosable()) {
+            const FGeometry closeGeometry = window.GetCloseButtonGeometry();
+            FColor closeColor = style.CloseButtonColor;
+            if (window.IsCloseButtonPressed()) {
+                closeColor = style.CloseButtonPressedColor;
+            } else if (window.IsCloseButtonHovered()) {
+                closeColor = style.CloseButtonHoveredColor;
+            }
+
+            drawContext.DrawRectFilled(
+                closeGeometry.GetMin(),
+                closeGeometry.GetMax(),
+                closeColor,
+                4.0f);
+
+            const FVector2 glyphInset(3.5f, 3.5f);
+            drawContext.DrawLine(
+                closeGeometry.GetMin() + glyphInset,
+                closeGeometry.GetMax() - glyphInset,
+                style.CloseGlyphColor,
+                1.5f);
+            drawContext.DrawLine(
+                FVector2(closeGeometry.GetMin().X + glyphInset.X, closeGeometry.GetMax().Y - glyphInset.Y),
+                FVector2(closeGeometry.GetMax().X - glyphInset.X, closeGeometry.GetMin().Y + glyphInset.Y),
+                style.CloseGlyphColor,
+                1.5f);
+        }
+    }
+
+    drawContext.DrawRect(
+        windowMin,
+        windowMax,
+        bActive ? style.ActiveBorderColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
+}
+
 class FScopedSnapshotImGuiFrame {
 public:
-    FScopedSnapshotImGuiFrame(const FFrameContext& frameContext, const FSnapshotOptions& options) {
+    FScopedSnapshotImGuiFrame(const FFrameContext& frameContext, const FSnapshotOptions& options)
+    {
         Context_ = ImGui::GetCurrentContext();
         if (Context_ == nullptr) {
             return;
@@ -155,7 +278,8 @@ public:
         bOwnsFrame_ = true;
     }
 
-    ~FScopedSnapshotImGuiFrame() {
+    ~FScopedSnapshotImGuiFrame()
+    {
         if (Context_ == nullptr) {
             return;
         }
@@ -187,7 +311,8 @@ ImApplication::ImApplication()
     : InputQueue_(std::make_unique<FInputQueue>())
     , InteractionState_(std::make_unique<FInteractionState>())
     , EventRouter_(std::make_unique<FEventRouter>())
-    , PathResolver_(std::make_unique<FWidgetPathResolver>()) {
+    , PathResolver_(std::make_unique<FWidgetPathResolver>())
+{
     auto defaultStyleSet = FStyleSetFactory::CreateDefault();
     if (defaultStyleSet) {
         StyleSet_ = std::move(*defaultStyleSet);
@@ -225,38 +350,62 @@ ImApplication::ImApplication()
 
 ImApplication::~ImApplication() = default;
 
-void ImApplication::SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget) {
-    if (RootWidget_ == rootWidget) {
-        return;
+std::shared_ptr<ImWindow> ImApplication::EnsureMainWindow()
+{
+    if (std::shared_ptr<ImWindow> mainWindow = WindowManager_.GetMainWindow()) {
+        return mainWindow;
     }
 
+    FWindowOptions options;
+    options.Title = "Main";
+    options.Position = FVector2(0.0f, 0.0f);
+    options.Size = FVector2(1.0f, 1.0f);
+    options.bMovable = false;
+    options.bClosable = false;
+    options.bHasTitleBar = false;
+    options.bHasBackground = false;
+    options.bFillViewport = true;
+    std::shared_ptr<ImWindow> mainWindow = WindowManager_.CreateWindow(options);
+    WindowManager_.SetMainWindowInternal(mainWindow);
+    return mainWindow;
+}
+
+void ImApplication::SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget)
+{
     ResetInteractionState();
-    RootWidget_ = rootWidget;
-    SceneRoot_ = rootWidget;
+    EnsureMainWindow()->SetRootWidget(rootWidget);
 }
 
-const std::shared_ptr<ImWidget>& ImApplication::GetRootWidget() const {
-    return RootWidget_;
+const std::shared_ptr<ImWidget>& ImApplication::GetRootWidget() const
+{
+    static const std::shared_ptr<ImWidget> NullRootWidget;
+    const std::shared_ptr<ImWindow> mainWindow = WindowManager_.GetMainWindow();
+    return mainWindow ? mainWindow->GetRootWidget() : NullRootWidget;
 }
 
-void ImApplication::SetStyleSet(const FStyleSet& styleSet) {
+void ImApplication::SetStyleSet(const FStyleSet& styleSet)
+{
     StyleSet_.Clear();
     StyleSet_.Merge(styleSet);
 }
 
-const FStyleSet& ImApplication::GetStyleSet() const {
+const FStyleSet& ImApplication::GetStyleSet() const
+{
     return StyleSet_;
 }
 
-FStyleSet& ImApplication::GetStyleSet() {
+FStyleSet& ImApplication::GetStyleSet()
+{
     return StyleSet_;
 }
 
-void ImApplication::RegisterThemePack(FThemePack&& themePack) {
+void ImApplication::RegisterThemePack(FThemePack&& themePack)
+{
     ThemePacks_.push_back(std::move(themePack));
 }
 
-bool ImApplication::SetActiveTheme(const std::string& name) {
+bool ImApplication::SetActiveTheme(const std::string& name)
+{
     for (const auto& pack : ThemePacks_) {
         if (pack.Name == name) {
             ActiveThemeName_ = name;
@@ -269,23 +418,28 @@ bool ImApplication::SetActiveTheme(const std::string& name) {
     return false;
 }
 
-const std::string& ImApplication::GetActiveThemeName() const {
+const std::string& ImApplication::GetActiveThemeName() const
+{
     return ActiveThemeName_;
 }
 
-const std::vector<FThemePack>& ImApplication::GetThemePacks() const {
+const std::vector<FThemePack>& ImApplication::GetThemePacks() const
+{
     return ThemePacks_;
 }
 
-void ImApplication::EnqueueInput(const FInputEvent& inputEvent) {
+void ImApplication::EnqueueInput(const FInputEvent& inputEvent)
+{
     InputQueue_->Enqueue(inputEvent);
 }
 
-const std::vector<FInputEvent>& ImApplication::GetLastFrameEvents() const {
+const std::vector<FInputEvent>& ImApplication::GetLastFrameEvents() const
+{
     return InputQueue_->GetLastFrameEvents();
 }
 
-void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget) {
+void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget)
+{
     if (!widget) {
         ClearKeyboardFocus();
         return;
@@ -296,6 +450,11 @@ void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget) {
     }
 
     if (BuildPathToSceneRoot(widget).empty()) {
+        return;
+    }
+
+    const std::shared_ptr<ImWindow> ownerWindow = WindowManager_.FindOwningWindow(widget);
+    if (!ownerWindow || WindowManager_.IsBlockedByModal(ownerWindow)) {
         return;
     }
 
@@ -311,22 +470,26 @@ void ImApplication::SetKeyboardFocus(const std::shared_ptr<ImWidget>& widget) {
     InteractionState_->FocusedWidget_->NotifyFocusChanged(true);
 }
 
-void ImApplication::ClearKeyboardFocus() {
+void ImApplication::ClearKeyboardFocus()
+{
     if (InteractionState_->FocusedWidget_) {
         InteractionState_->FocusedWidget_->NotifyFocusChanged(false);
         InteractionState_->FocusedWidget_.reset();
     }
 }
 
-const std::shared_ptr<ImWidget>& ImApplication::GetKeyboardFocus() const {
+const std::shared_ptr<ImWidget>& ImApplication::GetKeyboardFocus() const
+{
     return InteractionState_->FocusedWidget_;
 }
 
-std::vector<std::shared_ptr<ImWidget>> ImApplication::GetFocusPath() const {
+std::vector<std::shared_ptr<ImWidget>> ImApplication::GetFocusPath() const
+{
     return BuildPathToSceneRoot(InteractionState_->FocusedWidget_);
 }
 
-void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMouseButton button) {
+void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMouseButton button)
+{
     if (!widget) {
         ReleaseMouseCapture();
         return;
@@ -336,27 +499,55 @@ void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMo
         return;
     }
 
+    const std::shared_ptr<ImWindow> ownerWindow = WindowManager_.FindOwningWindow(widget);
+    if (!ownerWindow || WindowManager_.IsBlockedByModal(ownerWindow)) {
+        return;
+    }
+
     InteractionState_->CapturedMouseWidget_ = widget;
     InteractionState_->CapturedMouseButton_ = button;
 }
 
-void ImApplication::ReleaseMouseCapture() {
+void ImApplication::ReleaseMouseCapture()
+{
     InteractionState_->CapturedMouseWidget_.reset();
 }
 
-const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const {
+const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const
+{
     return InteractionState_->CapturedMouseWidget_;
 }
 
-EMouseButton ImApplication::GetCapturedMouseButton() const {
+EMouseButton ImApplication::GetCapturedMouseButton() const
+{
     return InteractionState_->CapturedMouseButton_;
 }
 
-void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
+ImWindowManager& ImApplication::GetWindowManager()
+{
+    return WindowManager_;
+}
+
+const ImWindowManager& ImApplication::GetWindowManager() const
+{
+    return WindowManager_;
+}
+
+void ImApplication::AdvanceFrame(const FFrameContext& frameContext)
+{
     ++FrameNumber_;
 
     InputQueue_->BeginFrame(CollectFrameInputs(frameContext));
+
+    const FGeometry viewportGeometry(
+        frameContext.FrameInfo.ViewportPosition,
+        frameContext.FrameInfo.ViewportSize);
+
+    WindowManager_.SyncViewportFilledWindows(viewportGeometry);
+    PerformLayoutPass();
     RouteInputEvents();
+    CleanupInteractionState();
+
     const auto& lastFrameEvents = InputQueue_->GetLastFrameEvents();
     const bool bHadMouseEvent = std::any_of(
         lastFrameEvents.begin(),
@@ -365,44 +556,29 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext) {
             return event.IsMouseEvent() &&
                    event.Type != EInputEventType::MouseEnter &&
                    event.Type != EInputEventType::MouseLeave;
-        }
-    );
-
-    const FGeometry frameGeometry(
-        frameContext.FrameInfo.ViewportPosition,
-        frameContext.FrameInfo.ViewportSize
-    );
-
-    if (NeedsPrepassAndArrange(frameGeometry)) {
-        PerformLayoutPass(frameGeometry);
-    }
+        });
 
     if (InteractionState_->bHasCursorPosition_ && !bHadMouseEvent) {
         UpdateHoveredWidget(
+            ResolveHoveredWidget(InteractionState_->LastCursorPosition_),
             InteractionState_->LastCursorPosition_,
-            frameContext.FrameInfo.CurrentTime
-        );
+            frameContext.FrameInfo.CurrentTime);
     }
 
-    if (frameContext.DrawContext_ != nullptr && SceneRoot_) {
-        FPaintContext paintContext(
-            *frameContext.DrawContext_,
-            frameGeometry,
-            &StyleSet_,
-            InteractionState_->LastCursorPosition_,
-            InteractionState_->bHasCursorPosition_,
-            frameContext.FrameInfo.DeltaTime
-        );
-        SceneRoot_->Paint(paintContext);
+    PerformLayoutPass();
+
+    if (frameContext.DrawContext_ != nullptr) {
+        PaintWindows(frameContext, viewportGeometry);
     }
 
-    LastFrameGeometry_ = frameGeometry;
+    LastFrameGeometry_ = viewportGeometry;
     bHasLastFrameGeometry_ = true;
 }
 
 FSnapshotImage ImApplication::CaptureSnapshot(
     const FFrameContext& frameContext,
-    const FSnapshotOptions& options) {
+    const FSnapshotOptions& options)
+{
     const FSnapshotOptions resolvedOptions = ResolveSnapshotOptions(frameContext, options);
     const ImVec2 displaySize = ResolveSnapshotDisplaySize(frameContext, resolvedOptions);
 
@@ -457,11 +633,13 @@ FSnapshotImage ImApplication::CaptureSnapshot(
 bool ImApplication::ExportSnapshotToPng(
     const std::filesystem::path& filePath,
     const FFrameContext& frameContext,
-    const FSnapshotOptions& options) {
+    const FSnapshotOptions& options)
+{
     return FSnapshotRenderer::SavePng(filePath, CaptureSnapshot(frameContext, options));
 }
 
-std::vector<FInputEvent> ImApplication::CollectFrameInputs(const FFrameContext& frameContext) {
+std::vector<FInputEvent> ImApplication::CollectFrameInputs(const FFrameContext& frameContext)
+{
     std::vector<FInputEvent> frameInputs;
 
     if (frameContext.InputSource != nullptr) {
@@ -469,24 +647,28 @@ std::vector<FInputEvent> ImApplication::CollectFrameInputs(const FFrameContext& 
         frameInputs.insert(
             frameInputs.end(),
             std::make_move_iterator(polledEvents.begin()),
-            std::make_move_iterator(polledEvents.end())
-        );
+            std::make_move_iterator(polledEvents.end()));
     }
 
     if (frameContext.InputEvents != nullptr) {
         frameInputs.insert(
             frameInputs.end(),
             frameContext.InputEvents->begin(),
-            frameContext.InputEvents->end()
-        );
+            frameContext.InputEvents->end());
     }
 
     return frameInputs;
 }
 
-void ImApplication::RouteInputEvents() {
-    if (!SceneRoot_) {
+void ImApplication::RouteInputEvents()
+{
+    const auto openWindows = WindowManager_.GetOpenWindows();
+    if (openWindows.empty()) {
         return;
+    }
+
+    for (const std::shared_ptr<ImWindow>& window : openWindows) {
+        window->bCloseButtonHovered_ = false;
     }
 
     for (const FInputEvent& inputEvent : InputQueue_->GetLastFrameEvents()) {
@@ -495,9 +677,101 @@ void ImApplication::RouteInputEvents() {
             inputEvent.Type != EInputEventType::MouseLeave) {
             InteractionState_->LastCursorPosition_ = inputEvent.MousePosition;
             InteractionState_->bHasCursorPosition_ = true;
+        }
 
-            if (inputEvent.Type == EInputEventType::MouseMove) {
-                UpdateHoveredWidget(inputEvent.MousePosition, inputEvent.Timestamp);
+        if (inputEvent.IsMouseEvent()) {
+            std::shared_ptr<ImWindow> hoveredWindow = WindowManager_.HitTestWindow(inputEvent.MousePosition);
+            for (const std::shared_ptr<ImWindow>& window : openWindows) {
+                window->bCloseButtonHovered_ =
+                    hoveredWindow == window && window->IsPointInCloseButton(inputEvent.MousePosition);
+            }
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseMove && InteractionState_->DraggedWindow_) {
+            InteractionState_->DraggedWindow_->SetPosition(
+                inputEvent.MousePosition - InteractionState_->WindowDragOffset_);
+            UpdateHoveredWidget(nullptr, inputEvent.MousePosition, inputEvent.Timestamp);
+            continue;
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonUp &&
+            inputEvent.MouseButton == EMouseButton::Left &&
+            InteractionState_->DraggedWindow_) {
+            InteractionState_->DraggedWindow_->SetPosition(
+                inputEvent.MousePosition - InteractionState_->WindowDragOffset_);
+            InteractionState_->DraggedWindow_.reset();
+            UpdateHoveredWidget(
+                ResolveHoveredWidget(inputEvent.MousePosition),
+                inputEvent.MousePosition,
+                inputEvent.Timestamp);
+            continue;
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonDown &&
+            inputEvent.MouseButton == EMouseButton::Left) {
+            if (WindowManager_.GetTopmostModalWindow() &&
+                !WindowManager_.GetTopmostModalWindow()->ContainsPoint(inputEvent.MousePosition)) {
+                UpdateHoveredWidget(nullptr, inputEvent.MousePosition, inputEvent.Timestamp);
+                continue;
+            }
+
+            const std::shared_ptr<ImWindow> topPopup = WindowManager_.GetTopmostPopupWindow();
+            if (topPopup &&
+                topPopup->ClosesOnClickOutside() &&
+                !WindowManager_.IsPopupChainHit(inputEvent.MousePosition)) {
+                WindowManager_.CloseTopPopupChain();
+                CleanupInteractionState();
+                UpdateHoveredWidget(
+                    ResolveHoveredWidget(inputEvent.MousePosition),
+                    inputEvent.MousePosition,
+                    inputEvent.Timestamp);
+                continue;
+            }
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonUp &&
+            inputEvent.MouseButton == EMouseButton::Left &&
+            InteractionState_->PressedCloseWindow_) {
+            const std::shared_ptr<ImWindow> closeWindow = InteractionState_->PressedCloseWindow_;
+            closeWindow->bCloseButtonPressed_ = false;
+            InteractionState_->PressedCloseWindow_.reset();
+
+            if (closeWindow->IsOpen() && closeWindow->IsPointInCloseButton(inputEvent.MousePosition)) {
+                WindowManager_.CloseWindow(closeWindow);
+                CleanupInteractionState();
+            }
+
+            UpdateHoveredWidget(
+                ResolveHoveredWidget(inputEvent.MousePosition),
+                inputEvent.MousePosition,
+                inputEvent.Timestamp);
+            continue;
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonDown &&
+            inputEvent.MouseButton == EMouseButton::Left &&
+            !InteractionState_->CapturedMouseWidget_) {
+            std::shared_ptr<ImWindow> hitWindow = WindowManager_.HitTestWindow(inputEvent.MousePosition);
+            if (hitWindow) {
+                WindowManager_.SetActiveWindowInternal(hitWindow);
+                WindowManager_.BringToFront(hitWindow);
+                ClearKeyboardFocusIfOutsideActiveWindow(hitWindow);
+
+                if (hitWindow->IsPointInCloseButton(inputEvent.MousePosition) && hitWindow->IsClosable()) {
+                    hitWindow->bCloseButtonPressed_ = true;
+                    InteractionState_->PressedCloseWindow_ = hitWindow;
+                    UpdateHoveredWidget(nullptr, inputEvent.MousePosition, inputEvent.Timestamp);
+                    continue;
+                }
+
+                if (hitWindow->IsPointInTitleBar(inputEvent.MousePosition) && hitWindow->IsMovable()) {
+                    InteractionState_->DraggedWindow_ = hitWindow;
+                    InteractionState_->WindowDragOffset_ = inputEvent.MousePosition - hitWindow->GetPosition();
+                    UpdateHoveredWidget(nullptr, inputEvent.MousePosition, inputEvent.Timestamp);
+                    continue;
+                }
+            } else {
+                ClearKeyboardFocusIfOutsideActiveWindow(nullptr);
             }
         }
 
@@ -510,28 +784,32 @@ void ImApplication::RouteInputEvents() {
                 inputEvent.Type != EInputEventType::MouseLeave) {
                 eventPath = BuildPathToSceneRoot(InteractionState_->CapturedMouseWidget_);
             } else {
-                eventPath = PathResolver_->BuildHitTestPath(SceneRoot_, inputEvent.MousePosition);
+                FWindowWidgetTarget mouseTarget = ResolveMouseTarget(inputEvent.MousePosition);
+                eventPath = std::move(mouseTarget.WidgetPath);
             }
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseMove) {
+            UpdateHoveredWidget(
+                eventPath.empty() ? nullptr : eventPath.back(),
+                inputEvent.MousePosition,
+                inputEvent.Timestamp);
         }
 
         if (!eventPath.empty()) {
             ProcessReply(RouteEvent(inputEvent, eventPath));
+            CleanupInteractionState();
         }
     }
 }
 
-void ImApplication::UpdateHoveredWidget(const FVector2& cursorPosition, double timestamp) {
-    if (!SceneRoot_) {
-        return;
-    }
-
-    std::vector<std::shared_ptr<ImWidget>> hitPath =
-        PathResolver_->BuildHitTestPath(SceneRoot_, cursorPosition);
-    std::shared_ptr<ImWidget> currentHoveredWidget =
-        hitPath.empty() ? nullptr : hitPath.back();
+void ImApplication::UpdateHoveredWidget(
+    const std::shared_ptr<ImWidget>& hoveredWidget,
+    const FVector2& cursorPosition,
+    double timestamp)
+{
     std::shared_ptr<ImWidget> lastHoveredWidget = InteractionState_->HoveredWidget_.lock();
-
-    if (currentHoveredWidget == lastHoveredWidget) {
+    if (lastHoveredWidget == hoveredWidget) {
         return;
     }
 
@@ -541,25 +819,29 @@ void ImApplication::UpdateHoveredWidget(const FVector2& cursorPosition, double t
         leaveEvent.MousePosition = cursorPosition;
         leaveEvent.Timestamp = timestamp;
 
-        std::vector<std::shared_ptr<ImWidget>> leavePath = BuildPathToSceneRoot(lastHoveredWidget);
+        const std::vector<std::shared_ptr<ImWidget>> leavePath = BuildPathToSceneRoot(lastHoveredWidget);
         if (!leavePath.empty()) {
             ProcessReply(RouteEvent(leaveEvent, leavePath));
         }
     }
 
-    InteractionState_->HoveredWidget_ = currentHoveredWidget;
+    InteractionState_->HoveredWidget_ = hoveredWidget;
 
-    if (currentHoveredWidget) {
+    if (hoveredWidget) {
         FInputEvent enterEvent;
         enterEvent.Type = EInputEventType::MouseEnter;
         enterEvent.MousePosition = cursorPosition;
         enterEvent.Timestamp = timestamp;
 
-        ProcessReply(RouteEvent(enterEvent, hitPath));
+        const std::vector<std::shared_ptr<ImWidget>> enterPath = BuildPathToSceneRoot(hoveredWidget);
+        if (!enterPath.empty()) {
+            ProcessReply(RouteEvent(enterEvent, enterPath));
+        }
     }
 }
 
-void ImApplication::ProcessReply(const FReply& reply) {
+void ImApplication::ProcessReply(const FReply& reply)
+{
     if (reply.bReleaseMouseCapture) {
         ReleaseMouseCapture();
     }
@@ -575,45 +857,151 @@ void ImApplication::ProcessReply(const FReply& reply) {
     }
 }
 
-void ImApplication::ResetInteractionState() {
+void ImApplication::ResetInteractionState()
+{
     ClearKeyboardFocus();
     ReleaseMouseCapture();
     InteractionState_->HoveredWidget_.reset();
     InteractionState_->bHasCursorPosition_ = false;
     InteractionState_->LastCursorPosition_ = FVector2(0.0f, 0.0f);
+    InteractionState_->DraggedWindow_.reset();
+    InteractionState_->PressedCloseWindow_.reset();
+}
+
+void ImApplication::CleanupInteractionState()
+{
+    const std::shared_ptr<ImWindow> modalWindow = WindowManager_.GetTopmostModalWindow();
+
+    if (InteractionState_->FocusedWidget_) {
+        const std::shared_ptr<ImWindow> focusWindow = WindowManager_.FindOwningWindow(InteractionState_->FocusedWidget_);
+        if (!focusWindow || (modalWindow && focusWindow != modalWindow)) {
+            ClearKeyboardFocus();
+        }
+    }
+
+    if (InteractionState_->CapturedMouseWidget_) {
+        const std::shared_ptr<ImWindow> captureWindow = WindowManager_.FindOwningWindow(InteractionState_->CapturedMouseWidget_);
+        if (!captureWindow || (modalWindow && captureWindow != modalWindow)) {
+            ReleaseMouseCapture();
+        }
+    }
+
+    std::shared_ptr<ImWidget> hoveredWidget = InteractionState_->HoveredWidget_.lock();
+    if (hoveredWidget) {
+        const std::shared_ptr<ImWindow> hoverWindow = WindowManager_.FindOwningWindow(hoveredWidget);
+        if (!hoverWindow || (modalWindow && hoverWindow != modalWindow)) {
+            UpdateHoveredWidget(
+                nullptr,
+                InteractionState_->LastCursorPosition_,
+                0.0);
+        }
+    }
+
+    if (InteractionState_->DraggedWindow_ && !InteractionState_->DraggedWindow_->IsOpen()) {
+        InteractionState_->DraggedWindow_.reset();
+    }
+
+    if (InteractionState_->PressedCloseWindow_ && !InteractionState_->PressedCloseWindow_->IsOpen()) {
+        InteractionState_->PressedCloseWindow_.reset();
+    }
+}
+
+void ImApplication::ClearKeyboardFocusIfOutsideActiveWindow(const std::shared_ptr<ImWindow>& activeWindow)
+{
+    if (!InteractionState_->FocusedWidget_) {
+        return;
+    }
+
+    if (WindowManager_.FindOwningWindow(InteractionState_->FocusedWidget_) != activeWindow) {
+        ClearKeyboardFocus();
+    }
 }
 
 std::vector<std::shared_ptr<ImWidget>> ImApplication::BuildPathToSceneRoot(
-    const std::shared_ptr<ImWidget>& widget) const {
-    return PathResolver_->BuildPathToSceneRoot(SceneRoot_, widget);
+    const std::shared_ptr<ImWidget>& widget) const
+{
+    if (!widget) {
+        return {};
+    }
+
+    for (const std::shared_ptr<ImWindow>& window : WindowManager_.GetOpenWindows()) {
+        if (!window->GetRootWidget()) {
+            continue;
+        }
+
+        std::vector<std::shared_ptr<ImWidget>> path =
+            PathResolver_->BuildPathToSceneRoot(window->GetRootWidget(), widget);
+        if (!path.empty()) {
+            return path;
+        }
+    }
+
+    return {};
 }
 
 FReply ImApplication::RouteEvent(
     const FInputEvent& event,
-    const std::vector<std::shared_ptr<ImWidget>>& eventPath) {
+    const std::vector<std::shared_ptr<ImWidget>>& eventPath)
+{
     return EventRouter_->Route(event, eventPath);
 }
 
-bool ImApplication::NeedsPrepassAndArrange(const FGeometry& frameGeometry) const {
-    if (!bHasLastFrameGeometry_) {
-        return true;
-    }
+void ImApplication::PerformLayoutPass()
+{
+    for (const std::shared_ptr<ImWindow>& window : WindowManager_.GetOpenWindows()) {
+        if (!window->GetRootWidget()) {
+            continue;
+        }
 
-    const float epsilon = 0.01f;
-    if (std::abs(frameGeometry.Size.X - LastFrameGeometry_.Size.X) > epsilon ||
-        std::abs(frameGeometry.Size.Y - LastFrameGeometry_.Size.Y) > epsilon) {
-        return true;
+        window->GetRootWidget()->SetGeometry(window->GetContentGeometry());
     }
-
-    return false;
 }
 
-void ImApplication::PerformLayoutPass(const FGeometry& frameGeometry) {
-    if (!RootWidget_) {
-        return;
+void ImApplication::PaintWindows(const FFrameContext& frameContext, const FGeometry& viewportGeometry)
+{
+    for (const std::shared_ptr<ImWindow>& window : WindowManager_.GetOpenWindows()) {
+        DrawWindowChrome(*frameContext.DrawContext_, *window, viewportGeometry);
+
+        if (!window->GetRootWidget()) {
+            continue;
+        }
+
+        const FGeometry contentGeometry = window->GetContentGeometry();
+        frameContext.DrawContext_->PushClipRect(contentGeometry.GetMin(), contentGeometry.GetMax(), true);
+
+        FPaintContext paintContext(
+            *frameContext.DrawContext_,
+            contentGeometry,
+            &StyleSet_,
+            InteractionState_->LastCursorPosition_,
+            InteractionState_->bHasCursorPosition_,
+            frameContext.FrameInfo.DeltaTime);
+        window->GetRootWidget()->Paint(paintContext);
+
+        frameContext.DrawContext_->PopClipRect();
+    }
+}
+
+ImApplication::FWindowWidgetTarget ImApplication::ResolveMouseTarget(const FVector2& position) const
+{
+    FWindowWidgetTarget result;
+    result.Window = WindowManager_.HitTestContentWindow(position);
+    if (!result.Window || !result.Window->GetRootWidget()) {
+        return result;
     }
 
-    RootWidget_->SetGeometry(frameGeometry);
+    result.WidgetPath = PathResolver_->BuildHitTestPath(result.Window->GetRootWidget(), position);
+    if (result.WidgetPath.empty()) {
+        result.Window.reset();
+    }
+
+    return result;
+}
+
+std::shared_ptr<ImWidget> ImApplication::ResolveHoveredWidget(const FVector2& position) const
+{
+    const FWindowWidgetTarget target = ResolveMouseTarget(position);
+    return target.WidgetPath.empty() ? nullptr : target.WidgetPath.back();
 }
 
 } // namespace ImWidgetV4

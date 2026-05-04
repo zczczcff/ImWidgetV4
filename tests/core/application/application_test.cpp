@@ -301,6 +301,31 @@ TEST_F(ApplicationTest, ClickingWindowContentActivatesWindowAndRoutesToItsTree) 
         rightLog.end());
 }
 
+TEST_F(ApplicationTest, ClickingMainWindowDoesNotBlockLaterFloatingWindowInteraction) {
+    std::vector<std::string> floatingLog;
+
+    auto mainRoot = std::make_shared<TestWidget>("main-root");
+    App->SetRootWidget(mainRoot);
+
+    FWindowOptions floatingOptions;
+    floatingOptions.Title = "Floating";
+    floatingOptions.Position = FVector2(120.0f, 80.0f);
+    floatingOptions.Size = FVector2(160.0f, 110.0f);
+    floatingOptions.RootWidget = std::make_shared<TestWidget>("floating-root", &floatingLog);
+    const auto floatingWindow = App->GetWindowManager().CreateWindow(floatingOptions);
+
+    Advance({MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f))});
+    EXPECT_EQ(App->GetWindowManager().GetActiveWindow(), App->GetWindowManager().GetMainWindow());
+
+    floatingLog.clear();
+    Advance({MouseEvent(EInputEventType::MouseButtonDown, FVector2(150.0f, 120.0f))});
+
+    EXPECT_EQ(App->GetWindowManager().GetActiveWindow(), floatingWindow);
+    EXPECT_NE(
+        std::find(floatingLog.begin(), floatingLog.end(), "bubble:floating-root:4"),
+        floatingLog.end());
+}
+
 TEST_F(ApplicationTest, TitleBarDragMovesWindowUntilMouseRelease) {
     FWindowOptions options;
     options.Title = "Draggable";

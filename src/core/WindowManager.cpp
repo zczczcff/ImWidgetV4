@@ -65,7 +65,10 @@ void ImWindowManager::BringToFront(const Ptr& window)
 
     Ptr keepAlive = *it;
     Windows_.erase(it);
-    const std::size_t index = FindInsertIndexForFront(keepAlive->Kind_);
+    const std::size_t index =
+        keepAlive->Kind_ == EWindowKind::Normal && keepAlive->UsesViewportFill()
+            ? FindInsertIndexForViewportFillNormal(keepAlive)
+            : FindInsertIndexForFront(keepAlive->Kind_);
     Windows_.insert(Windows_.begin() + static_cast<std::ptrdiff_t>(index), keepAlive);
 }
 
@@ -349,6 +352,27 @@ std::size_t ImWindowManager::FindInsertIndexForFront(EWindowKind kind) const
     }
 
     return Windows_.size();
+}
+
+std::size_t ImWindowManager::FindInsertIndexForViewportFillNormal(const Ptr& window) const
+{
+    std::size_t index = 0;
+    for (; index < Windows_.size(); ++index) {
+        const Ptr& candidate = Windows_[index];
+        if (!candidate) {
+            continue;
+        }
+
+        if (candidate->Kind_ != EWindowKind::Normal) {
+            break;
+        }
+
+        if (!candidate->UsesViewportFill()) {
+            break;
+        }
+    }
+
+    return index;
 }
 
 } // namespace ImWidgetV4

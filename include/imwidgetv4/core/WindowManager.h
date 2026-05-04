@@ -49,6 +49,7 @@ private:
     void CloseWindowRecursive(const Ptr& window);
     void PruneExpiredChildren(ImWindow& window) const;
     std::size_t FindInsertIndexForFront(EWindowKind kind) const;
+    std::size_t FindInsertIndexForViewportFillNormal(const Ptr& window) const;
 
     std::vector<Ptr> Windows_;
     std::vector<Ptr> PopupStack_;

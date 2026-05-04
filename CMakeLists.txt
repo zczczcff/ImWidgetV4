@@ -73,25 +73,75 @@ add_library(stb_lib INTERFACE)
 target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
 
 # 创建 imwidgetv4_core 库目标
-add_library(imwidgetv4_core STATIC
-    ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
+set(IMWIDGETV4_CORE_PUBLIC_HEADERS
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Application.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/ApplicationBackend.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType_temp.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/ReflectableObject.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Reply.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Slot.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Types.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Widget.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/detail/const_string.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/detail/parser.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/flat_type_map.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/named_type.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/type_hash.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/type_id.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/type_id_constant.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/type_index.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/type_name.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/uectti.hpp
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/rop/RunTimeObjectProperty.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/input/Input.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/rendering/DrawContext.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/rendering/DrawUtils.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/snapshot/Snapshot.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/style/StyleSet.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/BoxSlot.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Button.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ButtonStyle.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalSplitter.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PanelWidget.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextBlock.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/VerticalBox.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/VerticalSplitter.h
+)
+
+set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/Application.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_SOURCE_DIR}/src/core/DrawContext.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Slot.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_SOURCE_DIR}/src/input/Input.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/snapshot/Snapshot.cpp
     ${CMAKE_SOURCE_DIR}/src/style/StyleSet.cpp
-    ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
-    ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
-    ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/BoxSlot.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/Button.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
-    ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalSplitter.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalSplitter.cpp
+)
+
+set(IMWIDGETV4_CORE_VS_ONLY_FILES
+    ${CMAKE_SOURCE_DIR}/src/rendering/DrawContext.cpp
+)
+
+set_source_files_properties(${IMWIDGETV4_CORE_VS_ONLY_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
+
+add_library(imwidgetv4_core STATIC
+    ${IMWIDGETV4_CORE_PUBLIC_HEADERS}
+    ${IMWIDGETV4_CORE_SOURCES}
+    ${IMWIDGETV4_CORE_VS_ONLY_FILES}
 )
 target_include_directories(imwidgetv4_core PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -103,9 +153,22 @@ target_link_libraries(imwidgetv4_core PUBLIC
     stb_lib
 )
 
-add_library(imwidgetv4_platform_win32_dx11 STATIC
+source_group(TREE ${CMAKE_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_CORE_PUBLIC_HEADERS})
+source_group(TREE ${CMAKE_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_CORE_SOURCES} ${IMWIDGETV4_CORE_VS_ONLY_FILES})
+
+set(IMWIDGETV4_PLATFORM_HEADERS
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/platform/ImGuiInputSource.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/platform/Win32DX11Backend.h
+)
+
+set(IMWIDGETV4_PLATFORM_SOURCES
     ${CMAKE_SOURCE_DIR}/src/platform/ImGuiInputSource.cpp
     ${CMAKE_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
+)
+
+add_library(imwidgetv4_platform_win32_dx11 STATIC
+    ${IMWIDGETV4_PLATFORM_HEADERS}
+    ${IMWIDGETV4_PLATFORM_SOURCES}
 )
 target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -114,6 +177,9 @@ target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
     imwidgetv4_core
     imgui_lib
 )
+
+source_group(TREE ${CMAKE_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_PLATFORM_HEADERS})
+source_group(TREE ${CMAKE_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_PLATFORM_SOURCES})
 
 # 启用测试
 enable_testing()

@@ -166,6 +166,9 @@ private:
     UINT ResizeWidth_;
     UINT ResizeHeight_;
     bool bSwapChainOccluded_;
+    bool bWindowClassRegistered_;
+    bool bImGuiBackendInitialized_;
+    bool bImGuiContextOwned_;
 
     // ========== Application 引用 ==========
     ImApplication* Application_;

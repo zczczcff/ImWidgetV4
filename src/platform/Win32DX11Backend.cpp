@@ -31,6 +31,9 @@ ImWin32DX11Backend::ImWin32DX11Backend(
     , ResizeWidth_(0)
     , ResizeHeight_(0)
     , bSwapChainOccluded_(false)
+    , bWindowClassRegistered_(false)
+    , bImGuiBackendInitialized_(false)
+    , bImGuiContextOwned_(false)
     , Application_(nullptr)
 {
 }
@@ -42,6 +45,10 @@ ImWin32DX11Backend::~ImWin32DX11Backend() {
 // ========== ImApplicationBackend 接口实现 ==========
 
 bool ImWin32DX11Backend::Initialize() {
+    if (bWindowClassRegistered_ || Hwnd_ != nullptr || bImGuiBackendInitialized_) {
+        return true;
+    }
+
     // 1. 注册窗口类
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(WNDCLASSEXW);
@@ -54,6 +61,7 @@ bool ImWin32DX11Backend::Initialize() {
     if (!RegisterClassExW(&wc)) {
         return false;
     }
+    bWindowClassRegistered_ = true;
 
     // 2. 创建窗口
     Hwnd_ = CreateWindowW(
@@ -83,6 +91,7 @@ bool ImWin32DX11Backend::Initialize() {
     // 5. 初始化 ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    bImGuiContextOwned_ = true;
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     if (Application_ != nullptr) {
@@ -96,27 +105,40 @@ bool ImWin32DX11Backend::Initialize() {
     // 7. 初始化 ImGui 后端
     ImGui_ImplWin32_Init(Hwnd_);
     ImGui_ImplDX11_Init(D3DDevice_, D3DDeviceContext_);
+    bImGuiBackendInitialized_ = true;
 
     return true;
 }
 
 void ImWin32DX11Backend::Shutdown() {
     // 1. 清理 ImGui
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
+    if (bImGuiBackendInitialized_) {
+        ImGui_ImplDX11_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        bImGuiBackendInitialized_ = false;
+    }
+
+    if (bImGuiContextOwned_ && ImGui::GetCurrentContext() != nullptr) {
+        ImGui::DestroyContext();
+        bImGuiContextOwned_ = false;
+    }
 
     // 2. 清理 DirectX 11
     CleanupDeviceD3D();
 
     // 3. 销毁窗口
-    if (Hwnd_) {
-        DestroyWindow(Hwnd_);
+    if (Hwnd_ != nullptr) {
+        if (::IsWindow(Hwnd_)) {
+            DestroyWindow(Hwnd_);
+        }
         Hwnd_ = nullptr;
     }
 
     // 4. 注销窗口类
-    UnregisterClassW(L"ImWidgetV4WindowClass", HInstance_);
+    if (bWindowClassRegistered_) {
+        UnregisterClassW(L"ImWidgetV4WindowClass", HInstance_);
+        bWindowClassRegistered_ = false;
+    }
 }
 
 void ImWin32DX11Backend::Run() {
@@ -265,6 +287,9 @@ void ImWin32DX11Backend::ClearPostFrameCallback() {
 
 void ImWin32DX11Backend::RequestClose() {
     bShouldClose_ = true;
+    if (Hwnd_ != nullptr && ::IsWindow(Hwnd_)) {
+        ::PostMessageW(Hwnd_, WM_CLOSE, 0, 0);
+    }
 }
 
 std::string ImWin32DX11Backend::GetBackendName() const {
@@ -433,7 +458,14 @@ LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
         }
         break;
 
+    case WM_CLOSE:
+        bShouldClose_ = true;
+        DestroyWindow(hWnd);
+        return 0;
+
     case WM_DESTROY:
+        Hwnd_ = nullptr;
+        bShouldClose_ = true;
         PostQuitMessage(0);
         return 0;
     }

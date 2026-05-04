@@ -148,6 +148,8 @@ void ImWin32DX11Backend::Run() {
         BeginFrame();
 
         // 5. 调用 Application 的 AdvanceFrame
+        FFrameInfo frameInfo;
+        bool bHasFrameInfo = false;
         if (Application_) {
             const ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImGuiIO& io = ImGui::GetIO();
@@ -166,11 +168,17 @@ void ImWin32DX11Backend::Run() {
             frameContext.DrawContext_ = &drawContext;
             frameContext.InputSource = &InputSource_;
 
+            frameInfo = frameContext.FrameInfo;
+            bHasFrameInfo = true;
             Application_->AdvanceFrame(frameContext);
         }
 
         // 6. 结束帧
         EndFrame();
+
+        if (bHasFrameInfo && PostFrameCallback_) {
+            PostFrameCallback_(frameInfo);
+        }
     }
 }
 
@@ -237,6 +245,14 @@ void ImWin32DX11Backend::SetApplication(ImApplication* app) {
 
 ImApplication* ImWin32DX11Backend::GetApplication() const {
     return Application_;
+}
+
+void ImWin32DX11Backend::SetPostFrameCallback(FPostFrameCallback callback) {
+    PostFrameCallback_ = std::move(callback);
+}
+
+void ImWin32DX11Backend::ClearPostFrameCallback() {
+    PostFrameCallback_ = nullptr;
 }
 
 void ImWin32DX11Backend::RequestClose() {

@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/platform/ImGuiInputSource.h>
+#include <functional>
 #include <string>
 #include <Windows.h>
 #include <d3d11.h>
@@ -17,6 +18,8 @@ namespace ImWidgetV4 {
  */
 class ImWin32DX11Backend : public ImApplicationBackend {
 public:
+    using FPostFrameCallback = std::function<void(const FFrameInfo&)>;
+
     /**
      * @brief 构造函数
      * @param windowTitle 窗口标题（宽字符）
@@ -110,6 +113,9 @@ public:
      */
     ImApplication* GetApplication() const override;
 
+    void SetPostFrameCallback(FPostFrameCallback callback);
+    void ClearPostFrameCallback();
+
     /**
      * @brief 请求关闭窗口
      */
@@ -164,6 +170,7 @@ private:
     // ========== Application 引用 ==========
     ImApplication* Application_;
     FImGuiInputSource InputSource_;
+    FPostFrameCallback PostFrameCallback_;
 
     // ========== 内部方法 ==========
 

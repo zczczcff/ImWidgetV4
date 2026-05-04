@@ -1,49 +1,72 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/Button.h>
-#include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include <algorithm>
+#include <cmath>
+#include <filesystem>
 #include <memory>
+#include <string>
+#include <system_error>
 #include <Windows.h>
 
 using namespace ImWidgetV4;
 
+namespace {
+
+FSnapshotOptions MakeSnapshotOptions(const FFrameInfo& frameInfo) {
+    FSnapshotOptions options;
+    options.Width = (std::max)(1, static_cast<int>(std::lround(frameInfo.ViewportSize.X)));
+    options.Height = (std::max)(1, static_cast<int>(std::lround(frameInfo.ViewportSize.Y)));
+    options.ClearColor = FColor::FromBytes(18, 24, 32);
+    return options;
+}
+
+} // namespace
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine, int nShowCmd)
 {
-    // 创建 Win32+DX11 后端
     auto backend = std::make_shared<ImWin32DX11Backend>(
         L"BoxPanel Demo - ImWidgetV4",
         800,
         600
     );
 
-    // 初始化后端
     if (!backend->Initialize()) {
         MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
         return -1;
     }
 
-    // 创建应用程序实例
     auto app = std::make_shared<ImApplication>();
-
-    // 设置应用程序到后端
     backend->SetApplication(app.get());
 
-    // ==================== 创建 UI 布局 ====================
-
-    // 创建根垂直布局
     auto rootVBox = std::make_shared<ImVerticalBox>();
     rootVBox->SetSpacing(10.0f);
 
-    // 1. 标题文本
     auto titleText = std::make_shared<ImTextBlock>();
     titleText->SetText("BoxPanel Demo - HorizontalBox & VerticalBox");
     titleText->SetTextColor(FColor::White);
     rootVBox->AddChild(titleText, FMargin(10.0f, 10.0f, 10.0f, 0.0f));
 
-    // 2. 水平按钮组（固定大小）
+    auto toolbar = std::make_shared<ImHorizontalBox>();
+    toolbar->SetSpacing(8.0f);
+
+    auto exportButton = std::make_shared<ImButton>();
+    exportButton->SetText("Export Snapshot");
+    exportButton->SetStyle(FButtonStyle::CreatePrimary());
+    toolbar->AddChild(exportButton);
+
+    auto exportStatus = std::make_shared<ImTextBlock>();
+    exportStatus->SetText("Click to export the current BoxPanel demo snapshot.");
+    exportStatus->SetTextColor(FColor::FromBytes(220, 228, 236));
+    exportStatus->SetWrapText(true);
+    toolbar->AddChildFill(exportStatus, 1.0f);
+
+    rootVBox->AddChild(toolbar, FMargin(10.0f, 5.0f, 10.0f, 0.0f));
+
     auto hBox1 = std::make_shared<ImHorizontalBox>();
     hBox1->SetSpacing(5.0f);
 
@@ -61,7 +84,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     rootVBox->AddChild(hBox1, FMargin(10.0f, 5.0f, 10.0f, 0.0f));
 
-    // 3. 水平按钮组（比例填充）
     auto hBox2 = std::make_shared<ImHorizontalBox>();
     hBox2->SetSpacing(5.0f);
 
@@ -79,7 +101,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     rootVBox->AddChildFill(hBox2, 1.0f, FMargin(10.0f, 5.0f, 10.0f, 0.0f));
 
-    // 4. 混合布局（固定 + 填充）
     auto hBox3 = std::make_shared<ImHorizontalBox>();
     hBox3->SetSpacing(5.0f);
 
@@ -97,25 +118,56 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     rootVBox->AddChildFill(hBox3, 1.0f, FMargin(10.0f, 5.0f, 10.0f, 0.0f));
 
-    // 5. 底部文本
     auto footerText = std::make_shared<ImTextBlock>();
     footerText->SetText("Fixed size buttons vs Fill buttons");
     footerText->SetTextColor(FColor::White);
     rootVBox->AddChild(footerText, FMargin(10.0f, 0.0f, 10.0f, 10.0f));
 
-    // 设置根控件的几何信息
     FGeometry rootGeometry;
     rootGeometry.Position = FVector2(0.0f, 0.0f);
     rootGeometry.Size = FVector2(800.0f, 600.0f);
     rootVBox->SetGeometry(rootGeometry);
 
-    // 设置根控件
     app->SetRootWidget(rootVBox);
 
-    // 运行主循环
-    backend->Run();
+    const std::filesystem::path snapshotPath =
+        std::filesystem::absolute(std::filesystem::path("artifacts") / "snapshots" / "box_panel_demo.png");
+    bool bPendingSnapshotExport = false;
 
-    // 清理
+    exportButton->OnClicked.AddLambda([&](ImButton&) {
+        bPendingSnapshotExport = true;
+        exportStatus->SetText("Export scheduled. Snapshot will be written after this frame.");
+    });
+
+    backend->SetPostFrameCallback([&](const FFrameInfo& frameInfo) {
+        if (!bPendingSnapshotExport) {
+            return;
+        }
+
+        bPendingSnapshotExport = false;
+
+        std::error_code directoryError;
+        std::filesystem::create_directories(snapshotPath.parent_path(), directoryError);
+
+        FFrameContext snapshotFrameContext;
+        snapshotFrameContext.FrameInfo = frameInfo;
+
+        const bool bExported =
+            !directoryError &&
+            app->ExportSnapshotToPng(snapshotPath, snapshotFrameContext, MakeSnapshotOptions(frameInfo));
+
+        if (bExported) {
+            exportStatus->SetText("Snapshot exported to: " + snapshotPath.string());
+        } else {
+            std::string message = "Snapshot export failed: " + snapshotPath.string();
+            if (directoryError) {
+                message += " (" + directoryError.message() + ")";
+            }
+            exportStatus->SetText(message);
+        }
+    });
+
+    backend->Run();
     backend->Shutdown();
 
     return 0;

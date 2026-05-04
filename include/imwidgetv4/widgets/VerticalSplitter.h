@@ -6,7 +6,17 @@
 
 namespace ImWidgetV4 {
 
-struct FVerticalSplitterStyle {
+struct FVerticalSplitterStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FVerticalSplitterStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Float, "BarHeight", &FVerticalSplitterStyle::BarHeight, "Bar height")
+        .RegisterProperty(PropertyType::Color, "Color", &FVerticalSplitterStyle::Color, "Bar color")
+        .RegisterProperty(PropertyType::Color, "HoveredColor", &FVerticalSplitterStyle::HoveredColor, "Hovered bar color")
+        .RegisterProperty(PropertyType::Color, "ActiveColor", &FVerticalSplitterStyle::ActiveColor, "Active bar color")
+        .RegisterProperty(PropertyType::Float, "Rounding", &FVerticalSplitterStyle::Rounding, "Bar rounding");
+    END_DECLARE_OBJECT()
+
+public:
     float BarHeight = 4.0f;
     FColor Color = FColor::FromBytes(100, 100, 100, 255);
     FColor HoveredColor = FColor::FromBytes(120, 120, 120, 255);
@@ -15,6 +25,12 @@ struct FVerticalSplitterStyle {
 };
 
 class ImVerticalSplitterSlot : public ImPaddingSlot {
+    DECLARE_OBJECT_WITH_PARENT(ImVerticalSplitterSlot, ImPaddingSlot)
+    registrar
+        .RegisterProperty(PropertyType::Float, "Ratio", &ImVerticalSplitterSlot::m_Ratio, "Part ratio")
+        .RegisterProperty(PropertyType::Float, "MinSize", &ImVerticalSplitterSlot::m_MinSize, "Minimum part size");
+    END_DECLARE_OBJECT()
+
 public:
     ImVerticalSplitterSlot() = default;
     virtual ~ImVerticalSplitterSlot() = default;
@@ -31,6 +47,11 @@ private:
 };
 
 class ImVerticalSplitter : public ImPanelWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImVerticalSplitter, ImPanelWidget)
+    registrar
+        .RegisterProperty(PropertyType::Struct, "Style", &ImVerticalSplitter::m_Style, "Vertical splitter style");
+    END_DECLARE_OBJECT()
+
 public:
     ImVerticalSplitter();
     virtual ~ImVerticalSplitter() = default;

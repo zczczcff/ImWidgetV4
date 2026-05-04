@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/Widget.h>
 #include <imgui.h>
+#include <algorithm>
 
 namespace ImWidgetV4 {
 
@@ -21,6 +22,21 @@ struct FImageBrush {
 };
 
 class ImImage : public ImWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImImage, ImWidget)
+    registrar
+        .RegisterProperty(PropertyType::Vec2, "DesiredSize", &ImImage::m_DesiredSize, "Desired image size")
+        .RegisterProperty(PropertyType::Color, "BackgroundColor", &ImImage::m_BackgroundColor, "Background color")
+        .RegisterProperty(PropertyType::Float, "CornerRadius", &ImImage::m_CornerRadius, "Corner radius")
+        .RegisterProperty(PropertyType::Color, "Tint", &ImImage::m_Tint, "Tint color")
+        .RegisterOptionalProperty(
+            PropertyType::Enum,
+            "StretchMode",
+            static_cast<void (ImImage::*)(int&)>(&ImImage::SetStretchModeProperty),
+            static_cast<int& (ImImage::*)()>(&ImImage::GetStretchModeProperty),
+            {"KeepAspect", "Fill"},
+            "Image stretch mode");
+    END_DECLARE_OBJECT()
+
 public:
     ImImage();
     virtual ~ImImage() = default;
@@ -50,6 +66,18 @@ public:
     virtual FVector2 GetMinSize() const override;
 
 private:
+    void SetStretchModeProperty(int& value)
+    {
+        value = std::clamp(value, 0, 1);
+        SetStretchMode(static_cast<EImageStretchMode>(value));
+    }
+
+    int& GetStretchModeProperty()
+    {
+        m_StretchModeValue = static_cast<int>(m_StretchMode);
+        return m_StretchModeValue;
+    }
+
     const FImageBrush& ResolveBrushForPaint() const;
     FGeometry ComputeImageGeometry(const FImageBrush& brush) const;
     FVector2 ResolveImageSourceSize(const FImageBrush& brush) const;
@@ -62,6 +90,7 @@ private:
     float m_CornerRadius = 6.0f;
     float m_BorderThickness = 1.0f;
     EImageStretchMode m_StretchMode = EImageStretchMode::KeepAspect;
+    int m_StretchModeValue = 0;
 };
 
 } // namespace ImWidgetV4

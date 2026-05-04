@@ -8,6 +8,10 @@
 #include <string>
 #include <vector>
 
+#ifdef GetClassName
+#undef GetClassName
+#endif
+
 namespace ImWidgetV4 {
 
 class ImApplication;

@@ -1,4 +1,5 @@
 #pragma once
+#include <imwidgetv4/core/ReflectableObject.h>
 #include <imgui.h>
 #include <cmath>
 #include <cstdint>
@@ -168,7 +169,16 @@ struct FGeometry {
 };
 
 // 边距
-struct FMargin {
+struct FMargin : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FMargin, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Float, "Left", &FMargin::Left, "Left margin")
+        .RegisterProperty(PropertyType::Float, "Right", &FMargin::Right, "Right margin")
+        .RegisterProperty(PropertyType::Float, "Top", &FMargin::Top, "Top margin")
+        .RegisterProperty(PropertyType::Float, "Bottom", &FMargin::Bottom, "Bottom margin");
+    END_DECLARE_OBJECT()
+
+public:
     float Left = 0.0f;
     float Right = 0.0f;
     float Top = 0.0f;

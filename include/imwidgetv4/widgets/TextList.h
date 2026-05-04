@@ -6,7 +6,32 @@
 
 namespace ImWidgetV4 {
 
-struct FTextListStyle {
+struct FTextListStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FTextListStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTextListStyle::BackgroundColor, "Background color")
+        .RegisterProperty(PropertyType::Color, "BorderColor", &FTextListStyle::BorderColor, "Border color")
+        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FTextListStyle::FocusedOutlineColor, "Focused outline color")
+        .RegisterProperty(PropertyType::Color, "TextColor", &FTextListStyle::TextColor, "Text color")
+        .RegisterProperty(PropertyType::Color, "SelectionBackgroundColor", &FTextListStyle::SelectionBackgroundColor, "Selection background color")
+        .RegisterProperty(PropertyType::Struct, "Padding", &FTextListStyle::Padding, "Content padding")
+        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FTextListStyle::MinDesiredSize, "Minimum desired size")
+        .RegisterProperty(PropertyType::Float, "CornerRadius", &FTextListStyle::CornerRadius, "Corner radius")
+        .RegisterProperty(PropertyType::Float, "BorderThickness", &FTextListStyle::BorderThickness, "Border thickness")
+        .RegisterProperty(PropertyType::Float, "FontSize", &FTextListStyle::FontSize, "Font size")
+        .RegisterProperty(PropertyType::Float, "LineSpacing", &FTextListStyle::LineSpacing, "Line spacing")
+        .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FTextListStyle::ScrollbarThickness, "Scrollbar thickness")
+        .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FTextListStyle::ScrollbarPadding, "Scrollbar padding")
+        .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FTextListStyle::ScrollbarTrackColor, "Scrollbar track color")
+        .RegisterProperty(PropertyType::Color, "ScrollbarThumbColor", &FTextListStyle::ScrollbarThumbColor, "Scrollbar thumb color")
+        .RegisterProperty(PropertyType::Color, "ScrollbarThumbHoveredColor", &FTextListStyle::ScrollbarThumbHoveredColor, "Hovered scrollbar thumb color")
+        .RegisterProperty(PropertyType::Float, "ThumbMinLength", &FTextListStyle::ThumbMinLength, "Minimum thumb length")
+        .RegisterProperty(PropertyType::Float, "WheelScrollStep", &FTextListStyle::WheelScrollStep, "Wheel scroll step")
+        .RegisterProperty(PropertyType::Float, "AutoScrollEdgePadding", &FTextListStyle::AutoScrollEdgePadding, "Auto-scroll edge padding")
+        .RegisterProperty(PropertyType::Float, "AutoScrollSpeed", &FTextListStyle::AutoScrollSpeed, "Auto-scroll speed");
+    END_DECLARE_OBJECT()
+
+public:
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -30,6 +55,23 @@ struct FTextListStyle {
 };
 
 class ImTextList : public ImWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImTextList, ImWidget)
+    registrar
+        .RegisterProperty(
+            PropertyType::StringArray,
+            "Items",
+            static_cast<void (ImTextList::*)(std::vector<std::string>&)>(&ImTextList::SetItemsProperty),
+            static_cast<std::vector<std::string>& (ImTextList::*)()>(&ImTextList::GetItemsProperty),
+            "List items")
+        .RegisterProperty(
+            PropertyType::Float,
+            "ScrollOffset",
+            static_cast<void (ImTextList::*)(float&)>(&ImTextList::SetScrollOffsetProperty),
+            static_cast<float& (ImTextList::*)()>(&ImTextList::GetScrollOffsetProperty),
+            "Vertical scroll offset")
+        .RegisterProperty(PropertyType::Struct, "Style", &ImTextList::m_Style, "Text list style");
+    END_DECLARE_OBJECT()
+
 public:
     struct FTextLine {
         std::string Text;
@@ -97,6 +139,11 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    void SetItemsProperty(std::vector<std::string>& items) { SetItems(items); }
+    std::vector<std::string>& GetItemsProperty() { return m_Items; }
+    void SetScrollOffsetProperty(float& offset) { SetScrollOffset(offset); }
+    float& GetScrollOffsetProperty() { return m_ScrollOffsetY; }
+
     void Relayout();
     void RebuildLayout(float wrapWidth);
     void ClampScrollOffset();

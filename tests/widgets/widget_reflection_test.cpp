@@ -2,7 +2,20 @@
 #include <imwidgetv4/core/Slot.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/ButtonStyle.h>
+#include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/ExpandableBox.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/HorizontalSplitter.h>
+#include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4/widgets/VerticalSplitter.h>
 
 using namespace ImWidgetV4;
 
@@ -135,4 +148,119 @@ TEST(WidgetReflectionTest, ButtonJsonRoundTripIncludesNestedStyle)
     EXPECT_EQ(
         restored->GetStyle().Disabled.TextColor.ToImU32(),
         FColor::FromBytes(90, 91, 92, 255).ToImU32());
+}
+
+TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
+{
+    FMargin margin(1.0f, 2.0f, 3.0f, 4.0f);
+    EXPECT_TRUE(margin.HasProperty("Left", "FMargin"));
+    EXPECT_TRUE(margin.HasProperty("Bottom", "FMargin"));
+
+    ImBoxSlot boxSlot;
+    EXPECT_TRUE(boxSlot.HasProperty("FillCoefficient", "ImBoxSlot"));
+
+    ImHorizontalBox horizontalBox;
+    ImVerticalBox verticalBox;
+    EXPECT_TRUE(horizontalBox.HasProperty("Spacing", "ImHorizontalBox"));
+    EXPECT_TRUE(verticalBox.HasProperty("Spacing", "ImVerticalBox"));
+
+    FCheckBoxStyle checkBoxStyle;
+    ImCheckBox checkBox;
+    EXPECT_TRUE(checkBoxStyle.HasProperty("Padding", "FCheckBoxStyle"));
+    EXPECT_TRUE(checkBox.HasProperty("Checked", "ImCheckBox"));
+    EXPECT_TRUE(checkBox.HasProperty("Style", "ImCheckBox"));
+
+    FEditableTextStyle editableTextStyle;
+    ImEditableText editableText;
+    EXPECT_TRUE(editableTextStyle.HasProperty("SelectionBackgroundColor", "FEditableTextStyle"));
+    EXPECT_TRUE(editableText.HasProperty("Text", "ImEditableText"));
+    EXPECT_TRUE(editableText.HasProperty("HintText", "ImEditableText"));
+
+    FSliderStyle sliderStyle;
+    ImSlider slider;
+    EXPECT_TRUE(sliderStyle.HasProperty("ShowValueText", "FSliderStyle"));
+    EXPECT_TRUE(slider.HasProperty("Value", "ImSlider"));
+    EXPECT_TRUE(slider.HasProperty("MaxValue", "ImSlider"));
+
+    FComboBoxStyle comboStyle;
+    ImComboBox comboBox;
+    EXPECT_TRUE(comboStyle.HasProperty("PopupRowSelectedColor", "FComboBoxStyle"));
+    EXPECT_TRUE(comboBox.HasProperty("Items", "ImComboBox"));
+    EXPECT_TRUE(comboBox.HasProperty("SelectedIndex", "ImComboBox"));
+
+    FScrollBoxStyle scrollStyle;
+    ImScrollBox scrollBox;
+    EXPECT_TRUE(scrollStyle.HasProperty("ScrollbarThumbColor", "FScrollBoxStyle"));
+    EXPECT_TRUE(scrollBox.HasProperty("ScrollOffset", "ImScrollBox"));
+
+    FExpandableBoxStyle expandableStyle;
+    ImExpandableBox expandableBox;
+    EXPECT_TRUE(expandableStyle.HasProperty("HeaderPadding", "FExpandableBoxStyle"));
+    EXPECT_TRUE(expandableBox.HasProperty("Expanded", "ImExpandableBox"));
+
+    ImCanvasPanelSlot canvasSlot;
+    ImCanvasPanel canvasPanel;
+    EXPECT_TRUE(canvasSlot.HasProperty("RelativePosition", "ImCanvasPanelSlot"));
+    EXPECT_TRUE(canvasPanel.HasProperty("DesiredSize", "ImCanvasPanel"));
+
+    FHorizontalSplitterStyle horizontalSplitterStyle;
+    ImHorizontalSplitterSlot horizontalSplitterSlot;
+    ImHorizontalSplitter horizontalSplitter;
+    EXPECT_TRUE(horizontalSplitterStyle.HasProperty("BarWidth", "FHorizontalSplitterStyle"));
+    EXPECT_TRUE(horizontalSplitterSlot.HasProperty("Ratio", "ImHorizontalSplitterSlot"));
+    EXPECT_TRUE(horizontalSplitter.HasProperty("Style", "ImHorizontalSplitter"));
+
+    FVerticalSplitterStyle verticalSplitterStyle;
+    ImVerticalSplitterSlot verticalSplitterSlot;
+    ImVerticalSplitter verticalSplitter;
+    EXPECT_TRUE(verticalSplitterStyle.HasProperty("BarHeight", "FVerticalSplitterStyle"));
+    EXPECT_TRUE(verticalSplitterSlot.HasProperty("MinSize", "ImVerticalSplitterSlot"));
+    EXPECT_TRUE(verticalSplitter.HasProperty("Style", "ImVerticalSplitter"));
+
+    ImImage image;
+    EXPECT_TRUE(image.HasProperty("DesiredSize", "ImImage"));
+    EXPECT_TRUE(image.HasProperty("StretchMode", "ImImage"));
+    auto stretchMode = image.GetPropertyAsOptional("StretchMode");
+    ASSERT_TRUE(stretchMode.IsValid());
+    EXPECT_EQ(stretchMode.GetOptionString(), "KeepAspect");
+
+    FTextListStyle textListStyle;
+    ImTextList textList;
+    EXPECT_TRUE(textListStyle.HasProperty("AutoScrollSpeed", "FTextListStyle"));
+    EXPECT_TRUE(textList.HasProperty("Items", "ImTextList"));
+    EXPECT_TRUE(textList.HasProperty("ScrollOffset", "ImTextList"));
+}
+
+TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)
+{
+    ImSlider slider;
+    slider.SetRange(-10.0f, 10.0f);
+    slider.SetValue(3.5f);
+    slider.SetStep(0.5f);
+
+    json sliderJson = slider.ToJson();
+    EXPECT_EQ(sliderJson["Properties"]["ImSlider::MinValue"], -10.0f);
+    EXPECT_EQ(sliderJson["Properties"]["ImSlider::MaxValue"], 10.0f);
+    EXPECT_EQ(sliderJson["Properties"]["ImSlider::Value"], 3.5f);
+    EXPECT_EQ(sliderJson["Properties"]["ImSlider::Step"], 0.5f);
+
+    ImComboBox comboBox;
+    comboBox.SetItems({"Alpha", "Beta", "Gamma"});
+    comboBox.SetSelectedIndex(1);
+    comboBox.SetPlaceholderText("Choose");
+
+    json comboJson = comboBox.ToJson();
+    ASSERT_TRUE(comboJson["Properties"]["ImComboBox::Items"].is_array());
+    EXPECT_EQ(comboJson["Properties"]["ImComboBox::Items"][1], "Beta");
+    EXPECT_EQ(comboJson["Properties"]["ImComboBox::SelectedIndex"], 1);
+    EXPECT_EQ(comboJson["Properties"]["ImComboBox::PlaceholderText"], "Choose");
+
+    ImImage image;
+    image.SetStretchMode(EImageStretchMode::Fill);
+    json imageJson = image.ToJson();
+    EXPECT_EQ(imageJson["Properties"]["ImImage::StretchMode"], "Fill");
+
+    ImImage restoredImage;
+    restoredImage.FromJson(imageJson);
+    EXPECT_EQ(restoredImage.GetStretchMode(), EImageStretchMode::Fill);
 }

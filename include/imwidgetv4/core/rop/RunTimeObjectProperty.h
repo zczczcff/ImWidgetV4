@@ -18,6 +18,10 @@
 #include <initializer_list>
 #include <sstream>
 
+#ifdef GetClassName
+#undef GetClassName
+#endif
+
 namespace ROP
 {
     // Ĭ�ϴ�������ص�

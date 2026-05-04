@@ -5,7 +5,24 @@
 
 namespace ImWidgetV4 {
 
-struct FScrollBoxStyle {
+struct FScrollBoxStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FScrollBoxStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FScrollBoxStyle::BackgroundColor, "Background color")
+        .RegisterProperty(PropertyType::Color, "BorderColor", &FScrollBoxStyle::BorderColor, "Border color")
+        .RegisterProperty(PropertyType::Float, "BorderThickness", &FScrollBoxStyle::BorderThickness, "Border thickness")
+        .RegisterProperty(PropertyType::Float, "CornerRadius", &FScrollBoxStyle::CornerRadius, "Corner radius")
+        .RegisterProperty(PropertyType::Struct, "Padding", &FScrollBoxStyle::Padding, "Content padding")
+        .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FScrollBoxStyle::ScrollbarThickness, "Scrollbar thickness")
+        .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FScrollBoxStyle::ScrollbarPadding, "Scrollbar padding")
+        .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FScrollBoxStyle::ScrollbarTrackColor, "Scrollbar track color")
+        .RegisterProperty(PropertyType::Color, "ScrollbarThumbColor", &FScrollBoxStyle::ScrollbarThumbColor, "Scrollbar thumb color")
+        .RegisterProperty(PropertyType::Color, "ScrollbarThumbHoveredColor", &FScrollBoxStyle::ScrollbarThumbHoveredColor, "Hovered scrollbar thumb color")
+        .RegisterProperty(PropertyType::Float, "ThumbMinLength", &FScrollBoxStyle::ThumbMinLength, "Minimum thumb length")
+        .RegisterProperty(PropertyType::Float, "WheelScrollStep", &FScrollBoxStyle::WheelScrollStep, "Mouse wheel scroll step");
+    END_DECLARE_OBJECT()
+
+public:
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     float BorderThickness = 1.0f;
@@ -21,6 +38,17 @@ struct FScrollBoxStyle {
 };
 
 class ImScrollBox : public ImPanelWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImScrollBox, ImPanelWidget)
+    registrar
+        .RegisterProperty(
+            PropertyType::Vec2,
+            "ScrollOffset",
+            static_cast<void (ImScrollBox::*)(FVector2&)>(&ImScrollBox::SetScrollOffsetProperty),
+            static_cast<FVector2& (ImScrollBox::*)()>(&ImScrollBox::GetScrollOffsetProperty),
+            "Current scroll offset")
+        .RegisterProperty(PropertyType::Struct, "Style", &ImScrollBox::m_Style, "Scroll box style");
+    END_DECLARE_OBJECT()
+
 public:
     ImScrollBox();
     virtual ~ImScrollBox() = default;
@@ -50,6 +78,9 @@ public:
     void Relayout();
 
 private:
+    void SetScrollOffsetProperty(FVector2& scrollOffset) { SetScrollOffset(scrollOffset); }
+    FVector2& GetScrollOffsetProperty() { return m_ScrollOffset; }
+
     enum class EHoveredScrollbar {
         None,
         Horizontal,

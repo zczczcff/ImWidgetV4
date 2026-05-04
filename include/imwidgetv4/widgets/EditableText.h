@@ -7,7 +7,29 @@
 
 namespace ImWidgetV4 {
 
-struct FEditableTextStyle {
+struct FEditableTextStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FEditableTextStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FEditableTextStyle::BackgroundColor, "Background color")
+        .RegisterProperty(PropertyType::Color, "HoveredBackgroundColor", &FEditableTextStyle::HoveredBackgroundColor, "Hovered background color")
+        .RegisterProperty(PropertyType::Color, "FocusedBackgroundColor", &FEditableTextStyle::FocusedBackgroundColor, "Focused background color")
+        .RegisterProperty(PropertyType::Color, "DisabledBackgroundColor", &FEditableTextStyle::DisabledBackgroundColor, "Disabled background color")
+        .RegisterProperty(PropertyType::Color, "BorderColor", &FEditableTextStyle::BorderColor, "Border color")
+        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FEditableTextStyle::FocusedOutlineColor, "Focused outline color")
+        .RegisterProperty(PropertyType::Color, "TextColor", &FEditableTextStyle::TextColor, "Text color")
+        .RegisterProperty(PropertyType::Color, "DisabledTextColor", &FEditableTextStyle::DisabledTextColor, "Disabled text color")
+        .RegisterProperty(PropertyType::Color, "HintTextColor", &FEditableTextStyle::HintTextColor, "Hint text color")
+        .RegisterProperty(PropertyType::Color, "CaretColor", &FEditableTextStyle::CaretColor, "Caret color")
+        .RegisterProperty(PropertyType::Color, "SelectionBackgroundColor", &FEditableTextStyle::SelectionBackgroundColor, "Selection background color")
+        .RegisterProperty(PropertyType::Color, "SelectedTextColor", &FEditableTextStyle::SelectedTextColor, "Selected text color")
+        .RegisterProperty(PropertyType::Struct, "Padding", &FEditableTextStyle::Padding, "Text padding")
+        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FEditableTextStyle::MinDesiredSize, "Minimum desired size")
+        .RegisterProperty(PropertyType::Float, "CornerRadius", &FEditableTextStyle::CornerRadius, "Corner radius")
+        .RegisterProperty(PropertyType::Float, "BorderThickness", &FEditableTextStyle::BorderThickness, "Border thickness")
+        .RegisterProperty(PropertyType::Float, "FontSize", &FEditableTextStyle::FontSize, "Font size");
+    END_DECLARE_OBJECT()
+
+public:
     FColor BackgroundColor = FColor::FromBytes(31, 37, 46);
     FColor HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
     FColor FocusedBackgroundColor = FColor::FromBytes(24, 31, 40);
@@ -28,6 +50,24 @@ struct FEditableTextStyle {
 };
 
 class ImEditableText : public ImWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImEditableText, ImWidget)
+    registrar
+        .RegisterProperty(
+            PropertyType::String,
+            "Text",
+            static_cast<void (ImEditableText::*)(std::string&)>(&ImEditableText::SetTextProperty),
+            static_cast<std::string& (ImEditableText::*)()>(&ImEditableText::GetTextProperty),
+            "Editable text content")
+        .RegisterProperty(
+            PropertyType::String,
+            "HintText",
+            static_cast<void (ImEditableText::*)(std::string&)>(&ImEditableText::SetHintTextProperty),
+            static_cast<std::string& (ImEditableText::*)()>(&ImEditableText::GetHintTextProperty),
+            "Hint text shown when empty")
+        .RegisterProperty(PropertyType::Bool, "Disabled", &ImEditableText::m_bDisabled, "Whether the input is disabled")
+        .RegisterProperty(PropertyType::Struct, "Style", &ImEditableText::m_Style, "Editable text style");
+    END_DECLARE_OBJECT()
+
 public:
     using FTextEvent = TMulticastDelegate<ImEditableText&, const std::string&>;
 
@@ -63,6 +103,11 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    void SetTextProperty(std::string& text) { SetText(text); }
+    std::string& GetTextProperty() { return m_Text; }
+    void SetHintTextProperty(std::string& hintText) { SetHintText(hintText); }
+    std::string& GetHintTextProperty() { return m_HintText; }
+
     std::size_t ClampByteIndex(std::size_t byteIndex) const;
     std::size_t ResolveCursorByteIndexAt(const FVector2& mousePosition) const;
     void SetCursorByteIndex(std::size_t byteIndex, bool bExtendSelection = false);

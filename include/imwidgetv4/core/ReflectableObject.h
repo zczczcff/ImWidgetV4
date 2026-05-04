@@ -5,6 +5,10 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#ifdef GetClassName
+#undef GetClassName
+#endif
+
 namespace ImWidgetV4 {
 
 using json = nlohmann::ordered_json;

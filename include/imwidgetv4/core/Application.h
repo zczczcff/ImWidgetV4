@@ -30,6 +30,7 @@ public:
     bool SetActiveTheme(const std::string& name);
     const std::string& GetActiveThemeName() const;
     const std::vector<FThemePack>& GetThemePacks() const;
+    void EnsureDefaultFontConfigured();
 
     void AdvanceFrame(const FFrameContext& frameContext);
     FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);
@@ -76,6 +77,7 @@ private:
 
     FGeometry LastFrameGeometry_;
     bool bHasLastFrameGeometry_ = false;
+    bool bDefaultFontConfigured_ = false;
     std::uint64_t FrameNumber_ = 0;
 
     std::vector<FInputEvent> CollectFrameInputs(const FFrameContext& frameContext);

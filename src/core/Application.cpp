@@ -2,8 +2,25 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <codecvt>
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <locale>
+#include <string>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#ifdef DrawText
+#undef DrawText
+#endif
+#ifdef CreateWindow
+#undef CreateWindow
+#endif
+#endif
 
 namespace ImWidgetV4 {
 
@@ -161,6 +178,47 @@ FVector2 MeasureText(const std::string& text, float fontSize)
     return FVector2(fontSize * 0.55f * static_cast<float>(text.size()), fontSize);
 }
 
+std::string WideToUtf8(const std::wstring& text)
+{
+    if (text.empty()) {
+        return {};
+    }
+
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.to_bytes(text);
+}
+
+std::filesystem::path GetWindowsFontDirectory()
+{
+#if defined(_WIN32)
+    wchar_t windowsDirectory[MAX_PATH] = {};
+    const UINT length = GetWindowsDirectoryW(windowsDirectory, MAX_PATH);
+    if (length > 0 && length < MAX_PATH) {
+        return std::filesystem::path(windowsDirectory) / L"Fonts";
+    }
+#endif
+
+    return {};
+}
+
+std::vector<std::filesystem::path> GetPreferredSystemFontCandidates()
+{
+    const std::filesystem::path fontDirectory = GetWindowsFontDirectory();
+    if (fontDirectory.empty()) {
+        return {};
+    }
+
+    return {
+        fontDirectory / L"msyh.ttc",
+        fontDirectory / L"msyh.ttf",
+        fontDirectory / L"msjh.ttc",
+        fontDirectory / L"simhei.ttf",
+        fontDirectory / L"simsun.ttc",
+        fontDirectory / L"segoeui.ttf",
+        fontDirectory / L"arial.ttf"
+    };
+}
+
 void DrawWindowChrome(
     DrawContext& drawContext,
     const ImWindow& window,
@@ -313,6 +371,8 @@ ImApplication::ImApplication()
     , EventRouter_(std::make_unique<FEventRouter>())
     , PathResolver_(std::make_unique<FWidgetPathResolver>())
 {
+    EnsureDefaultFontConfigured();
+
     WindowManager_.SetOwnerApplication(this);
 
     auto defaultStyleSet = FStyleSetFactory::CreateDefault();
@@ -430,6 +490,68 @@ const std::vector<FThemePack>& ImApplication::GetThemePacks() const
     return ThemePacks_;
 }
 
+void ImApplication::EnsureDefaultFontConfigured()
+{
+    if (bDefaultFontConfigured_) {
+        return;
+    }
+
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    if (context == nullptr) {
+        return;
+    }
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.Fonts == nullptr) {
+        return;
+    }
+
+    if (context->WithinFrameScope || io.Fonts->Locked) {
+        return;
+    }
+
+    if (io.Fonts->Fonts.Size > 0) {
+        if (io.FontDefault == nullptr && !io.Fonts->Fonts.empty()) {
+            io.FontDefault = io.Fonts->Fonts[0];
+        }
+        bDefaultFontConfigured_ = true;
+        return;
+    }
+
+    ImFontConfig fontConfig;
+    fontConfig.OversampleH = 2;
+    fontConfig.OversampleV = 1;
+    fontConfig.PixelSnapH = false;
+
+    ImFont* loadedFont = nullptr;
+    for (const std::filesystem::path& candidate : GetPreferredSystemFontCandidates()) {
+        std::error_code errorCode;
+        if (!std::filesystem::exists(candidate, errorCode) || errorCode) {
+            continue;
+        }
+
+        const std::string utf8Path = WideToUtf8(candidate.wstring());
+        loadedFont = io.Fonts->AddFontFromFileTTF(
+            utf8Path.c_str(),
+            18.0f,
+            &fontConfig,
+            io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        if (loadedFont != nullptr) {
+            break;
+        }
+    }
+
+    if (loadedFont == nullptr) {
+        loadedFont = io.Fonts->AddFontDefault();
+    }
+
+    if (loadedFont != nullptr) {
+        io.FontDefault = loadedFont;
+        io.Fonts->Build();
+        bDefaultFontConfigured_ = true;
+    }
+}
+
 void ImApplication::EnqueueInput(const FInputEvent& inputEvent)
 {
     InputQueue_->Enqueue(inputEvent);
@@ -537,6 +659,7 @@ const ImWindowManager& ImApplication::GetWindowManager() const
 
 void ImApplication::AdvanceFrame(const FFrameContext& frameContext)
 {
+    EnsureDefaultFontConfigured();
     ++FrameNumber_;
 
     InputQueue_->BeginFrame(CollectFrameInputs(frameContext));
@@ -581,6 +704,7 @@ FSnapshotImage ImApplication::CaptureSnapshot(
     const FFrameContext& frameContext,
     const FSnapshotOptions& options)
 {
+    EnsureDefaultFontConfigured();
     const FSnapshotOptions resolvedOptions = ResolveSnapshotOptions(frameContext, options);
     const ImVec2 displaySize = ResolveSnapshotDisplaySize(frameContext, resolvedOptions);
 

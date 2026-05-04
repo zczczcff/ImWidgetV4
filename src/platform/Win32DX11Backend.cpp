@@ -241,6 +241,9 @@ void ImWin32DX11Backend::EndFrame() {
 
 void ImWin32DX11Backend::SetApplication(ImApplication* app) {
     Application_ = app;
+    if (Application_ != nullptr) {
+        Application_->EnsureDefaultFontConfigured();
+    }
 }
 
 ImApplication* ImWin32DX11Backend::GetApplication() const {

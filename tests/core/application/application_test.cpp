@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imgui.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -447,4 +448,23 @@ TEST_F(ApplicationTest, ModalBlocksLowerWindowsUntilClosed) {
         std::find(lowerLog.begin(), lowerLog.end(), "bubble:lower-root:4"),
         lowerLog.end());
     EXPECT_EQ(App->GetWindowManager().GetActiveWindow(), lowerWindow);
+}
+
+TEST(ApplicationFontTest, ApplicationConfiguresDefaultFontForEmptyAtlas) {
+    IMGUI_CHECKVERSION();
+    ImGuiContext* context = ImGui::CreateContext();
+    ASSERT_NE(context, nullptr);
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    io.FontDefault = nullptr;
+    ASSERT_EQ(io.Fonts->Fonts.Size, 0);
+
+    {
+        ImApplication application;
+        EXPECT_GT(io.Fonts->Fonts.Size, 0);
+        EXPECT_NE(io.FontDefault, nullptr);
+    }
+
+    ImGui::DestroyContext(context);
 }

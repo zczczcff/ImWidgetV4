@@ -8,6 +8,18 @@
 namespace ImWidgetV4 {
 
 class ImButton : public ImPanelWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImButton, ImPanelWidget)
+    registrar
+        .RegisterProperty(
+            PropertyType::String,
+            "Text",
+            static_cast<void (ImButton::*)(std::string&)>(&ImButton::SetTextProperty),
+            static_cast<std::string& (ImButton::*)()>(&ImButton::GetTextProperty),
+            "Button label text")
+        .RegisterProperty(PropertyType::Bool, "Disabled", &ImButton::m_bDisabled, "Whether the button is disabled")
+        .RegisterProperty(PropertyType::Struct, "Style", &ImButton::m_Style, "Button style bundle");
+    END_DECLARE_OBJECT()
+
 public:
     using FButtonEvent = TMulticastDelegate<ImButton&>;
 
@@ -28,7 +40,8 @@ public:
     void SetPressedStyle(const FButtonStateStyle& style) { m_Style.Pressed = style; }
     void SetDisabledStyle(const FButtonStateStyle& style) { m_Style.Disabled = style; }
 
-    void SetDisabled(bool bDisabled) {
+    void SetDisabled(bool bDisabled)
+    {
         if (m_bDisabled == bDisabled) {
             return;
         }
@@ -47,10 +60,10 @@ public:
     FButtonEvent OnHoverBegin;
     FButtonEvent OnHoverEnd;
 
-    virtual std::unique_ptr<ImSlot> CreateSlot() override;
-    virtual void Paint(const FPaintContext& paintContext) override;
-    virtual FVector2 GetMinSize() const override;
-    virtual FReply OnInputEvent(const FInputEvent& event) override;
+    std::unique_ptr<ImSlot> CreateSlot() override;
+    void Paint(const FPaintContext& paintContext) override;
+    FVector2 GetMinSize() const override;
+    FReply OnInputEvent(const FInputEvent& event) override;
     virtual void Relayout();
 
 protected:
@@ -61,11 +74,15 @@ protected:
     void RenderButton(const FPaintContext& paintContext);
 
 private:
+    void SetTextProperty(std::string& text);
+    std::string& GetTextProperty();
+
     FButtonStyle m_Style;
     bool m_bHovered = false;
     bool m_bPressed = false;
     bool m_bDisabled = false;
     FVector2 m_OriginalMinSize {100.0f, 30.0f};
+    std::string m_ReflectionTextCache;
 };
 
 } // namespace ImWidgetV4

@@ -1,5 +1,6 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <algorithm>
 #include <imgui.h>
 #include <cfloat>
 
@@ -13,6 +14,8 @@ ImTextBlock::ImTextBlock()
     , m_TextAlignment(ETextAlignment::Left)
     , m_VerticalAlignment(EVerticalAlignment::Top)
     , m_bWrapText(false)
+    , m_TextAlignmentValue(static_cast<int>(ETextAlignment::Left))
+    , m_VerticalAlignmentValue(static_cast<int>(EVerticalAlignment::Top))
 {
 }
 
@@ -52,6 +55,7 @@ void ImTextBlock::SetTextAlignment(ETextAlignment alignment) {
     }
 
     m_TextAlignment = alignment;
+    m_TextAlignmentValue = static_cast<int>(alignment);
     Invalidate(EInvalidateReason::Paint);
 }
 
@@ -61,6 +65,7 @@ void ImTextBlock::SetVerticalAlignment(EVerticalAlignment alignment) {
     }
 
     m_VerticalAlignment = alignment;
+    m_VerticalAlignmentValue = static_cast<int>(alignment);
     Invalidate(EInvalidateReason::Paint);
 }
 
@@ -71,6 +76,26 @@ void ImTextBlock::SetWrapText(bool bWrap) {
 
     m_bWrapText = bWrap;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTextBlock::SetTextAlignmentProperty(int& value) {
+    value = std::clamp(value, 0, 2);
+    SetTextAlignment(static_cast<ETextAlignment>(value));
+}
+
+int& ImTextBlock::GetTextAlignmentProperty() {
+    m_TextAlignmentValue = static_cast<int>(m_TextAlignment);
+    return m_TextAlignmentValue;
+}
+
+void ImTextBlock::SetVerticalAlignmentProperty(int& value) {
+    value = std::clamp(value, 0, 2);
+    SetVerticalAlignment(static_cast<EVerticalAlignment>(value));
+}
+
+int& ImTextBlock::GetVerticalAlignmentProperty() {
+    m_VerticalAlignmentValue = static_cast<int>(m_VerticalAlignment);
+    return m_VerticalAlignmentValue;
 }
 
 void ImTextBlock::Paint(const FPaintContext& paintContext) {

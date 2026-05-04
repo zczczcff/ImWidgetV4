@@ -12,6 +12,18 @@ target_link_libraries(button_test PRIVATE
 # 添加测试
 add_test(NAME ButtonTest COMMAND button_test)
 
+add_executable(widget_reflection_test
+    widget_reflection_test.cpp
+)
+
+target_link_libraries(widget_reflection_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME WidgetReflectionTest COMMAND widget_reflection_test)
+
 add_executable(checkbox_test
     checkbox_test.cpp
 )

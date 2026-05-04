@@ -15,6 +15,9 @@ namespace ImWidgetV4 {
  * 注意：子控件统一由基类的 m_Children 管理，Slot 只存储布局信息。
  */
 class ImPanelWidget : public ImWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImPanelWidget, ImWidget)
+    END_DECLARE_OBJECT()
+
 public:
     ImPanelWidget();
     virtual ~ImPanelWidget();

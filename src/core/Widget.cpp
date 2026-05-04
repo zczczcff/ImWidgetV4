@@ -54,7 +54,7 @@ void ImWidget::AddChild(const Ptr& child)
         return;
     }
 
-    child->m_Parent = shared_from_this();
+    child->m_Parent = weak_from_this();
     child->SetApplicationRecursive(m_Application);
     m_Children.push_back(child);
 }

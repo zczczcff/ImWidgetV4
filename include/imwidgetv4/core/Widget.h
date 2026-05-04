@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Reply.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/input/Input.h>
@@ -15,7 +16,15 @@ class ImWindowManager;
 class ImSlot;
 class ImPaddingSlot;
 
-class ImWidget : public std::enable_shared_from_this<ImWidget> {
+class ImWidget : public ReflectableObject, public std::enable_shared_from_this<ImWidget> {
+    DECLARE_OBJECT_WITH_PARENT(ImWidget, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::String, "Name", &ImWidget::m_Name, "Widget display name")
+        .RegisterProperty(PropertyType::Bool, "Visible", &ImWidget::m_bVisible, "Whether the widget is visible")
+        .RegisterProperty(PropertyType::Bool, "HitTestVisible", &ImWidget::m_bHitTestVisible, "Whether the widget participates in hit testing")
+        .RegisterProperty(PropertyType::Bool, "SupportsKeyboardFocus", &ImWidget::m_bSupportsKeyboardFocus, "Whether the widget can receive keyboard focus");
+    END_DECLARE_OBJECT()
+
 public:
     using Ptr = std::shared_ptr<ImWidget>;
 

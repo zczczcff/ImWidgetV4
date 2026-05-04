@@ -60,6 +60,16 @@ void ImButton::SetStyle(const FButtonStyle& style) {
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
+void ImButton::SetTextProperty(std::string& text) {
+    SetText(text);
+    m_ReflectionTextCache = GetText();
+}
+
+std::string& ImButton::GetTextProperty() {
+    m_ReflectionTextCache = GetText();
+    return m_ReflectionTextCache;
+}
+
 std::string ImButton::GetText() const {
     const auto& children = GetChildren();
     if (!children.empty()) {

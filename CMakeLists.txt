@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(ImWidgetV4 VERSION 0.1.0 LANGUAGES CXX)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,11 +17,18 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+function(imwidgetv4_set_target_folder target folder)
+    if(TARGET ${target})
+        set_target_properties(${target} PROPERTIES FOLDER ${folder})
+    endif()
+endfunction()
+
 # 创建 UECTTI 头文件库目标
 add_library(uectti INTERFACE)
 target_include_directories(uectti INTERFACE
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/reflection
 )
+imwidgetv4_set_target_folder(uectti "Libraries")
 
 # 使用 FetchContent 添加外部依赖
 include(FetchContent)
@@ -67,10 +76,12 @@ target_link_libraries(imgui_lib PUBLIC
     dxgi.lib
     d3dcompiler.lib
 )
+imwidgetv4_set_target_folder(imgui_lib "ThirdParty")
 
 # 创建 stb 接口库
 add_library(stb_lib INTERFACE)
 target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
+imwidgetv4_set_target_folder(stb_lib "ThirdParty")
 
 # 创建 imwidgetv4_core 库目标
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
@@ -175,6 +186,7 @@ target_link_libraries(imwidgetv4_core PUBLIC
     uectti
     stb_lib
 )
+imwidgetv4_set_target_folder(imwidgetv4_core "Libraries")
 
 source_group(TREE ${CMAKE_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_CORE_PUBLIC_HEADERS})
 source_group(TREE ${CMAKE_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_CORE_SOURCES} ${IMWIDGETV4_CORE_VS_ONLY_FILES})
@@ -200,6 +212,7 @@ target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
     imwidgetv4_core
     imgui_lib
 )
+imwidgetv4_set_target_folder(imwidgetv4_platform_win32_dx11 "Platforms")
 
 source_group(TREE ${CMAKE_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_PLATFORM_HEADERS})
 source_group(TREE ${CMAKE_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_PLATFORM_SOURCES})
@@ -214,6 +227,10 @@ FetchContent_Declare(
     GIT_TAG v1.14.0
 )
 FetchContent_MakeAvailable(googletest)
+imwidgetv4_set_target_folder(gtest "ThirdParty/GoogleTest")
+imwidgetv4_set_target_folder(gtest_main "ThirdParty/GoogleTest")
+imwidgetv4_set_target_folder(gmock "ThirdParty/GoogleTest")
+imwidgetv4_set_target_folder(gmock_main "ThirdParty/GoogleTest")
 
 # 添加测试子目录
 add_subdirectory(tests/core/reflection)
@@ -232,3 +249,34 @@ option(IMWIDGETV4_BUILD_EXAMPLES "构建控件演示程序" ON)
 if(IMWIDGETV4_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
+
+imwidgetv4_set_target_folder(reflectable_object_test "Tests/Core")
+imwidgetv4_set_target_folder(delegate_test "Tests/Core")
+imwidgetv4_set_target_folder(application_test "Tests/Core/Application")
+imwidgetv4_set_target_folder(uectti_tests "Tests/Core/Reflection")
+imwidgetv4_set_target_folder(rop_tests "Tests/Core/ROP")
+imwidgetv4_set_target_folder(input_source_test "Tests/Input")
+imwidgetv4_set_target_folder(draw_context_test "Tests/Rendering")
+imwidgetv4_set_target_folder(snapshot_test "Tests/Snapshot")
+imwidgetv4_set_target_folder(button_test "Tests/Widgets")
+imwidgetv4_set_target_folder(checkbox_test "Tests/Widgets")
+imwidgetv4_set_target_folder(canvas_panel_test "Tests/Widgets")
+imwidgetv4_set_target_folder(editable_text_test "Tests/Widgets")
+imwidgetv4_set_target_folder(expandable_box_test "Tests/Widgets")
+imwidgetv4_set_target_folder(image_test "Tests/Widgets")
+imwidgetv4_set_target_folder(combobox_test "Tests/Widgets")
+imwidgetv4_set_target_folder(slider_test "Tests/Widgets")
+imwidgetv4_set_target_folder(scroll_box_test "Tests/Widgets")
+imwidgetv4_set_target_folder(splitter_test "Tests/Widgets")
+imwidgetv4_set_target_folder(text_list_test "Tests/Widgets")
+
+imwidgetv4_set_target_folder(ButtonDemo "Examples")
+imwidgetv4_set_target_folder(BoxPanelDemo "Examples")
+imwidgetv4_set_target_folder(CanvasPanelDemo "Examples")
+imwidgetv4_set_target_folder(ExpandableBoxDemo "Examples")
+imwidgetv4_set_target_folder(ImageDemo "Examples")
+imwidgetv4_set_target_folder(InputWidgetsDemo "Examples")
+imwidgetv4_set_target_folder(ScrollBoxDemo "Examples")
+imwidgetv4_set_target_folder(SplitterDemo "Examples")
+imwidgetv4_set_target_folder(TextListDemo "Examples")
+imwidgetv4_set_target_folder(WindowDemo "Examples")

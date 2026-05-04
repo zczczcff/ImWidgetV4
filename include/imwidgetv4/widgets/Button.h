@@ -21,7 +21,7 @@ public:
     void SetText(const std::string& text);
     std::string GetText() const;
 
-    void SetStyle(const FButtonStyle& style) { m_Style = style; }
+    void SetStyle(const FButtonStyle& style);
     const FButtonStyle& GetStyle() const { return m_Style; }
     void SetNormalStyle(const FButtonStateStyle& style) { m_Style.Normal = style; }
     void SetHoveredStyle(const FButtonStateStyle& style) { m_Style.Hovered = style; }

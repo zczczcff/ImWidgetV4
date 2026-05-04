@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
 #include <imgui.h>
 #include <memory>
 
@@ -227,6 +230,36 @@ TEST_F(ButtonTest, MinSizeWithText) {
     Button->SetText("This is a much longer button text");
     const FVector2 longerMinSize = Button->GetMinSize();
     EXPECT_GT(longerMinSize.X, minSize.X);
+}
+
+TEST_F(ButtonTest, MinSizeTracksTextBlockContentInParentLayout) {
+    auto root = std::make_shared<ImVerticalBox>();
+    auto button = std::make_shared<ImButton>();
+    auto textBlock = std::make_shared<ImTextBlock>();
+    textBlock->SetText("A much longer button label that should expand the button");
+    textBlock->SetFontSize(28.0f);
+    button->SetContent(textBlock);
+    root->AddChild(button);
+    App->SetRootWidget(root);
+
+    const FVector2 contentMinSize = textBlock->GetMinSize();
+    const FVector2 buttonMinSize = button->GetMinSize();
+    EXPECT_GE(buttonMinSize.X, contentMinSize.X + 20.0f);
+    EXPECT_GE(buttonMinSize.Y, contentMinSize.Y + 10.0f);
+
+    ImDrawList drawList(ImGui::GetDrawListSharedData());
+    drawList._ResetForNewFrame();
+    DrawContext drawContext(&drawList);
+
+    FFrameContext frameContext;
+    frameContext.FrameInfo.ViewportSize = FVector2(900.0f, 200.0f);
+    frameContext.DrawContext_ = &drawContext;
+    App->AdvanceFrame(frameContext);
+
+    EXPECT_GE(button->GetGeometry().Size.X, buttonMinSize.X);
+    EXPECT_GE(button->GetGeometry().Size.Y, buttonMinSize.Y);
+    EXPECT_GE(textBlock->GetGeometry().Size.X, contentMinSize.X);
+    EXPECT_GE(textBlock->GetGeometry().Size.Y, contentMinSize.Y);
 }
 
 TEST_F(ButtonTest, ApplicationRoutesHoverCaptureAndClick) {

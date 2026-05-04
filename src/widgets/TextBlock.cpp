@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
+#include <cfloat>
 
 namespace ImWidgetV4 {
 
@@ -16,27 +17,60 @@ ImTextBlock::ImTextBlock()
 }
 
 void ImTextBlock::SetText(const std::string& text) {
+    if (m_Text == text) {
+        return;
+    }
+
     m_Text = text;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetTextColor(const FColor& color) {
+    if (m_TextColor.R == color.R &&
+        m_TextColor.G == color.G &&
+        m_TextColor.B == color.B &&
+        m_TextColor.A == color.A) {
+        return;
+    }
+
     m_TextColor = color;
+    Invalidate(EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetFontSize(float size) {
+    if (m_FontSize == size) {
+        return;
+    }
+
     m_FontSize = size;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetTextAlignment(ETextAlignment alignment) {
+    if (m_TextAlignment == alignment) {
+        return;
+    }
+
     m_TextAlignment = alignment;
+    Invalidate(EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetVerticalAlignment(EVerticalAlignment alignment) {
+    if (m_VerticalAlignment == alignment) {
+        return;
+    }
+
     m_VerticalAlignment = alignment;
+    Invalidate(EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetWrapText(bool bWrap) {
+    if (m_bWrapText == bWrap) {
+        return;
+    }
+
     m_bWrapText = bWrap;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 void ImTextBlock::Paint(const FPaintContext& paintContext) {
@@ -44,31 +78,25 @@ void ImTextBlock::Paint(const FPaintContext& paintContext) {
         return;
     }
 
-    // 计算文本尺寸
     FVector2 textSize = CalculateTextSize();
-
-    // 计算文本位置（考虑对齐方式）
     FVector2 textPos = CalculateTextPosition(textSize);
 
-    // 使用 DrawContext 绘制文本
     if (m_bWrapText && m_Geometry.Size.X > 0.0f) {
-        // 带换行的文本需要直接访问 ImDrawList（DrawContext 暂不支持换行参数）
         paintContext.DrawContext_.GetImDrawList()->AddText(
-            nullptr,                        // 使用默认字体
-            m_FontSize,                     // 字体大小
-            textPos.ToImVec2(),             // 文本位置
-            m_TextColor.ToImU32(),          // 文本颜色
-            m_Text.c_str(),                 // 文本内容
-            nullptr,                        // 文本结束位置（nullptr 表示自动检测）
-            m_Geometry.Size.X               // 换行宽度
+            nullptr,
+            m_FontSize,
+            textPos.ToImVec2(),
+            m_TextColor.ToImU32(),
+            m_Text.c_str(),
+            nullptr,
+            m_Geometry.Size.X
         );
     } else {
-        // 单行文本使用封装的 DrawContext 接口
         paintContext.DrawContext_.DrawText(
-            textPos,                        // 文本位置
-            m_TextColor,                    // 文本颜色
-            m_Text,                         // 文本内容
-            m_FontSize                      // 字体大小
+            textPos,
+            m_TextColor,
+            m_Text,
+            m_FontSize
         );
     }
 }
@@ -82,24 +110,30 @@ FVector2 ImTextBlock::CalculateTextSize() const {
         return FVector2(0.0f, m_FontSize);
     }
 
-    // 检查 ImGui 上下文是否已初始化
-    if (ImGui::GetCurrentContext() == nullptr) {
-        return FVector2(0.0f, m_FontSize);
+    if (ImGui::GetCurrentContext() == nullptr || ImGui::GetFont() == nullptr) {
+        return FVector2(
+            m_FontSize * 0.55f * static_cast<float>(m_Text.size()),
+            m_FontSize);
     }
 
-    // 使用 ImGui 计算文本尺寸
+    const ImFont* font = ImGui::GetFont();
     ImVec2 size;
     if (m_bWrapText && m_Geometry.Size.X > 0.0f) {
-        // 带换行的文本尺寸计算
-        size = ImGui::CalcTextSize(
+        size = font->CalcTextSizeA(
+            m_FontSize,
+            FLT_MAX,
+            m_Geometry.Size.X,
             m_Text.c_str(),
             nullptr,
-            false,
-            m_Geometry.Size.X
-        );
+            nullptr);
     } else {
-        // 单行文本尺寸计算
-        size = ImGui::CalcTextSize(m_Text.c_str());
+        size = font->CalcTextSizeA(
+            m_FontSize,
+            FLT_MAX,
+            0.0f,
+            m_Text.c_str(),
+            nullptr,
+            nullptr);
     }
 
     return FVector2(size.x, size.y);
@@ -108,7 +142,6 @@ FVector2 ImTextBlock::CalculateTextSize() const {
 FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
     FVector2 pos = m_Geometry.Position;
 
-    // 水平对齐
     switch (m_TextAlignment) {
         case ETextAlignment::Center:
             pos.X += (m_Geometry.Size.X - textSize.X) * 0.5f;
@@ -118,11 +151,9 @@ FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
             break;
         case ETextAlignment::Left:
         default:
-            // 保持左对齐，不需要调整
             break;
     }
 
-    // 垂直对齐
     switch (m_VerticalAlignment) {
         case EVerticalAlignment::Center:
             pos.Y += (m_Geometry.Size.Y - textSize.Y) * 0.5f;
@@ -132,7 +163,6 @@ FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
             break;
         case EVerticalAlignment::Top:
         default:
-            // 保持顶部对齐，不需要调整
             break;
     }
 

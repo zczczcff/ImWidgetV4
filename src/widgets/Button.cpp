@@ -22,6 +22,8 @@ void ImButton::SetContent(const Ptr& child) {
     if (child) {
         AddSlot(child);
     }
+
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 ImButton::Ptr ImButton::GetContent() {
@@ -43,6 +45,7 @@ void ImButton::SetText(const std::string& text) {
 
     if (textBlock) {
         textBlock->SetText(text);
+        Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
         return;
     }
 
@@ -50,6 +53,11 @@ void ImButton::SetText(const std::string& text) {
     newTextBlock->SetText(text);
     newTextBlock->SetTextColor(FColor::Black);
     SetContent(newTextBlock);
+}
+
+void ImButton::SetStyle(const FButtonStyle& style) {
+    m_Style = style;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 std::string ImButton::GetText() const {

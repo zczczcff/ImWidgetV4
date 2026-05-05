@@ -100,6 +100,18 @@ protected:
         App_->AdvanceFrame(frameContext);
     }
 
+    std::shared_ptr<ImWindow> GetTopmostPopupWindow() const
+    {
+        std::shared_ptr<ImWindow> topmostPopup;
+        for (const auto& window : App_->GetWindowManager().GetOpenWindows()) {
+            if (window && window->GetKind() == EWindowKind::Popup) {
+                topmostPopup = window;
+            }
+        }
+
+        return topmostPopup;
+    }
+
     FVector2 ResolveRowCenter(int rowIndex) const
     {
         const FPopupMenuStyle& style = Menu_->GetStyle();
@@ -127,9 +139,9 @@ TEST_F(PopupMenuTest, ClickingEnabledItemInvokesCallbackAndBroadcastsDelegate)
     ImPopupMenu* delegateSender = nullptr;
 
     std::vector<FPopupMenuItem> items;
-    items.push_back(FPopupMenuItem {"Open", FImageBrush(), true, false, [&]() { ++callbackCount; }});
-    items.push_back(FPopupMenuItem {"Disabled", FImageBrush(), false, false, [&]() { ++callbackCount; }});
-    items.push_back(FPopupMenuItem {"", FImageBrush(), true, true, nullptr});
+    items.push_back(FPopupMenuItem {"Open", FImageBrush(), {}, true, false, [&]() { ++callbackCount; }});
+    items.push_back(FPopupMenuItem {"Disabled", FImageBrush(), {}, false, false, [&]() { ++callbackCount; }});
+    items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, nullptr});
     Menu_->SetItems(items);
     Menu_->OnItemInvoked.AddLambda([&](ImPopupMenu& menu, int index) {
         delegateSender = &menu;
@@ -153,9 +165,9 @@ TEST_F(PopupMenuTest, DisabledItemAndSeparatorDoNotInvoke)
     int delegateCount = 0;
 
     std::vector<FPopupMenuItem> items;
-    items.push_back(FPopupMenuItem {"Disabled", FImageBrush(), false, false, [&]() { ++callbackCount; }});
-    items.push_back(FPopupMenuItem {"", FImageBrush(), true, true, [&]() { ++callbackCount; }});
-    items.push_back(FPopupMenuItem {"Enabled", FImageBrush(), true, false, [&]() { ++callbackCount; }});
+    items.push_back(FPopupMenuItem {"Disabled", FImageBrush(), {}, false, false, [&]() { ++callbackCount; }});
+    items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, [&]() { ++callbackCount; }});
+    items.push_back(FPopupMenuItem {"Enabled", FImageBrush(), {}, true, false, [&]() { ++callbackCount; }});
     Menu_->SetItems(items);
     Menu_->OnItemInvoked.AddLambda([&](ImPopupMenu&, int) {
         ++delegateCount;
@@ -175,6 +187,65 @@ TEST_F(PopupMenuTest, DisabledItemAndSeparatorDoNotInvoke)
 
     EXPECT_EQ(callbackCount, 0);
     EXPECT_EQ(delegateCount, 0);
+}
+
+TEST_F(PopupMenuTest, HoveringSubmenuItemOpensChildPopupAndLeafInvocationBubblesUp)
+{
+    int callbackCount = 0;
+    int bubbledIndex = -1;
+    ImPopupMenu* bubbledSender = nullptr;
+
+    std::vector<FPopupMenuItem> subItems;
+    subItems.push_back(FPopupMenuItem {"Child A", FImageBrush(), {}, true, false, [&]() { ++callbackCount; }});
+    subItems.push_back(FPopupMenuItem {"Child B", FImageBrush(), {}, true, false, nullptr});
+
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {"Parent", FImageBrush(), subItems, true, false, nullptr});
+    items.push_back(FPopupMenuItem {"Leaf", FImageBrush(), {}, true, false, nullptr});
+    Menu_->SetItems(items);
+    Menu_->OnItemInvoked.AddLambda([&](ImPopupMenu& sender, int index) {
+        bubbledSender = &sender;
+        bubbledIndex = index;
+    });
+
+    const FVector2 parentPoint = ResolveRowCenter(0);
+    Advance({MouseEvent(EInputEventType::MouseMove, parentPoint)});
+
+    const std::shared_ptr<ImWindow> popupWindow = GetTopmostPopupWindow();
+    ASSERT_NE(popupWindow, nullptr);
+    EXPECT_EQ(popupWindow->GetKind(), EWindowKind::Popup);
+
+    const FGeometry popupGeometry = popupWindow->GetContentGeometry();
+    const FVector2 childPoint(
+        popupGeometry.Position.X + 32.0f,
+        popupGeometry.Position.Y + Menu_->GetStyle().OuterPaddingY + Menu_->GetStyle().RowHeight * 0.5f);
+
+    Advance({
+        MouseEvent(EInputEventType::MouseButtonDown, childPoint),
+        MouseEvent(EInputEventType::MouseButtonUp, childPoint)
+    });
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_EQ(bubbledIndex, 0);
+    ASSERT_NE(bubbledSender, nullptr);
+    EXPECT_NE(bubbledSender, Menu_.get());
+}
+
+TEST_F(PopupMenuTest, MovingToNonSubmenuItemClosesExistingChildPopup)
+{
+    std::vector<FPopupMenuItem> subItems;
+    subItems.push_back(FPopupMenuItem {"Child", FImageBrush(), {}, true, false, nullptr});
+
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {"Parent", FImageBrush(), subItems, true, false, nullptr});
+    items.push_back(FPopupMenuItem {"Leaf", FImageBrush(), {}, true, false, nullptr});
+    Menu_->SetItems(items);
+
+    Advance({MouseEvent(EInputEventType::MouseMove, ResolveRowCenter(0))});
+    ASSERT_NE(GetTopmostPopupWindow(), nullptr);
+
+    Advance({MouseEvent(EInputEventType::MouseMove, ResolveRowCenter(1))});
+    EXPECT_EQ(GetTopmostPopupWindow(), nullptr);
 }
 
 int main(int argc, char** argv)

@@ -12,9 +12,12 @@ namespace ImWidgetV4 {
 struct FPopupMenuItem {
     std::string Text;
     FImageBrush Icon;
+    std::vector<FPopupMenuItem> SubItems;
     bool bEnabled = true;
     bool bIsSeparator = false;
     std::function<void()> OnInvoked;
+
+    bool HasSubMenu() const { return !SubItems.empty(); }
 };
 
 struct FPopupMenuStyle {
@@ -25,11 +28,13 @@ struct FPopupMenuStyle {
     FColor TextColor = FColor::FromBytes(238, 242, 247);
     FColor DisabledTextColor = FColor::FromBytes(128, 134, 143);
     FColor SeparatorColor = FColor::FromBytes(57, 66, 80);
+    FColor SubmenuArrowColor = FColor::FromBytes(238, 242, 247);
     float FontSize = 14.0f;
     float RowHeight = 28.0f;
     float IconSize = 18.0f;
     float HorizontalPadding = 12.0f;
     float IconTextSpacing = 8.0f;
+    float SubmenuIndicatorSpacing = 12.0f;
     float OuterPaddingX = 4.0f;
     float OuterPaddingY = 6.0f;
     float CornerRadius = 8.0f;
@@ -42,7 +47,7 @@ public:
     using FItemInvokedEvent = TMulticastDelegate<ImPopupMenu&, int>;
 
     ImPopupMenu();
-    virtual ~ImPopupMenu() = default;
+    virtual ~ImPopupMenu() override;
 
     void SetItems(const std::vector<FPopupMenuItem>& items);
     void SetItems(std::vector<FPopupMenuItem>&& items);
@@ -58,15 +63,33 @@ public:
     virtual FReply OnInputEvent(const FInputEvent& event) override;
 
 private:
+    struct FMenuMetrics {
+        float MaxTextWidth = 0.0f;
+        bool bHasAnyIcon = false;
+        bool bHasAnySubMenu = false;
+    };
+
+    FGeometry GetRowGeometry(int index) const;
     int ResolveIndexAt(const FVector2& position) const;
+    bool HasSubMenuAt(int index) const;
     bool IsInteractiveIndex(int index) const;
     float MeasureTextWidth(const std::string& text) const;
+    float ResolveSubmenuIndicatorWidth() const;
+    FMenuMetrics ComputeMetrics() const;
+    void SyncChildSubmenuState();
+    void OpenChildSubmenu(int index);
+    void CloseChildSubmenuChain();
+    void RelayDescendantInvocation(ImPopupMenu& sender, int index);
     void ClearInteractionState();
 
     std::vector<FPopupMenuItem> Items_;
     FPopupMenuStyle Style_;
     int HoveredItemIndex_ = -1;
     int PressedItemIndex_ = -1;
+    int ActiveSubMenuIndex_ = -1;
+    std::shared_ptr<class ImPopupMenu> ActiveChildMenu_;
+    std::shared_ptr<class ImWindow> ActiveChildWindow_;
+    std::weak_ptr<class ImPopupMenu> ParentMenu_;
 };
 
 } // namespace ImWidgetV4

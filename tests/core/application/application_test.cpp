@@ -607,7 +607,7 @@ TEST(ApplicationHostChromeTest, TitleBarTabMenusRequireCustomHostChrome)
     application.SetBackend(&backend);
 
     std::vector<FApplicationMenuItem> items;
-    items.push_back(FApplicationMenuItem {"Open", FImageBrush(), true, false, []() {}});
+    items.push_back(FApplicationMenuItem {"Open", FImageBrush(), {}, true, false, []() {}});
 
     EXPECT_FALSE(application.AddTitleBarTabMenu("File", items));
     EXPECT_FALSE(application.ClearTitleBarTabMenus());

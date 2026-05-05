@@ -192,6 +192,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     fileMenuItems.push_back(FApplicationMenuItem {
         "Toggle Popup",
         app->GetCoreIconBrush(ECoreIcon::Folder),
+        {},
         true,
         false,
         [&]() { togglePopup(); }
@@ -199,6 +200,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     fileMenuItems.push_back(FApplicationMenuItem {
         "Open Modal",
         app->GetCoreIconBrush(ECoreIcon::View),
+        {},
         true,
         false,
         [&]() { openModal(); }
@@ -206,13 +208,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     fileMenuItems.push_back(FApplicationMenuItem {
         std::string(),
         FImageBrush(),
-        false,
+        {},
+        true,
         true,
         {}
     });
     fileMenuItems.push_back(FApplicationMenuItem {
         "Exit Demo",
         app->GetCoreIconBrush(ECoreIcon::Trash),
+        {},
         true,
         false,
         [&]() { backend->RequestClose(); }
@@ -223,6 +227,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     toolsMenuItems.push_back(FApplicationMenuItem {
         "Enable Inspector Input",
         app->GetCoreIconBrush(ECoreIcon::Unlock),
+        {},
         true,
         false,
         [&]() {
@@ -231,9 +236,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             status->SetText("Status: inspector text box enabled.");
         }
     });
-    toolsMenuItems.push_back(FApplicationMenuItem {
+    std::vector<FApplicationMenuItem> inspectorSubMenuItems;
+    inspectorSubMenuItems.push_back(FApplicationMenuItem {
         "Disable Inspector Input",
         app->GetCoreIconBrush(ECoreIcon::Lock),
+        {},
         true,
         false,
         [&]() {
@@ -242,12 +249,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             status->SetText("Status: inspector text box disabled.");
         }
     });
+    inspectorSubMenuItems.push_back(FApplicationMenuItem {
+        "Show Status Hint",
+        app->GetCoreIconBrush(ECoreIcon::Search),
+        {},
+        true,
+        false,
+        [&]() {
+            status->SetText("Status: inspector submenu invoked.");
+        }
+    });
+    toolsMenuItems.push_back(FApplicationMenuItem {
+        "Inspector",
+        app->GetCoreIconBrush(ECoreIcon::Settings),
+        inspectorSubMenuItems,
+        true,
+        false,
+        {}
+    });
     app->AddTitleBarTabMenu("Tools", std::move(toolsMenuItems));
 
     std::vector<FApplicationMenuItem> infoMenuItems;
     infoMenuItems.push_back(FApplicationMenuItem {
         "Host chrome tabs are active",
         FImageBrush(),
+        {},
         false,
         false,
         {}
@@ -255,6 +281,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     infoMenuItems.push_back(FApplicationMenuItem {
         "Show status hint",
         app->GetCoreIconBrush(ECoreIcon::Search),
+        {},
         true,
         false,
         [&]() {

@@ -17,6 +17,15 @@
 #ifdef CreateWindow
 #undef CreateWindow
 #endif
+#ifdef GetClassNameA
+#undef GetClassNameA
+#endif
+#ifdef GetClassNameW
+#undef GetClassNameW
+#endif
+#ifdef GetClassName
+#undef GetClassName
+#endif
 #include <d3d11.h>
 #include <dxgi.h>
 

@@ -10,10 +10,12 @@
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
+#include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 
@@ -229,6 +231,21 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(textListStyle.HasProperty("AutoScrollSpeed", "FTextListStyle"));
     EXPECT_TRUE(textList.HasProperty("Items", "ImTextList"));
     EXPECT_TRUE(textList.HasProperty("ScrollOffset", "ImTextList"));
+
+    FTextOutlineViewStyle textOutlineStyle;
+    ImTextOutlineView textOutlineView;
+    ImTextOutlineItem textOutlineItem;
+    EXPECT_TRUE(textOutlineStyle.HasProperty("RowHeight", "FTextOutlineViewStyle"));
+    EXPECT_TRUE(textOutlineView.HasProperty("ScrollOffset", "ImTextOutlineView"));
+    EXPECT_TRUE(textOutlineItem.HasProperty("Text", "ImTextOutlineItem"));
+    EXPECT_TRUE(textOutlineItem.HasProperty("Expanded", "ImTextOutlineItem"));
+
+    FOutlineViewStyle outlineStyle;
+    ImOutlineView outlineView;
+    ImOutlineItem outlineItem;
+    EXPECT_TRUE(outlineStyle.HasProperty("RowMinHeight", "FOutlineViewStyle"));
+    EXPECT_TRUE(outlineView.HasProperty("ScrollOffset", "ImOutlineView"));
+    EXPECT_TRUE(outlineItem.HasProperty("Expanded", "ImOutlineItem"));
 }
 
 TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)

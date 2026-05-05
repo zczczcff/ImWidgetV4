@@ -156,6 +156,30 @@ target_link_libraries(text_list_test PRIVATE
 
 add_test(NAME TextListTest COMMAND text_list_test)
 
+add_executable(text_outline_view_test
+    text_outline_view_test.cpp
+)
+
+target_link_libraries(text_outline_view_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME TextOutlineViewTest COMMAND text_outline_view_test)
+
+add_executable(outline_view_test
+    outline_view_test.cpp
+)
+
+target_link_libraries(outline_view_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME OutlineViewTest COMMAND outline_view_test)
+
 add_executable(user_widget_test
     user_widget_test.cpp
 )

@@ -8,6 +8,7 @@
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/style/StyleSet.h>
 #include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -20,13 +21,7 @@ namespace ImWidgetV4 {
 
 class ImApplicationBackend;
 
-struct FApplicationMenuItem {
-    std::string Text;
-    FImageBrush Icon;
-    bool bEnabled = true;
-    bool bIsSeparator = false;
-    std::function<void()> OnInvoked;
-};
+using FApplicationMenuItem = FPopupMenuItem;
 
 enum class EApplicationTitleBarTabLabelKind : std::uint8_t {
     Text,

@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>
 #include <backends/imgui_impl_dx11.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <algorithm>
 #include <cmath>
 #include <codecvt>
@@ -86,240 +87,30 @@ std::vector<std::uint8_t> ResampleRgbaNearest(
     return output;
 }
 
+FPopupMenuStyle BuildHostChromePopupMenuStyle(int hostChromeHeight)
+{
+    FPopupMenuStyle style;
+    style.BackgroundColor = FColor::FromBytes(26, 31, 38);
+    style.BorderColor = FColor::FromBytes(63, 73, 89);
+    style.RowHoveredColor = FColor::FromBytes(48, 60, 77);
+    style.RowPressedColor = FColor::FromBytes(69, 101, 154);
+    style.TextColor = FColor::FromBytes(238, 242, 247);
+    style.DisabledTextColor = FColor::FromBytes(128, 134, 143);
+    style.SeparatorColor = FColor::FromBytes(57, 66, 80);
+    style.FontSize = std::max(13.0f, static_cast<float>(hostChromeHeight) * 0.46f);
+    style.RowHeight = std::max(24.0f, static_cast<float>(hostChromeHeight) * 0.92f);
+    style.IconSize = std::max(14.0f, static_cast<float>(hostChromeHeight) - 12.0f);
+    style.HorizontalPadding = std::max(10.0f, static_cast<float>(hostChromeHeight) * 0.33f);
+    style.IconTextSpacing = 8.0f;
+    style.OuterPaddingX = 4.0f;
+    style.OuterPaddingY = 6.0f;
+    style.CornerRadius = 8.0f;
+    style.BorderThickness = 1.0f;
+    style.MinDesiredSize = FVector2(180.0f, 36.0f);
+    return style;
+}
+
 } // namespace
-
-class FHostChromeMenuPopupWidget : public ImWidget {
-public:
-    explicit FHostChromeMenuPopupWidget(ImWin32DX11Backend* owner)
-        : Owner_(owner)
-    {
-        SetHitTestVisible(true);
-    }
-
-    virtual void Paint(const FPaintContext& paintContext) override
-    {
-        if (Owner_ == nullptr) {
-            return;
-        }
-
-        const std::vector<FApplicationMenuItem>* items = GetItems();
-        if (items == nullptr) {
-            return;
-        }
-
-        const float rowHeight = ResolveRowHeight();
-        const float paddingX = ResolveHorizontalPadding();
-        const float iconSize = ResolveIconSize();
-        const float textSize = ResolveFontSize();
-
-        paintContext.DrawContext_.DrawRectFilled(
-            m_Geometry.GetMin(),
-            m_Geometry.GetMax(),
-            FColor::FromBytes(26, 31, 38),
-            8.0f);
-        paintContext.DrawContext_.DrawRect(
-            m_Geometry.GetMin(),
-            m_Geometry.GetMax(),
-            FColor::FromBytes(63, 73, 89),
-            8.0f,
-            1.0f);
-
-        paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
-        float rowY = m_Geometry.Position.Y + 6.0f;
-        for (std::size_t index = 0; index < items->size(); ++index) {
-            const FApplicationMenuItem& item = (*items)[index];
-            if (item.bIsSeparator) {
-                const float separatorY = rowY + rowHeight * 0.5f;
-                paintContext.DrawContext_.DrawLine(
-                    FVector2(m_Geometry.Position.X + paddingX, separatorY),
-                    FVector2(m_Geometry.Position.X + m_Geometry.Size.X - paddingX, separatorY),
-                    FColor::FromBytes(57, 66, 80),
-                    1.0f);
-                rowY += rowHeight;
-                continue;
-            }
-
-            const FGeometry rowGeometry(
-                FVector2(m_Geometry.Position.X + 4.0f, rowY),
-                FVector2(m_Geometry.Size.X - 8.0f, rowHeight));
-            const bool bHovered = static_cast<int>(index) == HoveredItemIndex_;
-            const bool bPressed = static_cast<int>(index) == PressedItemIndex_;
-            const FColor rowColor = bPressed
-                ? FColor::FromBytes(69, 101, 154)
-                : (bHovered ? FColor::FromBytes(48, 60, 77) : FColor::Transparent);
-            if (rowColor.A > 0.0f) {
-                paintContext.DrawContext_.DrawRectFilled(
-                    rowGeometry.GetMin(),
-                    rowGeometry.GetMax(),
-                    rowColor,
-                    6.0f);
-            }
-
-            float contentX = rowGeometry.Position.X + paddingX;
-            if (item.Icon.IsValid()) {
-                paintContext.DrawContext_.DrawImage(
-                    item.Icon.TextureId,
-                    FVector2(contentX, rowGeometry.Position.Y + (rowHeight - iconSize) * 0.5f),
-                    FVector2(contentX + iconSize, rowGeometry.Position.Y + (rowHeight + iconSize) * 0.5f),
-                    item.Icon.Uv0,
-                    item.Icon.Uv1,
-                    item.bEnabled ? item.Icon.TintColor : FColor::FromBytes(124, 131, 141));
-                contentX += iconSize + 8.0f;
-            }
-
-            const FColor textColor = item.bEnabled
-                ? FColor::FromBytes(238, 242, 247)
-                : FColor::FromBytes(128, 134, 143);
-            paintContext.DrawContext_.DrawText(
-                FVector2(contentX, rowGeometry.Position.Y + std::max(0.0f, (rowHeight - textSize) * 0.5f)),
-                textColor,
-                item.Text,
-                textSize);
-            rowY += rowHeight;
-        }
-        paintContext.DrawContext_.PopClipRect();
-    }
-
-    virtual FVector2 GetMinSize() const override
-    {
-        const std::vector<FApplicationMenuItem>* items = GetItems();
-        if (items == nullptr || items->empty()) {
-            return FVector2(180.0f, 36.0f);
-        }
-
-        float maxTextWidth = 0.0f;
-        bool bHasAnyIcon = false;
-        for (const FApplicationMenuItem& item : *items) {
-            if (item.bIsSeparator) {
-                continue;
-            }
-
-            maxTextWidth = std::max(maxTextWidth, MeasureHostChromeTextWidth(item.Text, ResolveFontSize()));
-            bHasAnyIcon = bHasAnyIcon || item.Icon.IsValid();
-        }
-
-        const float width = 24.0f + maxTextWidth + (bHasAnyIcon ? ResolveIconSize() + 8.0f : 0.0f) + 24.0f;
-        return FVector2(width, static_cast<float>(items->size()) * ResolveRowHeight() + 12.0f);
-    }
-
-    virtual FReply OnInputEvent(const FInputEvent& event) override
-    {
-        const std::vector<FApplicationMenuItem>* items = GetItems();
-        if (Owner_ == nullptr || items == nullptr) {
-            return FReply::Unhandled();
-        }
-
-        if (event.Type == EInputEventType::MouseMove) {
-            HoveredItemIndex_ = ResolveIndexAt(event.MousePosition);
-            if (Owner_->GetWindowHandle() != nullptr) {
-                ::InvalidateRect(Owner_->GetWindowHandle(), nullptr, FALSE);
-            }
-            Invalidate(EInvalidateReason::Paint);
-            return FReply::Handled();
-        }
-
-        if (event.Type == EInputEventType::MouseLeave) {
-            HoveredItemIndex_ = InvalidHostChromeIndex;
-            PressedItemIndex_ = InvalidHostChromeIndex;
-            Invalidate(EInvalidateReason::Paint);
-            return FReply::Handled();
-        }
-
-        if (event.Type == EInputEventType::MouseButtonDown && event.MouseButton == EMouseButton::Left) {
-            PressedItemIndex_ = ResolveIndexAt(event.MousePosition);
-            Invalidate(EInvalidateReason::Paint);
-            return PressedItemIndex_ != InvalidHostChromeIndex ? FReply::Handled() : FReply::Unhandled();
-        }
-
-        if (event.Type == EInputEventType::MouseButtonUp && event.MouseButton == EMouseButton::Left) {
-            const int releasedIndex = ResolveIndexAt(event.MousePosition);
-            const int pressedIndex = PressedItemIndex_;
-            PressedItemIndex_ = InvalidHostChromeIndex;
-            Invalidate(EInvalidateReason::Paint);
-            if (pressedIndex == InvalidHostChromeIndex || pressedIndex != releasedIndex) {
-                return FReply::Handled();
-            }
-
-            if (pressedIndex < 0 || pressedIndex >= static_cast<int>(items->size())) {
-                return FReply::Handled();
-            }
-
-            const FApplicationMenuItem& item = (*items)[static_cast<std::size_t>(pressedIndex)];
-            if (item.bIsSeparator || !item.bEnabled) {
-                return FReply::Handled();
-            }
-
-            if (item.OnInvoked) {
-                item.OnInvoked();
-            }
-            Owner_->CloseTitleBarMenuPopup();
-            return FReply::Handled();
-        }
-
-        return FReply::Unhandled();
-    }
-
-private:
-    const std::vector<FApplicationMenuItem>* GetItems() const
-    {
-        if (Owner_ == nullptr || Owner_->Application_ == nullptr) {
-            return nullptr;
-        }
-
-        const std::vector<FApplicationTitleBarTab>& tabs = Owner_->Application_->GetTitleBarTabMenus();
-        if (Owner_->ActiveTitleBarTabIndex_ < 0 ||
-            Owner_->ActiveTitleBarTabIndex_ >= static_cast<int>(tabs.size())) {
-            return nullptr;
-        }
-
-        return &tabs[static_cast<std::size_t>(Owner_->ActiveTitleBarTabIndex_)].Items;
-    }
-
-    int ResolveIndexAt(const FVector2& position) const
-    {
-        if (!m_Geometry.Contains(position)) {
-            return InvalidHostChromeIndex;
-        }
-
-        const std::vector<FApplicationMenuItem>* items = GetItems();
-        if (items == nullptr || items->empty()) {
-            return InvalidHostChromeIndex;
-        }
-
-        const float rowHeight = ResolveRowHeight();
-        const float localY = position.Y - m_Geometry.Position.Y - 6.0f;
-        const int index = static_cast<int>(localY / rowHeight);
-        if (index < 0 || index >= static_cast<int>(items->size())) {
-            return InvalidHostChromeIndex;
-        }
-
-        return index;
-    }
-
-    float ResolveFontSize() const
-    {
-        return Owner_ != nullptr ? std::max(13.0f, Owner_->GetHostChromeHeight() * 0.46f) : 14.0f;
-    }
-
-    float ResolveRowHeight() const
-    {
-        return Owner_ != nullptr ? std::max(24.0f, Owner_->GetHostChromeHeight() * 0.92f) : 28.0f;
-    }
-
-    float ResolveIconSize() const
-    {
-        return Owner_ != nullptr ? std::max(14.0f, Owner_->GetHostChromeHeight() - 12.0f) : 18.0f;
-    }
-
-    float ResolveHorizontalPadding() const
-    {
-        return Owner_ != nullptr ? std::max(10.0f, Owner_->GetHostChromeHeight() * 0.33f) : 12.0f;
-    }
-
-    ImWin32DX11Backend* Owner_ = nullptr;
-    int HoveredItemIndex_ = InvalidHostChromeIndex;
-    int PressedItemIndex_ = InvalidHostChromeIndex;
-};
 
 // ========== 构造函数和析构函数 ==========
 
@@ -919,7 +710,7 @@ void ImWin32DX11Backend::SyncTitleBarMenuPopupState()
 
     if (TitleBarMenuPopupWindow_ && !TitleBarMenuPopupWindow_->IsOpen()) {
         TitleBarMenuPopupWindow_.reset();
-        TitleBarMenuPopupRootWidget_.reset();
+        TitleBarMenuPopupWidget_.reset();
         ActiveTitleBarTabIndex_ = InvalidHostChromeIndex;
     }
 
@@ -1180,8 +971,8 @@ void ImWin32DX11Backend::UpdateTitleBarMenuPopupWindowLayout()
         return;
     }
 
-    const FVector2 popupSize = TitleBarMenuPopupRootWidget_
-        ? TitleBarMenuPopupRootWidget_->GetMinSize()
+    const FVector2 popupSize = TitleBarMenuPopupWidget_
+        ? TitleBarMenuPopupWidget_->GetMinSize()
         : FVector2(180.0f, 36.0f);
     TitleBarMenuPopupWindow_->SetPosition(FVector2(it->Geometry.Position.X, it->Geometry.Position.Y + it->Geometry.Size.Y));
     TitleBarMenuPopupWindow_->SetSize(popupSize);
@@ -1199,16 +990,25 @@ void ImWin32DX11Backend::OpenTitleBarMenuPopup(int tabIndex)
     }
 
     ActiveTitleBarTabIndex_ = tabIndex;
-    if (!TitleBarMenuPopupRootWidget_) {
-        TitleBarMenuPopupRootWidget_ = std::make_shared<FHostChromeMenuPopupWidget>(this);
+    if (!TitleBarMenuPopupWidget_) {
+        TitleBarMenuPopupWidget_ = std::make_shared<ImPopupMenu>();
+        TitleBarMenuPopupWidget_->OnItemInvoked.AddLambda([this](ImPopupMenu&, int) {
+            CloseTitleBarMenuPopup();
+            if (Hwnd_ != nullptr) {
+                ::InvalidateRect(Hwnd_, nullptr, FALSE);
+            }
+        });
     }
+
+    TitleBarMenuPopupWidget_->SetStyle(BuildHostChromePopupMenuStyle(GetHostChromeHeight()));
+    TitleBarMenuPopupWidget_->SetItems(tabs[static_cast<std::size_t>(tabIndex)].Items);
 
     if (!TitleBarMenuPopupWindow_) {
         FPopupOptions popupOptions;
         popupOptions.Title = "HostChromeMenu";
         popupOptions.Position = FVector2(0.0f, static_cast<float>(GetHostChromeHeight()));
-        popupOptions.Size = TitleBarMenuPopupRootWidget_->GetMinSize();
-        popupOptions.RootWidget = TitleBarMenuPopupRootWidget_;
+        popupOptions.Size = TitleBarMenuPopupWidget_->GetMinSize();
+        popupOptions.RootWidget = TitleBarMenuPopupWidget_;
         popupOptions.ParentWindow = Application_->GetWindowManager().GetMainWindow();
         popupOptions.Style.BackgroundColor = FColor::FromBytes(26, 31, 38);
         popupOptions.Style.InactiveBackgroundColor = popupOptions.Style.BackgroundColor;
@@ -1234,7 +1034,7 @@ void ImWin32DX11Backend::CloseTitleBarMenuPopup()
     }
 
     TitleBarMenuPopupWindow_.reset();
-    TitleBarMenuPopupRootWidget_.reset();
+    TitleBarMenuPopupWidget_.reset();
     ActiveTitleBarTabIndex_ = InvalidHostChromeIndex;
 }
 

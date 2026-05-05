@@ -24,7 +24,7 @@ namespace ImWidgetV4 {
 
 class ImWidget;
 class ImWindow;
-class FHostChromeMenuPopupWidget;
+class ImPopupMenu;
 
 /**
  * @brief Win32/DirectX 11 后端实现
@@ -176,7 +176,6 @@ public:
     HWND GetWindowHandle() const { return Hwnd_; }
 
 private:
-    friend class FHostChromeMenuPopupWidget;
     enum class EHostChromeButton : std::uint8_t {
         None,
         Minimize,
@@ -220,7 +219,7 @@ private:
     FImGuiInputSource InputSource_;
     FPostFrameCallback PostFrameCallback_;
     std::shared_ptr<ImWindow> TitleBarMenuPopupWindow_;
-    std::shared_ptr<ImWidget> TitleBarMenuPopupRootWidget_;
+    std::shared_ptr<ImPopupMenu> TitleBarMenuPopupWidget_;
     std::unique_ptr<FHostChromeLayoutCache> HostChromeLayoutCache_;
 
     // ========== 内部方法 ==========

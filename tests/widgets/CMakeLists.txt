@@ -96,6 +96,18 @@ target_link_libraries(combobox_test PRIVATE
 
 add_test(NAME ComboBoxTest COMMAND combobox_test)
 
+add_executable(popup_menu_test
+    popup_menu_test.cpp
+)
+
+target_link_libraries(popup_menu_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME PopupMenuTest COMMAND popup_menu_test)
+
 add_executable(slider_test
     slider_test.cpp
 )

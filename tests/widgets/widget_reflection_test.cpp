@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/ListView.h>
 #include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Slider.h>
@@ -246,6 +247,13 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(outlineStyle.HasProperty("RowMinHeight", "FOutlineViewStyle"));
     EXPECT_TRUE(outlineView.HasProperty("ScrollOffset", "ImOutlineView"));
     EXPECT_TRUE(outlineItem.HasProperty("Expanded", "ImOutlineItem"));
+
+    FListViewStyle listViewStyle;
+    ImListView listView;
+    EXPECT_TRUE(listViewStyle.HasProperty("RowMinHeight", "FListViewStyle"));
+    EXPECT_TRUE(listView.HasProperty("ItemCount", "ImListView"));
+    EXPECT_TRUE(listView.HasProperty("SelectedIndex", "ImListView"));
+    EXPECT_TRUE(listView.HasProperty("ScrollOffset", "ImListView"));
 }
 
 TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)

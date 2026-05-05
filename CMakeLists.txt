@@ -125,6 +125,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalSplitter.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Image.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ListView.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/OutlineView.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PanelWidget.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PopupMenu.h
@@ -163,6 +164,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/HorizontalSplitter.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Image.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/ListView.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/OutlineView.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PanelWidget.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/PopupMenu.cpp
@@ -283,6 +285,7 @@ imwidgetv4_set_target_folder(slider_test "Tests/Widgets")
 imwidgetv4_set_target_folder(scroll_box_test "Tests/Widgets")
 imwidgetv4_set_target_folder(splitter_test "Tests/Widgets")
 imwidgetv4_set_target_folder(text_list_test "Tests/Widgets")
+imwidgetv4_set_target_folder(list_view_test "Tests/Widgets")
 imwidgetv4_set_target_folder(text_outline_view_test "Tests/Widgets")
 imwidgetv4_set_target_folder(outline_view_test "Tests/Widgets")
 imwidgetv4_set_target_folder(user_widget_test "Tests/Widgets")
@@ -293,6 +296,7 @@ imwidgetv4_set_target_folder(CanvasPanelDemo "Examples")
 imwidgetv4_set_target_folder(ExpandableBoxDemo "Examples")
 imwidgetv4_set_target_folder(ImageDemo "Examples")
 imwidgetv4_set_target_folder(InputWidgetsDemo "Examples")
+imwidgetv4_set_target_folder(ListViewDemo "Examples")
 imwidgetv4_set_target_folder(ReflectionInspectorDemo "Examples")
 imwidgetv4_set_target_folder(ScrollBoxDemo "Examples")
 imwidgetv4_set_target_folder(SplitterDemo "Examples")

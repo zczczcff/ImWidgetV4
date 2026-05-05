@@ -4,6 +4,8 @@
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>
 #include <backends/imgui_impl_dx11.h>
+#include <algorithm>
+#include <cmath>
 #include <codecvt>
 #include <locale>
 
@@ -34,6 +36,9 @@ ImWin32DX11Backend::ImWin32DX11Backend(
     , bWindowClassRegistered_(false)
     , bImGuiBackendInitialized_(false)
     , bImGuiContextOwned_(false)
+    , bUseCustomHostChrome_(false)
+    , HoveredHostChromeButton_(EHostChromeButton::None)
+    , PressedHostChromeButton_(EHostChromeButton::None)
     , Application_(nullptr)
 {
 }
@@ -64,12 +69,20 @@ bool ImWin32DX11Backend::Initialize() {
     bWindowClassRegistered_ = true;
 
     // 2. 创建窗口
+    const DWORD windowStyle = GetResolvedWindowStyle();
+    RECT windowRect = {0, 0, WindowWidth_, WindowHeight_};
+    if (bUseCustomHostChrome_) {
+        windowRect.bottom += GetHostChromeHeight();
+    }
+    AdjustWindowRect(&windowRect, windowStyle, FALSE);
+
     Hwnd_ = CreateWindowW(
         wc.lpszClassName,
         WindowTitle_.c_str(),
-        WS_OVERLAPPEDWINDOW,
+        windowStyle,
         100, 100,
-        WindowWidth_, WindowHeight_,
+        windowRect.right - windowRect.left,
+        windowRect.bottom - windowRect.top,
         nullptr, nullptr,
         wc.hInstance,
         this  // 传递 this 指针
@@ -177,18 +190,25 @@ void ImWin32DX11Backend::Run() {
         FFrameInfo frameInfo;
         bool bHasFrameInfo = false;
         if (Application_) {
-            const ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImGuiIO& io = ImGui::GetIO();
             FImGuiInputSnapshot inputSnapshot;
             PopulateImGuiInputSnapshotFromIo(io, inputSnapshot);
             InputSource_.SetSnapshot(inputSnapshot);
             DrawContext drawContext(ImGui::GetBackgroundDrawList());
+            RECT clientRect = {};
+            GetClientRect(Hwnd_, &clientRect);
+
+            const float chromeTopInset = bUseCustomHostChrome_
+                ? static_cast<float>(GetHostChromeHeight())
+                : 0.0f;
+            const float viewportWidth = static_cast<float>(std::max(0L, clientRect.right - clientRect.left));
+            const float viewportHeight = static_cast<float>(std::max(
+                0L,
+                (clientRect.bottom - clientRect.top) - static_cast<LONG>(chromeTopInset)));
 
             FFrameContext frameContext;
-            frameContext.FrameInfo.ViewportPosition =
-                FVector2(viewport->Pos.x, viewport->Pos.y);
-            frameContext.FrameInfo.ViewportSize =
-                FVector2(viewport->Size.x, viewport->Size.y);
+            frameContext.FrameInfo.ViewportPosition = FVector2(0.0f, chromeTopInset);
+            frameContext.FrameInfo.ViewportSize = FVector2(viewportWidth, viewportHeight);
             frameContext.FrameInfo.DeltaTime = io.DeltaTime;
             frameContext.FrameInfo.CurrentTime = ImGui::GetTime();
             frameContext.DrawContext_ = &drawContext;
@@ -197,6 +217,10 @@ void ImWin32DX11Backend::Run() {
             frameInfo = frameContext.FrameInfo;
             bHasFrameInfo = true;
             Application_->AdvanceFrame(frameContext);
+        }
+
+        if (bUseCustomHostChrome_) {
+            DrawCustomHostChrome();
         }
 
         // 6. 结束帧
@@ -213,9 +237,7 @@ bool ImWin32DX11Backend::ShouldClose() const {
 }
 
 void ImWin32DX11Backend::SetWindowTitle(const std::string& title) {
-    // 将 UTF-8 转换为宽字符
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    WindowTitle_ = converter.from_bytes(title);
+    WindowTitle_ = Utf8ToWide(title);
 
     if (Hwnd_) {
         SetWindowTextW(Hwnd_, WindowTitle_.c_str());
@@ -228,7 +250,10 @@ void ImWin32DX11Backend::SetWindowSize(int width, int height) {
 
     if (Hwnd_) {
         RECT rect = {0, 0, width, height};
-        AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+        if (bUseCustomHostChrome_) {
+            rect.bottom += GetHostChromeHeight();
+        }
+        AdjustWindowRect(&rect, GetResolvedWindowStyle(), FALSE);
         SetWindowPos(Hwnd_, nullptr, 0, 0,
                      rect.right - rect.left,
                      rect.bottom - rect.top,
@@ -351,6 +376,336 @@ void ImWin32DX11Backend::ReleaseTexture(ImTextureID textureId)
 
     ID3D11ShaderResourceView* textureView = reinterpret_cast<ID3D11ShaderResourceView*>(textureId);
     textureView->Release();
+}
+
+void ImWin32DX11Backend::SetUseCustomHostChrome(bool enabled)
+{
+    if (bUseCustomHostChrome_ == enabled) {
+        return;
+    }
+
+    bUseCustomHostChrome_ = enabled;
+    HoveredHostChromeButton_ = EHostChromeButton::None;
+    PressedHostChromeButton_ = EHostChromeButton::None;
+
+    if (Hwnd_ != nullptr) {
+        ApplyWindowStyle();
+        SetWindowSize(WindowWidth_, WindowHeight_);
+        InvalidateRect(Hwnd_, nullptr, FALSE);
+    }
+}
+
+DWORD ImWin32DX11Backend::GetResolvedWindowStyle() const
+{
+    if (bUseCustomHostChrome_) {
+        return WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+    }
+
+    return WS_OVERLAPPEDWINDOW;
+}
+
+void ImWin32DX11Backend::ApplyWindowStyle()
+{
+    if (Hwnd_ == nullptr) {
+        return;
+    }
+
+    SetWindowLongPtrW(Hwnd_, GWL_STYLE, static_cast<LONG_PTR>(GetResolvedWindowStyle()));
+    SetWindowPos(
+        Hwnd_,
+        nullptr,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
+float ImWin32DX11Backend::GetHostChromeDpiScale() const
+{
+    if (Hwnd_ != nullptr) {
+        const UINT dpi = GetDpiForWindow(Hwnd_);
+        if (dpi != 0) {
+            return static_cast<float>(dpi) / 96.0f;
+        }
+    }
+
+    return 1.0f;
+}
+
+int ImWin32DX11Backend::GetHostChromeHeight() const
+{
+    return std::max(28, static_cast<int>(std::lround(30.0f * GetHostChromeDpiScale())));
+}
+
+int ImWin32DX11Backend::GetHostChromeResizeBorderThickness() const
+{
+    const int systemFrame = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+    const int fallback = std::max(6, static_cast<int>(std::lround(8.0f * GetHostChromeDpiScale())));
+    return std::max(systemFrame, fallback);
+}
+
+RECT ImWin32DX11Backend::GetHostChromeButtonRect(EHostChromeButton button) const
+{
+    RECT clientRect = {};
+    if (Hwnd_ == nullptr || button == EHostChromeButton::None) {
+        return clientRect;
+    }
+
+    GetClientRect(Hwnd_, &clientRect);
+    const int chromeHeight = GetHostChromeHeight();
+    const int buttonWidth = std::max(chromeHeight, static_cast<int>(std::lround(46.0f * GetHostChromeDpiScale())));
+
+    int buttonIndexFromRight = 0;
+    switch (button) {
+    case EHostChromeButton::Close:
+        buttonIndexFromRight = 0;
+        break;
+    case EHostChromeButton::Maximize:
+        buttonIndexFromRight = 1;
+        break;
+    case EHostChromeButton::Minimize:
+        buttonIndexFromRight = 2;
+        break;
+    default:
+        break;
+    }
+
+    clientRect.left = clientRect.right - ((buttonIndexFromRight + 1) * buttonWidth);
+    clientRect.right = clientRect.left + buttonWidth;
+    clientRect.top = 0;
+    clientRect.bottom = chromeHeight;
+    return clientRect;
+}
+
+ImWin32DX11Backend::EHostChromeButton ImWin32DX11Backend::HitTestHostChromeButton(const POINT& clientPoint) const
+{
+    if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
+        return EHostChromeButton::None;
+    }
+
+    for (EHostChromeButton button : {
+             EHostChromeButton::Close,
+             EHostChromeButton::Maximize,
+             EHostChromeButton::Minimize}) {
+        const RECT buttonRect = GetHostChromeButtonRect(button);
+        if (PtInRect(&buttonRect, clientPoint)) {
+            return button;
+        }
+    }
+
+    return EHostChromeButton::None;
+}
+
+bool ImWin32DX11Backend::IsPointInHostChromeCaption(const POINT& clientPoint) const
+{
+    if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
+        return false;
+    }
+
+    RECT clientRect = {};
+    GetClientRect(Hwnd_, &clientRect);
+    if (clientPoint.y < 0 || clientPoint.y >= GetHostChromeHeight()) {
+        return false;
+    }
+
+    if (clientPoint.x < 0 || clientPoint.x >= clientRect.right) {
+        return false;
+    }
+
+    return HitTestHostChromeButton(clientPoint) == EHostChromeButton::None;
+}
+
+bool ImWin32DX11Backend::HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint)
+{
+    if (msg != WM_LBUTTONDOWN || !bUseCustomHostChrome_) {
+        return false;
+    }
+
+    const EHostChromeButton button = HitTestHostChromeButton(clientPoint);
+    if (button == EHostChromeButton::None) {
+        return false;
+    }
+
+    PressedHostChromeButton_ = button;
+    SetCapture(Hwnd_);
+    InvalidateRect(Hwnd_, nullptr, FALSE);
+    return true;
+}
+
+bool ImWin32DX11Backend::HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint)
+{
+    if (msg != WM_LBUTTONUP || !bUseCustomHostChrome_ || PressedHostChromeButton_ == EHostChromeButton::None) {
+        return false;
+    }
+
+    const EHostChromeButton releasedButton = PressedHostChromeButton_;
+    PressedHostChromeButton_ = EHostChromeButton::None;
+    if (GetCapture() == Hwnd_) {
+        ReleaseCapture();
+    }
+
+    const bool bInvokeAction = HitTestHostChromeButton(clientPoint) == releasedButton;
+    InvalidateRect(Hwnd_, nullptr, FALSE);
+
+    if (!bInvokeAction) {
+        return true;
+    }
+
+    switch (releasedButton) {
+    case EHostChromeButton::Minimize:
+        ShowWindow(Hwnd_, SW_MINIMIZE);
+        break;
+    case EHostChromeButton::Maximize:
+        ShowWindow(Hwnd_, IsZoomed(Hwnd_) ? SW_RESTORE : SW_MAXIMIZE);
+        break;
+    case EHostChromeButton::Close:
+        RequestClose();
+        break;
+    default:
+        break;
+    }
+
+    return true;
+}
+
+void ImWin32DX11Backend::DrawCustomHostChrome()
+{
+    if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
+        return;
+    }
+
+    RECT clientRect = {};
+    GetClientRect(Hwnd_, &clientRect);
+    const float width = static_cast<float>(clientRect.right - clientRect.left);
+    const float chromeHeight = static_cast<float>(GetHostChromeHeight());
+    if (width <= 0.0f || chromeHeight <= 0.0f) {
+        return;
+    }
+
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+    const bool bIsActiveWindow = GetForegroundWindow() == Hwnd_;
+    const float dpiScale = GetHostChromeDpiScale();
+    const float iconStroke = std::max(1.6f, 1.6f * dpiScale);
+    const ImU32 barColor = bIsActiveWindow ? IM_COL32(24, 29, 38, 255) : IM_COL32(33, 37, 45, 255);
+    const ImU32 borderColor = bIsActiveWindow ? IM_COL32(79, 89, 107, 255) : IM_COL32(61, 68, 83, 255);
+    const ImU32 textColor = bIsActiveWindow ? IM_COL32(240, 244, 250, 255) : IM_COL32(195, 202, 212, 255);
+
+    drawList->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(width, chromeHeight), barColor);
+    drawList->AddLine(ImVec2(0.0f, chromeHeight - 1.0f), ImVec2(width, chromeHeight - 1.0f), borderColor, 1.0f);
+
+    const std::string titleText = WideToUtf8(WindowTitle_);
+    if (!titleText.empty()) {
+        const RECT closeRect = GetHostChromeButtonRect(EHostChromeButton::Minimize);
+        const float textLeft = 14.0f * dpiScale;
+        const float textRight = std::max(textLeft + 1.0f, static_cast<float>(closeRect.left) - (12.0f * dpiScale));
+        drawList->PushClipRect(ImVec2(textLeft, 0.0f), ImVec2(textRight, chromeHeight), true);
+        drawList->AddText(
+            ImVec2(textLeft, (chromeHeight - ImGui::GetFontSize()) * 0.5f),
+            textColor,
+            titleText.c_str());
+        drawList->PopClipRect();
+    }
+
+    const ImU32 buttonBaseColor = IM_COL32(0, 0, 0, 0);
+    const ImU32 buttonHoverColor = IM_COL32(255, 255, 255, 20);
+    const ImU32 buttonPressedColor = IM_COL32(255, 255, 255, 34);
+    const ImU32 closeHoverColor = IM_COL32(212, 58, 76, 220);
+    const ImU32 closePressedColor = IM_COL32(188, 46, 66, 240);
+
+    for (EHostChromeButton button : {
+             EHostChromeButton::Minimize,
+             EHostChromeButton::Maximize,
+             EHostChromeButton::Close}) {
+        const RECT buttonRect = GetHostChromeButtonRect(button);
+        const ImVec2 buttonMin(static_cast<float>(buttonRect.left), static_cast<float>(buttonRect.top));
+        const ImVec2 buttonMax(static_cast<float>(buttonRect.right), static_cast<float>(buttonRect.bottom));
+        const bool bHovered = HoveredHostChromeButton_ == button;
+        const bool bPressed = PressedHostChromeButton_ == button;
+
+        ImU32 fillColor = buttonBaseColor;
+        if (button == EHostChromeButton::Close) {
+            fillColor = bPressed ? closePressedColor : (bHovered ? closeHoverColor : buttonBaseColor);
+        } else if (bPressed) {
+            fillColor = buttonPressedColor;
+        } else if (bHovered) {
+            fillColor = buttonHoverColor;
+        }
+
+        if ((fillColor >> IM_COL32_A_SHIFT) != 0) {
+            drawList->AddRectFilled(buttonMin, buttonMax, fillColor);
+        }
+
+        const ImVec2 center((buttonMin.x + buttonMax.x) * 0.5f, (buttonMin.y + buttonMax.y) * 0.5f);
+        const float halfExtent = 6.0f * dpiScale;
+        const ImU32 glyphColor = IM_COL32(245, 247, 250, 255);
+
+        switch (button) {
+        case EHostChromeButton::Minimize:
+            drawList->AddLine(
+                ImVec2(center.x - halfExtent, center.y + 4.0f * dpiScale),
+                ImVec2(center.x + halfExtent, center.y + 4.0f * dpiScale),
+                glyphColor,
+                iconStroke);
+            break;
+
+        case EHostChromeButton::Maximize:
+            if (IsZoomed(Hwnd_)) {
+                const float offset = 2.5f * dpiScale;
+                drawList->AddRect(
+                    ImVec2(center.x - halfExtent + offset, center.y - halfExtent - offset),
+                    ImVec2(center.x + halfExtent + offset, center.y + halfExtent - offset),
+                    glyphColor,
+                    0.0f,
+                    0,
+                    iconStroke);
+                drawList->AddRect(
+                    ImVec2(center.x - halfExtent - offset, center.y - halfExtent + offset),
+                    ImVec2(center.x + halfExtent - offset, center.y + halfExtent + offset),
+                    glyphColor,
+                    0.0f,
+                    0,
+                    iconStroke);
+            } else {
+                drawList->AddRect(
+                    ImVec2(center.x - halfExtent, center.y - halfExtent),
+                    ImVec2(center.x + halfExtent, center.y + halfExtent),
+                    glyphColor,
+                    0.0f,
+                    0,
+                    iconStroke);
+            }
+            break;
+
+        case EHostChromeButton::Close:
+            drawList->AddLine(
+                ImVec2(center.x - halfExtent, center.y - halfExtent),
+                ImVec2(center.x + halfExtent, center.y + halfExtent),
+                glyphColor,
+                iconStroke);
+            drawList->AddLine(
+                ImVec2(center.x + halfExtent, center.y - halfExtent),
+                ImVec2(center.x - halfExtent, center.y + halfExtent),
+                glyphColor,
+                iconStroke);
+            break;
+
+        default:
+            break;
+        }
+    }
+}
+
+std::wstring ImWin32DX11Backend::Utf8ToWide(const std::string& text)
+{
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.from_bytes(text);
+}
+
+std::string ImWin32DX11Backend::WideToUtf8(const std::wstring& text)
+{
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.to_bytes(text);
 }
 
 bool ImWin32DX11Backend::CreateDeviceD3D() {
@@ -492,6 +847,117 @@ LRESULT CALLBACK ImWin32DX11Backend::WndProcStatic(HWND hWnd, UINT msg, WPARAM w
 }
 
 LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (bUseCustomHostChrome_) {
+        switch (msg) {
+        case WM_NCCALCSIZE:
+            return 0;
+
+        case WM_GETMINMAXINFO: {
+            MINMAXINFO* minMaxInfo = reinterpret_cast<MINMAXINFO*>(lParam);
+            HMONITOR monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO monitorInfo = {};
+            monitorInfo.cbSize = sizeof(monitorInfo);
+            if (GetMonitorInfoW(monitor, &monitorInfo)) {
+                minMaxInfo->ptMaxPosition.x = monitorInfo.rcWork.left - monitorInfo.rcMonitor.left;
+                minMaxInfo->ptMaxPosition.y = monitorInfo.rcWork.top - monitorInfo.rcMonitor.top;
+                minMaxInfo->ptMaxSize.x = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
+                minMaxInfo->ptMaxSize.y = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
+            }
+            return 0;
+        }
+
+        case WM_NCHITTEST: {
+            const POINT screenPoint = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            POINT clientPoint = screenPoint;
+            ScreenToClient(hWnd, &clientPoint);
+
+            RECT clientRect = {};
+            GetClientRect(hWnd, &clientRect);
+            const int resizeBorder = IsZoomed(hWnd) ? 0 : GetHostChromeResizeBorderThickness();
+            const bool bOnLeft = clientPoint.x >= 0 && clientPoint.x < resizeBorder;
+            const bool bOnRight = clientPoint.x < clientRect.right && clientPoint.x >= clientRect.right - resizeBorder;
+            const bool bOnTop = clientPoint.y >= 0 && clientPoint.y < resizeBorder;
+            const bool bOnBottom = clientPoint.y < clientRect.bottom && clientPoint.y >= clientRect.bottom - resizeBorder;
+
+            if (bOnTop && bOnLeft) {
+                return HTTOPLEFT;
+            }
+            if (bOnTop && bOnRight) {
+                return HTTOPRIGHT;
+            }
+            if (bOnBottom && bOnLeft) {
+                return HTBOTTOMLEFT;
+            }
+            if (bOnBottom && bOnRight) {
+                return HTBOTTOMRIGHT;
+            }
+            if (bOnLeft) {
+                return HTLEFT;
+            }
+            if (bOnRight) {
+                return HTRIGHT;
+            }
+            if (bOnTop) {
+                return HTTOP;
+            }
+            if (bOnBottom) {
+                return HTBOTTOM;
+            }
+            if (HitTestHostChromeButton(clientPoint) != EHostChromeButton::None) {
+                return HTCLIENT;
+            }
+            if (IsPointInHostChromeCaption(clientPoint)) {
+                return HTCAPTION;
+            }
+            return HTCLIENT;
+        }
+
+        case WM_MOUSEMOVE: {
+            const POINT clientPoint = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            TRACKMOUSEEVENT trackMouseEvent = {};
+            trackMouseEvent.cbSize = sizeof(trackMouseEvent);
+            trackMouseEvent.dwFlags = TME_LEAVE;
+            trackMouseEvent.hwndTrack = hWnd;
+            TrackMouseEvent(&trackMouseEvent);
+            const EHostChromeButton hoveredButton = HitTestHostChromeButton(clientPoint);
+            if (HoveredHostChromeButton_ != hoveredButton) {
+                HoveredHostChromeButton_ = hoveredButton;
+                InvalidateRect(hWnd, nullptr, FALSE);
+            } else if (PressedHostChromeButton_ != EHostChromeButton::None || clientPoint.y < GetHostChromeHeight()) {
+                InvalidateRect(hWnd, nullptr, FALSE);
+            }
+            break;
+        }
+
+        case WM_MOUSELEAVE:
+        case WM_CAPTURECHANGED:
+            if (HoveredHostChromeButton_ != EHostChromeButton::None || PressedHostChromeButton_ != EHostChromeButton::None) {
+                HoveredHostChromeButton_ = EHostChromeButton::None;
+                if (msg == WM_CAPTURECHANGED) {
+                    PressedHostChromeButton_ = EHostChromeButton::None;
+                }
+                InvalidateRect(hWnd, nullptr, FALSE);
+            }
+            break;
+
+        case WM_LBUTTONDOWN: {
+            const POINT clientPoint = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            if (HandleHostChromeMouseDown(msg, clientPoint)) {
+                return 0;
+            }
+            break;
+        }
+
+        case WM_LBUTTONUP: {
+            const POINT clientPoint = {GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            if (HandleHostChromeMouseUp(msg, clientPoint)) {
+                return 0;
+            }
+            break;
+        }
+        }
+    }
+
     // 1. 转发给 ImGui
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
         return true;

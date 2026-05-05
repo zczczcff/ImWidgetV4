@@ -2,9 +2,13 @@
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/platform/ImGuiInputSource.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <functional>
 #include <string>
 #include <Windows.h>
+#include <windowsx.h>
 #include <d3d11.h>
 #include <dxgi.h>
 
@@ -131,6 +135,8 @@ public:
         int width,
         int height) override;
     void ReleaseTexture(ImTextureID textureId) override;
+    void SetUseCustomHostChrome(bool enabled);
+    bool IsUsingCustomHostChrome() const { return bUseCustomHostChrome_; }
 
     // ========== DirectX 11 特定接口 ==========
 
@@ -153,6 +159,13 @@ public:
     HWND GetWindowHandle() const { return Hwnd_; }
 
 private:
+    enum class EHostChromeButton : std::uint8_t {
+        None,
+        Minimize,
+        Maximize,
+        Close
+    };
+
     // ========== Win32 窗口 ==========
     HINSTANCE HInstance_;
     HWND Hwnd_;
@@ -174,6 +187,9 @@ private:
     bool bWindowClassRegistered_;
     bool bImGuiBackendInitialized_;
     bool bImGuiContextOwned_;
+    bool bUseCustomHostChrome_;
+    EHostChromeButton HoveredHostChromeButton_;
+    EHostChromeButton PressedHostChromeButton_;
 
     // ========== Application 引用 ==========
     ImApplication* Application_;
@@ -207,6 +223,19 @@ private:
      * @brief 处理窗口大小调整
      */
     void HandleResize();
+    DWORD GetResolvedWindowStyle() const;
+    void ApplyWindowStyle();
+    float GetHostChromeDpiScale() const;
+    int GetHostChromeHeight() const;
+    int GetHostChromeResizeBorderThickness() const;
+    RECT GetHostChromeButtonRect(EHostChromeButton button) const;
+    EHostChromeButton HitTestHostChromeButton(const POINT& clientPoint) const;
+    bool IsPointInHostChromeCaption(const POINT& clientPoint) const;
+    bool HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint);
+    bool HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint);
+    void DrawCustomHostChrome();
+    static std::wstring Utf8ToWide(const std::string& text);
+    static std::string WideToUtf8(const std::wstring& text);
 
     /**
      * @brief 静态窗口过程（用于注册窗口类）

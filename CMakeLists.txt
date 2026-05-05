@@ -87,6 +87,7 @@ imwidgetv4_set_target_folder(stb_lib "ThirdParty")
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/Application.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/ApplicationBackend.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/CoreIcon.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType_temp.h
@@ -135,6 +136,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
 
 set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/Application.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/CoreIconData.cpp
     ${CMAKE_SOURCE_DIR}/src/core/DrawContext.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ReflectableObject.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Slot.cpp
@@ -167,6 +169,8 @@ set(IMWIDGETV4_CORE_SOURCES
 )
 
 set(IMWIDGETV4_CORE_VS_ONLY_FILES
+    ${CMAKE_SOURCE_DIR}/src/core/CoreIconData.h
+    ${CMAKE_SOURCE_DIR}/src/core/CoreIconMask.inl
     ${CMAKE_SOURCE_DIR}/src/rendering/DrawContext.cpp
 )
 

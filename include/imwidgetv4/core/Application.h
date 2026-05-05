@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/CoreIcon.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/core/Widget.h>
@@ -76,6 +77,7 @@ public:
     bool FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const;
 
     const FImageBrush& GetDefaultImagePlaceholderBrush() const;
+    FImageBrush GetCoreIconBrush(ECoreIcon icon, const FColor& tint = FColor::White) const;
 
     std::uint64_t GetFrameNumber() const { return FrameNumber_; }
 
@@ -107,6 +109,9 @@ private:
     std::unordered_map<ImTextureID, FRuntimeTextureData> RuntimeTextures_;
     mutable bool bDefaultImagePlaceholderInitialized_ = false;
     mutable FImageBrush DefaultImagePlaceholderBrush_ {};
+    mutable bool bCoreIconAtlasInitialized_ = false;
+    mutable ImTextureID CoreIconAtlasTexture_ = nullptr;
+    mutable std::vector<FImageBrush> CoreIconBrushes_;
 
     std::vector<FInputEvent> CollectFrameInputs(const FFrameContext& frameContext);
     void RouteInputEvents();
@@ -127,6 +132,7 @@ private:
     FWindowWidgetTarget ResolveMouseTarget(const FVector2& position) const;
     std::shared_ptr<ImWidget> ResolveHoveredWidget(const FVector2& position) const;
     void EnsureDefaultImagePlaceholderInitialized() const;
+    void EnsureCoreIconAtlasInitialized() const;
     static std::vector<std::uint8_t> BuildDefaultImagePlaceholderPixels(int width, int height);
 };
 

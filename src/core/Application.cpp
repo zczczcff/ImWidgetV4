@@ -1,6 +1,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include "CoreIconData.h"
 #include "../snapshot/TextureRegistry.h"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -570,6 +571,14 @@ void ImApplication::SetBackend(ImApplicationBackend* backend)
             ReleaseRuntimeTexture(DefaultImagePlaceholderBrush_.TextureId);
         }
     }
+
+    if (Backend_ != nullptr && CoreIconAtlasTexture_ != nullptr) {
+        FRuntimeTextureData iconAtlasData;
+        if (FindRuntimeTextureData(CoreIconAtlasTexture_, iconAtlasData) &&
+            !iconAtlasData.bUsesBackendTexture) {
+            ReleaseRuntimeTexture(CoreIconAtlasTexture_);
+        }
+    }
 }
 
 ImApplicationBackend* ImApplication::GetBackend() const
@@ -719,6 +728,12 @@ void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
         DefaultImagePlaceholderBrush_ = FImageBrush();
         bDefaultImagePlaceholderInitialized_ = false;
     }
+
+    if (CoreIconAtlasTexture_ == textureId) {
+        CoreIconAtlasTexture_ = nullptr;
+        bCoreIconAtlasInitialized_ = false;
+        CoreIconBrushes_.clear();
+    }
 }
 
 bool ImApplication::FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const
@@ -736,6 +751,22 @@ const FImageBrush& ImApplication::GetDefaultImagePlaceholderBrush() const
 {
     EnsureDefaultImagePlaceholderInitialized();
     return DefaultImagePlaceholderBrush_;
+}
+
+FImageBrush ImApplication::GetCoreIconBrush(ECoreIcon icon, const FColor& tint) const
+{
+    EnsureCoreIconAtlasInitialized();
+
+    const int iconIndex = static_cast<int>(icon);
+    if (!bCoreIconAtlasInitialized_ ||
+        iconIndex < 0 ||
+        iconIndex >= static_cast<int>(CoreIconBrushes_.size())) {
+        return FImageBrush();
+    }
+
+    FImageBrush brush = CoreIconBrushes_[static_cast<std::size_t>(iconIndex)];
+    brush.TintColor = tint;
+    return brush;
 }
 
 void ImApplication::EnqueueInput(const FInputEvent& inputEvent)
@@ -1330,6 +1361,34 @@ void ImApplication::EnsureDefaultImagePlaceholderInitialized() const
     DefaultImagePlaceholderBrush_.Uv1 = FVector2(1.0f, 1.0f);
     DefaultImagePlaceholderBrush_.TintColor = FColor::White;
     bDefaultImagePlaceholderInitialized_ = textureId != nullptr;
+}
+
+void ImApplication::EnsureCoreIconAtlasInitialized() const
+{
+    if (bCoreIconAtlasInitialized_ &&
+        CoreIconAtlasTexture_ != nullptr &&
+        CoreIconBrushes_.size() == static_cast<std::size_t>(CoreIconInternal::GetIconCount())) {
+        return;
+    }
+
+    const std::vector<std::uint8_t>& atlasPixels = CoreIconInternal::GetAtlasPixels();
+    ImTextureID textureId = const_cast<ImApplication*>(this)->CreateRuntimeTextureFromRgba(
+        atlasPixels,
+        CoreIconInternal::AtlasWidth,
+        CoreIconInternal::AtlasHeight);
+    if (textureId == nullptr) {
+        return;
+    }
+
+    CoreIconAtlasTexture_ = textureId;
+    CoreIconBrushes_.clear();
+    CoreIconBrushes_.reserve(static_cast<std::size_t>(CoreIconInternal::GetIconCount()));
+    for (int iconIndex = 0; iconIndex < CoreIconInternal::GetIconCount(); ++iconIndex) {
+        CoreIconBrushes_.push_back(
+            CoreIconInternal::MakeBrush(textureId, static_cast<ECoreIcon>(iconIndex)));
+    }
+
+    bCoreIconAtlasInitialized_ = true;
 }
 
 std::vector<std::uint8_t> ImApplication::BuildDefaultImagePlaceholderPixels(int width, int height)

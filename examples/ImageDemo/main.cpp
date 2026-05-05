@@ -1,3 +1,4 @@
+#include <Windows.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
@@ -7,8 +8,8 @@
 #include "../DemoPaths.h"
 #include <memory>
 #include <string>
+#include <array>
 #include <vector>
-#include <Windows.h>
 
 using namespace ImWidgetV4;
 
@@ -65,6 +66,88 @@ std::shared_ptr<ImVerticalBox> MakeImageCard(
     card->AddChild(image);
     card->AddChild(MakeLabel(caption, FColor::FromBytes(214, 222, 234)));
     return card;
+}
+
+constexpr std::array<std::pair<ECoreIcon, const char*>, 20> GCoreIcons = {{
+    {ECoreIcon::Save, "Save"},
+    {ECoreIcon::Folder, "Folder"},
+    {ECoreIcon::File, "File"},
+    {ECoreIcon::Copy, "Copy"},
+    {ECoreIcon::Paste, "Paste"},
+    {ECoreIcon::Cut, "Cut"},
+    {ECoreIcon::Trash, "Trash"},
+    {ECoreIcon::Undo, "Undo"},
+    {ECoreIcon::Redo, "Redo"},
+    {ECoreIcon::Search, "Search"},
+    {ECoreIcon::Settings, "Settings"},
+    {ECoreIcon::Add, "Add"},
+    {ECoreIcon::Remove, "Remove"},
+    {ECoreIcon::ArrowUp, "ArrowUp"},
+    {ECoreIcon::ArrowDown, "ArrowDown"},
+    {ECoreIcon::Download, "Download"},
+    {ECoreIcon::Upload, "Upload"},
+    {ECoreIcon::Lock, "Lock"},
+    {ECoreIcon::Unlock, "Unlock"},
+    {ECoreIcon::View, "View"}
+}};
+
+std::shared_ptr<ImVerticalBox> MakeCoreIconCell(
+    const FImageBrush& brush,
+    const std::string& label,
+    const FColor& labelColor)
+{
+    auto cell = std::make_shared<ImVerticalBox>();
+    cell->SetSpacing(6.0f);
+
+    auto image = std::make_shared<ImImage>();
+    image->SetBrush(brush);
+    image->SetDesiredSize(FVector2(56.0f, 56.0f));
+    image->SetBackgroundColor(FColor::FromBytes(24, 31, 40));
+    image->SetCornerRadius(10.0f);
+
+    auto text = MakeLabel(label, labelColor);
+    text->SetFontSize(13.0f);
+
+    cell->AddChild(image);
+    cell->AddChild(text);
+    return cell;
+}
+
+std::shared_ptr<ImVerticalBox> MakeCoreIconGrid(
+    ImApplication& application,
+    bool bTinted)
+{
+    static const std::array<FColor, 5> AccentColors = {
+        FColor::FromBytes(255, 214, 102),
+        FColor::FromBytes(123, 221, 255),
+        FColor::FromBytes(255, 160, 122),
+        FColor::FromBytes(174, 234, 119),
+        FColor::FromBytes(232, 170, 255)
+    };
+
+    auto grid = std::make_shared<ImVerticalBox>();
+    grid->SetSpacing(12.0f);
+
+    for (int rowIndex = 0; rowIndex < 4; ++rowIndex) {
+        auto row = std::make_shared<ImHorizontalBox>();
+        row->SetSpacing(12.0f);
+
+        for (int columnIndex = 0; columnIndex < 5; ++columnIndex) {
+            const int iconIndex = rowIndex * 5 + columnIndex;
+            const FColor tint = bTinted ? AccentColors[static_cast<std::size_t>(iconIndex % AccentColors.size())]
+                                        : FColor::White;
+            const FColor labelColor = bTinted ? tint : FColor::FromBytes(214, 222, 234);
+            row->AddChild(
+                MakeCoreIconCell(
+                    application.GetCoreIconBrush(GCoreIcons[static_cast<std::size_t>(iconIndex)].first, tint),
+                    GCoreIcons[static_cast<std::size_t>(iconIndex)].second,
+                    labelColor));
+        }
+
+        grid->AddChild(row);
+    }
+
+    return grid;
 }
 
 } // namespace
@@ -150,6 +233,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         FMargin(0.0f, 20.0f, 0.0f, 20.0f));
 
     root->AddChild(row, FMargin(0.0f));
+
+    auto iconSectionTitle = MakeLabel("Core Icons");
+    iconSectionTitle->SetFontSize(24.0f);
+    root->AddChild(iconSectionTitle, FMargin(20.0f, 20.0f, 20.0f, 0.0f));
+
+    root->AddChild(
+        MakeLabel(
+            "The library now embeds a 20-icon atlas. The first grid uses the default white brushes, and the second grid reuses the same atlas with per-brush tint colors.",
+            FColor::FromBytes(214, 222, 234)),
+        FMargin(20.0f, 0.0f, 20.0f, 0.0f));
+
+    auto whiteIconsTitle = MakeLabel("Default White Atlas Brushes", FColor::FromBytes(255, 214, 102));
+    whiteIconsTitle->SetFontSize(18.0f);
+    root->AddChild(whiteIconsTitle, FMargin(20.0f, 12.0f, 20.0f, 0.0f));
+    root->AddChild(MakeCoreIconGrid(*app, false), FMargin(20.0f, 0.0f, 20.0f, 0.0f));
+
+    auto tintedIconsTitle = MakeLabel("Tinted Atlas Brushes", FColor::FromBytes(255, 214, 102));
+    tintedIconsTitle->SetFontSize(18.0f);
+    root->AddChild(tintedIconsTitle, FMargin(20.0f, 12.0f, 20.0f, 0.0f));
+    root->AddChild(MakeCoreIconGrid(*app, true), FMargin(20.0f, 0.0f, 20.0f, 20.0f));
 
     app->SetRootWidget(root);
     backend->Run();

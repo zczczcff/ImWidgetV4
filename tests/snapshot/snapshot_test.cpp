@@ -313,6 +313,27 @@ TEST(SnapshotTest, ImageSnapshotChangesWhenRuntimeTextureReplacesPlaceholder) {
     EXPECT_EQ(FSnapshotRenderer::ComputeHash(textured), FSnapshotRenderer::ComputeHash(texturedAgain));
 }
 
+TEST(SnapshotTest, CoreIconSnapshotIsVisibleAndDeterministic) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto image = std::make_shared<ImImage>();
+    image->SetBrush(application.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(255, 214, 102)));
+    image->SetDesiredSize(FVector2(96.0f, 96.0f));
+    image->SetBackgroundColor(FColor::FromBytes(20, 24, 30));
+    application.SetRootWidget(image);
+
+    const FColor clearColor = FColor::FromBytes(8, 10, 14, 255);
+    const FFrameContext frameContext = MakeFrameContext(128.0f, 128.0f, 0.0);
+    const FSnapshotOptions options {128, 128, clearColor};
+    const FSnapshotImage first = application.CaptureSnapshot(frameContext, options);
+    const FSnapshotImage second = application.CaptureSnapshot(frameContext, options);
+
+    EXPECT_TRUE(ImageHasAnyPixelDifferentFrom(first, clearColor));
+    EXPECT_EQ(FSnapshotRenderer::ComputeHash(first), FSnapshotRenderer::ComputeHash(second));
+    EXPECT_TRUE(FSnapshotRenderer::Compare(first, second, 0).IsMatch());
+}
+
 TEST(SnapshotTest, TextListSnapshotChangesAfterTextSelection) {
     FImGuiScope imguiScope;
     ImApplication application;

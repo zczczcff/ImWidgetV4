@@ -3,7 +3,10 @@
 #include <imwidgetv4/snapshot/Snapshot.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imgui.h>
+#include <array>
 #include <memory>
+#include <set>
+#include <string>
 #include <vector>
 
 using namespace ImWidgetV4;
@@ -77,6 +80,29 @@ protected:
                 FColor::FromBytes(10, 12, 16, 255)
             });
     }
+};
+
+constexpr std::array<ECoreIcon, 20> GAllCoreIcons = {
+    ECoreIcon::Save,
+    ECoreIcon::Folder,
+    ECoreIcon::File,
+    ECoreIcon::Copy,
+    ECoreIcon::Paste,
+    ECoreIcon::Cut,
+    ECoreIcon::Trash,
+    ECoreIcon::Undo,
+    ECoreIcon::Redo,
+    ECoreIcon::Search,
+    ECoreIcon::Settings,
+    ECoreIcon::Add,
+    ECoreIcon::Remove,
+    ECoreIcon::ArrowUp,
+    ECoreIcon::ArrowDown,
+    ECoreIcon::Download,
+    ECoreIcon::Upload,
+    ECoreIcon::Lock,
+    ECoreIcon::Unlock,
+    ECoreIcon::View
 };
 
 } // namespace
@@ -157,6 +183,69 @@ TEST_F(ImageTest, StretchTintAndBackgroundAffectTheRenderedResult)
     const FSnapshotImage fillSnapshot = Capture(application, fillImage, FVector2(120.0f, 60.0f));
 
     EXPECT_NE(FSnapshotRenderer::ComputeHash(keepAspectSnapshot), FSnapshotRenderer::ComputeHash(fillSnapshot));
+}
+
+TEST_F(ImageTest, CoreIconBrushesShareAtlasTextureAndExposeDistinctUvs)
+{
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    ImTextureID atlasTextureId = nullptr;
+    std::set<std::string> uvKeys;
+    for (ECoreIcon icon : GAllCoreIcons) {
+        const FImageBrush brush = application.GetCoreIconBrush(icon);
+        ASSERT_TRUE(brush.IsValid());
+        EXPECT_FLOAT_EQ(brush.SourceSize.X, 32.0f);
+        EXPECT_FLOAT_EQ(brush.SourceSize.Y, 32.0f);
+
+        if (atlasTextureId == nullptr) {
+            atlasTextureId = brush.TextureId;
+        }
+
+        EXPECT_EQ(brush.TextureId, atlasTextureId);
+        uvKeys.insert(
+            std::to_string(brush.Uv0.X) + ":" +
+            std::to_string(brush.Uv0.Y) + ":" +
+            std::to_string(brush.Uv1.X) + ":" +
+            std::to_string(brush.Uv1.Y));
+    }
+
+    EXPECT_EQ(uvKeys.size(), GAllCoreIcons.size());
+
+    const FImageBrush whiteBrush = application.GetCoreIconBrush(ECoreIcon::Save);
+    const FImageBrush tintedBrush = application.GetCoreIconBrush(ECoreIcon::Save, FColor::FromBytes(255, 128, 96));
+    EXPECT_EQ(tintedBrush.TextureId, whiteBrush.TextureId);
+    EXPECT_EQ(tintedBrush.Uv0, whiteBrush.Uv0);
+    EXPECT_EQ(tintedBrush.Uv1, whiteBrush.Uv1);
+    EXPECT_NE(tintedBrush.TintColor.ToImU32(), whiteBrush.TintColor.ToImU32());
+}
+
+TEST_F(ImageTest, CoreIconAtlasProducesTransparentBackgroundAndOpaqueGlyphPixels)
+{
+    FImGuiScope imguiScope;
+    ImApplication application;
+    const FImageBrush saveBrush = application.GetCoreIconBrush(ECoreIcon::Save);
+    ASSERT_TRUE(saveBrush.IsValid());
+
+    ImApplication::FRuntimeTextureData textureData;
+    ASSERT_TRUE(application.FindRuntimeTextureData(saveBrush.TextureId, textureData));
+    ASSERT_EQ(textureData.Width, 160);
+    ASSERT_EQ(textureData.Height, 128);
+    ASSERT_EQ(textureData.BytesPerPixel, 4);
+
+    const auto samplePixel = [&textureData](int x, int y) {
+        const std::size_t offset =
+            (static_cast<std::size_t>(y) * static_cast<std::size_t>(textureData.Width) + static_cast<std::size_t>(x)) * 4U;
+        return std::array<std::uint8_t, 4> {
+            textureData.Pixels[offset],
+            textureData.Pixels[offset + 1],
+            textureData.Pixels[offset + 2],
+            textureData.Pixels[offset + 3]
+        };
+    };
+
+    EXPECT_EQ(samplePixel(0, 0), (std::array<std::uint8_t, 4> {0, 0, 0, 0}));
+    EXPECT_EQ(samplePixel(8, 8), (std::array<std::uint8_t, 4> {255, 255, 255, 255}));
 }
 
 int main(int argc, char** argv)

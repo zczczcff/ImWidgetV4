@@ -125,6 +125,38 @@ public:
      * @param textureId 纹理 ID
      */
     virtual void ReleaseTexture(ImTextureID textureId) = 0;
+
+    /**
+     * @brief 设置宿主原生窗口图标
+     * @param rgbaPixels RGBA8 像素
+     * @param width 图标宽度
+     * @param height 图标高度
+     * @return 设置成功返回 true
+     */
+    virtual bool SetWindowIconFromRGBA(
+        const std::uint8_t* rgbaPixels,
+        int width,
+        int height)
+    {
+        (void)rgbaPixels;
+        (void)width;
+        (void)height;
+        return false;
+    }
+
+    /**
+     * @brief 清除宿主原生窗口图标
+     */
+    virtual void ClearWindowIcon() {}
+
+    /**
+     * @brief 当前后端是否启用了自绘宿主标题栏
+     * @return 启用时返回 true
+     */
+    virtual bool IsUsingCustomHostChrome() const
+    {
+        return false;
+    }
 };
 
 } // namespace ImWidgetV4

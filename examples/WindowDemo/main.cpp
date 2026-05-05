@@ -55,6 +55,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     auto app = std::make_shared<ImApplication>();
     app->SetIniSettingsPath(Examples::GetDefaultDemoImGuiIniPath(L"WindowDemo.ini"));
     backend->SetApplication(app.get());
+    app->SetApplicationTitle("Window Demo - ImWidgetV4");
+    app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
 
     auto mainRoot = std::make_shared<ImVerticalBox>();
     mainRoot->SetSpacing(12.0f);
@@ -120,7 +122,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     std::shared_ptr<ImWindow> popupWindow;
     std::shared_ptr<ImWindow> modalWindow;
 
-    popupButton->OnClicked.AddLambda([&](ImButton&) {
+    const auto togglePopup = [&]() {
         if (popupWindow && popupWindow->IsOpen()) {
             popupWindow->Close();
             status->SetText("Status: popup closed.");
@@ -141,9 +143,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         status->SetText("Status: popup opened.");
-    });
+    };
 
-    modalButton->OnClicked.AddLambda([&](ImButton&) {
+    const auto openModal = [&]() {
         if (modalWindow && modalWindow->IsOpen()) {
             return;
         }
@@ -176,12 +178,90 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
 
         status->SetText("Status: modal opened.");
-    });
+    };
+
+    popupButton->OnClicked.AddLambda([&](ImButton&) { togglePopup(); });
+    modalButton->OnClicked.AddLambda([&](ImButton&) { openModal(); });
 
     checkbox->OnCheckStateChanged.AddLambda([&](ImCheckBox&, bool checked) {
         editable->SetDisabled(checked);
         status->SetText(checked ? "Status: inspector text box disabled." : "Status: inspector text box enabled.");
     });
+
+    std::vector<FApplicationMenuItem> fileMenuItems;
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Toggle Popup",
+        app->GetCoreIconBrush(ECoreIcon::Folder),
+        true,
+        false,
+        [&]() { togglePopup(); }
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Open Modal",
+        app->GetCoreIconBrush(ECoreIcon::View),
+        true,
+        false,
+        [&]() { openModal(); }
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        std::string(),
+        FImageBrush(),
+        false,
+        true,
+        {}
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Exit Demo",
+        app->GetCoreIconBrush(ECoreIcon::Trash),
+        true,
+        false,
+        [&]() { backend->RequestClose(); }
+    });
+    app->AddTitleBarTabMenu("File", std::move(fileMenuItems));
+
+    std::vector<FApplicationMenuItem> toolsMenuItems;
+    toolsMenuItems.push_back(FApplicationMenuItem {
+        "Enable Inspector Input",
+        app->GetCoreIconBrush(ECoreIcon::Unlock),
+        true,
+        false,
+        [&]() {
+            checkbox->SetChecked(false);
+            editable->SetDisabled(false);
+            status->SetText("Status: inspector text box enabled.");
+        }
+    });
+    toolsMenuItems.push_back(FApplicationMenuItem {
+        "Disable Inspector Input",
+        app->GetCoreIconBrush(ECoreIcon::Lock),
+        true,
+        false,
+        [&]() {
+            checkbox->SetChecked(true);
+            editable->SetDisabled(true);
+            status->SetText("Status: inspector text box disabled.");
+        }
+    });
+    app->AddTitleBarTabMenu("Tools", std::move(toolsMenuItems));
+
+    std::vector<FApplicationMenuItem> infoMenuItems;
+    infoMenuItems.push_back(FApplicationMenuItem {
+        "Host chrome tabs are active",
+        FImageBrush(),
+        false,
+        false,
+        {}
+    });
+    infoMenuItems.push_back(FApplicationMenuItem {
+        "Show status hint",
+        app->GetCoreIconBrush(ECoreIcon::Search),
+        true,
+        false,
+        [&]() {
+            status->SetText("Status: title-bar menu invoked.");
+        }
+    });
+    app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::View), std::move(infoMenuItems));
 
     backend->Run();
     backend->Shutdown();

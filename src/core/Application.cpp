@@ -561,9 +561,57 @@ const std::vector<FThemePack>& ImApplication::GetThemePacks() const
     return ThemePacks_;
 }
 
+void ImApplication::SetApplicationTitle(const std::string& title)
+{
+    if (ApplicationTitle_ == title) {
+        return;
+    }
+
+    ApplicationTitle_ = title;
+    SyncApplicationTitle();
+}
+
+const std::string& ImApplication::GetApplicationTitle() const
+{
+    return ApplicationTitle_;
+}
+
+void ImApplication::SetApplicationIcon(const FImageBrush& brush)
+{
+    ApplicationIcon_ = brush;
+    PromoteBrushToBackendTexture(ApplicationIcon_);
+    SyncApplicationIcon();
+}
+
+void ImApplication::SetApplicationIcon(ImTextureID texture, const FVector2& sourceSize)
+{
+    FImageBrush brush;
+    brush.TextureId = texture;
+    brush.SourceSize = sourceSize;
+    SetApplicationIcon(brush);
+}
+
+const FImageBrush& ImApplication::GetApplicationIcon() const
+{
+    return ApplicationIcon_;
+}
+
 void ImApplication::SetBackend(ImApplicationBackend* backend)
 {
     Backend_ = backend;
+    if (Backend_ != nullptr) {
+        PromoteBrushToBackendTexture(ApplicationIcon_);
+        for (FApplicationTitleBarTab& tab : TitleBarTabMenus_) {
+            if (tab.LabelKind == EApplicationTitleBarTabLabelKind::Icon) {
+                PromoteBrushToBackendTexture(tab.Icon);
+            }
+
+            for (FApplicationMenuItem& item : tab.Items) {
+                PromoteBrushToBackendTexture(item.Icon);
+            }
+        }
+    }
+
     if (Backend_ != nullptr && DefaultImagePlaceholderBrush_.IsValid()) {
         FRuntimeTextureData placeholderData;
         if (FindRuntimeTextureData(DefaultImagePlaceholderBrush_.TextureId, placeholderData) &&
@@ -579,11 +627,64 @@ void ImApplication::SetBackend(ImApplicationBackend* backend)
             ReleaseRuntimeTexture(CoreIconAtlasTexture_);
         }
     }
+
+    SyncApplicationTitle();
+    SyncApplicationIcon();
 }
 
 ImApplicationBackend* ImApplication::GetBackend() const
 {
     return Backend_;
+}
+
+bool ImApplication::ClearTitleBarTabMenus()
+{
+    if (!CanMutateTitleBarTabMenus()) {
+        return false;
+    }
+
+    TitleBarTabMenus_.clear();
+    return true;
+}
+
+bool ImApplication::AddTitleBarTabMenu(const std::string& text, std::vector<FApplicationMenuItem> items)
+{
+    if (!CanMutateTitleBarTabMenus()) {
+        return false;
+    }
+
+    FApplicationTitleBarTab tab;
+    tab.LabelKind = EApplicationTitleBarTabLabelKind::Text;
+    tab.Text = text;
+    tab.Items = std::move(items);
+    for (FApplicationMenuItem& item : tab.Items) {
+        PromoteBrushToBackendTexture(item.Icon);
+    }
+    TitleBarTabMenus_.push_back(std::move(tab));
+    return true;
+}
+
+bool ImApplication::AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApplicationMenuItem> items)
+{
+    if (!CanMutateTitleBarTabMenus()) {
+        return false;
+    }
+
+    FApplicationTitleBarTab tab;
+    tab.LabelKind = EApplicationTitleBarTabLabelKind::Icon;
+    tab.Icon = icon;
+    PromoteBrushToBackendTexture(tab.Icon);
+    tab.Items = std::move(items);
+    for (FApplicationMenuItem& item : tab.Items) {
+        PromoteBrushToBackendTexture(item.Icon);
+    }
+    TitleBarTabMenus_.push_back(std::move(tab));
+    return true;
+}
+
+const std::vector<FApplicationTitleBarTab>& ImApplication::GetTitleBarTabMenus() const
+{
+    return TitleBarTabMenus_;
 }
 
 void ImApplication::SetIniSettingsPath(const std::filesystem::path& path)
@@ -723,6 +824,23 @@ void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
 
     SnapshotInternal::UnregisterTexture(textureId);
     RuntimeTextures_.erase(it);
+
+    if (ApplicationIcon_.TextureId == textureId) {
+        ApplicationIcon_ = FImageBrush();
+        SyncApplicationIcon();
+    }
+
+    for (FApplicationTitleBarTab& tab : TitleBarTabMenus_) {
+        if (tab.Icon.TextureId == textureId) {
+            tab.Icon = FImageBrush();
+        }
+
+        for (FApplicationMenuItem& item : tab.Items) {
+            if (item.Icon.TextureId == textureId) {
+                item.Icon = FImageBrush();
+            }
+        }
+    }
 
     if (DefaultImagePlaceholderBrush_.TextureId == textureId) {
         DefaultImagePlaceholderBrush_ = FImageBrush();
@@ -1345,6 +1463,135 @@ std::shared_ptr<ImWidget> ImApplication::ResolveHoveredWidget(const FVector2& po
 {
     const FWindowWidgetTarget target = ResolveMouseTarget(position);
     return target.WidgetPath.empty() ? nullptr : target.WidgetPath.back();
+}
+
+bool ImApplication::CanMutateTitleBarTabMenus() const
+{
+    return Backend_ != nullptr && Backend_->IsUsingCustomHostChrome();
+}
+
+void ImApplication::SyncApplicationTitle()
+{
+    if (Backend_ == nullptr || ApplicationTitle_.empty()) {
+        return;
+    }
+
+    Backend_->SetWindowTitle(ApplicationTitle_);
+}
+
+void ImApplication::SyncApplicationIcon()
+{
+    if (Backend_ == nullptr) {
+        return;
+    }
+
+    if (!ApplicationIcon_.IsValid()) {
+        Backend_->ClearWindowIcon();
+        return;
+    }
+
+    std::vector<std::uint8_t> pixels;
+    int width = 0;
+    int height = 0;
+    if (!TryResolveBrushPixels(ApplicationIcon_, pixels, width, height)) {
+        return;
+    }
+
+    Backend_->SetWindowIconFromRGBA(pixels.data(), width, height);
+}
+
+bool ImApplication::TryResolveBrushPixels(
+    const FImageBrush& brush,
+    std::vector<std::uint8_t>& outPixels,
+    int& outWidth,
+    int& outHeight) const
+{
+    outPixels.clear();
+    outWidth = 0;
+    outHeight = 0;
+
+    if (!brush.IsValid()) {
+        return false;
+    }
+
+    FRuntimeTextureData textureData;
+    if (!FindRuntimeTextureData(brush.TextureId, textureData) ||
+        textureData.Width <= 0 ||
+        textureData.Height <= 0 ||
+        textureData.BytesPerPixel < 4) {
+        return false;
+    }
+
+    const float uMin = std::clamp(std::min(brush.Uv0.X, brush.Uv1.X), 0.0f, 1.0f);
+    const float uMax = std::clamp(std::max(brush.Uv0.X, brush.Uv1.X), 0.0f, 1.0f);
+    const float vMin = std::clamp(std::min(brush.Uv0.Y, brush.Uv1.Y), 0.0f, 1.0f);
+    const float vMax = std::clamp(std::max(brush.Uv0.Y, brush.Uv1.Y), 0.0f, 1.0f);
+
+    outWidth = std::max(
+        1,
+        static_cast<int>(std::lround(
+            brush.SourceSize.X > 0.0f
+                ? brush.SourceSize.X
+                : (uMax - uMin) * static_cast<float>(textureData.Width))));
+    outHeight = std::max(
+        1,
+        static_cast<int>(std::lround(
+            brush.SourceSize.Y > 0.0f
+                ? brush.SourceSize.Y
+                : (vMax - vMin) * static_cast<float>(textureData.Height))));
+    outPixels.resize(static_cast<std::size_t>(outWidth) * static_cast<std::size_t>(outHeight) * 4U, 0U);
+
+    for (int y = 0; y < outHeight; ++y) {
+        const float v = vMin + ((static_cast<float>(y) + 0.5f) / static_cast<float>(outHeight)) * (vMax - vMin);
+        const int sourceY = std::clamp(
+            static_cast<int>(v * static_cast<float>(textureData.Height)),
+            0,
+            textureData.Height - 1);
+        for (int x = 0; x < outWidth; ++x) {
+            const float u = uMin + ((static_cast<float>(x) + 0.5f) / static_cast<float>(outWidth)) * (uMax - uMin);
+            const int sourceX = std::clamp(
+                static_cast<int>(u * static_cast<float>(textureData.Width)),
+                0,
+                textureData.Width - 1);
+
+            const std::size_t sourceOffset =
+                (static_cast<std::size_t>(sourceY) * static_cast<std::size_t>(textureData.Width) +
+                 static_cast<std::size_t>(sourceX)) * 4U;
+            const std::size_t destinationOffset =
+                (static_cast<std::size_t>(y) * static_cast<std::size_t>(outWidth) +
+                 static_cast<std::size_t>(x)) * 4U;
+            outPixels[destinationOffset] = textureData.Pixels[sourceOffset];
+            outPixels[destinationOffset + 1] = textureData.Pixels[sourceOffset + 1];
+            outPixels[destinationOffset + 2] = textureData.Pixels[sourceOffset + 2];
+            outPixels[destinationOffset + 3] = textureData.Pixels[sourceOffset + 3];
+        }
+    }
+
+    return true;
+}
+
+void ImApplication::PromoteBrushToBackendTexture(FImageBrush& brush)
+{
+    if (Backend_ == nullptr || !brush.IsValid()) {
+        return;
+    }
+
+    FRuntimeTextureData textureData;
+    if (!FindRuntimeTextureData(brush.TextureId, textureData) || textureData.bUsesBackendTexture) {
+        return;
+    }
+
+    const std::vector<std::uint8_t> pixels = textureData.Pixels;
+    const int width = textureData.Width;
+    const int height = textureData.Height;
+    const ImTextureID oldTextureId = brush.TextureId;
+    ImTextureID newTextureId = CreateRuntimeTextureFromRgba(pixels, width, height);
+    if (newTextureId == nullptr || newTextureId == oldTextureId) {
+        return;
+    }
+
+    brush.TextureId = newTextureId;
+    ReleaseRuntimeTexture(oldTextureId);
 }
 
 void ImApplication::EnsureDefaultImagePlaceholderInitialized() const

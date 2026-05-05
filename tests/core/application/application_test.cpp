@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/ApplicationBackend.h>
 #include <imgui.h>
 #include <filesystem>
 #include <memory>
@@ -9,6 +10,76 @@
 using namespace ImWidgetV4;
 
 namespace {
+
+class MockApplicationBackend : public ImApplicationBackend {
+public:
+    ~MockApplicationBackend() override = default;
+
+    bool Initialize() override { return true; }
+    void Shutdown() override {}
+    void Run() override {}
+    bool ShouldClose() const override { return bShouldClose; }
+    void SetWindowTitle(const std::string& title) override
+    {
+        WindowTitle = title;
+        ++SetWindowTitleCallCount;
+    }
+    void SetWindowSize(int width, int height) override
+    {
+        WindowWidth = width;
+        WindowHeight = height;
+    }
+    void GetWindowSize(int& width, int& height) const override
+    {
+        width = WindowWidth;
+        height = WindowHeight;
+    }
+    void BeginFrame() override {}
+    void EndFrame() override {}
+    void SetApplication(ImApplication* app) override
+    {
+        Application = app;
+        if (Application != nullptr) {
+            Application->SetBackend(this);
+        }
+    }
+    ImApplication* GetApplication() const override { return Application; }
+    void RequestClose() override { bShouldClose = true; }
+    std::string GetBackendName() const override { return "Mock"; }
+    ImTextureID CreateTextureFromRGBA(const std::uint8_t*, int, int) override { return nullptr; }
+    void ReleaseTexture(ImTextureID) override {}
+    bool SetWindowIconFromRGBA(const std::uint8_t* rgbaPixels, int width, int height) override
+    {
+        IconWidth = width;
+        IconHeight = height;
+        IconPixels.assign(
+            rgbaPixels,
+            rgbaPixels + (static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U));
+        ++SetWindowIconCallCount;
+        return true;
+    }
+    void ClearWindowIcon() override
+    {
+        IconWidth = 0;
+        IconHeight = 0;
+        IconPixels.clear();
+        ++ClearWindowIconCallCount;
+    }
+    bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome; }
+
+    ImApplication* Application = nullptr;
+    std::string WindowTitle;
+    int WindowWidth = 0;
+    int WindowHeight = 0;
+    int SetWindowTitleCallCount = 0;
+    int SetWindowIconCallCount = 0;
+    int ClearWindowIconCallCount = 0;
+    int IconWidth = 0;
+    int IconHeight = 0;
+    std::vector<std::uint8_t> IconPixels;
+    bool bUseCustomHostChrome = false;
+    bool bShouldClose = false;
+};
 
 class TestWidget : public ImWidget {
 public:
@@ -490,4 +561,67 @@ TEST(ApplicationIniSettingsTest, ApplicationSynchronizesIniFilenameWithCurrentCo
     EXPECT_EQ(ImGui::GetIO().IniFilename, nullptr);
 
     ImGui::DestroyContext(context);
+}
+
+TEST(ApplicationHostChromeTest, ApplicationTitleSynchronizesWhenBackendIsBound)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+
+    application.SetApplicationTitle("Before bind");
+    application.SetBackend(&backend);
+    EXPECT_EQ(backend.WindowTitle, "Before bind");
+
+    application.SetApplicationTitle("After bind");
+    EXPECT_EQ(backend.WindowTitle, "After bind");
+    EXPECT_GE(backend.SetWindowTitleCallCount, 2);
+}
+
+TEST(ApplicationHostChromeTest, ApplicationIconSynchronizesAndCanBeCleared)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    application.SetBackend(&backend);
+
+    const FImageBrush iconBrush = application.GetCoreIconBrush(ECoreIcon::Save);
+    ASSERT_TRUE(iconBrush.IsValid());
+
+    application.SetApplicationIcon(iconBrush);
+    EXPECT_NE(application.GetApplicationIcon().TextureId, nullptr);
+    EXPECT_EQ(backend.IconWidth, 32);
+    EXPECT_EQ(backend.IconHeight, 32);
+    ASSERT_FALSE(backend.IconPixels.empty());
+    EXPECT_EQ(backend.IconPixels[3], 0);
+    EXPECT_GT(backend.SetWindowIconCallCount, 0);
+
+    application.SetApplicationIcon(FImageBrush());
+    EXPECT_TRUE(application.GetApplicationIcon().TextureId == nullptr);
+    EXPECT_TRUE(backend.IconPixels.empty());
+    EXPECT_GT(backend.ClearWindowIconCallCount, 0);
+}
+
+TEST(ApplicationHostChromeTest, TitleBarTabMenusRequireCustomHostChrome)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    application.SetBackend(&backend);
+
+    std::vector<FApplicationMenuItem> items;
+    items.push_back(FApplicationMenuItem {"Open", FImageBrush(), true, false, []() {}});
+
+    EXPECT_FALSE(application.AddTitleBarTabMenu("File", items));
+    EXPECT_FALSE(application.ClearTitleBarTabMenus());
+    EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
+
+    backend.bUseCustomHostChrome = true;
+    EXPECT_TRUE(application.AddTitleBarTabMenu("File", items));
+
+    FImageBrush iconTabBrush = application.GetCoreIconBrush(ECoreIcon::Search);
+    EXPECT_TRUE(application.AddTitleBarTabMenu(iconTabBrush, std::vector<FApplicationMenuItem> {items[0]}));
+    ASSERT_EQ(application.GetTitleBarTabMenus().size(), 2u);
+    EXPECT_EQ(application.GetTitleBarTabMenus()[0].LabelKind, EApplicationTitleBarTabLabelKind::Text);
+    EXPECT_EQ(application.GetTitleBarTabMenus()[1].LabelKind, EApplicationTitleBarTabLabelKind::Icon);
+
+    EXPECT_TRUE(application.ClearTitleBarTabMenus());
+    EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
 }

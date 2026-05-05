@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/Image.h>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,6 +19,27 @@
 namespace ImWidgetV4 {
 
 class ImApplicationBackend;
+
+struct FApplicationMenuItem {
+    std::string Text;
+    FImageBrush Icon;
+    bool bEnabled = true;
+    bool bIsSeparator = false;
+    std::function<void()> OnInvoked;
+};
+
+enum class EApplicationTitleBarTabLabelKind : std::uint8_t {
+    Text,
+    Icon
+};
+
+struct FApplicationTitleBarTab {
+    EApplicationTitleBarTabLabelKind LabelKind = EApplicationTitleBarTabLabelKind::Text;
+    std::string Text;
+    FImageBrush Icon;
+    std::vector<FApplicationMenuItem> Items;
+};
+
 class ImApplication {
 public:
     ImApplication();
@@ -37,8 +59,17 @@ public:
     void SetIniSettingsPath(const std::filesystem::path& path);
     const std::filesystem::path& GetIniSettingsPath() const;
     void EnsureDefaultFontConfigured();
+    void SetApplicationTitle(const std::string& title);
+    const std::string& GetApplicationTitle() const;
+    void SetApplicationIcon(const FImageBrush& brush);
+    void SetApplicationIcon(ImTextureID texture, const FVector2& sourceSize = {});
+    const FImageBrush& GetApplicationIcon() const;
     void SetBackend(ImApplicationBackend* backend);
     ImApplicationBackend* GetBackend() const;
+    bool ClearTitleBarTabMenus();
+    bool AddTitleBarTabMenu(const std::string& text, std::vector<FApplicationMenuItem> items);
+    bool AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApplicationMenuItem> items);
+    const std::vector<FApplicationTitleBarTab>& GetTitleBarTabMenus() const;
 
     void AdvanceFrame(const FFrameContext& frameContext);
     FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);
@@ -105,6 +136,9 @@ private:
     std::uint64_t FrameNumber_ = 0;
     std::filesystem::path IniSettingsPath_;
     std::string IniSettingsPathUtf8Cache_;
+    std::string ApplicationTitle_;
+    FImageBrush ApplicationIcon_;
+    std::vector<FApplicationTitleBarTab> TitleBarTabMenus_;
     ImApplicationBackend* Backend_ = nullptr;
     std::unordered_map<ImTextureID, FRuntimeTextureData> RuntimeTextures_;
     mutable bool bDefaultImagePlaceholderInitialized_ = false;
@@ -133,6 +167,15 @@ private:
     std::shared_ptr<ImWidget> ResolveHoveredWidget(const FVector2& position) const;
     void EnsureDefaultImagePlaceholderInitialized() const;
     void EnsureCoreIconAtlasInitialized() const;
+    bool CanMutateTitleBarTabMenus() const;
+    void SyncApplicationTitle();
+    void SyncApplicationIcon();
+    bool TryResolveBrushPixels(
+        const FImageBrush& brush,
+        std::vector<std::uint8_t>& outPixels,
+        int& outWidth,
+        int& outHeight) const;
+    void PromoteBrushToBackendTexture(FImageBrush& brush);
     static std::vector<std::uint8_t> BuildDefaultImagePlaceholderPixels(int width, int height);
 };
 

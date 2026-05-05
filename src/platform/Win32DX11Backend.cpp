@@ -1,6 +1,9 @@
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/core/Window.h>
+#include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/core/Widget.h>
 #include <imgui.h>
 #include <backends/imgui_impl_win32.h>
 #include <backends/imgui_impl_dx11.h>
@@ -13,6 +16,310 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace ImWidgetV4 {
+
+struct ImWin32DX11Backend::FHostChromeLayoutCache {
+    struct FTabLayout {
+        int TabIndex = -1;
+        FGeometry Geometry;
+    };
+
+    FGeometry IconGeometry;
+    FGeometry TitleGeometry;
+    std::vector<FTabLayout> VisibleTabs;
+    float TitleFontSize = 0.0f;
+    float TabFontSize = 0.0f;
+    float IconInset = 0.0f;
+};
+
+namespace {
+
+constexpr int InvalidHostChromeIndex = -1;
+
+float MeasureHostChromeTextWidth(const std::string& text, float fontSize)
+{
+    if (text.empty()) {
+        return 0.0f;
+    }
+
+    if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
+        return ImGui::GetFont()->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, text.c_str()).x;
+    }
+
+    return fontSize * 0.55f * static_cast<float>(text.size());
+}
+
+std::vector<std::uint8_t> ResampleRgbaNearest(
+    const std::uint8_t* pixels,
+    int sourceWidth,
+    int sourceHeight,
+    int targetWidth,
+    int targetHeight)
+{
+    std::vector<std::uint8_t> output(
+        static_cast<std::size_t>(targetWidth) * static_cast<std::size_t>(targetHeight) * 4U,
+        0U);
+    if (pixels == nullptr || sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+        return output;
+    }
+
+    for (int y = 0; y < targetHeight; ++y) {
+        const int sourceY = std::clamp(
+            static_cast<int>((static_cast<float>(y) / static_cast<float>(targetHeight)) * static_cast<float>(sourceHeight)),
+            0,
+            sourceHeight - 1);
+        for (int x = 0; x < targetWidth; ++x) {
+            const int sourceX = std::clamp(
+                static_cast<int>((static_cast<float>(x) / static_cast<float>(targetWidth)) * static_cast<float>(sourceWidth)),
+                0,
+                sourceWidth - 1);
+            const std::size_t sourceOffset =
+                (static_cast<std::size_t>(sourceY) * static_cast<std::size_t>(sourceWidth) + static_cast<std::size_t>(sourceX)) * 4U;
+            const std::size_t destinationOffset =
+                (static_cast<std::size_t>(y) * static_cast<std::size_t>(targetWidth) + static_cast<std::size_t>(x)) * 4U;
+            output[destinationOffset] = pixels[sourceOffset];
+            output[destinationOffset + 1] = pixels[sourceOffset + 1];
+            output[destinationOffset + 2] = pixels[sourceOffset + 2];
+            output[destinationOffset + 3] = pixels[sourceOffset + 3];
+        }
+    }
+
+    return output;
+}
+
+} // namespace
+
+class FHostChromeMenuPopupWidget : public ImWidget {
+public:
+    explicit FHostChromeMenuPopupWidget(ImWin32DX11Backend* owner)
+        : Owner_(owner)
+    {
+        SetHitTestVisible(true);
+    }
+
+    virtual void Paint(const FPaintContext& paintContext) override
+    {
+        if (Owner_ == nullptr) {
+            return;
+        }
+
+        const std::vector<FApplicationMenuItem>* items = GetItems();
+        if (items == nullptr) {
+            return;
+        }
+
+        const float rowHeight = ResolveRowHeight();
+        const float paddingX = ResolveHorizontalPadding();
+        const float iconSize = ResolveIconSize();
+        const float textSize = ResolveFontSize();
+
+        paintContext.DrawContext_.DrawRectFilled(
+            m_Geometry.GetMin(),
+            m_Geometry.GetMax(),
+            FColor::FromBytes(26, 31, 38),
+            8.0f);
+        paintContext.DrawContext_.DrawRect(
+            m_Geometry.GetMin(),
+            m_Geometry.GetMax(),
+            FColor::FromBytes(63, 73, 89),
+            8.0f,
+            1.0f);
+
+        paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
+        float rowY = m_Geometry.Position.Y + 6.0f;
+        for (std::size_t index = 0; index < items->size(); ++index) {
+            const FApplicationMenuItem& item = (*items)[index];
+            if (item.bIsSeparator) {
+                const float separatorY = rowY + rowHeight * 0.5f;
+                paintContext.DrawContext_.DrawLine(
+                    FVector2(m_Geometry.Position.X + paddingX, separatorY),
+                    FVector2(m_Geometry.Position.X + m_Geometry.Size.X - paddingX, separatorY),
+                    FColor::FromBytes(57, 66, 80),
+                    1.0f);
+                rowY += rowHeight;
+                continue;
+            }
+
+            const FGeometry rowGeometry(
+                FVector2(m_Geometry.Position.X + 4.0f, rowY),
+                FVector2(m_Geometry.Size.X - 8.0f, rowHeight));
+            const bool bHovered = static_cast<int>(index) == HoveredItemIndex_;
+            const bool bPressed = static_cast<int>(index) == PressedItemIndex_;
+            const FColor rowColor = bPressed
+                ? FColor::FromBytes(69, 101, 154)
+                : (bHovered ? FColor::FromBytes(48, 60, 77) : FColor::Transparent);
+            if (rowColor.A > 0.0f) {
+                paintContext.DrawContext_.DrawRectFilled(
+                    rowGeometry.GetMin(),
+                    rowGeometry.GetMax(),
+                    rowColor,
+                    6.0f);
+            }
+
+            float contentX = rowGeometry.Position.X + paddingX;
+            if (item.Icon.IsValid()) {
+                paintContext.DrawContext_.DrawImage(
+                    item.Icon.TextureId,
+                    FVector2(contentX, rowGeometry.Position.Y + (rowHeight - iconSize) * 0.5f),
+                    FVector2(contentX + iconSize, rowGeometry.Position.Y + (rowHeight + iconSize) * 0.5f),
+                    item.Icon.Uv0,
+                    item.Icon.Uv1,
+                    item.bEnabled ? item.Icon.TintColor : FColor::FromBytes(124, 131, 141));
+                contentX += iconSize + 8.0f;
+            }
+
+            const FColor textColor = item.bEnabled
+                ? FColor::FromBytes(238, 242, 247)
+                : FColor::FromBytes(128, 134, 143);
+            paintContext.DrawContext_.DrawText(
+                FVector2(contentX, rowGeometry.Position.Y + std::max(0.0f, (rowHeight - textSize) * 0.5f)),
+                textColor,
+                item.Text,
+                textSize);
+            rowY += rowHeight;
+        }
+        paintContext.DrawContext_.PopClipRect();
+    }
+
+    virtual FVector2 GetMinSize() const override
+    {
+        const std::vector<FApplicationMenuItem>* items = GetItems();
+        if (items == nullptr || items->empty()) {
+            return FVector2(180.0f, 36.0f);
+        }
+
+        float maxTextWidth = 0.0f;
+        bool bHasAnyIcon = false;
+        for (const FApplicationMenuItem& item : *items) {
+            if (item.bIsSeparator) {
+                continue;
+            }
+
+            maxTextWidth = std::max(maxTextWidth, MeasureHostChromeTextWidth(item.Text, ResolveFontSize()));
+            bHasAnyIcon = bHasAnyIcon || item.Icon.IsValid();
+        }
+
+        const float width = 24.0f + maxTextWidth + (bHasAnyIcon ? ResolveIconSize() + 8.0f : 0.0f) + 24.0f;
+        return FVector2(width, static_cast<float>(items->size()) * ResolveRowHeight() + 12.0f);
+    }
+
+    virtual FReply OnInputEvent(const FInputEvent& event) override
+    {
+        const std::vector<FApplicationMenuItem>* items = GetItems();
+        if (Owner_ == nullptr || items == nullptr) {
+            return FReply::Unhandled();
+        }
+
+        if (event.Type == EInputEventType::MouseMove) {
+            HoveredItemIndex_ = ResolveIndexAt(event.MousePosition);
+            if (Owner_->GetWindowHandle() != nullptr) {
+                ::InvalidateRect(Owner_->GetWindowHandle(), nullptr, FALSE);
+            }
+            Invalidate(EInvalidateReason::Paint);
+            return FReply::Handled();
+        }
+
+        if (event.Type == EInputEventType::MouseLeave) {
+            HoveredItemIndex_ = InvalidHostChromeIndex;
+            PressedItemIndex_ = InvalidHostChromeIndex;
+            Invalidate(EInvalidateReason::Paint);
+            return FReply::Handled();
+        }
+
+        if (event.Type == EInputEventType::MouseButtonDown && event.MouseButton == EMouseButton::Left) {
+            PressedItemIndex_ = ResolveIndexAt(event.MousePosition);
+            Invalidate(EInvalidateReason::Paint);
+            return PressedItemIndex_ != InvalidHostChromeIndex ? FReply::Handled() : FReply::Unhandled();
+        }
+
+        if (event.Type == EInputEventType::MouseButtonUp && event.MouseButton == EMouseButton::Left) {
+            const int releasedIndex = ResolveIndexAt(event.MousePosition);
+            const int pressedIndex = PressedItemIndex_;
+            PressedItemIndex_ = InvalidHostChromeIndex;
+            Invalidate(EInvalidateReason::Paint);
+            if (pressedIndex == InvalidHostChromeIndex || pressedIndex != releasedIndex) {
+                return FReply::Handled();
+            }
+
+            if (pressedIndex < 0 || pressedIndex >= static_cast<int>(items->size())) {
+                return FReply::Handled();
+            }
+
+            const FApplicationMenuItem& item = (*items)[static_cast<std::size_t>(pressedIndex)];
+            if (item.bIsSeparator || !item.bEnabled) {
+                return FReply::Handled();
+            }
+
+            if (item.OnInvoked) {
+                item.OnInvoked();
+            }
+            Owner_->CloseTitleBarMenuPopup();
+            return FReply::Handled();
+        }
+
+        return FReply::Unhandled();
+    }
+
+private:
+    const std::vector<FApplicationMenuItem>* GetItems() const
+    {
+        if (Owner_ == nullptr || Owner_->Application_ == nullptr) {
+            return nullptr;
+        }
+
+        const std::vector<FApplicationTitleBarTab>& tabs = Owner_->Application_->GetTitleBarTabMenus();
+        if (Owner_->ActiveTitleBarTabIndex_ < 0 ||
+            Owner_->ActiveTitleBarTabIndex_ >= static_cast<int>(tabs.size())) {
+            return nullptr;
+        }
+
+        return &tabs[static_cast<std::size_t>(Owner_->ActiveTitleBarTabIndex_)].Items;
+    }
+
+    int ResolveIndexAt(const FVector2& position) const
+    {
+        if (!m_Geometry.Contains(position)) {
+            return InvalidHostChromeIndex;
+        }
+
+        const std::vector<FApplicationMenuItem>* items = GetItems();
+        if (items == nullptr || items->empty()) {
+            return InvalidHostChromeIndex;
+        }
+
+        const float rowHeight = ResolveRowHeight();
+        const float localY = position.Y - m_Geometry.Position.Y - 6.0f;
+        const int index = static_cast<int>(localY / rowHeight);
+        if (index < 0 || index >= static_cast<int>(items->size())) {
+            return InvalidHostChromeIndex;
+        }
+
+        return index;
+    }
+
+    float ResolveFontSize() const
+    {
+        return Owner_ != nullptr ? std::max(13.0f, Owner_->GetHostChromeHeight() * 0.46f) : 14.0f;
+    }
+
+    float ResolveRowHeight() const
+    {
+        return Owner_ != nullptr ? std::max(24.0f, Owner_->GetHostChromeHeight() * 0.92f) : 28.0f;
+    }
+
+    float ResolveIconSize() const
+    {
+        return Owner_ != nullptr ? std::max(14.0f, Owner_->GetHostChromeHeight() - 12.0f) : 18.0f;
+    }
+
+    float ResolveHorizontalPadding() const
+    {
+        return Owner_ != nullptr ? std::max(10.0f, Owner_->GetHostChromeHeight() * 0.33f) : 12.0f;
+    }
+
+    ImWin32DX11Backend* Owner_ = nullptr;
+    int HoveredItemIndex_ = InvalidHostChromeIndex;
+    int PressedItemIndex_ = InvalidHostChromeIndex;
+};
 
 // ========== 构造函数和析构函数 ==========
 
@@ -41,6 +348,7 @@ ImWin32DX11Backend::ImWin32DX11Backend(
     , PressedHostChromeButton_(EHostChromeButton::None)
     , Application_(nullptr)
 {
+    HostChromeLayoutCache_ = std::make_unique<FHostChromeLayoutCache>();
 }
 
 ImWin32DX11Backend::~ImWin32DX11Backend() {
@@ -124,6 +432,9 @@ bool ImWin32DX11Backend::Initialize() {
 }
 
 void ImWin32DX11Backend::Shutdown() {
+    CloseTitleBarMenuPopup();
+    DestroyWindowIcons();
+
     // 1. 清理 ImGui
     if (bImGuiBackendInitialized_) {
         ImGui_ImplDX11_Shutdown();
@@ -190,6 +501,10 @@ void ImWin32DX11Backend::Run() {
         FFrameInfo frameInfo;
         bool bHasFrameInfo = false;
         if (Application_) {
+            SyncTitleBarMenuPopupState();
+            UpdateHostChromeLayoutCache();
+            UpdateTitleBarMenuPopupWindowLayout();
+
             ImGuiIO& io = ImGui::GetIO();
             FImGuiInputSnapshot inputSnapshot;
             PopulateImGuiInputSnapshotFromIo(io, inputSnapshot);
@@ -294,8 +609,8 @@ void ImWin32DX11Backend::SetApplication(ImApplication* app) {
     Application_ = app;
     if (Application_ != nullptr) {
         Application_->SetBackend(this);
-        Application_->SetIniSettingsPath(Application_->GetIniSettingsPath());
         Application_->EnsureDefaultFontConfigured();
+        Application_->SetIniSettingsPath(Application_->GetIniSettingsPath());
     }
 }
 
@@ -378,6 +693,99 @@ void ImWin32DX11Backend::ReleaseTexture(ImTextureID textureId)
     textureView->Release();
 }
 
+bool ImWin32DX11Backend::SetWindowIconFromRGBA(
+    const std::uint8_t* rgbaPixels,
+    int width,
+    int height)
+{
+    if (Hwnd_ == nullptr || rgbaPixels == nullptr || width <= 0 || height <= 0) {
+        return false;
+    }
+
+    const auto createIconHandle = [&](int targetSize) -> HICON {
+        const std::vector<std::uint8_t> scaledPixels = (width == targetSize && height == targetSize)
+            ? std::vector<std::uint8_t>(rgbaPixels, rgbaPixels + (static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U))
+            : ResampleRgbaNearest(rgbaPixels, width, height, targetSize, targetSize);
+
+        BITMAPV5HEADER bitmapHeader = {};
+        bitmapHeader.bV5Size = sizeof(bitmapHeader);
+        bitmapHeader.bV5Width = targetSize;
+        bitmapHeader.bV5Height = -targetSize;
+        bitmapHeader.bV5Planes = 1;
+        bitmapHeader.bV5BitCount = 32;
+        bitmapHeader.bV5Compression = BI_BITFIELDS;
+        bitmapHeader.bV5RedMask = 0x00FF0000;
+        bitmapHeader.bV5GreenMask = 0x0000FF00;
+        bitmapHeader.bV5BlueMask = 0x000000FF;
+        bitmapHeader.bV5AlphaMask = 0xFF000000;
+
+        void* dibPixels = nullptr;
+        HDC screenDc = GetDC(nullptr);
+        HBITMAP colorBitmap = CreateDIBSection(
+            screenDc,
+            reinterpret_cast<BITMAPINFO*>(&bitmapHeader),
+            DIB_RGB_COLORS,
+            &dibPixels,
+            nullptr,
+            0);
+        ReleaseDC(nullptr, screenDc);
+        if (colorBitmap == nullptr || dibPixels == nullptr) {
+            if (colorBitmap != nullptr) {
+                DeleteObject(colorBitmap);
+            }
+            return nullptr;
+        }
+
+        std::uint8_t* destination = static_cast<std::uint8_t*>(dibPixels);
+        for (int pixelIndex = 0; pixelIndex < targetSize * targetSize; ++pixelIndex) {
+            const std::size_t offset = static_cast<std::size_t>(pixelIndex) * 4U;
+            destination[offset] = scaledPixels[offset + 2];
+            destination[offset + 1] = scaledPixels[offset + 1];
+            destination[offset + 2] = scaledPixels[offset];
+            destination[offset + 3] = scaledPixels[offset + 3];
+        }
+
+        HBITMAP maskBitmap = CreateBitmap(targetSize, targetSize, 1, 1, nullptr);
+        if (maskBitmap == nullptr) {
+            DeleteObject(colorBitmap);
+            return nullptr;
+        }
+
+        ICONINFO iconInfo = {};
+        iconInfo.fIcon = TRUE;
+        iconInfo.hbmMask = maskBitmap;
+        iconInfo.hbmColor = colorBitmap;
+        HICON iconHandle = CreateIconIndirect(&iconInfo);
+        DeleteObject(colorBitmap);
+        DeleteObject(maskBitmap);
+        return iconHandle;
+    };
+
+    HICON smallIcon = createIconHandle(16);
+    HICON largeIcon = createIconHandle(32);
+    if (smallIcon == nullptr && largeIcon == nullptr) {
+        return false;
+    }
+
+    DestroyWindowIcons();
+    SmallWindowIcon_ = smallIcon;
+    LargeWindowIcon_ = largeIcon;
+
+    SendMessageW(Hwnd_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(SmallWindowIcon_));
+    SendMessageW(Hwnd_, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(LargeWindowIcon_));
+    return true;
+}
+
+void ImWin32DX11Backend::ClearWindowIcon()
+{
+    if (Hwnd_ != nullptr) {
+        SendMessageW(Hwnd_, WM_SETICON, ICON_SMALL, 0);
+        SendMessageW(Hwnd_, WM_SETICON, ICON_BIG, 0);
+    }
+
+    DestroyWindowIcons();
+}
+
 void ImWin32DX11Backend::SetUseCustomHostChrome(bool enabled)
 {
     if (bUseCustomHostChrome_ == enabled) {
@@ -387,6 +795,11 @@ void ImWin32DX11Backend::SetUseCustomHostChrome(bool enabled)
     bUseCustomHostChrome_ = enabled;
     HoveredHostChromeButton_ = EHostChromeButton::None;
     PressedHostChromeButton_ = EHostChromeButton::None;
+    HoveredTitleBarTabIndex_ = InvalidHostChromeIndex;
+    PressedTitleBarTabIndex_ = InvalidHostChromeIndex;
+    if (!bUseCustomHostChrome_) {
+        CloseTitleBarMenuPopup();
+    }
 
     if (Hwnd_ != nullptr) {
         ApplyWindowStyle();
@@ -497,6 +910,133 @@ ImWin32DX11Backend::EHostChromeButton ImWin32DX11Backend::HitTestHostChromeButto
     return EHostChromeButton::None;
 }
 
+void ImWin32DX11Backend::SyncTitleBarMenuPopupState()
+{
+    if (!bUseCustomHostChrome_) {
+        CloseTitleBarMenuPopup();
+        return;
+    }
+
+    if (TitleBarMenuPopupWindow_ && !TitleBarMenuPopupWindow_->IsOpen()) {
+        TitleBarMenuPopupWindow_.reset();
+        TitleBarMenuPopupRootWidget_.reset();
+        ActiveTitleBarTabIndex_ = InvalidHostChromeIndex;
+    }
+
+    if (Application_ == nullptr) {
+        CloseTitleBarMenuPopup();
+        return;
+    }
+
+    const std::vector<FApplicationTitleBarTab>& tabs = Application_->GetTitleBarTabMenus();
+    if (ActiveTitleBarTabIndex_ < 0 || ActiveTitleBarTabIndex_ >= static_cast<int>(tabs.size())) {
+        CloseTitleBarMenuPopup();
+    }
+}
+
+void ImWin32DX11Backend::UpdateHostChromeLayoutCache()
+{
+    if (HostChromeLayoutCache_ == nullptr) {
+        HostChromeLayoutCache_ = std::make_unique<FHostChromeLayoutCache>();
+    }
+
+    HostChromeLayoutCache_->VisibleTabs.clear();
+    HostChromeLayoutCache_->IconGeometry = FGeometry();
+    HostChromeLayoutCache_->TitleGeometry = FGeometry();
+
+    if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
+        return;
+    }
+
+    RECT clientRect = {};
+    GetClientRect(Hwnd_, &clientRect);
+    const float chromeHeight = static_cast<float>(GetHostChromeHeight());
+    const float dpiScale = GetHostChromeDpiScale();
+    const float leftPadding = 12.0f * dpiScale;
+    const float interItemSpacing = 10.0f * dpiScale;
+    const float tabHorizontalPadding = 12.0f * dpiScale;
+    const float titleFontSize = std::max(13.0f, chromeHeight * 0.47f);
+    const float tabFontSize = std::max(12.0f, chromeHeight * 0.43f);
+    const float iconInset = std::max(4.0f, chromeHeight * 0.18f);
+
+    HostChromeLayoutCache_->TitleFontSize = titleFontSize;
+    HostChromeLayoutCache_->TabFontSize = tabFontSize;
+    HostChromeLayoutCache_->IconInset = iconInset;
+
+    const RECT minimizeRect = GetHostChromeButtonRect(EHostChromeButton::Minimize);
+    const float contentMaxX = static_cast<float>(minimizeRect.left) - chromeHeight;
+    float cursorX = leftPadding;
+
+    if (Application_ != nullptr) {
+        const FImageBrush& applicationIcon = Application_->GetApplicationIcon();
+        if (applicationIcon.IsValid()) {
+            const float iconSize = std::max(12.0f, chromeHeight - iconInset * 2.0f);
+            HostChromeLayoutCache_->IconGeometry = FGeometry(
+                FVector2(cursorX, (chromeHeight - iconSize) * 0.5f),
+                FVector2(iconSize, iconSize));
+            cursorX += iconSize + interItemSpacing;
+        }
+
+        const std::string& applicationTitle = Application_->GetApplicationTitle();
+        if (!applicationTitle.empty() && cursorX < contentMaxX) {
+            const float titleWidth = MeasureHostChromeTextWidth(applicationTitle, titleFontSize);
+            const float clippedWidth = std::max(0.0f, std::min(titleWidth, contentMaxX - cursorX));
+            if (clippedWidth > 0.0f) {
+                HostChromeLayoutCache_->TitleGeometry = FGeometry(
+                    FVector2(cursorX, 0.0f),
+                    FVector2(clippedWidth, chromeHeight));
+                cursorX += clippedWidth + interItemSpacing;
+            }
+        }
+
+        const std::vector<FApplicationTitleBarTab>& tabs = Application_->GetTitleBarTabMenus();
+        HostChromeLayoutCache_->VisibleTabs.reserve(tabs.size());
+        for (std::size_t tabIndex = 0; tabIndex < tabs.size(); ++tabIndex) {
+            const FApplicationTitleBarTab& tab = tabs[tabIndex];
+            float tabWidth = 0.0f;
+            if (tab.LabelKind == EApplicationTitleBarTabLabelKind::Icon && tab.Icon.IsValid()) {
+                const float iconSize = std::max(12.0f, chromeHeight - iconInset * 2.0f);
+                tabWidth = iconSize + tabHorizontalPadding * 2.0f;
+            } else {
+                tabWidth = MeasureHostChromeTextWidth(tab.Text, tabFontSize) + tabHorizontalPadding * 2.0f;
+            }
+
+            if (cursorX + tabWidth > contentMaxX) {
+                break;
+            }
+
+            FHostChromeLayoutCache::FTabLayout layout;
+            layout.TabIndex = static_cast<int>(tabIndex);
+            layout.Geometry = FGeometry(
+                FVector2(cursorX, 0.0f),
+                FVector2(tabWidth, chromeHeight));
+            HostChromeLayoutCache_->VisibleTabs.push_back(layout);
+            cursorX += tabWidth + 4.0f * dpiScale;
+        }
+    }
+}
+
+int ImWin32DX11Backend::HitTestTitleBarTab(const POINT& clientPoint)
+{
+    if (!bUseCustomHostChrome_) {
+        return InvalidHostChromeIndex;
+    }
+
+    UpdateHostChromeLayoutCache();
+    if (HostChromeLayoutCache_ == nullptr) {
+        return InvalidHostChromeIndex;
+    }
+
+    const FVector2 point(static_cast<float>(clientPoint.x), static_cast<float>(clientPoint.y));
+    for (const FHostChromeLayoutCache::FTabLayout& tab : HostChromeLayoutCache_->VisibleTabs) {
+        if (tab.Geometry.Contains(point)) {
+            return tab.TabIndex;
+        }
+    }
+
+    return InvalidHostChromeIndex;
+}
+
 bool ImWin32DX11Backend::IsPointInHostChromeCaption(const POINT& clientPoint) const
 {
     if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
@@ -513,7 +1053,21 @@ bool ImWin32DX11Backend::IsPointInHostChromeCaption(const POINT& clientPoint) co
         return false;
     }
 
-    return HitTestHostChromeButton(clientPoint) == EHostChromeButton::None;
+    if (HitTestHostChromeButton(clientPoint) != EHostChromeButton::None) {
+        return false;
+    }
+
+    const_cast<ImWin32DX11Backend*>(this)->UpdateHostChromeLayoutCache();
+    if (HostChromeLayoutCache_ != nullptr) {
+        const FVector2 point(static_cast<float>(clientPoint.x), static_cast<float>(clientPoint.y));
+        for (const FHostChromeLayoutCache::FTabLayout& tab : HostChromeLayoutCache_->VisibleTabs) {
+            if (tab.Geometry.Contains(point)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 bool ImWin32DX11Backend::HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint)
@@ -522,51 +1076,166 @@ bool ImWin32DX11Backend::HandleHostChromeMouseDown(UINT msg, const POINT& client
         return false;
     }
 
-    const EHostChromeButton button = HitTestHostChromeButton(clientPoint);
-    if (button == EHostChromeButton::None) {
-        return false;
+    const bool bPopupHit = TitleBarMenuPopupWindow_ &&
+        TitleBarMenuPopupWindow_->IsOpen() &&
+        TitleBarMenuPopupWindow_->GetWindowGeometry().Contains(FVector2(static_cast<float>(clientPoint.x), static_cast<float>(clientPoint.y)));
+    const int tabIndex = HitTestTitleBarTab(clientPoint);
+    if (!bPopupHit && tabIndex == InvalidHostChromeIndex) {
+        CloseTitleBarMenuPopup();
     }
 
-    PressedHostChromeButton_ = button;
-    SetCapture(Hwnd_);
-    InvalidateRect(Hwnd_, nullptr, FALSE);
-    return true;
+    const EHostChromeButton button = HitTestHostChromeButton(clientPoint);
+    if (button != EHostChromeButton::None) {
+        PressedHostChromeButton_ = button;
+        SetCapture(Hwnd_);
+        InvalidateRect(Hwnd_, nullptr, FALSE);
+        return true;
+    }
+
+    if (tabIndex != InvalidHostChromeIndex) {
+        PressedTitleBarTabIndex_ = tabIndex;
+        SetCapture(Hwnd_);
+        InvalidateRect(Hwnd_, nullptr, FALSE);
+        return true;
+    }
+
+    return false;
 }
 
 bool ImWin32DX11Backend::HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint)
 {
-    if (msg != WM_LBUTTONUP || !bUseCustomHostChrome_ || PressedHostChromeButton_ == EHostChromeButton::None) {
+    if (msg != WM_LBUTTONUP || !bUseCustomHostChrome_) {
         return false;
     }
 
-    const EHostChromeButton releasedButton = PressedHostChromeButton_;
-    PressedHostChromeButton_ = EHostChromeButton::None;
-    if (GetCapture() == Hwnd_) {
+    bool bHandled = false;
+
+    if (PressedHostChromeButton_ != EHostChromeButton::None) {
+        const EHostChromeButton releasedButton = PressedHostChromeButton_;
+        PressedHostChromeButton_ = EHostChromeButton::None;
+        const bool bInvokeAction = HitTestHostChromeButton(clientPoint) == releasedButton;
+        if (bInvokeAction) {
+            switch (releasedButton) {
+            case EHostChromeButton::Minimize:
+                ShowWindow(Hwnd_, SW_MINIMIZE);
+                break;
+            case EHostChromeButton::Maximize:
+                ShowWindow(Hwnd_, IsZoomed(Hwnd_) ? SW_RESTORE : SW_MAXIMIZE);
+                break;
+            case EHostChromeButton::Close:
+                RequestClose();
+                break;
+            default:
+                break;
+            }
+        }
+        bHandled = true;
+    }
+
+    if (PressedTitleBarTabIndex_ != InvalidHostChromeIndex) {
+        const int pressedTabIndex = PressedTitleBarTabIndex_;
+        PressedTitleBarTabIndex_ = InvalidHostChromeIndex;
+        const int releasedTabIndex = HitTestTitleBarTab(clientPoint);
+        if (pressedTabIndex == releasedTabIndex) {
+            if (ActiveTitleBarTabIndex_ == pressedTabIndex && TitleBarMenuPopupWindow_ && TitleBarMenuPopupWindow_->IsOpen()) {
+                CloseTitleBarMenuPopup();
+            } else {
+                OpenTitleBarMenuPopup(pressedTabIndex);
+            }
+        }
+        bHandled = true;
+    }
+
+    if (bHandled && GetCapture() == Hwnd_) {
         ReleaseCapture();
     }
 
-    const bool bInvokeAction = HitTestHostChromeButton(clientPoint) == releasedButton;
-    InvalidateRect(Hwnd_, nullptr, FALSE);
-
-    if (!bInvokeAction) {
-        return true;
+    if (bHandled) {
+        InvalidateRect(Hwnd_, nullptr, FALSE);
     }
 
-    switch (releasedButton) {
-    case EHostChromeButton::Minimize:
-        ShowWindow(Hwnd_, SW_MINIMIZE);
-        break;
-    case EHostChromeButton::Maximize:
-        ShowWindow(Hwnd_, IsZoomed(Hwnd_) ? SW_RESTORE : SW_MAXIMIZE);
-        break;
-    case EHostChromeButton::Close:
-        RequestClose();
-        break;
-    default:
-        break;
+    return bHandled;
+}
+
+void ImWin32DX11Backend::UpdateTitleBarMenuPopupWindowLayout()
+{
+    SyncTitleBarMenuPopupState();
+    if (Application_ == nullptr || TitleBarMenuPopupWindow_ == nullptr || !TitleBarMenuPopupWindow_->IsOpen()) {
+        return;
     }
 
-    return true;
+    UpdateHostChromeLayoutCache();
+    if (HostChromeLayoutCache_ == nullptr) {
+        return;
+    }
+
+    const auto it = std::find_if(
+        HostChromeLayoutCache_->VisibleTabs.begin(),
+        HostChromeLayoutCache_->VisibleTabs.end(),
+        [&](const FHostChromeLayoutCache::FTabLayout& tab) {
+            return tab.TabIndex == ActiveTitleBarTabIndex_;
+        });
+    if (it == HostChromeLayoutCache_->VisibleTabs.end()) {
+        CloseTitleBarMenuPopup();
+        return;
+    }
+
+    const FVector2 popupSize = TitleBarMenuPopupRootWidget_
+        ? TitleBarMenuPopupRootWidget_->GetMinSize()
+        : FVector2(180.0f, 36.0f);
+    TitleBarMenuPopupWindow_->SetPosition(FVector2(it->Geometry.Position.X, it->Geometry.Position.Y + it->Geometry.Size.Y));
+    TitleBarMenuPopupWindow_->SetSize(popupSize);
+}
+
+void ImWin32DX11Backend::OpenTitleBarMenuPopup(int tabIndex)
+{
+    if (Application_ == nullptr || !bUseCustomHostChrome_) {
+        return;
+    }
+
+    const std::vector<FApplicationTitleBarTab>& tabs = Application_->GetTitleBarTabMenus();
+    if (tabIndex < 0 || tabIndex >= static_cast<int>(tabs.size())) {
+        return;
+    }
+
+    ActiveTitleBarTabIndex_ = tabIndex;
+    if (!TitleBarMenuPopupRootWidget_) {
+        TitleBarMenuPopupRootWidget_ = std::make_shared<FHostChromeMenuPopupWidget>(this);
+    }
+
+    if (!TitleBarMenuPopupWindow_) {
+        FPopupOptions popupOptions;
+        popupOptions.Title = "HostChromeMenu";
+        popupOptions.Position = FVector2(0.0f, static_cast<float>(GetHostChromeHeight()));
+        popupOptions.Size = TitleBarMenuPopupRootWidget_->GetMinSize();
+        popupOptions.RootWidget = TitleBarMenuPopupRootWidget_;
+        popupOptions.ParentWindow = Application_->GetWindowManager().GetMainWindow();
+        popupOptions.Style.BackgroundColor = FColor::FromBytes(26, 31, 38);
+        popupOptions.Style.InactiveBackgroundColor = popupOptions.Style.BackgroundColor;
+        popupOptions.Style.BorderColor = FColor::FromBytes(63, 73, 89);
+        popupOptions.Style.ActiveBorderColor = popupOptions.Style.BorderColor;
+        popupOptions.Style.CornerRadius = 8.0f;
+        popupOptions.Style.BorderThickness = 1.0f;
+        popupOptions.Style.bDrawShadow = true;
+        popupOptions.Style.ShadowColor = FColor(0.0f, 0.0f, 0.0f, 0.18f);
+        popupOptions.Style.ShadowOffset = FVector2(0.0f, 10.0f);
+        TitleBarMenuPopupWindow_ = Application_->GetWindowManager().CreatePopup(popupOptions);
+    } else if (!TitleBarMenuPopupWindow_->IsOpen()) {
+        TitleBarMenuPopupWindow_->Open();
+    }
+
+    UpdateTitleBarMenuPopupWindowLayout();
+}
+
+void ImWin32DX11Backend::CloseTitleBarMenuPopup()
+{
+    if (TitleBarMenuPopupWindow_ && TitleBarMenuPopupWindow_->IsOpen()) {
+        TitleBarMenuPopupWindow_->Close();
+    }
+
+    TitleBarMenuPopupWindow_.reset();
+    TitleBarMenuPopupRootWidget_.reset();
+    ActiveTitleBarTabIndex_ = InvalidHostChromeIndex;
 }
 
 void ImWin32DX11Backend::DrawCustomHostChrome()
@@ -574,6 +1243,9 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
     if (!bUseCustomHostChrome_ || Hwnd_ == nullptr) {
         return;
     }
+
+    SyncTitleBarMenuPopupState();
+    UpdateHostChromeLayoutCache();
 
     RECT clientRect = {};
     GetClientRect(Hwnd_, &clientRect);
@@ -590,21 +1262,84 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
     const ImU32 barColor = bIsActiveWindow ? IM_COL32(24, 29, 38, 255) : IM_COL32(33, 37, 45, 255);
     const ImU32 borderColor = bIsActiveWindow ? IM_COL32(79, 89, 107, 255) : IM_COL32(61, 68, 83, 255);
     const ImU32 textColor = bIsActiveWindow ? IM_COL32(240, 244, 250, 255) : IM_COL32(195, 202, 212, 255);
+    const ImU32 tabHoverColor = IM_COL32(255, 255, 255, 18);
+    const ImU32 tabActiveColor = IM_COL32(73, 116, 181, 210);
 
     drawList->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(width, chromeHeight), barColor);
     drawList->AddLine(ImVec2(0.0f, chromeHeight - 1.0f), ImVec2(width, chromeHeight - 1.0f), borderColor, 1.0f);
 
-    const std::string titleText = WideToUtf8(WindowTitle_);
-    if (!titleText.empty()) {
-        const RECT closeRect = GetHostChromeButtonRect(EHostChromeButton::Minimize);
-        const float textLeft = 14.0f * dpiScale;
-        const float textRight = std::max(textLeft + 1.0f, static_cast<float>(closeRect.left) - (12.0f * dpiScale));
-        drawList->PushClipRect(ImVec2(textLeft, 0.0f), ImVec2(textRight, chromeHeight), true);
-        drawList->AddText(
-            ImVec2(textLeft, (chromeHeight - ImGui::GetFontSize()) * 0.5f),
-            textColor,
-            titleText.c_str());
-        drawList->PopClipRect();
+    if (Application_ != nullptr && HostChromeLayoutCache_ != nullptr) {
+        const FImageBrush& applicationIcon = Application_->GetApplicationIcon();
+        if (applicationIcon.IsValid() && HostChromeLayoutCache_->IconGeometry.Size.X > 0.0f) {
+            const FGeometry& geometry = HostChromeLayoutCache_->IconGeometry;
+            drawList->AddImage(
+                applicationIcon.TextureId,
+                geometry.GetMin().ToImVec2(),
+                geometry.GetMax().ToImVec2(),
+                applicationIcon.Uv0.ToImVec2(),
+                applicationIcon.Uv1.ToImVec2(),
+                applicationIcon.TintColor.ToImU32());
+        }
+
+        const std::string& titleText = Application_->GetApplicationTitle();
+        if (!titleText.empty() && HostChromeLayoutCache_->TitleGeometry.Size.X > 0.0f) {
+            const FGeometry& geometry = HostChromeLayoutCache_->TitleGeometry;
+            drawList->PushClipRect(
+                geometry.GetMin().ToImVec2(),
+                geometry.GetMax().ToImVec2(),
+                true);
+            drawList->AddText(
+                nullptr,
+                HostChromeLayoutCache_->TitleFontSize,
+                ImVec2(
+                    geometry.Position.X,
+                    (chromeHeight - HostChromeLayoutCache_->TitleFontSize) * 0.5f),
+                textColor,
+                titleText.c_str());
+            drawList->PopClipRect();
+        }
+
+        for (const FHostChromeLayoutCache::FTabLayout& tabLayout : HostChromeLayoutCache_->VisibleTabs) {
+            const FApplicationTitleBarTab& tab =
+                Application_->GetTitleBarTabMenus()[static_cast<std::size_t>(tabLayout.TabIndex)];
+            const bool bHovered = HoveredTitleBarTabIndex_ == tabLayout.TabIndex;
+            const bool bPressed = PressedTitleBarTabIndex_ == tabLayout.TabIndex;
+            const bool bActive = ActiveTitleBarTabIndex_ == tabLayout.TabIndex && TitleBarMenuPopupWindow_ && TitleBarMenuPopupWindow_->IsOpen();
+
+            const ImU32 fillColor = bActive
+                ? tabActiveColor
+                : (bPressed ? IM_COL32(255, 255, 255, 26) : (bHovered ? tabHoverColor : IM_COL32(0, 0, 0, 0)));
+            if ((fillColor >> IM_COL32_A_SHIFT) != 0) {
+                drawList->AddRectFilled(
+                    tabLayout.Geometry.GetMin().ToImVec2(),
+                    tabLayout.Geometry.GetMax().ToImVec2(),
+                    fillColor,
+                    6.0f);
+            }
+
+            if (tab.LabelKind == EApplicationTitleBarTabLabelKind::Icon && tab.Icon.IsValid()) {
+                const float iconSize = std::max(12.0f, chromeHeight - HostChromeLayoutCache_->IconInset * 2.0f);
+                const FVector2 iconMin(
+                    tabLayout.Geometry.Position.X + (tabLayout.Geometry.Size.X - iconSize) * 0.5f,
+                    (chromeHeight - iconSize) * 0.5f);
+                drawList->AddImage(
+                    tab.Icon.TextureId,
+                    iconMin.ToImVec2(),
+                    FVector2(iconMin.X + iconSize, iconMin.Y + iconSize).ToImVec2(),
+                    tab.Icon.Uv0.ToImVec2(),
+                    tab.Icon.Uv1.ToImVec2(),
+                    tab.Icon.TintColor.ToImU32());
+            } else {
+                drawList->AddText(
+                    nullptr,
+                    HostChromeLayoutCache_->TabFontSize,
+                    ImVec2(
+                        tabLayout.Geometry.Position.X + std::max(10.0f, chromeHeight * 0.33f),
+                        (chromeHeight - HostChromeLayoutCache_->TabFontSize) * 0.5f),
+                    textColor,
+                    tab.Text.c_str());
+            }
+        }
     }
 
     const ImU32 buttonBaseColor = IM_COL32(0, 0, 0, 0);
@@ -693,6 +1428,19 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
         default:
             break;
         }
+    }
+}
+
+void ImWin32DX11Backend::DestroyWindowIcons()
+{
+    if (SmallWindowIcon_ != nullptr) {
+        DestroyIcon(SmallWindowIcon_);
+        SmallWindowIcon_ = nullptr;
+    }
+
+    if (LargeWindowIcon_ != nullptr) {
+        DestroyIcon(LargeWindowIcon_);
+        LargeWindowIcon_ = nullptr;
     }
 }
 
@@ -906,6 +1654,9 @@ LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             if (HitTestHostChromeButton(clientPoint) != EHostChromeButton::None) {
                 return HTCLIENT;
             }
+            if (HitTestTitleBarTab(clientPoint) != InvalidHostChromeIndex) {
+                return HTCLIENT;
+            }
             if (IsPointInHostChromeCaption(clientPoint)) {
                 return HTCAPTION;
             }
@@ -920,10 +1671,14 @@ LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             trackMouseEvent.hwndTrack = hWnd;
             TrackMouseEvent(&trackMouseEvent);
             const EHostChromeButton hoveredButton = HitTestHostChromeButton(clientPoint);
-            if (HoveredHostChromeButton_ != hoveredButton) {
+            const int hoveredTabIndex = HitTestTitleBarTab(clientPoint);
+            if (HoveredHostChromeButton_ != hoveredButton || HoveredTitleBarTabIndex_ != hoveredTabIndex) {
                 HoveredHostChromeButton_ = hoveredButton;
+                HoveredTitleBarTabIndex_ = hoveredTabIndex;
                 InvalidateRect(hWnd, nullptr, FALSE);
-            } else if (PressedHostChromeButton_ != EHostChromeButton::None || clientPoint.y < GetHostChromeHeight()) {
+            } else if (PressedHostChromeButton_ != EHostChromeButton::None ||
+                       PressedTitleBarTabIndex_ != InvalidHostChromeIndex ||
+                       clientPoint.y < GetHostChromeHeight()) {
                 InvalidateRect(hWnd, nullptr, FALSE);
             }
             break;
@@ -931,10 +1686,15 @@ LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 
         case WM_MOUSELEAVE:
         case WM_CAPTURECHANGED:
-            if (HoveredHostChromeButton_ != EHostChromeButton::None || PressedHostChromeButton_ != EHostChromeButton::None) {
+            if (HoveredHostChromeButton_ != EHostChromeButton::None ||
+                PressedHostChromeButton_ != EHostChromeButton::None ||
+                HoveredTitleBarTabIndex_ != InvalidHostChromeIndex ||
+                PressedTitleBarTabIndex_ != InvalidHostChromeIndex) {
                 HoveredHostChromeButton_ = EHostChromeButton::None;
+                HoveredTitleBarTabIndex_ = InvalidHostChromeIndex;
                 if (msg == WM_CAPTURECHANGED) {
                     PressedHostChromeButton_ = EHostChromeButton::None;
+                    PressedTitleBarTabIndex_ = InvalidHostChromeIndex;
                 }
                 InvalidateRect(hWnd, nullptr, FALSE);
             }

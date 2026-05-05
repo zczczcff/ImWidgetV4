@@ -6,13 +6,25 @@
 #define NOMINMAX
 #endif
 #include <functional>
+#include <memory>
 #include <string>
+#include <vector>
 #include <Windows.h>
 #include <windowsx.h>
+#ifdef DrawText
+#undef DrawText
+#endif
+#ifdef CreateWindow
+#undef CreateWindow
+#endif
 #include <d3d11.h>
 #include <dxgi.h>
 
 namespace ImWidgetV4 {
+
+class ImWidget;
+class ImWindow;
+class FHostChromeMenuPopupWidget;
 
 /**
  * @brief Win32/DirectX 11 后端实现
@@ -135,8 +147,13 @@ public:
         int width,
         int height) override;
     void ReleaseTexture(ImTextureID textureId) override;
+    bool SetWindowIconFromRGBA(
+        const std::uint8_t* rgbaPixels,
+        int width,
+        int height) override;
+    void ClearWindowIcon() override;
     void SetUseCustomHostChrome(bool enabled);
-    bool IsUsingCustomHostChrome() const { return bUseCustomHostChrome_; }
+    bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome_; }
 
     // ========== DirectX 11 特定接口 ==========
 
@@ -159,12 +176,14 @@ public:
     HWND GetWindowHandle() const { return Hwnd_; }
 
 private:
+    friend class FHostChromeMenuPopupWidget;
     enum class EHostChromeButton : std::uint8_t {
         None,
         Minimize,
         Maximize,
         Close
     };
+    struct FHostChromeLayoutCache;
 
     // ========== Win32 窗口 ==========
     HINSTANCE HInstance_;
@@ -190,11 +209,19 @@ private:
     bool bUseCustomHostChrome_;
     EHostChromeButton HoveredHostChromeButton_;
     EHostChromeButton PressedHostChromeButton_;
+    int HoveredTitleBarTabIndex_ = -1;
+    int PressedTitleBarTabIndex_ = -1;
+    int ActiveTitleBarTabIndex_ = -1;
+    HICON SmallWindowIcon_ = nullptr;
+    HICON LargeWindowIcon_ = nullptr;
 
     // ========== Application 引用 ==========
     ImApplication* Application_;
     FImGuiInputSource InputSource_;
     FPostFrameCallback PostFrameCallback_;
+    std::shared_ptr<ImWindow> TitleBarMenuPopupWindow_;
+    std::shared_ptr<ImWidget> TitleBarMenuPopupRootWidget_;
+    std::unique_ptr<FHostChromeLayoutCache> HostChromeLayoutCache_;
 
     // ========== 内部方法 ==========
 
@@ -230,10 +257,17 @@ private:
     int GetHostChromeResizeBorderThickness() const;
     RECT GetHostChromeButtonRect(EHostChromeButton button) const;
     EHostChromeButton HitTestHostChromeButton(const POINT& clientPoint) const;
+    int HitTestTitleBarTab(const POINT& clientPoint);
     bool IsPointInHostChromeCaption(const POINT& clientPoint) const;
     bool HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint);
     bool HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint);
+    void SyncTitleBarMenuPopupState();
+    void UpdateHostChromeLayoutCache();
+    void UpdateTitleBarMenuPopupWindowLayout();
+    void OpenTitleBarMenuPopup(int tabIndex);
+    void CloseTitleBarMenuPopup();
     void DrawCustomHostChrome();
+    void DestroyWindowIcons();
     static std::wstring Utf8ToWide(const std::string& text);
     static std::string WideToUtf8(const std::wstring& text);
 

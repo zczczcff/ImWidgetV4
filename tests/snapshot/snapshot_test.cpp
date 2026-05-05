@@ -7,6 +7,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/UserWidget.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
 #include <filesystem>
@@ -81,6 +82,26 @@ FInputEvent MakeMouseMove(float x, float y) {
     event.Timestamp = 0.0;
     return event;
 }
+
+class SnapshotUserWidget : public ImUserWidget {
+protected:
+    Ptr RebuildWidget() override {
+        auto root = std::make_shared<ImVerticalBox>();
+        root->SetSpacing(6.0f);
+
+        auto title = std::make_shared<ImTextBlock>();
+        title->SetText("UserWidget");
+        title->SetTextColor(FColor::White);
+        root->AddChild(title);
+
+        auto body = std::make_shared<ImTextBlock>();
+        body->SetText("Composite content");
+        body->SetTextColor(FColor::FromBytes(255, 214, 102));
+        root->AddChild(body);
+
+        return root;
+    }
+};
 
 } // namespace
 
@@ -332,6 +353,21 @@ TEST(SnapshotTest, CoreIconSnapshotIsVisibleAndDeterministic) {
     EXPECT_TRUE(ImageHasAnyPixelDifferentFrom(first, clearColor));
     EXPECT_EQ(FSnapshotRenderer::ComputeHash(first), FSnapshotRenderer::ComputeHash(second));
     EXPECT_TRUE(FSnapshotRenderer::Compare(first, second, 0).IsMatch());
+}
+
+TEST(SnapshotTest, UserWidgetSnapshotCapturesInternalRootTree) {
+    FImGuiScope imguiScope;
+    ImApplication application;
+
+    auto widget = std::make_shared<SnapshotUserWidget>();
+    application.SetRootWidget(widget);
+
+    const FColor clearColor = FColor::FromBytes(8, 10, 14, 255);
+    const FSnapshotImage snapshot = application.CaptureSnapshot(
+        MakeFrameContext(220.0f, 100.0f, 0.0),
+        FSnapshotOptions {220, 100, clearColor});
+
+    EXPECT_TRUE(ImageHasAnyPixelDifferentFrom(snapshot, clearColor));
 }
 
 TEST(SnapshotTest, TextListSnapshotChangesAfterTextSelection) {

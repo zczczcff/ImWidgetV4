@@ -130,6 +130,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Slider.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextList.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextBlock.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/UserWidget.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/VerticalBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/VerticalSplitter.h
 )
@@ -164,6 +165,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/widgets/Slider.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextList.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/UserWidget.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/VerticalSplitter.cpp
 )
@@ -274,6 +276,7 @@ imwidgetv4_set_target_folder(slider_test "Tests/Widgets")
 imwidgetv4_set_target_folder(scroll_box_test "Tests/Widgets")
 imwidgetv4_set_target_folder(splitter_test "Tests/Widgets")
 imwidgetv4_set_target_folder(text_list_test "Tests/Widgets")
+imwidgetv4_set_target_folder(user_widget_test "Tests/Widgets")
 
 imwidgetv4_set_target_folder(ButtonDemo "Examples")
 imwidgetv4_set_target_folder(BoxPanelDemo "Examples")
@@ -285,4 +288,5 @@ imwidgetv4_set_target_folder(ReflectionInspectorDemo "Examples")
 imwidgetv4_set_target_folder(ScrollBoxDemo "Examples")
 imwidgetv4_set_target_folder(SplitterDemo "Examples")
 imwidgetv4_set_target_folder(TextListDemo "Examples")
+imwidgetv4_set_target_folder(UserWidgetDemo "Examples")
 imwidgetv4_set_target_folder(WindowDemo "Examples")

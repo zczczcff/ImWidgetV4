@@ -8,6 +8,7 @@
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <stdexcept>
 
@@ -20,6 +21,56 @@ namespace {
 json SerializeSlot(const ImSlot* slot)
 {
     return slot ? slot->ToJson() : json();
+}
+
+json SerializeTabItems(const std::shared_ptr<ImTabView>& tabView)
+{
+    json tabItems = json::array();
+    if (!tabView) {
+        return tabItems;
+    }
+
+    for (int index = 0; index < tabView->GetTabCount(); ++index) {
+        const FTabViewItem* tab = tabView->GetTab(index);
+        if (tab == nullptr) {
+            continue;
+        }
+
+        json item;
+        item["Title"] = tab->Title;
+        item["Enabled"] = tab->bEnabled;
+        item["Closable"] = tab->bClosable;
+        item["Dirty"] = tab->bDirty;
+        item["Content"] = WidgetSerializer::SerializeWidgetTree(tab->Content);
+        tabItems.push_back(std::move(item));
+    }
+
+    return tabItems;
+}
+
+int FindSerializedIntProperty(const json& widgetJson, const std::string& propertySuffix, int defaultValue)
+{
+    if (!widgetJson.is_object() || !widgetJson.contains("Properties")) {
+        return defaultValue;
+    }
+
+    const json& properties = widgetJson.at("Properties");
+    if (!properties.is_object()) {
+        return defaultValue;
+    }
+
+    for (auto it = properties.begin(); it != properties.end(); ++it) {
+        const std::string key = it.key();
+        if (key == propertySuffix ||
+            (key.size() > propertySuffix.size() &&
+             key.compare(key.size() - propertySuffix.size(), propertySuffix.size(), propertySuffix) == 0)) {
+            if (it.value().is_number_integer()) {
+                return it.value().get<int>();
+            }
+        }
+    }
+
+    return defaultValue;
 }
 
 bool TryApplySlotToParent(
@@ -93,6 +144,11 @@ json WidgetSerializer::SerializeWidgetNode(const std::shared_ptr<ImWidget>& widg
     json node = widget->ToJson();
     node["Children"] = json::array();
 
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
+        node["TabItems"] = SerializeTabItems(tabView);
+        return node;
+    }
+
     const auto& children = widget->GetChildren();
     const auto panel = std::dynamic_pointer_cast<ImPanelWidget>(widget);
 
@@ -149,6 +205,57 @@ FWidgetSerializationResult WidgetSerializer::DeserializeWidgetNode(const json& w
         }
 
         widget->FromJson(widgetJson);
+
+        if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
+            const int activeTabIndex = FindSerializedIntProperty(widgetJson, "::ActiveTabIndex", -1);
+            if (widgetJson.contains("TabItems")) {
+                const json& tabItemsJson = widgetJson.at("TabItems");
+                if (!tabItemsJson.is_array()) {
+                    result.ErrorMessage = "TabItems must be an array.";
+                    return result;
+                }
+
+                tabView->ClearTabs();
+                for (const auto& tabItemJson : tabItemsJson) {
+                    if (!tabItemJson.is_object()) {
+                        result.ErrorMessage = "Tab item must be an object.";
+                        return result;
+                    }
+
+                    FWidgetSerializationResult contentResult;
+                    if (tabItemJson.contains("Content")) {
+                        contentResult = DeserializeWidgetNode(tabItemJson.at("Content"));
+                        if (!contentResult.bSuccess) {
+                            result.ErrorMessage = contentResult.ErrorMessage.empty()
+                                ? "Failed to deserialize tab content."
+                                : contentResult.ErrorMessage;
+                            return result;
+                        }
+                    } else {
+                        contentResult.bSuccess = true;
+                    }
+
+                    const std::string title = tabItemJson.value("Title", "Tab");
+                    const int tabIndex = tabView->AddTab(title, contentResult.Widget);
+                    if (tabIndex < 0) {
+                        result.ErrorMessage = "Failed to create tab item.";
+                        return result;
+                    }
+
+                    tabView->SetTabEnabled(tabIndex, tabItemJson.value("Enabled", true));
+                    tabView->SetTabClosable(tabIndex, tabItemJson.value("Closable", false));
+                    tabView->SetTabDirty(tabIndex, tabItemJson.value("Dirty", false));
+                }
+            }
+
+            if (activeTabIndex >= 0) {
+                tabView->SetActiveTab(activeTabIndex);
+            }
+
+            result.bSuccess = true;
+            result.Widget = std::move(widget);
+            return result;
+        }
 
         if (widgetJson.contains("Children")) {
             const json& childrenJson = widgetJson.at("Children");

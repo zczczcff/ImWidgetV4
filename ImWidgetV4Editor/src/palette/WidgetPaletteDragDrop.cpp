@@ -9,6 +9,7 @@ std::vector<FWidgetPaletteEntry> BuildDefaultWidgetPaletteEntries()
         {"HorizontalBox", "ImHorizontalBox"},
         {"VerticalBox", "ImVerticalBox"},
         {"ScrollBox", "ImScrollBox"},
+        {"TabView", "ImTabView"},
         {"TextBlock", "ImTextBlock"},
         {"Button", "ImButton"},
         {"CheckBox", "ImCheckBox"},

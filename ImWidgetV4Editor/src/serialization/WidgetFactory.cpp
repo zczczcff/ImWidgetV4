@@ -9,6 +9,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/Switch.h>
+#include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 
@@ -38,6 +39,7 @@ void WidgetFactory::RegisterDefaults()
     Register("ImScrollBox", []() { return std::make_shared<ImScrollBox>(); });
     Register("ImSlider", []() { return std::make_shared<ImSlider>(); });
     Register("ImSwitch", []() { return std::make_shared<ImSwitch>(); });
+    Register("ImTabView", []() { return std::make_shared<ImTabView>(); });
     Register("ImTextBlock", []() { return std::make_shared<ImTextBlock>(); });
     Register("ImVerticalBox", []() { return std::make_shared<ImVerticalBox>(); });
 }

@@ -59,6 +59,28 @@ std::vector<FFileDialogFilter> BuildDocumentFilters()
     };
 }
 
+std::string StripImPrefix(const std::string& typeName)
+{
+    if (typeName.rfind("Im", 0) == 0 && typeName.size() > 2) {
+        return typeName.substr(2);
+    }
+
+    return typeName;
+}
+
+std::string BuildTabTitleForWidget(const std::shared_ptr<ImWidget>& widget)
+{
+    if (!widget) {
+        return "Tab";
+    }
+
+    if (!widget->GetName().empty()) {
+        return widget->GetName();
+    }
+
+    return StripImPrefix(widget->GetTypeName());
+}
+
 std::shared_ptr<ReflectableObject> GetReflectableSelectionTarget(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     return std::dynamic_pointer_cast<ReflectableObject>(selectedWidget);
@@ -111,6 +133,15 @@ bool TryInsertIntoTarget(
         wrapper->AddChild(widget);
         scrollBox->SetContent(wrapper);
         return true;
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(target)) {
+        const int addedIndex = tabView->AddTab(BuildTabTitleForWidget(widget), widget);
+        if (addedIndex >= 0) {
+            tabView->SetActiveTab(addedIndex);
+            return true;
+        }
+        return false;
     }
 
     return false;
@@ -727,11 +758,7 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
     }
 
     if (widget->GetName().empty()) {
-        std::string baseName = typeName;
-        if (baseName.rfind("Im", 0) == 0) {
-            baseName = baseName.substr(2);
-        }
-        widget->SetName(baseName);
+        widget->SetName(StripImPrefix(typeName));
     }
 
     if (auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(widget)) {
@@ -742,6 +769,11 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         checkBox->SetLabel("CheckBox");
     } else if (auto editableText = std::dynamic_pointer_cast<ImEditableText>(widget)) {
         editableText->SetText("EditableText");
+    } else if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
+        auto defaultContent = std::make_shared<ImTextBlock>();
+        defaultContent->SetName("TabContent");
+        defaultContent->SetText("Tab Content");
+        tabView->AddTab("Tab", defaultContent);
     }
 
     return widget;

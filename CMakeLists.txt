@@ -89,6 +89,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/ApplicationBackend.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/CoreIcon.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/FileDialog.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/PropertyType_temp.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/core/ReflectableObject.h
@@ -225,6 +226,8 @@ target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
 target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
     imwidgetv4_core
     imgui_lib
+    Ole32.lib
+    Shell32.lib
 )
 imwidgetv4_set_target_folder(imwidgetv4_platform_win32_dx11 "Platforms")
 

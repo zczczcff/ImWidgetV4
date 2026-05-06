@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/CoreIcon.h>
+#include <imwidgetv4/core/FileDialog.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/core/Widget.h>
@@ -59,6 +60,9 @@ public:
     void SetApplicationIcon(const FImageBrush& brush);
     void SetApplicationIcon(ImTextureID texture, const FVector2& sourceSize = {});
     const FImageBrush& GetApplicationIcon() const;
+    FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) const;
+    FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) const;
+    FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) const;
     void SetBackend(ImApplicationBackend* backend);
     ImApplicationBackend* GetBackend() const;
     bool ClearTitleBarTabMenus();

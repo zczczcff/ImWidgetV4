@@ -12,6 +12,8 @@
 #include <cmath>
 #include <codecvt>
 #include <locale>
+#include <shobjidl.h>
+#include <sstream>
 
 // 前向声明 ImGui Win32 窗口过程处理函数
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -35,6 +37,183 @@ struct ImWin32DX11Backend::FHostChromeLayoutCache {
 namespace {
 
 constexpr int InvalidHostChromeIndex = -1;
+
+struct FScopedCoInitialize {
+    HRESULT Result = E_FAIL;
+    bool bShouldUninitialize = false;
+
+    FScopedCoInitialize()
+    {
+        Result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+        bShouldUninitialize = SUCCEEDED(Result);
+    }
+
+    ~FScopedCoInitialize()
+    {
+        if (bShouldUninitialize) {
+            CoUninitialize();
+        }
+    }
+};
+
+std::wstring Utf8ToWideLocal(const std::string& text)
+{
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.from_bytes(text);
+}
+
+std::string WideToUtf8Local(const std::wstring& text)
+{
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    return converter.to_bytes(text);
+}
+
+std::string FormatDialogErrorMessage(HRESULT result)
+{
+    LPWSTR buffer = nullptr;
+    const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+    const DWORD length = FormatMessageW(
+        flags,
+        nullptr,
+        static_cast<DWORD>(result),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        reinterpret_cast<LPWSTR>(&buffer),
+        0,
+        nullptr);
+
+    std::ostringstream stream;
+    stream << "HRESULT 0x" << std::hex << std::uppercase << static_cast<unsigned long>(result);
+    if (length == 0 || buffer == nullptr) {
+        return stream.str();
+    }
+
+    std::wstring wideMessage(buffer, length);
+    LocalFree(buffer);
+
+    while (!wideMessage.empty() &&
+           (wideMessage.back() == L'\r' || wideMessage.back() == L'\n' || wideMessage.back() == L' ')) {
+        wideMessage.pop_back();
+    }
+
+    return stream.str() + ": " + WideToUtf8Local(wideMessage);
+}
+
+bool IsDialogCancelled(HRESULT result)
+{
+    return result == HRESULT_FROM_WIN32(ERROR_CANCELLED);
+}
+
+std::wstring JoinFilterPatterns(const std::vector<std::string>& patterns)
+{
+    std::wstring combined;
+    for (std::size_t index = 0; index < patterns.size(); ++index) {
+        if (index > 0) {
+            combined += L";";
+        }
+        combined += Utf8ToWideLocal(patterns[index]);
+    }
+    return combined;
+}
+
+void ApplyDialogTitle(IFileDialog* dialog, const std::string& title)
+{
+    if (dialog == nullptr || title.empty()) {
+        return;
+    }
+
+    const std::wstring wideTitle = Utf8ToWideLocal(title);
+    dialog->SetTitle(wideTitle.c_str());
+}
+
+void ApplyInitialDirectory(IFileDialog* dialog, const std::filesystem::path& initialDirectory)
+{
+    if (dialog == nullptr || initialDirectory.empty()) {
+        return;
+    }
+
+    IShellItem* folderItem = nullptr;
+    const HRESULT itemResult = SHCreateItemFromParsingName(
+        initialDirectory.wstring().c_str(),
+        nullptr,
+        IID_PPV_ARGS(&folderItem));
+    if (FAILED(itemResult) || folderItem == nullptr) {
+        return;
+    }
+
+    dialog->SetFolder(folderItem);
+    folderItem->Release();
+}
+
+void ApplyFilters(
+    IFileDialog* dialog,
+    const std::vector<FFileDialogFilter>& filters,
+    int defaultFilterIndex,
+    std::vector<std::wstring>& outLabels,
+    std::vector<std::wstring>& outSpecs,
+    std::vector<COMDLG_FILTERSPEC>& outFilterSpecs)
+{
+    if (dialog == nullptr || filters.empty()) {
+        return;
+    }
+
+    outLabels.clear();
+    outSpecs.clear();
+    outFilterSpecs.clear();
+    outLabels.reserve(filters.size());
+    outSpecs.reserve(filters.size());
+    outFilterSpecs.reserve(filters.size());
+
+    for (const FFileDialogFilter& filter : filters) {
+        outLabels.push_back(Utf8ToWideLocal(filter.Label.empty() ? "Files" : filter.Label));
+        outSpecs.push_back(JoinFilterPatterns(filter.Patterns));
+    }
+
+    for (std::size_t index = 0; index < filters.size(); ++index) {
+        COMDLG_FILTERSPEC filterSpec = {};
+        filterSpec.pszName = outLabels[index].c_str();
+        filterSpec.pszSpec = outSpecs[index].empty() ? L"*.*" : outSpecs[index].c_str();
+        outFilterSpecs.push_back(filterSpec);
+    }
+
+    dialog->SetFileTypes(static_cast<UINT>(outFilterSpecs.size()), outFilterSpecs.data());
+    const UINT filterIndex = static_cast<UINT>(std::clamp(defaultFilterIndex, 0, static_cast<int>(filters.size()) - 1) + 1);
+    dialog->SetFileTypeIndex(filterIndex);
+}
+
+FPathDialogResult ExtractDialogResultPath(IFileDialog* dialog)
+{
+    if (dialog == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Dialog instance was null.";
+        return result;
+    }
+
+    IShellItem* shellItem = nullptr;
+    HRESULT hr = dialog->GetResult(&shellItem);
+    if (FAILED(hr) || shellItem == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    PWSTR fileSystemPath = nullptr;
+    hr = shellItem->GetDisplayName(SIGDN_FILESYSPATH, &fileSystemPath);
+    shellItem->Release();
+    if (FAILED(hr) || fileSystemPath == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    FPathDialogResult result;
+    result.Code = EPathDialogResultCode::Accepted;
+    result.Path = std::filesystem::path(fileSystemPath);
+    CoTaskMemFree(fileSystemPath);
+    return result;
+}
 
 float MeasureHostChromeTextWidth(const std::string& text, float fontSize)
 {
@@ -575,6 +754,185 @@ void ImWin32DX11Backend::ClearWindowIcon()
     }
 
     DestroyWindowIcons();
+}
+
+FPathDialogResult ImWin32DX11Backend::OpenFileDialog(const FOpenFileDialogOptions& options)
+{
+    FScopedCoInitialize scopedCoInitialize;
+    if (FAILED(scopedCoInitialize.Result)) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(scopedCoInitialize.Result);
+        return result;
+    }
+
+    IFileOpenDialog* dialog = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog));
+    if (FAILED(hr) || dialog == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    DWORD dialogOptions = 0;
+    hr = dialog->GetOptions(&dialogOptions);
+    if (SUCCEEDED(hr)) {
+        dialogOptions |= FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST;
+        dialog->SetOptions(dialogOptions);
+    }
+
+    ApplyDialogTitle(dialog, options.Title);
+    ApplyInitialDirectory(dialog, options.InitialDirectory);
+
+    std::vector<std::wstring> filterLabels;
+    std::vector<std::wstring> filterSpecs;
+    std::vector<COMDLG_FILTERSPEC> dialogFilters;
+    ApplyFilters(dialog, options.Filters, options.DefaultFilterIndex, filterLabels, filterSpecs, dialogFilters);
+
+    hr = dialog->Show(Hwnd_);
+    if (IsDialogCancelled(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    if (FAILED(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    FPathDialogResult result = ExtractDialogResultPath(dialog);
+    dialog->Release();
+    return result;
+}
+
+FPathDialogResult ImWin32DX11Backend::OpenFolderDialog(const FOpenFolderDialogOptions& options)
+{
+    FScopedCoInitialize scopedCoInitialize;
+    if (FAILED(scopedCoInitialize.Result)) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(scopedCoInitialize.Result);
+        return result;
+    }
+
+    IFileOpenDialog* dialog = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog));
+    if (FAILED(hr) || dialog == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    DWORD dialogOptions = 0;
+    hr = dialog->GetOptions(&dialogOptions);
+    if (SUCCEEDED(hr)) {
+        dialogOptions |= FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS;
+        dialog->SetOptions(dialogOptions);
+    }
+
+    ApplyDialogTitle(dialog, options.Title);
+    ApplyInitialDirectory(dialog, options.InitialDirectory);
+
+    hr = dialog->Show(Hwnd_);
+    if (IsDialogCancelled(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    if (FAILED(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    FPathDialogResult result = ExtractDialogResultPath(dialog);
+    dialog->Release();
+    return result;
+}
+
+FPathDialogResult ImWin32DX11Backend::SaveFileDialog(const FSaveFileDialogOptions& options)
+{
+    FScopedCoInitialize scopedCoInitialize;
+    if (FAILED(scopedCoInitialize.Result)) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(scopedCoInitialize.Result);
+        return result;
+    }
+
+    IFileSaveDialog* dialog = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog));
+    if (FAILED(hr) || dialog == nullptr) {
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    DWORD dialogOptions = 0;
+    hr = dialog->GetOptions(&dialogOptions);
+    if (SUCCEEDED(hr)) {
+        dialogOptions |= FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST;
+        if (options.bPromptOverwrite) {
+            dialogOptions |= FOS_OVERWRITEPROMPT;
+        } else {
+            dialogOptions &= ~FOS_OVERWRITEPROMPT;
+        }
+        dialog->SetOptions(dialogOptions);
+    }
+
+    ApplyDialogTitle(dialog, options.Title);
+    ApplyInitialDirectory(dialog, options.InitialDirectory);
+
+    if (!options.DefaultFileName.empty()) {
+        const std::wstring wideFileName = Utf8ToWideLocal(options.DefaultFileName);
+        dialog->SetFileName(wideFileName.c_str());
+    }
+
+    if (!options.DefaultExtension.empty()) {
+        std::string extension = options.DefaultExtension;
+        if (!extension.empty() && extension.front() == '.') {
+            extension.erase(extension.begin());
+        }
+        const std::wstring wideExtension = Utf8ToWideLocal(extension);
+        dialog->SetDefaultExtension(wideExtension.c_str());
+    }
+
+    std::vector<std::wstring> filterLabels;
+    std::vector<std::wstring> filterSpecs;
+    std::vector<COMDLG_FILTERSPEC> dialogFilters;
+    ApplyFilters(dialog, options.Filters, options.DefaultFilterIndex, filterLabels, filterSpecs, dialogFilters);
+
+    hr = dialog->Show(Hwnd_);
+    if (IsDialogCancelled(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    if (FAILED(hr)) {
+        dialog->Release();
+        FPathDialogResult result;
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = FormatDialogErrorMessage(hr);
+        return result;
+    }
+
+    FPathDialogResult result = ExtractDialogResultPath(dialog);
+    dialog->Release();
+    return result;
 }
 
 void ImWin32DX11Backend::SetUseCustomHostChrome(bool enabled)

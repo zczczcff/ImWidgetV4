@@ -1,4 +1,5 @@
 #pragma once
+#include <imwidgetv4/core/FileDialog.h>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -148,6 +149,24 @@ public:
      * @brief 清除宿主原生窗口图标
      */
     virtual void ClearWindowIcon() {}
+
+    virtual FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options)
+    {
+        (void)options;
+        return FPathDialogResult();
+    }
+
+    virtual FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options)
+    {
+        (void)options;
+        return FPathDialogResult();
+    }
+
+    virtual FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options)
+    {
+        (void)options;
+        return FPathDialogResult();
+    }
 
     /**
      * @brief 当前后端是否启用了自绘宿主标题栏

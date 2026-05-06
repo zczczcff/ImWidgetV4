@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include "../DemoPaths.h"
 #include <memory>
+#include <filesystem>
 #include <string>
 
 using namespace ImWidgetV4;
@@ -34,6 +35,22 @@ std::shared_ptr<ImVerticalBox> MakeWindowStack(const std::string& titleText, con
     layout->AddChild(body, FMargin(12.0f, 0.0f, 12.0f, 0.0f));
 
     return layout;
+}
+
+std::string FormatDialogResultMessage(const std::string& label, const FPathDialogResult& result)
+{
+    switch (result.Code) {
+    case EPathDialogResultCode::Accepted:
+        return "Status: " + label + " = " + result.Path.string();
+    case EPathDialogResultCode::Cancelled:
+        return "Status: " + label + " cancelled.";
+    case EPathDialogResultCode::Unsupported:
+        return "Status: " + label + " unsupported by the current backend.";
+    case EPathDialogResultCode::Error:
+        return "Status: " + label + " failed: " + result.ErrorMessage;
+    default:
+        return "Status: " + label + " returned an unknown result.";
+    }
 }
 
 } // namespace
@@ -82,9 +99,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     modalButton->SetText("Open Modal");
     mainRoot->AddChild(modalButton, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
 
+    auto openFileButton = std::make_shared<ImButton>();
+    openFileButton->SetText("Open File Dialog");
+    mainRoot->AddChild(openFileButton, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
+
+    auto openFolderButton = std::make_shared<ImButton>();
+    openFolderButton->SetText("Open Folder Dialog");
+    mainRoot->AddChild(openFolderButton, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
+
+    auto saveFileButton = std::make_shared<ImButton>();
+    saveFileButton->SetText("Save File Dialog");
+    mainRoot->AddChild(saveFileButton, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
+
     auto status = std::make_shared<ImTextBlock>();
     status->SetText("Status: floating windows are ready.");
     status->SetTextColor(FColor::FromBytes(160, 214, 190));
+    status->SetWrapText(true);
     mainRoot->AddChild(status, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
 
     app->SetRootWidget(mainRoot);
@@ -180,8 +210,47 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         status->SetText("Status: modal opened.");
     };
 
+    const auto openFileDialog = [&]() {
+        FOpenFileDialogOptions options;
+        options.Title = "Open a Demo File";
+        options.InitialDirectory = std::filesystem::current_path();
+        options.Filters = {
+            FFileDialogFilter {"Text Files", {"*.txt", "*.md", "*.json"}},
+            FFileDialogFilter {"Images", {"*.png", "*.jpg", "*.bmp"}},
+            FFileDialogFilter {"All Files", {"*.*"}}
+        };
+        options.DefaultFilterIndex = 0;
+        status->SetText(FormatDialogResultMessage("open file", app->OpenFileDialog(options)));
+    };
+
+    const auto openFolderDialog = [&]() {
+        FOpenFolderDialogOptions options;
+        options.Title = "Choose a Demo Folder";
+        options.InitialDirectory = std::filesystem::current_path();
+        status->SetText(FormatDialogResultMessage("open folder", app->OpenFolderDialog(options)));
+    };
+
+    const auto saveFileDialog = [&]() {
+        FSaveFileDialogOptions options;
+        options.Title = "Save a Demo File";
+        options.InitialDirectory = std::filesystem::current_path();
+        options.DefaultFileName = "window_demo_output";
+        options.DefaultExtension = "txt";
+        options.Filters = {
+            FFileDialogFilter {"Text Files", {"*.txt"}},
+            FFileDialogFilter {"JSON Files", {"*.json"}},
+            FFileDialogFilter {"All Files", {"*.*"}}
+        };
+        options.DefaultFilterIndex = 0;
+        options.bPromptOverwrite = true;
+        status->SetText(FormatDialogResultMessage("save file", app->SaveFileDialog(options)));
+    };
+
     popupButton->OnClicked.AddLambda([&](ImButton&) { togglePopup(); });
     modalButton->OnClicked.AddLambda([&](ImButton&) { openModal(); });
+    openFileButton->OnClicked.AddLambda([&](ImButton&) { openFileDialog(); });
+    openFolderButton->OnClicked.AddLambda([&](ImButton&) { openFolderDialog(); });
+    saveFileButton->OnClicked.AddLambda([&](ImButton&) { saveFileDialog(); });
 
     checkbox->OnCheckStateChanged.AddLambda([&](ImCheckBox&, bool checked) {
         editable->SetDisabled(checked);
@@ -204,6 +273,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         true,
         false,
         [&]() { openModal(); }
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Open File Dialog",
+        app->GetCoreIconBrush(ECoreIcon::File),
+        {},
+        true,
+        false,
+        [&]() { openFileDialog(); }
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Open Folder Dialog",
+        app->GetCoreIconBrush(ECoreIcon::Folder),
+        {},
+        true,
+        false,
+        [&]() { openFolderDialog(); }
+    });
+    fileMenuItems.push_back(FApplicationMenuItem {
+        "Save File Dialog",
+        app->GetCoreIconBrush(ECoreIcon::Save),
+        {},
+        true,
+        false,
+        [&]() { saveFileDialog(); }
     });
     fileMenuItems.push_back(FApplicationMenuItem {
         std::string(),

@@ -161,6 +161,9 @@ public:
         int width,
         int height) override;
     void ClearWindowIcon() override;
+    FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) override;
+    FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) override;
+    FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) override;
     void SetUseCustomHostChrome(bool enabled);
     bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome_; }
 

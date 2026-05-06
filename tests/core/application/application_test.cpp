@@ -65,6 +65,24 @@ public:
         IconPixels.clear();
         ++ClearWindowIconCallCount;
     }
+    FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) override
+    {
+        LastOpenFileDialogOptions = options;
+        ++OpenFileDialogCallCount;
+        return NextOpenFileDialogResult;
+    }
+    FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) override
+    {
+        LastOpenFolderDialogOptions = options;
+        ++OpenFolderDialogCallCount;
+        return NextOpenFolderDialogResult;
+    }
+    FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) override
+    {
+        LastSaveFileDialogOptions = options;
+        ++SaveFileDialogCallCount;
+        return NextSaveFileDialogResult;
+    }
     bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome; }
 
     ImApplication* Application = nullptr;
@@ -74,9 +92,18 @@ public:
     int SetWindowTitleCallCount = 0;
     int SetWindowIconCallCount = 0;
     int ClearWindowIconCallCount = 0;
+    int OpenFileDialogCallCount = 0;
+    int OpenFolderDialogCallCount = 0;
+    int SaveFileDialogCallCount = 0;
     int IconWidth = 0;
     int IconHeight = 0;
     std::vector<std::uint8_t> IconPixels;
+    FOpenFileDialogOptions LastOpenFileDialogOptions;
+    FOpenFolderDialogOptions LastOpenFolderDialogOptions;
+    FSaveFileDialogOptions LastSaveFileDialogOptions;
+    FPathDialogResult NextOpenFileDialogResult;
+    FPathDialogResult NextOpenFolderDialogResult;
+    FPathDialogResult NextSaveFileDialogResult;
     bool bUseCustomHostChrome = false;
     bool bShouldClose = false;
 };
@@ -624,4 +651,89 @@ TEST(ApplicationHostChromeTest, TitleBarTabMenusRequireCustomHostChrome)
 
     EXPECT_TRUE(application.ClearTitleBarTabMenus());
     EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
+}
+
+TEST(ApplicationFileDialogTest, ReturnsUnsupportedWhenBackendIsMissing)
+{
+    ImApplication application;
+
+    const FPathDialogResult openFileResult = application.OpenFileDialog(FOpenFileDialogOptions());
+    const FPathDialogResult openFolderResult = application.OpenFolderDialog(FOpenFolderDialogOptions());
+    const FPathDialogResult saveFileResult = application.SaveFileDialog(FSaveFileDialogOptions());
+
+    EXPECT_EQ(openFileResult.Code, EPathDialogResultCode::Unsupported);
+    EXPECT_EQ(openFolderResult.Code, EPathDialogResultCode::Unsupported);
+    EXPECT_EQ(saveFileResult.Code, EPathDialogResultCode::Unsupported);
+}
+
+TEST(ApplicationFileDialogTest, ForwardsOptionsAndReturnsBackendResults)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    application.SetBackend(&backend);
+
+    backend.NextOpenFileDialogResult.Code = EPathDialogResultCode::Accepted;
+    backend.NextOpenFileDialogResult.Path = std::filesystem::path("C:/temp/input.txt");
+
+    backend.NextOpenFolderDialogResult.Code = EPathDialogResultCode::Cancelled;
+
+    backend.NextSaveFileDialogResult.Code = EPathDialogResultCode::Error;
+    backend.NextSaveFileDialogResult.ErrorMessage = "save failed";
+
+    FOpenFileDialogOptions openFileOptions;
+    openFileOptions.Title = "Open Asset";
+    openFileOptions.InitialDirectory = std::filesystem::path("C:/project/assets");
+    openFileOptions.Filters = {
+        FFileDialogFilter {"Images", {"*.png", "*.jpg"}},
+        FFileDialogFilter {"All Files", {"*.*"}}
+    };
+    openFileOptions.DefaultFilterIndex = 1;
+
+    FOpenFolderDialogOptions openFolderOptions;
+    openFolderOptions.Title = "Select Output Folder";
+    openFolderOptions.InitialDirectory = std::filesystem::path("C:/project/output");
+
+    FSaveFileDialogOptions saveFileOptions;
+    saveFileOptions.Title = "Save Snapshot";
+    saveFileOptions.InitialDirectory = std::filesystem::path("C:/project/snapshots");
+    saveFileOptions.DefaultFileName = "capture";
+    saveFileOptions.DefaultExtension = "png";
+    saveFileOptions.Filters = {
+        FFileDialogFilter {"PNG", {"*.png"}}
+    };
+    saveFileOptions.DefaultFilterIndex = 0;
+    saveFileOptions.bPromptOverwrite = false;
+
+    const FPathDialogResult openFileResult = application.OpenFileDialog(openFileOptions);
+    const FPathDialogResult openFolderResult = application.OpenFolderDialog(openFolderOptions);
+    const FPathDialogResult saveFileResult = application.SaveFileDialog(saveFileOptions);
+
+    EXPECT_EQ(backend.OpenFileDialogCallCount, 1);
+    EXPECT_EQ(backend.OpenFolderDialogCallCount, 1);
+    EXPECT_EQ(backend.SaveFileDialogCallCount, 1);
+
+    EXPECT_EQ(backend.LastOpenFileDialogOptions.Title, openFileOptions.Title);
+    EXPECT_EQ(backend.LastOpenFileDialogOptions.InitialDirectory, openFileOptions.InitialDirectory);
+    ASSERT_EQ(backend.LastOpenFileDialogOptions.Filters.size(), 2u);
+    EXPECT_EQ(backend.LastOpenFileDialogOptions.Filters[0].Label, "Images");
+    ASSERT_EQ(backend.LastOpenFileDialogOptions.Filters[0].Patterns.size(), 2u);
+    EXPECT_EQ(backend.LastOpenFileDialogOptions.Filters[0].Patterns[0], "*.png");
+    EXPECT_EQ(backend.LastOpenFileDialogOptions.DefaultFilterIndex, 1);
+
+    EXPECT_EQ(backend.LastOpenFolderDialogOptions.Title, openFolderOptions.Title);
+    EXPECT_EQ(backend.LastOpenFolderDialogOptions.InitialDirectory, openFolderOptions.InitialDirectory);
+
+    EXPECT_EQ(backend.LastSaveFileDialogOptions.Title, saveFileOptions.Title);
+    EXPECT_EQ(backend.LastSaveFileDialogOptions.InitialDirectory, saveFileOptions.InitialDirectory);
+    EXPECT_EQ(backend.LastSaveFileDialogOptions.DefaultFileName, "capture");
+    EXPECT_EQ(backend.LastSaveFileDialogOptions.DefaultExtension, "png");
+    EXPECT_FALSE(backend.LastSaveFileDialogOptions.bPromptOverwrite);
+    ASSERT_EQ(backend.LastSaveFileDialogOptions.Filters.size(), 1u);
+    EXPECT_EQ(backend.LastSaveFileDialogOptions.Filters[0].Label, "PNG");
+
+    EXPECT_EQ(openFileResult.Code, EPathDialogResultCode::Accepted);
+    EXPECT_EQ(openFileResult.Path, std::filesystem::path("C:/temp/input.txt"));
+    EXPECT_EQ(openFolderResult.Code, EPathDialogResultCode::Cancelled);
+    EXPECT_EQ(saveFileResult.Code, EPathDialogResultCode::Error);
+    EXPECT_EQ(saveFileResult.ErrorMessage, "save failed");
 }

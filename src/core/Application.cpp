@@ -596,6 +596,33 @@ const FImageBrush& ImApplication::GetApplicationIcon() const
     return ApplicationIcon_;
 }
 
+FPathDialogResult ImApplication::OpenFileDialog(const FOpenFileDialogOptions& options) const
+{
+    if (Backend_ == nullptr) {
+        return FPathDialogResult();
+    }
+
+    return Backend_->OpenFileDialog(options);
+}
+
+FPathDialogResult ImApplication::OpenFolderDialog(const FOpenFolderDialogOptions& options) const
+{
+    if (Backend_ == nullptr) {
+        return FPathDialogResult();
+    }
+
+    return Backend_->OpenFolderDialog(options);
+}
+
+FPathDialogResult ImApplication::SaveFileDialog(const FSaveFileDialogOptions& options) const
+{
+    if (Backend_ == nullptr) {
+        return FPathDialogResult();
+    }
+
+    return Backend_->SaveFileDialog(options);
+}
+
 void ImApplication::SetBackend(ImApplicationBackend* backend)
 {
     Backend_ = backend;

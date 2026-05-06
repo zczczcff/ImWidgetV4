@@ -6,6 +6,7 @@
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/Slider.h>
+#include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include "../DemoPaths.h"
@@ -30,6 +31,10 @@ std::string FormatComboSelection(const ImComboBox& comboBox) {
     }
 
     return "Combo Selection: " + comboBox.GetSelectedText();
+}
+
+std::string FormatSwitchState(bool checked) {
+    return checked ? "Switch State: On" : "Switch State: Off";
 }
 
 } // namespace
@@ -62,7 +67,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     root->AddChild(title, FMargin(16.0f, 16.0f, 16.0f, 0.0f));
 
     auto subtitle = std::make_shared<ImTextBlock>();
-    subtitle->SetText("CheckBox controls enabled state, ComboBox opens a popup list, EditableText reports live and committed text, and Slider supports click, drag, and keyboard adjustment.");
+    subtitle->SetText("CheckBox controls enabled state, ComboBox opens a popup list, EditableText reports live and committed text, Slider supports click/drag/keyboard adjustment, and Switch provides a compact on/off toggle.");
     subtitle->SetWrapText(true);
     subtitle->SetTextColor(FColor::FromBytes(214, 222, 234));
     root->AddChild(subtitle, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
@@ -129,6 +134,44 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     sliderValue->SetTextColor(FColor::FromBytes(214, 222, 234));
     root->AddChild(sliderValue, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
 
+    auto switchLabel = std::make_shared<ImTextBlock>();
+    switchLabel->SetText("Switch");
+    switchLabel->SetTextColor(FColor::FromBytes(255, 214, 102));
+    root->AddChild(switchLabel, FMargin(16.0f, 8.0f, 16.0f, 0.0f));
+
+    auto switchRow = std::make_shared<ImHorizontalBox>();
+    switchRow->SetSpacing(12.0f);
+
+    auto switchWidget = std::make_shared<ImSwitch>();
+    switchRow->AddChild(switchWidget);
+
+    auto switchHint = std::make_shared<ImTextBlock>();
+    switchHint->SetText("Space / Enter can toggle after focusing the switch.");
+    switchHint->SetTextColor(FColor::FromBytes(214, 222, 234));
+    switchRow->AddChild(switchHint);
+
+    root->AddChild(switchRow, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto switchState = std::make_shared<ImTextBlock>();
+    switchState->SetText(FormatSwitchState(switchWidget->IsChecked()));
+    switchState->SetTextColor(FColor::FromBytes(214, 222, 234));
+    root->AddChild(switchState, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto disabledSwitchRow = std::make_shared<ImHorizontalBox>();
+    disabledSwitchRow->SetSpacing(12.0f);
+
+    auto disabledSwitch = std::make_shared<ImSwitch>();
+    disabledSwitch->SetChecked(true);
+    disabledSwitch->SetDisabled(true);
+    disabledSwitchRow->AddChild(disabledSwitch);
+
+    auto disabledSwitchHint = std::make_shared<ImTextBlock>();
+    disabledSwitchHint->SetText("Disabled switch style example");
+    disabledSwitchHint->SetTextColor(FColor::FromBytes(160, 214, 190));
+    disabledSwitchRow->AddChild(disabledSwitchHint);
+
+    root->AddChild(disabledSwitchRow, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
     auto actionsRow = std::make_shared<ImHorizontalBox>();
     actionsRow->SetSpacing(10.0f);
 
@@ -147,6 +190,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         comboBox->SetDisabled(checked);
         editableText->SetDisabled(checked);
         slider->SetDisabled(checked);
+        switchWidget->SetDisabled(checked);
         liveText->SetText(checked ? "Live Text: controls are disabled" : "Live Text: " + editableText->GetText());
     });
 
@@ -166,18 +210,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         sliderValue->SetText(FormatSliderValue(value));
     });
 
+    switchWidget->OnCheckStateChanged.AddLambda([&](ImSwitch&, bool checked) {
+        switchState->SetText(FormatSwitchState(checked));
+    });
+
     resetButton->OnClicked.AddLambda([&](ImButton&) {
         disableControls->SetChecked(false);
         comboBox->SetDisabled(false);
         editableText->SetDisabled(false);
         slider->SetDisabled(false);
+        switchWidget->SetDisabled(false);
         comboBox->SetSelectedIndex(2);
         editableText->SetText("ImWidgetV4");
         slider->SetValue(42.0f);
+        switchWidget->SetChecked(false);
         comboSelection->SetText(FormatComboSelection(*comboBox));
         liveText->SetText("Live Text: ImWidgetV4");
         committedText->SetText("Committed Text: (not committed yet)");
         sliderValue->SetText(FormatSliderValue(slider->GetValue()));
+        switchState->SetText(FormatSwitchState(switchWidget->IsChecked()));
     });
 
     fillSampleButton->OnClicked.AddLambda([&](ImButton&) {

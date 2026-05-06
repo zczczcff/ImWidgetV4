@@ -14,6 +14,7 @@
 #include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Slider.h>
+#include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
@@ -184,6 +185,12 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(sliderStyle.HasProperty("ShowValueText", "FSliderStyle"));
     EXPECT_TRUE(slider.HasProperty("Value", "ImSlider"));
     EXPECT_TRUE(slider.HasProperty("MaxValue", "ImSlider"));
+
+    FSwitchStyle switchStyle;
+    ImSwitch switchWidget;
+    EXPECT_TRUE(switchStyle.HasProperty("ThumbInset", "FSwitchStyle"));
+    EXPECT_TRUE(switchWidget.HasProperty("Checked", "ImSwitch"));
+    EXPECT_TRUE(switchWidget.HasProperty("Style", "ImSwitch"));
 
     FComboBoxStyle comboStyle;
     ImComboBox comboBox;

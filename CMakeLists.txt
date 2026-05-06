@@ -132,6 +132,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/PopupMenu.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/ScrollBox.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Slider.h
+    ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/Switch.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextList.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextBlock.h
     ${CMAKE_SOURCE_DIR}/include/imwidgetv4/widgets/TextOutlineView.h
@@ -171,6 +172,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/widgets/PopupMenu.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/ScrollBox.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/Slider.cpp
+    ${CMAKE_SOURCE_DIR}/src/widgets/Switch.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextList.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_SOURCE_DIR}/src/widgets/TextOutlineView.cpp
@@ -285,6 +287,7 @@ imwidgetv4_set_target_folder(image_test "Tests/Widgets")
 imwidgetv4_set_target_folder(combobox_test "Tests/Widgets")
 imwidgetv4_set_target_folder(popup_menu_test "Tests/Widgets")
 imwidgetv4_set_target_folder(slider_test "Tests/Widgets")
+imwidgetv4_set_target_folder(switch_test "Tests/Widgets")
 imwidgetv4_set_target_folder(scroll_box_test "Tests/Widgets")
 imwidgetv4_set_target_folder(splitter_test "Tests/Widgets")
 imwidgetv4_set_target_folder(text_list_test "Tests/Widgets")

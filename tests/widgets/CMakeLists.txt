@@ -120,6 +120,18 @@ target_link_libraries(slider_test PRIVATE
 
 add_test(NAME SliderTest COMMAND slider_test)
 
+add_executable(switch_test
+    switch_test.cpp
+)
+
+target_link_libraries(switch_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME SwitchTest COMMAND switch_test)
+
 add_executable(scroll_box_test
     scroll_box_test.cpp
 )

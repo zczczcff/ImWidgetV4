@@ -16,24 +16,24 @@ public:
         const std::shared_ptr<EditorSession>& session,
         std::string label,
         json beforeDocument,
-        std::vector<int> beforeSelectionPath,
+        std::string beforeSelectionId,
         bool bBeforeDirty,
         json afterDocument,
-        std::vector<int> afterSelectionPath,
+        std::string afterSelectionId,
         bool bAfterDirty);
 
     virtual bool Execute() override;
     virtual bool Undo() override;
 
 private:
-    bool Apply(const json& documentJson, const std::vector<int>& selectionPath, bool bDirty);
+    bool Apply(const json& documentJson, const std::string& selectionId, bool bDirty);
 
     std::weak_ptr<EditorSession> m_Session;
     json m_BeforeDocument;
-    std::vector<int> m_BeforeSelectionPath;
+    std::string m_BeforeSelectionId;
     bool m_bBeforeDirty = false;
     json m_AfterDocument;
-    std::vector<int> m_AfterSelectionPath;
+    std::string m_AfterSelectionId;
     bool m_bAfterDirty = false;
 };
 

@@ -696,7 +696,7 @@ void EditorSession::HandlePropertyValueCommitted(
 
 bool EditorSession::ApplyDocumentSnapshot(
     const json& documentJson,
-    const std::vector<int>& selectionPath,
+    const std::string& selectionId,
     bool bDirty)
 {
     CancelDocumentGesture();
@@ -711,7 +711,7 @@ bool EditorSession::ApplyDocumentSnapshot(
     }
 
     m_Document->SetDirty(bDirty);
-    std::shared_ptr<ImWidget> selectedWidget = ResolveSelectionPath(selectionPath);
+    std::shared_ptr<ImWidget> selectedWidget = m_Document->FindWidgetById(selectionId);
 
     if (m_DesignerSurface) {
         m_DesignerSurface->SetContentRoot(m_Document->GetRootWidget());
@@ -930,7 +930,7 @@ EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot() const
     }
 
     snapshot.DocumentJson = m_Document->ExportDocumentJson();
-    snapshot.SelectionPath = BuildSelectionPath(
+    snapshot.SelectionId = m_Document->GetWidgetId(
         m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr);
     snapshot.bDirty = m_Document->IsDirty();
     return snapshot;
@@ -958,16 +958,16 @@ bool EditorSession::ExecuteDocumentMutation(
 
     FDocumentSnapshot afterSnapshot = CaptureDocumentSnapshot();
     if (preferredSelection) {
-        afterSnapshot.SelectionPath = BuildSelectionPath(preferredSelection);
+        afterSnapshot.SelectionId = m_Document->GetWidgetId(preferredSelection);
     }
     m_CommandStack.PushExecuted(std::make_unique<DocumentSnapshotCommand>(
         shared_from_this(),
         commandLabel,
         beforeSnapshot.DocumentJson,
-        beforeSnapshot.SelectionPath,
+        beforeSnapshot.SelectionId,
         beforeSnapshot.bDirty,
         afterSnapshot.DocumentJson,
-        afterSnapshot.SelectionPath,
+        afterSnapshot.SelectionId,
         afterSnapshot.bDirty));
     return true;
 }
@@ -997,13 +997,13 @@ bool EditorSession::CommitDocumentGesture(const std::shared_ptr<ImWidget>& prefe
 
     FDocumentSnapshot afterSnapshot = CaptureDocumentSnapshot();
     if (selection) {
-        afterSnapshot.SelectionPath = BuildSelectionPath(selection);
+        afterSnapshot.SelectionId = m_Document->GetWidgetId(selection);
     }
 
     const bool bDocumentChanged =
         m_PendingGestureSnapshot->DocumentJson != afterSnapshot.DocumentJson;
     const bool bSelectionChanged =
-        m_PendingGestureSnapshot->SelectionPath != afterSnapshot.SelectionPath;
+        m_PendingGestureSnapshot->SelectionId != afterSnapshot.SelectionId;
     if (!bDocumentChanged && !bSelectionChanged) {
         CancelDocumentGesture();
         return false;
@@ -1016,10 +1016,10 @@ bool EditorSession::CommitDocumentGesture(const std::shared_ptr<ImWidget>& prefe
         shared_from_this(),
         m_PendingGestureLabel.empty() ? "Edit Widget" : m_PendingGestureLabel,
         m_PendingGestureSnapshot->DocumentJson,
-        m_PendingGestureSnapshot->SelectionPath,
+        m_PendingGestureSnapshot->SelectionId,
         m_PendingGestureSnapshot->bDirty,
         afterSnapshot.DocumentJson,
-        afterSnapshot.SelectionPath,
+        afterSnapshot.SelectionId,
         afterSnapshot.bDirty));
     CancelDocumentGesture();
     return true;
@@ -1030,75 +1030,6 @@ void EditorSession::CancelDocumentGesture()
     m_PendingGestureSnapshot.reset();
     m_PendingGestureLabel.clear();
     m_PendingGestureSelection.reset();
-}
-
-std::vector<int> EditorSession::BuildSelectionPath(const std::shared_ptr<ImWidget>& widget) const
-{
-    std::vector<int> path;
-    if (!m_Document || !m_Document->GetRootWidget() || !widget) {
-        return path;
-    }
-
-    if (widget == m_Document->GetRootWidget()) {
-        return path;
-    }
-
-    if (!BuildSelectionPathRecursive(m_Document->GetRootWidget(), widget, path)) {
-        path.clear();
-    }
-    return path;
-}
-
-bool EditorSession::BuildSelectionPathRecursive(
-    const std::shared_ptr<ImWidget>& current,
-    const std::shared_ptr<ImWidget>& target,
-    std::vector<int>& inOutPath) const
-{
-    if (!current || !target) {
-        return false;
-    }
-
-    const auto& children = current->GetChildren();
-    for (std::size_t childIndex = 0; childIndex < children.size(); ++childIndex) {
-        const auto& child = children[childIndex];
-        if (!child) {
-            continue;
-        }
-
-        inOutPath.push_back(static_cast<int>(childIndex));
-        if (child == target || BuildSelectionPathRecursive(child, target, inOutPath)) {
-            return true;
-        }
-        inOutPath.pop_back();
-    }
-
-    return false;
-}
-
-std::shared_ptr<ImWidget> EditorSession::ResolveSelectionPath(const std::vector<int>& path) const
-{
-    if (!m_Document) {
-        return nullptr;
-    }
-
-    std::shared_ptr<ImWidget> current = m_Document->GetRootWidget();
-    if (!current) {
-        return nullptr;
-    }
-
-    for (int childIndex : path) {
-        const auto& children = current->GetChildren();
-        if (childIndex < 0 || childIndex >= static_cast<int>(children.size())) {
-            return nullptr;
-        }
-
-        current = children[childIndex];
-        if (!current) {
-            return nullptr;
-        }
-    }
-
-    return current;
 }
 
 void EditorSession::MarkDocumentDirty()

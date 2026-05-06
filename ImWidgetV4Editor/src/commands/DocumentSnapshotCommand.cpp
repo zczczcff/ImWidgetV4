@@ -8,39 +8,39 @@ DocumentSnapshotCommand::DocumentSnapshotCommand(
     const std::shared_ptr<EditorSession>& session,
     std::string label,
     json beforeDocument,
-    std::vector<int> beforeSelectionPath,
+    std::string beforeSelectionId,
     bool bBeforeDirty,
     json afterDocument,
-    std::vector<int> afterSelectionPath,
+    std::string afterSelectionId,
     bool bAfterDirty)
     : EditorCommand(std::move(label))
     , m_Session(session)
     , m_BeforeDocument(std::move(beforeDocument))
-    , m_BeforeSelectionPath(std::move(beforeSelectionPath))
+    , m_BeforeSelectionId(std::move(beforeSelectionId))
     , m_bBeforeDirty(bBeforeDirty)
     , m_AfterDocument(std::move(afterDocument))
-    , m_AfterSelectionPath(std::move(afterSelectionPath))
+    , m_AfterSelectionId(std::move(afterSelectionId))
     , m_bAfterDirty(bAfterDirty)
 {
 }
 
 bool DocumentSnapshotCommand::Execute()
 {
-    return Apply(m_AfterDocument, m_AfterSelectionPath, m_bAfterDirty);
+    return Apply(m_AfterDocument, m_AfterSelectionId, m_bAfterDirty);
 }
 
 bool DocumentSnapshotCommand::Undo()
 {
-    return Apply(m_BeforeDocument, m_BeforeSelectionPath, m_bBeforeDirty);
+    return Apply(m_BeforeDocument, m_BeforeSelectionId, m_bBeforeDirty);
 }
 
 bool DocumentSnapshotCommand::Apply(
     const json& documentJson,
-    const std::vector<int>& selectionPath,
+    const std::string& selectionId,
     bool bDirty)
 {
     std::shared_ptr<EditorSession> session = m_Session.lock();
-    return session && session->ApplyDocumentSnapshot(documentJson, selectionPath, bDirty);
+    return session && session->ApplyDocumentSnapshot(documentJson, selectionId, bDirty);
 }
 
 } // namespace ImWidgetV4Editor

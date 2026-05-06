@@ -61,13 +61,13 @@ public:
     void LogStatus(const std::string& text);
     bool ApplyDocumentSnapshot(
         const json& documentJson,
-        const std::vector<int>& selectionPath,
+        const std::string& selectionId,
         bool bDirty);
 
 private:
     struct FDocumentSnapshot {
         json DocumentJson;
-        std::vector<int> SelectionPath;
+        std::string SelectionId;
         bool bDirty = false;
     };
 
@@ -112,12 +112,6 @@ private:
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
     bool CommitDocumentGesture(const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
     void CancelDocumentGesture();
-    std::vector<int> BuildSelectionPath(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
-    bool BuildSelectionPathRecursive(
-        const std::shared_ptr<ImWidgetV4::ImWidget>& current,
-        const std::shared_ptr<ImWidgetV4::ImWidget>& target,
-        std::vector<int>& inOutPath) const;
-    std::shared_ptr<ImWidgetV4::ImWidget> ResolveSelectionPath(const std::vector<int>& path) const;
     void MarkDocumentDirty();
     void CloseWidgetTreeContextMenu();
 

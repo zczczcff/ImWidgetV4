@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace ImWidgetV4Editor {
 
@@ -23,6 +24,8 @@ public:
 
     void SetRootWidget(const std::shared_ptr<ImWidgetV4::ImWidget>& rootWidget);
     std::shared_ptr<ImWidgetV4::ImWidget> GetRootWidget() const { return m_RootWidget; }
+    std::string GetWidgetId(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    std::shared_ptr<ImWidgetV4::ImWidget> FindWidgetById(const std::string& widgetId);
 
     void SetDirty(bool bDirty) { m_bDirty = bDirty; }
     bool IsDirty() const { return m_bDirty; }
@@ -37,11 +40,24 @@ public:
 private:
     json BuildDocumentJson() const;
     bool LoadFromDocumentJson(const json& documentJson, std::string* outError);
+    void RebuildWidgetIdIndex(bool bAssignMissingIds);
+    void RebuildWidgetIdIndexRecursive(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        bool bAssignMissingIds,
+        const std::unordered_map<const ImWidgetV4::ImWidget*, std::string>* previousIds);
+    void ApplyWidgetIdsFromJson(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const json& widgetJson);
+    std::string GenerateNextWidgetId();
+    void TrackExistingWidgetId(const std::string& widgetId);
 
     std::filesystem::path m_FilePath;
     std::string m_DisplayTitle;
     bool m_bDirty = false;
     std::shared_ptr<ImWidgetV4::ImWidget> m_RootWidget;
+    std::unordered_map<const ImWidgetV4::ImWidget*, std::string> m_WidgetIds;
+    std::unordered_map<std::string, std::weak_ptr<ImWidgetV4::ImWidget>> m_WidgetsById;
+    int m_NextWidgetId = 1;
 };
 
 } // namespace ImWidgetV4Editor

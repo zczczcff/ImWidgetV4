@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "../inspector/PropertyEditorWidgets.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../palette/WidgetPaletteDragDrop.h"
 #include "../serialization/WidgetFactory.h"
@@ -22,6 +23,7 @@
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
+using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
 
@@ -55,6 +57,12 @@ std::vector<FFileDialogFilter> BuildDocumentFilters()
         FFileDialogFilter {"ImWidgetV4 UI", {"*.ui.json", "*.json"}},
         FFileDialogFilter {"JSON", {"*.json"}}
     };
+}
+
+std::string FormatSelectionVector(const FVector2& value)
+{
+    return std::to_string(static_cast<int>(value.X)) + ", " +
+        std::to_string(static_cast<int>(value.Y));
 }
 
 bool TryInsertIntoTarget(
@@ -124,7 +132,7 @@ void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
-    const std::shared_ptr<ImTextBlock>& selectionText,
+    const std::shared_ptr<ImVerticalBox>& selectionSummary,
     const std::shared_ptr<ImTextBlock>& outputText)
 {
     m_DocumentTabs = documentTabs;
@@ -133,7 +141,7 @@ void EditorSession::BindDocumentWidgets(
     m_DesignerSurface = designerSurface;
     m_WidgetTreeView = widgetTreeView;
     m_DetailsView = detailsView;
-    m_SelectionText = selectionText;
+    m_SelectionSummary = selectionSummary;
     m_OutputText = outputText;
     if (!m_TreeBinder) {
         m_TreeBinder = std::make_shared<DocumentTreeViewBinder>();
@@ -502,24 +510,44 @@ void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& sele
             slotTarget);
     }
 
-    if (!m_SelectionText) {
+    if (!m_SelectionSummary) {
         return;
     }
+
+    m_SelectionSummary->ClearChildren();
+    m_SelectionSummary->SetSpacing(6.0f);
 
     if (!selectedWidget) {
-        m_SelectionText->SetText("No widget selected.\nClick a widget in the designer surface to inspect its reflected properties next.");
+        auto hint = std::make_shared<ImTextBlock>();
+        hint->SetText("No widget selected. Click a widget in the designer surface to inspect its reflected properties.");
+        hint->SetWrapText(false);
+        hint->SetFontSize(13.0f);
+        hint->SetTextColor(FColor::FromBytes(178, 188, 201));
+        m_SelectionSummary->AddChild(hint, FMargin(2.0f));
         return;
     }
 
-    std::string text = "Type: " + selectedWidget->GetTypeName();
-    text += "\nName: " + (selectedWidget->GetName().empty() ? std::string("<unnamed>") : selectedWidget->GetName());
     const FGeometry geometry = selectedWidget->GetGeometry();
-    text += "\nPosition: (" + std::to_string(static_cast<int>(geometry.Position.X)) + ", " + std::to_string(static_cast<int>(geometry.Position.Y)) + ")";
-    text += "\nSize: (" + std::to_string(static_cast<int>(geometry.Size.X)) + ", " + std::to_string(static_cast<int>(geometry.Size.Y)) + ")";
+    std::string parentLabel = "<root>";
     if (auto parent = selectedWidget->GetParent()) {
-        text += "\nParent: " + parent->GetTypeName();
+        parentLabel = parent->GetTypeName();
+        if (!parent->GetName().empty()) {
+            parentLabel += " [" + parent->GetName() + "]";
+        }
     }
-    m_SelectionText->SetText(text);
+
+    m_SelectionSummary->AddChild(
+        MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(selectedWidget->GetTypeName())));
+    m_SelectionSummary->AddChild(
+        MakeInspectorPropertyRow(
+            "Name",
+            MakeInspectorReadOnlyField(selectedWidget->GetName().empty() ? "<unnamed>" : selectedWidget->GetName())));
+    m_SelectionSummary->AddChild(
+        MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatSelectionVector(geometry.Position))));
+    m_SelectionSummary->AddChild(
+        MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatSelectionVector(geometry.Size))));
+    m_SelectionSummary->AddChild(
+        MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
 }
 
 std::filesystem::path EditorSession::ResolveDialogDirectory() const

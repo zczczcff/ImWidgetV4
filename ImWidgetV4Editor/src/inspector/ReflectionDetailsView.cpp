@@ -1,4 +1,5 @@
 #include "ReflectionDetailsView.h"
+#include "PropertyEditorWidgets.h"
 
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
@@ -16,6 +17,7 @@
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
+using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
 
@@ -196,6 +198,34 @@ std::string FormatVec2(const FVector2& value)
     return FormatFloat(value.X) + ", " + FormatFloat(value.Y);
 }
 
+std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget>& widget)
+{
+    if (!widget) {
+        return nullptr;
+    }
+
+    auto rows = std::make_shared<ImVerticalBox>();
+    rows->SetSpacing(6.0f);
+
+    const FGeometry geometry = widget->GetGeometry();
+    std::string parentLabel = "<root>";
+    if (auto parent = widget->GetParent()) {
+        parentLabel = parent->GetTypeName();
+        if (!parent->GetName().empty()) {
+            parentLabel += " [" + parent->GetName() + "]";
+        }
+    }
+
+    rows->AddChild(MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(widget->GetTypeName())));
+    rows->AddChild(MakeInspectorPropertyRow(
+        "Name",
+        MakeInspectorReadOnlyField(widget->GetName().empty() ? "<unnamed>" : widget->GetName())));
+    rows->AddChild(MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
+    rows->AddChild(MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
+    rows->AddChild(MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
+    return rows;
+}
+
 } // namespace
 
 ReflectionDetailsView::ReflectionDetailsView()
@@ -288,12 +318,22 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
     auto rows = std::make_shared<ImVerticalBox>();
     rows->SetSpacing(6.0f);
 
+    if (auto widget = std::dynamic_pointer_cast<ImWidget>(object)) {
+        rows->AddChild(BuildWidgetMetadataRows(widget));
+    }
+
     const auto objectJson = object->ToJson();
     const auto& propertyJson = objectJson.contains("Properties")
         ? objectJson.at("Properties")
         : nlohmann::ordered_json::object();
     const auto properties = object->GetAllPropertiesOrdered();
     for (const auto& property : properties) {
+        if (std::dynamic_pointer_cast<ImWidget>(object) &&
+            property.GetClassName() == "ImWidget" &&
+            property.GetNameString() == "Name") {
+            continue;
+        }
+
         auto nestedObject = ResolveNestedObject(object, property);
         if (nestedObject) {
             rows->AddChild(
@@ -348,17 +388,9 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return checkBox;
     }
 
-    auto line = std::make_shared<ImHorizontalBox>();
-    line->SetSpacing(8.0f);
-    line->AddChild(
-        MakeText(
-            labelText + ":",
-            13.0f,
-            FColor::FromBytes(224, 230, 237)),
-        FMargin(2.0f));
-
     if (property.GetType() == PropertyType::String) {
         auto editor = std::make_shared<ImEditableText>();
+        ApplyInspectorEditableTextStyle(*editor, false);
         editor->SetText(property.GetValue<std::string>());
         editor->OnTextCommitted.AddLambda(
             [applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
@@ -367,12 +399,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     locked->SetText(text);
                 }
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
     if (property.GetType() == PropertyType::Int) {
         auto editor = std::make_shared<ImEditableText>();
+        ApplyInspectorEditableTextStyle(*editor, false);
         editor->SetText(std::to_string(property.GetValue<int>()));
         editor->OnTextCommitted.AddLambda(
             [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
@@ -384,12 +416,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     locked->SetText(std::to_string(property.GetObject()->GetProperty(property.GetNameString(), property.GetClassName()).GetValue<int>()));
                 }
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
     if (property.GetType() == PropertyType::Float) {
         auto editor = std::make_shared<ImEditableText>();
+        ApplyInspectorEditableTextStyle(*editor, false);
         editor->SetText(FormatFloat(property.GetValue<float>()));
         editor->OnTextCommitted.AddLambda(
             [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
@@ -401,12 +433,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     locked->SetText(FormatFloat(property.GetObject()->GetProperty(property.GetNameString(), property.GetClassName()).GetValue<float>()));
                 }
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
     if (property.GetType() == PropertyType::Enum) {
         auto editor = std::make_shared<ImComboBox>();
+        ApplyInspectorComboBoxStyle(*editor);
         auto optionalProperty = owner->ToOptionalProperty(property);
         const auto& options = optionalProperty.GetOptionList();
         editor->SetItems(options);
@@ -435,12 +467,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                 const_cast<ReflectionDetailsView*>(this)->Rebuild();
                 const_cast<ReflectionDetailsView*>(this)->OnPropertiesChanged.Broadcast(*const_cast<ReflectionDetailsView*>(this));
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
     if (property.GetType() == PropertyType::Color) {
         auto editor = std::make_shared<ImEditableText>();
+        ApplyInspectorEditableTextStyle(*editor, false);
         const std::string currentText = DescribePropertyValue(property, objectJson);
         editor->SetText(currentText);
         editor->OnTextCommitted.AddLambda(
@@ -464,12 +496,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     }
                 }
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
     if (property.GetType() == PropertyType::Vec2) {
         auto editor = std::make_shared<ImEditableText>();
+        ApplyInspectorEditableTextStyle(*editor, false);
         editor->SetText(DescribePropertyValue(property, objectJson));
         editor->OnTextCommitted.AddLambda(
             [owner, propertyName, propertyClassName, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
@@ -488,17 +520,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     }
                 }
             });
-        line->AddChild(editor, FMargin(2.0f));
-        return line;
+        return MakeInspectorPropertyRow(labelText, editor);
     }
 
-    line->AddChild(
-        MakeText(
-            DescribePropertyValue(property, objectJson),
-            13.0f,
-            FColor::FromBytes(167, 197, 255)),
-        FMargin(2.0f));
-    return line;
+    return MakeInspectorPropertyRow(
+        labelText,
+        MakeInspectorReadOnlyField(DescribePropertyValue(property, objectJson)));
 }
 
 std::string ReflectionDetailsView::DescribePropertyValue(

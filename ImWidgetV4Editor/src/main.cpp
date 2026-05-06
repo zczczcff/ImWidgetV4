@@ -32,7 +32,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
-    std::shared_ptr<ImTextBlock> SelectionText;
+    std::shared_ptr<ImVerticalBox> SelectionSummary;
     std::shared_ptr<ImTextBlock> OutputText;
     int MainDocumentTabIndex = -1;
 };
@@ -246,20 +246,19 @@ FEditorShellWidgets BuildEditorShell()
 
     auto rightDock = std::make_shared<ImVerticalBox>();
     rightDock->SetSpacing(10.0f);
-    rightDock->AddChild(MakePanelTitle("Details"), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
-    rightDock->AddChild(MakePanelBody(
-        "The right dock is reserved for reflection-driven property editing. Selection summaries, category groups and custom editors will land here next."),
-        FMargin(14.0f, 0.0f, 14.0f, 6.0f));
     auto selectionPanel = std::make_shared<ImVerticalBox>();
     selectionPanel->SetSpacing(8.0f);
     selectionPanel->AddChild(MakePanelTitle("Selection"), FMargin(14.0f, 14.0f, 14.0f, 8.0f));
-    auto selectionText = MakePanelBody(
-        "No widget selected.\nClick a widget in the designer surface to inspect its reflected properties next.");
-    selectionPanel->AddChild(selectionText, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
+    auto selectionSummary = std::make_shared<ImVerticalBox>();
+    selectionSummary->SetSpacing(6.0f);
+    selectionSummary->AddChild(
+        MakePanelBody("No widget selected. Click a widget in the designer surface to inspect its reflected properties next.", 13.0f),
+        FMargin(2.0f));
+    selectionPanel->AddChild(selectionSummary, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
     rightDock->AddChild(selectionPanel, FMargin(10.0f));
 
     auto detailsView = std::make_shared<ReflectionDetailsView>();
-    rightDock->AddChild(detailsView, FMargin(10.0f));
+    rightDock->AddChildFill(detailsView, 1.0f, FMargin(10.0f));
 
     topWorkspace->AddPart(leftDock, 0.22f, 240.0f);
     topWorkspace->AddPart(documentTabs, 0.56f, 420.0f);
@@ -280,7 +279,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.DesignerSurface = designerSurface;
     shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
-    shell.SelectionText = selectionText;
+    shell.SelectionSummary = selectionSummary;
     shell.OutputText = outputText;
     shell.MainDocumentTabIndex = mainDocumentTabIndex;
     return shell;
@@ -352,7 +351,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.DesignerSurface,
         shell.WidgetTreeView,
         shell.DetailsView,
-        shell.SelectionText,
+        shell.SelectionSummary,
         shell.OutputText);
 
     app->SetApplicationTitle("ImWidgetV4 Editor");

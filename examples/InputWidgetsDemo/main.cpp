@@ -91,6 +91,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         "Ship Demo"
     });
     comboBox->SetSelectedIndex(2);
+    comboBox->SetToolTipText("Hover to preview the system tooltip, then click to open the retained-mode popup list.");
     root->AddChild(comboBox, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
 
     auto comboSelection = std::make_shared<ImTextBlock>();
@@ -106,6 +107,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     auto editableText = std::make_shared<ImEditableText>();
     editableText->SetHintText("Type here, press Enter to commit...");
     editableText->SetText("ImWidgetV4");
+    editableText->SetToolTipText("EditableText supports live change callbacks and committed text updates.");
     root->AddChild(editableText, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
 
     auto liveText = std::make_shared<ImTextBlock>();
@@ -127,6 +129,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     slider->SetRange(0.0f, 100.0f);
     slider->SetValue(42.0f);
     slider->SetStep(5.0f);
+    slider->SetToolTipText("Drag or use keyboard nudges after focusing the slider.");
     root->AddChild(slider, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
 
     auto sliderValue = std::make_shared<ImTextBlock>();
@@ -143,6 +146,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     switchRow->SetSpacing(12.0f);
 
     auto switchWidget = std::make_shared<ImSwitch>();
+    switchWidget->SetToolTipText("Switch is the compact boolean toggle control.");
     switchRow->AddChild(switchWidget);
 
     auto switchHint = std::make_shared<ImTextBlock>();
@@ -178,10 +182,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     auto resetButton = std::make_shared<ImButton>();
     resetButton->SetText("Reset Demo");
     resetButton->SetStyle(FButtonStyle::CreatePrimary());
+    resetButton->SetToolTipText("Restore the default sample values for every input widget.");
     actionsRow->AddChild(resetButton);
 
     auto fillSampleButton = std::make_shared<ImButton>();
     fillSampleButton->SetText("Load Sample Text");
+    fillSampleButton->SetToolTipText("Populate the inputs with a different preset so state changes are easy to inspect.");
     actionsRow->AddChild(fillSampleButton);
 
     root->AddChild(actionsRow, FMargin(16.0f, 12.0f, 16.0f, 16.0f));

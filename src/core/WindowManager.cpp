@@ -68,6 +68,21 @@ ImWindowManager::Ptr ImWindowManager::CreateModal(const FPopupOptions& options)
     return window;
 }
 
+ImWindowManager::Ptr ImWindowManager::CreateToolTip(const FPopupOptions& options)
+{
+    Ptr window = std::shared_ptr<ImWindow>(new ImWindow(this, EWindowKind::Tooltip, options));
+    if (options.RootWidget) {
+        window->SetRootWidget(options.RootWidget);
+    }
+    if (options.ParentWindow) {
+        options.ParentWindow->AddChildWindow(window);
+    }
+
+    Windows_.push_back(window);
+    OpenWindowInternal(window);
+    return window;
+}
+
 void ImWindowManager::CloseWindow(const Ptr& window)
 {
     if (!window) {
@@ -125,7 +140,9 @@ void ImWindowManager::OpenWindowInternal(const Ptr& window)
     }
 
     BringToFront(window);
-    SetActiveWindowInternal(window);
+    if (window->IsActivatable()) {
+        SetActiveWindowInternal(window);
+    }
 }
 
 void ImWindowManager::SetMainWindowInternal(const Ptr& window)
@@ -200,7 +217,7 @@ ImWindowManager::Ptr ImWindowManager::HitTestWindow(const FVector2& position) co
 
     for (auto it = Windows_.rbegin(); it != Windows_.rend(); ++it) {
         const Ptr& window = *it;
-        if (!window || !window->IsOpen()) {
+        if (!window || !window->IsOpen() || !window->IsHitTestVisible()) {
             continue;
         }
 
@@ -356,6 +373,10 @@ void ImWindowManager::PruneExpiredChildren(ImWindow& window) const
 
 std::size_t ImWindowManager::FindInsertIndexForFront(EWindowKind kind) const
 {
+    if (kind == EWindowKind::Tooltip) {
+        return Windows_.size();
+    }
+
     if (kind == EWindowKind::Modal) {
         return Windows_.size();
     }

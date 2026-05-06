@@ -13,7 +13,8 @@ class ImWindowManager;
 enum class EWindowKind {
     Normal,
     Popup,
-    Modal
+    Modal,
+    Tooltip
 };
 
 struct FWindowStyle {
@@ -67,6 +68,8 @@ struct FPopupOptions {
     bool bHasTitleBar = false;
     bool bHasBackground = true;
     bool bCloseOnClickOutside = true;
+    bool bHitTestVisible = true;
+    bool bActivatable = true;
 };
 
 class ImWindow : public std::enable_shared_from_this<ImWindow> {
@@ -97,6 +100,8 @@ public:
     bool HasTitleBar() const { return bHasTitleBar_; }
     bool HasBackground() const { return bHasBackground_; }
     bool IsActive() const { return bIsActive_; }
+    bool IsHitTestVisible() const { return bIsHitTestVisible_; }
+    bool IsActivatable() const { return bIsActivatable_; }
     bool IsCloseButtonHovered() const { return bCloseButtonHovered_; }
     bool IsCloseButtonPressed() const { return bCloseButtonPressed_; }
 
@@ -148,6 +153,8 @@ private:
     bool bHasBackground_ = true;
     bool bFillViewport_ = false;
     bool bCloseOnClickOutside_ = false;
+    bool bIsHitTestVisible_ = true;
+    bool bIsActivatable_ = true;
     bool bCloseButtonHovered_ = false;
     bool bCloseButtonPressed_ = false;
 };

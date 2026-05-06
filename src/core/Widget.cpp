@@ -84,6 +84,35 @@ void ImWidget::Invalidate(EInvalidateReason reason)
 {
 }
 
+void ImWidget::SetToolTipText(const std::string& toolTipText)
+{
+    if (m_ToolTipText == toolTipText) {
+        return;
+    }
+
+    m_ToolTipText = toolTipText;
+}
+
+void ImWidget::SetToolTipWidget(const Ptr& toolTipWidget)
+{
+    if (m_ToolTipWidget == toolTipWidget) {
+        return;
+    }
+
+    m_ToolTipWidget = toolTipWidget;
+}
+
+void ImWidget::ClearToolTip()
+{
+    m_ToolTipText.clear();
+    m_ToolTipWidget.reset();
+}
+
+bool ImWidget::HasToolTip() const
+{
+    return !m_ToolTipText.empty() || m_ToolTipWidget != nullptr;
+}
+
 void ImWidget::NotifyFocusChanged(bool bHasFocus)
 {
     if (m_bHasKeyboardFocus == bHasFocus) {

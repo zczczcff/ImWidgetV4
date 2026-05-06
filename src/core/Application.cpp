@@ -1,6 +1,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include "CoreIconData.h"
 #include "../snapshot/TextureRegistry.h"
 #include <imgui.h>
@@ -70,6 +71,17 @@ public:
     std::shared_ptr<ImWindow> PressedCloseWindow_;
 };
 
+class ImApplication::FToolTipState {
+public:
+    std::weak_ptr<ImWidget> SourceWidget_;
+    std::shared_ptr<ImWidget> ContentWidget_;
+    std::shared_ptr<ImWindow> Window_;
+    FVector2 AnchorCursorPosition_ {0.0f, 0.0f};
+    double HoverStartTime_ = 0.0;
+    bool bPendingDisplay_ = false;
+    bool bSuppressForCurrentFrame_ = false;
+};
+
 class ImApplication::FWidgetPathResolver {
 public:
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(
@@ -137,6 +149,74 @@ struct ImApplication::FWindowWidgetTarget {
 };
 
 namespace {
+
+class ImToolTipHostWidget : public ImWidget {
+public:
+    explicit ImToolTipHostWidget(const FToolTipStyle& style)
+        : Style_(style)
+    {
+        SetHitTestVisible(false);
+    }
+
+    void SetContent(const std::shared_ptr<ImWidget>& content)
+    {
+        ClearChildren();
+        Content_ = content;
+        if (Content_) {
+            AddChild(Content_);
+        }
+    }
+
+    FVector2 GetMinSize() const override
+    {
+        if (!Content_) {
+            return Style_.MinDesiredSize;
+        }
+
+        const float maxContentWidth = std::max(1.0f, Style_.MaxWidth - Style_.Padding.Left - Style_.Padding.Right);
+
+        // First measure unconstrained width so wrapped text can decide whether it really
+        // needs wrapping. Then remeasure using the clamped final width to get a stable height.
+        Content_->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(0.0f, 0.0f)));
+        const FVector2 preferredSize = Content_->GetMinSize();
+        const float finalContentWidth = std::clamp(preferredSize.X, 1.0f, maxContentWidth);
+
+        Content_->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(finalContentWidth, 0.0f)));
+        const FVector2 contentSize = Content_->GetMinSize();
+        return FVector2(
+            std::max(Style_.MinDesiredSize.X, finalContentWidth + Style_.Padding.Left + Style_.Padding.Right),
+            std::max(Style_.MinDesiredSize.Y, contentSize.Y + Style_.Padding.Top + Style_.Padding.Bottom));
+    }
+
+    void Paint(const FPaintContext& paintContext) override
+    {
+        if (!Content_) {
+            return;
+        }
+
+        const FGeometry contentGeometry(
+            FVector2(
+                m_Geometry.Position.X + Style_.Padding.Left,
+                m_Geometry.Position.Y + Style_.Padding.Top),
+            FVector2(
+                std::max(0.0f, m_Geometry.Size.X - Style_.Padding.Left - Style_.Padding.Right),
+                std::max(0.0f, m_Geometry.Size.Y - Style_.Padding.Top - Style_.Padding.Bottom)));
+        Content_->SetGeometry(contentGeometry);
+
+        FPaintContext childPaintContext(
+            paintContext.DrawContext_,
+            contentGeometry,
+            paintContext.StyleSet,
+            paintContext.CursorPosition,
+            paintContext.bHasCursorPosition,
+            paintContext.DeltaTime);
+        Content_->Paint(childPaintContext);
+    }
+
+private:
+    FToolTipStyle Style_;
+    std::shared_ptr<ImWidget> Content_;
+};
 
 struct FSoftwareTextureToken {
     std::uint64_t Id = 0;
@@ -430,6 +510,7 @@ ImApplication::ImApplication()
     , InteractionState_(std::make_unique<FInteractionState>())
     , EventRouter_(std::make_unique<FEventRouter>())
     , PathResolver_(std::make_unique<FWidgetPathResolver>())
+    , ToolTipState_(std::make_unique<FToolTipState>())
 {
     EnsureDefaultFontConfigured();
 
@@ -472,6 +553,8 @@ ImApplication::ImApplication()
 
 ImApplication::~ImApplication()
 {
+    DismissToolTip();
+
     std::vector<ImTextureID> textureIds;
     textureIds.reserve(RuntimeTextures_.size());
     for (const auto& entry : RuntimeTextures_) {
@@ -506,6 +589,7 @@ std::shared_ptr<ImWindow> ImApplication::EnsureMainWindow()
 void ImApplication::SetRootWidget(const std::shared_ptr<ImWidget>& rootWidget)
 {
     ResetInteractionState();
+    DismissToolTip();
     EnsureMainWindow()->SetRootWidget(rootWidget);
 }
 
@@ -712,6 +796,19 @@ bool ImApplication::AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApp
 const std::vector<FApplicationTitleBarTab>& ImApplication::GetTitleBarTabMenus() const
 {
     return TitleBarTabMenus_;
+}
+
+void ImApplication::SetToolTipStyle(const FToolTipStyle& style)
+{
+    ToolTipStyle_ = style;
+    if (ToolTipState_->Window_ && ToolTipState_->Window_->IsOpen()) {
+        DismissToolTip();
+    }
+}
+
+const FToolTipStyle& ImApplication::GetToolTipStyle() const
+{
+    return ToolTipStyle_;
 }
 
 void ImApplication::SetIniSettingsPath(const std::filesystem::path& path)
@@ -1023,6 +1120,7 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext)
 {
     EnsureDefaultFontConfigured();
     ++FrameNumber_;
+    ToolTipState_->bSuppressForCurrentFrame_ = false;
 
     InputQueue_->BeginFrame(CollectFrameInputs(frameContext));
 
@@ -1052,6 +1150,7 @@ void ImApplication::AdvanceFrame(const FFrameContext& frameContext)
             frameContext.FrameInfo.CurrentTime);
     }
 
+    UpdateToolTip(viewportGeometry, frameContext.FrameInfo.CurrentTime);
     PerformLayoutPass();
 
     if (frameContext.DrawContext_ != nullptr) {
@@ -1165,6 +1264,13 @@ void ImApplication::RouteInputEvents()
             inputEvent.Type != EInputEventType::MouseLeave) {
             InteractionState_->LastCursorPosition_ = inputEvent.MousePosition;
             InteractionState_->bHasCursorPosition_ = true;
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonDown ||
+            inputEvent.Type == EInputEventType::MouseWheel ||
+            inputEvent.Type == EInputEventType::KeyDown) {
+            ToolTipState_->bSuppressForCurrentFrame_ = true;
+            DismissToolTip();
         }
 
         if (inputEvent.IsMouseEvent()) {
@@ -1298,6 +1404,7 @@ void ImApplication::UpdateHoveredWidget(
 {
     std::shared_ptr<ImWidget> lastHoveredWidget = InteractionState_->HoveredWidget_.lock();
     if (lastHoveredWidget == hoveredWidget) {
+        ToolTipState_->AnchorCursorPosition_ = cursorPosition;
         return;
     }
 
@@ -1313,7 +1420,13 @@ void ImApplication::UpdateHoveredWidget(
         }
     }
 
+    DismissToolTip();
     InteractionState_->HoveredWidget_ = hoveredWidget;
+    ResetToolTipState();
+    ToolTipState_->SourceWidget_ = hoveredWidget;
+    ToolTipState_->AnchorCursorPosition_ = cursorPosition;
+    ToolTipState_->HoverStartTime_ = timestamp;
+    ToolTipState_->bPendingDisplay_ = hoveredWidget && hoveredWidget->HasToolTip();
 
     if (hoveredWidget) {
         FInputEvent enterEvent;
@@ -1354,6 +1467,140 @@ void ImApplication::ResetInteractionState()
     InteractionState_->LastCursorPosition_ = FVector2(0.0f, 0.0f);
     InteractionState_->DraggedWindow_.reset();
     InteractionState_->PressedCloseWindow_.reset();
+    ResetToolTipState();
+    DismissToolTip();
+}
+
+void ImApplication::ResetToolTipState()
+{
+    ToolTipState_->SourceWidget_.reset();
+    ToolTipState_->ContentWidget_.reset();
+    ToolTipState_->HoverStartTime_ = 0.0;
+    ToolTipState_->bPendingDisplay_ = false;
+}
+
+void ImApplication::DismissToolTip()
+{
+    if (ToolTipState_->Window_) {
+        if (ToolTipState_->Window_->IsOpen()) {
+            WindowManager_.CloseWindow(ToolTipState_->Window_);
+        }
+        ToolTipState_->Window_.reset();
+    }
+
+    ToolTipState_->ContentWidget_.reset();
+}
+
+std::shared_ptr<ImWidget> ImApplication::BuildToolTipContentForWidget(const std::shared_ptr<ImWidget>& widget) const
+{
+    if (!widget || !widget->HasToolTip()) {
+        return nullptr;
+    }
+
+    if (widget->GetToolTipWidget()) {
+        return widget->GetToolTipWidget();
+    }
+
+    if (!widget->GetToolTipText().empty()) {
+        auto textBlock = std::make_shared<ImTextBlock>();
+        textBlock->SetText(widget->GetToolTipText());
+        textBlock->SetTextColor(ToolTipStyle_.TextColor);
+        textBlock->SetFontSize(ToolTipStyle_.FontSize);
+        textBlock->SetWrapText(true);
+        textBlock->SetHitTestVisible(false);
+        return textBlock;
+    }
+
+    return nullptr;
+}
+
+void ImApplication::UpdateToolTip(const FGeometry& viewportGeometry, double currentTime)
+{
+    if (ToolTipState_->bSuppressForCurrentFrame_) {
+        return;
+    }
+
+    const std::shared_ptr<ImWidget> hoveredWidget = InteractionState_->HoveredWidget_.lock();
+    if (!InteractionState_->bHasCursorPosition_ ||
+        InteractionState_->DraggedWindow_ ||
+        InteractionState_->CapturedMouseWidget_ ||
+        InteractionState_->PressedCloseWindow_ ||
+        !hoveredWidget ||
+        !hoveredWidget->HasToolTip()) {
+        DismissToolTip();
+        return;
+    }
+
+    const std::shared_ptr<ImWindow> ownerWindow = WindowManager_.FindOwningWindow(hoveredWidget);
+    if (!ownerWindow || WindowManager_.IsBlockedByModal(ownerWindow)) {
+        DismissToolTip();
+        return;
+    }
+
+    ToolTipState_->AnchorCursorPosition_ = InteractionState_->LastCursorPosition_;
+    const auto updateWindowPlacement = [&](const std::shared_ptr<ImWindow>& window) {
+        if (!window) {
+            return;
+        }
+
+        FVector2 position = ToolTipState_->AnchorCursorPosition_ + ToolTipStyle_.CursorOffset;
+        const FVector2 size = window->GetSize();
+        const float minX = viewportGeometry.Position.X;
+        const float minY = viewportGeometry.Position.Y;
+        const float maxX = viewportGeometry.Position.X + viewportGeometry.Size.X;
+        const float maxY = viewportGeometry.Position.Y + viewportGeometry.Size.Y;
+
+        position.X = std::clamp(position.X, minX, std::max(minX, maxX - size.X));
+        position.Y = std::clamp(position.Y, minY, std::max(minY, maxY - size.Y));
+        window->SetPosition(position);
+    };
+
+    if (ToolTipState_->Window_ && ToolTipState_->Window_->IsOpen()) {
+        updateWindowPlacement(ToolTipState_->Window_);
+        return;
+    }
+
+    const bool bDelayElapsed =
+        !ToolTipState_->bPendingDisplay_ ||
+        (currentTime - ToolTipState_->HoverStartTime_) >= ToolTipStyle_.ShowDelaySeconds;
+    if (!bDelayElapsed) {
+        return;
+    }
+
+    std::shared_ptr<ImWidget> toolTipContent = BuildToolTipContentForWidget(hoveredWidget);
+    if (!toolTipContent) {
+        ResetToolTipState();
+        return;
+    }
+
+    auto host = std::make_shared<ImToolTipHostWidget>(ToolTipStyle_);
+    host->SetContent(toolTipContent);
+    const FVector2 toolTipSize = host->GetMinSize();
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ToolTip";
+    popupOptions.Position = ToolTipState_->AnchorCursorPosition_ + ToolTipStyle_.CursorOffset;
+    popupOptions.Size = toolTipSize;
+    popupOptions.RootWidget = host;
+    popupOptions.ParentWindow = ownerWindow;
+    popupOptions.bClosable = false;
+    popupOptions.bCloseOnClickOutside = false;
+    popupOptions.bHasBackground = true;
+    popupOptions.bHasTitleBar = false;
+    popupOptions.bHitTestVisible = false;
+    popupOptions.bActivatable = false;
+    popupOptions.Style.BackgroundColor = ToolTipStyle_.BackgroundColor;
+    popupOptions.Style.InactiveBackgroundColor = ToolTipStyle_.BackgroundColor;
+    popupOptions.Style.BorderColor = ToolTipStyle_.BorderColor;
+    popupOptions.Style.ActiveBorderColor = ToolTipStyle_.BorderColor;
+    popupOptions.Style.CornerRadius = ToolTipStyle_.CornerRadius;
+    popupOptions.Style.BorderThickness = ToolTipStyle_.BorderThickness;
+    popupOptions.Style.bDrawShadow = false;
+
+    ToolTipState_->ContentWidget_ = toolTipContent;
+    ToolTipState_->Window_ = WindowManager_.CreateToolTip(popupOptions);
+    ToolTipState_->bPendingDisplay_ = false;
+    updateWindowPlacement(ToolTipState_->Window_);
 }
 
 void ImApplication::CleanupInteractionState()

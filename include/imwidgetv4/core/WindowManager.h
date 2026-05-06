@@ -21,6 +21,7 @@ public:
     Ptr CreateWindow(const FWindowOptions& options);
     Ptr CreatePopup(const FPopupOptions& options);
     Ptr CreateModal(const FPopupOptions& options);
+    Ptr CreateToolTip(const FPopupOptions& options);
     void CloseWindow(const Ptr& window);
     void BringToFront(const Ptr& window);
 

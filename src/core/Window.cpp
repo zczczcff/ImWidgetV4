@@ -44,6 +44,8 @@ ImWindow::ImWindow(ImWindowManager* manager, EWindowKind kind, const FPopupOptio
     , bHasTitleBar_(kind == EWindowKind::Modal ? true : options.bHasTitleBar)
     , bHasBackground_(options.bHasBackground)
     , bCloseOnClickOutside_(options.bCloseOnClickOutside && kind == EWindowKind::Popup)
+    , bIsHitTestVisible_(kind == EWindowKind::Tooltip ? false : options.bHitTestVisible)
+    , bIsActivatable_(kind == EWindowKind::Tooltip ? false : options.bActivatable)
 {
 }
 

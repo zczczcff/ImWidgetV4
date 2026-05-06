@@ -222,10 +222,11 @@ protected:
         App->SetRootWidget(Root);
     }
 
-    void Advance(const std::vector<FInputEvent>& events) {
+    void Advance(const std::vector<FInputEvent>& events, double currentTime = 0.0) {
         FFrameContext frameContext;
         frameContext.InputEvents = &events;
         frameContext.FrameInfo.ViewportSize = FVector2(300.0f, 300.0f);
+        frameContext.FrameInfo.CurrentTime = currentTime;
         App->AdvanceFrame(frameContext);
     }
 
@@ -325,6 +326,33 @@ TEST_F(ApplicationTest, HoverEnterLeaveOnlyFireOnTargetChanges) {
 
     EXPECT_EQ(enterCount, 1);
     EXPECT_EQ(leaveCount, 1);
+}
+
+TEST_F(ApplicationTest, ToolTipAppearsAfterHoverDelayAndClosesOnMouseDown)
+{
+    FToolTipStyle toolTipStyle = App->GetToolTipStyle();
+    toolTipStyle.ShowDelaySeconds = 0.1;
+    App->SetToolTipStyle(toolTipStyle);
+    Leaf->SetToolTipText("Leaf tooltip");
+
+    Advance({MouseEvent(EInputEventType::MouseMove, FVector2(20.0f, 20.0f))}, 0.0);
+    EXPECT_EQ(App->GetWindowManager().GetOpenWindows().size(), 1u);
+
+    Advance({}, 0.05);
+    EXPECT_EQ(App->GetWindowManager().GetOpenWindows().size(), 1u);
+
+    Advance({}, 0.11);
+    auto openWindows = App->GetWindowManager().GetOpenWindows();
+    ASSERT_EQ(openWindows.size(), 2u);
+    EXPECT_EQ(openWindows.back()->GetKind(), EWindowKind::Tooltip);
+    EXPECT_FALSE(openWindows.back()->IsHitTestVisible());
+
+    Log.clear();
+    Advance({MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f))}, 0.12);
+    EXPECT_EQ(App->GetWindowManager().GetOpenWindows().size(), 1u);
+    EXPECT_NE(
+        std::find(Log.begin(), Log.end(), "bubble:leaf:4"),
+        Log.end());
 }
 
 TEST_F(ApplicationTest, LastFrameEventsReflectCurrentFrameOnly) {

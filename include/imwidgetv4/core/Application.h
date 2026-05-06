@@ -36,6 +36,20 @@ struct FApplicationTitleBarTab {
     std::vector<FApplicationMenuItem> Items;
 };
 
+struct FToolTipStyle {
+    FColor BackgroundColor = FColor::FromBytes(30, 34, 42, 248);
+    FColor BorderColor = FColor::FromBytes(88, 101, 120, 255);
+    FColor TextColor = FColor::FromBytes(244, 247, 251, 255);
+    FMargin Padding = FMargin(10.0f);
+    FVector2 CursorOffset {16.0f, 20.0f};
+    FVector2 MinDesiredSize {36.0f, 24.0f};
+    float CornerRadius = 6.0f;
+    float BorderThickness = 1.0f;
+    float FontSize = 14.0f;
+    float MaxWidth = 360.0f;
+    double ShowDelaySeconds = 0.45;
+};
+
 class ImApplication {
 public:
     ImApplication();
@@ -69,6 +83,8 @@ public:
     bool AddTitleBarTabMenu(const std::string& text, std::vector<FApplicationMenuItem> items);
     bool AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApplicationMenuItem> items);
     const std::vector<FApplicationTitleBarTab>& GetTitleBarTabMenus() const;
+    void SetToolTipStyle(const FToolTipStyle& style);
+    const FToolTipStyle& GetToolTipStyle() const;
 
     void AdvanceFrame(const FFrameContext& frameContext);
     FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);
@@ -116,6 +132,7 @@ private:
     class FInteractionState;
     class FEventRouter;
     class FWidgetPathResolver;
+    class FToolTipState;
 
     struct FWindowWidgetTarget;
 
@@ -128,6 +145,7 @@ private:
     std::unique_ptr<FInteractionState> InteractionState_;
     std::unique_ptr<FEventRouter> EventRouter_;
     std::unique_ptr<FWidgetPathResolver> PathResolver_;
+    std::unique_ptr<FToolTipState> ToolTipState_;
 
     FGeometry LastFrameGeometry_;
     bool bHasLastFrameGeometry_ = false;
@@ -138,6 +156,7 @@ private:
     std::string ApplicationTitle_;
     FImageBrush ApplicationIcon_;
     std::vector<FApplicationTitleBarTab> TitleBarTabMenus_;
+    FToolTipStyle ToolTipStyle_ {};
     ImApplicationBackend* Backend_ = nullptr;
     std::unordered_map<ImTextureID, FRuntimeTextureData> RuntimeTextures_;
     mutable bool bDefaultImagePlaceholderInitialized_ = false;
@@ -156,6 +175,10 @@ private:
     void ResetInteractionState();
     void CleanupInteractionState();
     void ClearKeyboardFocusIfOutsideActiveWindow(const std::shared_ptr<ImWindow>& activeWindow);
+    void ResetToolTipState();
+    void UpdateToolTip(const FGeometry& viewportGeometry, double currentTime);
+    void DismissToolTip();
+    std::shared_ptr<ImWidget> BuildToolTipContentForWidget(const std::shared_ptr<ImWidget>& widget) const;
 
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(const std::shared_ptr<ImWidget>& widget) const;
     FReply RouteEvent(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath);

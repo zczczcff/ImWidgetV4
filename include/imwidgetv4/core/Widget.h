@@ -48,6 +48,13 @@ public:
     bool SupportsKeyboardFocus() const { return m_bSupportsKeyboardFocus; }
     bool HasKeyboardFocus() const { return m_bHasKeyboardFocus; }
 
+    void SetToolTipText(const std::string& toolTipText);
+    const std::string& GetToolTipText() const { return m_ToolTipText; }
+    void SetToolTipWidget(const Ptr& toolTipWidget);
+    const Ptr& GetToolTipWidget() const { return m_ToolTipWidget; }
+    void ClearToolTip();
+    bool HasToolTip() const;
+
     void Invalidate(EInvalidateReason reason);
     virtual void OnFocusChanged(bool bHasFocus);
 
@@ -88,6 +95,8 @@ protected:
     std::vector<Ptr> m_Children;
     std::weak_ptr<ImWidget> m_Parent;
     ImApplication* m_Application = nullptr;
+    std::string m_ToolTipText;
+    Ptr m_ToolTipWidget;
 };
 
 } // namespace ImWidgetV4

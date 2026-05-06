@@ -57,13 +57,22 @@ void EditorSession::BindDocumentWidgets(
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
+    const std::shared_ptr<ImTextBlock>& selectionText,
     const std::shared_ptr<ImTextBlock>& outputText)
 {
     m_DocumentTabs = documentTabs;
     m_DocumentTabIndex = documentTabIndex;
     m_DocumentHost = documentHost;
     m_DesignerSurface = designerSurface;
+    m_SelectionText = selectionText;
     m_OutputText = outputText;
+    if (m_DesignerSurface) {
+        m_DesignerSurface->OnSelectionChanged.Clear();
+        m_DesignerSurface->OnSelectionChanged.AddLambda(
+            [this](ImDesignerSurface& designerSurfaceRef, std::shared_ptr<ImWidget> selectedWidget) {
+                HandleDesignerSelectionChanged(designerSurfaceRef, selectedWidget);
+            });
+    }
     ApplyDocumentToUi();
     LogStatus("Ready.");
 }
@@ -189,6 +198,7 @@ void EditorSession::ApplyDocumentToUi()
 {
     if (m_DesignerSurface) {
         m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
+        m_DesignerSurface->ClearSelection();
     } else if (m_DocumentHost) {
         m_DocumentHost->SetContent(m_Document ? m_Document->GetRootWidget() : nullptr);
     }
@@ -197,6 +207,45 @@ void EditorSession::ApplyDocumentToUi()
         m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
     }
+
+    UpdateSelectionDetails(nullptr);
+}
+
+void EditorSession::HandleDesignerSelectionChanged(
+    ImDesignerSurface&,
+    const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    UpdateSelectionDetails(selectedWidget);
+
+    if (!selectedWidget) {
+        LogStatus("Selection cleared.");
+        return;
+    }
+
+    std::string label = selectedWidget->GetTypeName();
+    if (!selectedWidget->GetName().empty()) {
+        label += " [" + selectedWidget->GetName() + "]";
+    }
+    LogStatus("Selected " + label);
+}
+
+void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    if (!m_SelectionText) {
+        return;
+    }
+
+    if (!selectedWidget) {
+        m_SelectionText->SetText("No widget selected.\nClick a widget in the designer surface to inspect its reflected properties next.");
+        return;
+    }
+
+    std::string text = "Type: " + selectedWidget->GetTypeName();
+    text += "\nName: " + (selectedWidget->GetName().empty() ? std::string("<unnamed>") : selectedWidget->GetName());
+    const FGeometry geometry = selectedWidget->GetGeometry();
+    text += "\nPosition: (" + std::to_string(static_cast<int>(geometry.Position.X)) + ", " + std::to_string(static_cast<int>(geometry.Position.Y)) + ")";
+    text += "\nSize: (" + std::to_string(static_cast<int>(geometry.Size.X)) + ", " + std::to_string(static_cast<int>(geometry.Size.Y)) + ")";
+    m_SelectionText->SetText(text);
 }
 
 std::filesystem::path EditorSession::ResolveDialogDirectory() const

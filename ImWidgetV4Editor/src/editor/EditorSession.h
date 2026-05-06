@@ -12,6 +12,7 @@ class ImDesignerSurface;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
+class ImVerticalBox;
 class ImWidget;
 }
 
@@ -26,6 +27,7 @@ public:
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
+        const std::shared_ptr<ImWidgetV4::ImTextBlock>& selectionText,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
@@ -41,6 +43,10 @@ public:
 private:
     std::shared_ptr<EditorDocument> CreateDefaultDocument() const;
     void ApplyDocumentToUi();
+    void HandleDesignerSelectionChanged(
+        ImWidgetV4::ImDesignerSurface& designerSurface,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void UpdateSelectionDetails(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     std::filesystem::path ResolveDialogDirectory() const;
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
@@ -48,6 +54,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> m_SelectionText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     int m_DocumentTabIndex = -1;
 };

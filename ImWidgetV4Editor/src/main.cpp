@@ -27,6 +27,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
+    std::shared_ptr<ImTextBlock> SelectionText;
     std::shared_ptr<ImTextBlock> OutputText;
     int MainDocumentTabIndex = -1;
 };
@@ -288,10 +289,13 @@ FEditorShellWidgets BuildEditorShell()
     rightDock->AddChild(MakePanelBody(
         "The right dock is reserved for reflection-driven property editing. Selection summaries, category groups and custom editors will land here next."),
         FMargin(14.0f, 0.0f, 14.0f, 6.0f));
-    rightDock->AddChild(MakeSimplePanel(
-        "Selection",
-        "No widget selected.\nChoose a node from the hierarchy or the designer surface to populate this panel."),
-        FMargin(10.0f));
+    auto selectionPanel = std::make_shared<ImVerticalBox>();
+    selectionPanel->SetSpacing(8.0f);
+    selectionPanel->AddChild(MakePanelTitle("Selection"), FMargin(14.0f, 14.0f, 14.0f, 8.0f));
+    auto selectionText = MakePanelBody(
+        "No widget selected.\nClick a widget in the designer surface to inspect its reflected properties next.");
+    selectionPanel->AddChild(selectionText, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
+    rightDock->AddChild(selectionPanel, FMargin(10.0f));
 
     topWorkspace->AddPart(leftDock, 0.22f, 240.0f);
     topWorkspace->AddPart(documentTabs, 0.56f, 420.0f);
@@ -310,6 +314,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
     shell.DesignerSurface = designerSurface;
+    shell.SelectionText = selectionText;
     shell.OutputText = outputText;
     shell.MainDocumentTabIndex = mainDocumentTabIndex;
     return shell;
@@ -379,6 +384,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.MainDocumentTabIndex,
         shell.DocumentHost,
         shell.DesignerSurface,
+        shell.SelectionText,
         shell.OutputText);
 
     app->SetApplicationTitle("ImWidgetV4 Editor");

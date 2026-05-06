@@ -17,7 +17,6 @@ class ImTabView;
 class ImTextBlock;
 class ImTextOutlineItem;
 class ImTextOutlineView;
-class ImVerticalBox;
 class ImWidget;
 class ImWindow;
 }
@@ -38,7 +37,6 @@ public:
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
-        const std::shared_ptr<ImWidgetV4::ImVerticalBox>& selectionSummary,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
@@ -87,7 +85,6 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
-    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_SelectionSummary;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;

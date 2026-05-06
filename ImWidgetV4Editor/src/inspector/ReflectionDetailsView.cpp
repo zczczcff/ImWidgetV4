@@ -226,6 +226,17 @@ std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget
     return rows;
 }
 
+std::shared_ptr<ImWidget> BuildDetailsSection(
+    const std::string& title,
+    const std::shared_ptr<ImWidget>& body)
+{
+    auto expandable = std::make_shared<ImExpandableBox>();
+    expandable->SetExpanded(true);
+    expandable->SetHeader(MakeText(title, 14.0f, FColor::FromBytes(242, 246, 250)));
+    expandable->SetBody(body);
+    return expandable;
+}
+
 } // namespace
 
 ReflectionDetailsView::ReflectionDetailsView()
@@ -273,10 +284,15 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
     auto stack = std::make_shared<ImVerticalBox>();
     stack->SetSpacing(10.0f);
     if (m_Target) {
-        stack->AddChild(BuildDetailsForObject(m_Target, m_Target->GetTypeName()));
+        if (auto widget = std::dynamic_pointer_cast<ImWidget>(m_Target)) {
+            stack->AddChild(BuildDetailsSection("Common", BuildWidgetMetadataRows(widget)));
+            stack->AddChild(BuildDetailsForObject(m_Target, "Properties"));
+        } else {
+            stack->AddChild(BuildDetailsForObject(m_Target, m_Target->GetTypeName()));
+        }
     }
     if (m_SlotTarget) {
-        stack->AddChild(BuildDetailsForObject(m_SlotTarget, m_SlotTarget->GetTypeName()));
+        stack->AddChild(BuildDetailsForObject(m_SlotTarget, "Slot"));
     }
     root->SetContent(stack);
     return root;
@@ -286,7 +302,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
 {
     auto box = std::make_shared<ImVerticalBox>();
     box->SetSpacing(8.0f);
-    box->AddChild(MakeText("Selection", 16.0f, FColor::FromBytes(235, 240, 247)), FMargin(6.0f));
+    box->AddChild(MakeText("Details", 16.0f, FColor::FromBytes(235, 240, 247)), FMargin(6.0f));
     box->AddChild(
         MakeText(
             "Select a widget in the designer surface to inspect its reflected properties.",
@@ -317,10 +333,6 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
 
     auto rows = std::make_shared<ImVerticalBox>();
     rows->SetSpacing(6.0f);
-
-    if (auto widget = std::dynamic_pointer_cast<ImWidget>(object)) {
-        rows->AddChild(BuildWidgetMetadataRows(widget));
-    }
 
     const auto objectJson = object->ToJson();
     const auto& propertyJson = objectJson.contains("Properties")

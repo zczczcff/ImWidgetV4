@@ -32,7 +32,6 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
-    std::shared_ptr<ImVerticalBox> SelectionSummary;
     std::shared_ptr<ImTextBlock> OutputText;
     int MainDocumentTabIndex = -1;
 };
@@ -245,18 +244,7 @@ FEditorShellWidgets BuildEditorShell()
         "Reflection-backed metadata, property editors and drag/drop payload inspection can share this workspace during early editor development."));
 
     auto rightDock = std::make_shared<ImVerticalBox>();
-    rightDock->SetSpacing(10.0f);
-    auto selectionPanel = std::make_shared<ImVerticalBox>();
-    selectionPanel->SetSpacing(8.0f);
-    selectionPanel->AddChild(MakePanelTitle("Selection"), FMargin(14.0f, 14.0f, 14.0f, 8.0f));
-    auto selectionSummary = std::make_shared<ImVerticalBox>();
-    selectionSummary->SetSpacing(6.0f);
-    selectionSummary->AddChild(
-        MakePanelBody("No widget selected. Click a widget in the designer surface to inspect its reflected properties next.", 13.0f),
-        FMargin(2.0f));
-    selectionPanel->AddChild(selectionSummary, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
-    rightDock->AddChild(selectionPanel, FMargin(10.0f));
-
+    rightDock->SetSpacing(0.0f);
     auto detailsView = std::make_shared<ReflectionDetailsView>();
     rightDock->AddChildFill(detailsView, 1.0f, FMargin(10.0f));
 
@@ -279,7 +267,6 @@ FEditorShellWidgets BuildEditorShell()
     shell.DesignerSurface = designerSurface;
     shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
-    shell.SelectionSummary = selectionSummary;
     shell.OutputText = outputText;
     shell.MainDocumentTabIndex = mainDocumentTabIndex;
     return shell;
@@ -351,7 +338,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.DesignerSurface,
         shell.WidgetTreeView,
         shell.DetailsView,
-        shell.SelectionSummary,
         shell.OutputText);
 
     app->SetApplicationTitle("ImWidgetV4 Editor");

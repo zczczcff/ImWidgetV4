@@ -97,6 +97,7 @@ private:
     float m_DragStartMouseX = 0.0f;
     float m_DragStartLeftWidth = 0.0f;
     float m_DragStartRightWidth = 0.0f;
+    float m_DragStartTotalRatio = 2.0f;
     std::vector<FGeometry> m_PartGeometries;
     std::vector<FGeometry> m_BarGeometries;
 };

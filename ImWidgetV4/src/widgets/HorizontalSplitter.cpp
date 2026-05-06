@@ -184,9 +184,8 @@ FVector2 ImHorizontalSplitter::GetMinSize() const {
         }
 
         const FVector2 childMinSize = children[index]->GetMinSize();
-        const float childWidth = childMinSize.X + slot->PaddingLeft + slot->PaddingRight;
         const float childHeight = childMinSize.Y + slot->PaddingTop + slot->PaddingBottom;
-        totalWidth += std::max(childWidth, std::max(0.0f, slot->GetMinSize()));
+        totalWidth += std::max(0.0f, slot->GetMinSize());
         maxHeight = std::max(maxHeight, childHeight);
     }
 
@@ -277,10 +276,8 @@ void ImHorizontalSplitter::Relayout() {
         totalWeight += weight;
 
         float paddedMinSize = 0.0f;
-        if (children[index] && slot) {
-            const FVector2 childMinSize = children[index]->GetMinSize();
-            paddedMinSize = childMinSize.X + slot->PaddingLeft + slot->PaddingRight;
-            paddedMinSize = std::max(paddedMinSize, std::max(0.0f, slot->GetMinSize()));
+        if (slot) {
+            paddedMinSize = std::max(0.0f, slot->GetMinSize());
         }
         minSizes.push_back(paddedMinSize);
     }
@@ -343,10 +340,20 @@ void ImHorizontalSplitter::BeginDrag(int barIndex, const FVector2& mousePosition
         return;
     }
 
+    auto* leftSlot = dynamic_cast<ImHorizontalSplitterSlot*>(GetSlotAt(barIndex));
+    auto* rightSlot = dynamic_cast<ImHorizontalSplitterSlot*>(GetSlotAt(barIndex + 1));
+    if (!leftSlot || !rightSlot) {
+        return;
+    }
+
     m_DraggingBarIndex = barIndex;
     m_DragStartMouseX = mousePosition.X;
     m_DragStartLeftWidth = m_PartGeometries[barIndex].Size.X;
     m_DragStartRightWidth = m_PartGeometries[barIndex + 1].Size.X;
+    const float totalRatio =
+        std::max(0.0f, leftSlot->GetRatio()) +
+        std::max(0.0f, rightSlot->GetRatio());
+    m_DragStartTotalRatio = totalRatio > LayoutEpsilon ? totalRatio : 2.0f;
     m_HoveredBarIndex = barIndex;
 }
 
@@ -377,9 +384,9 @@ void ImHorizontalSplitter::UpdateDrag(const FVector2& mousePosition) {
         newLeftWidth = std::clamp(newLeftWidth, minLeft, pairWidth - minRight);
     }
 
-    const float newRightWidth = pairWidth - newLeftWidth;
-    const float totalRatio = std::max(0.0f, leftSlot->GetRatio()) + std::max(0.0f, rightSlot->GetRatio());
-    const float normalizedTotalRatio = totalRatio > LayoutEpsilon ? totalRatio : 2.0f;
+    const float normalizedTotalRatio = m_DragStartTotalRatio > LayoutEpsilon
+        ? m_DragStartTotalRatio
+        : 2.0f;
     const float leftRatio = normalizedTotalRatio * newLeftWidth / pairWidth;
 
     leftSlot->SetRatio(leftRatio);
@@ -388,6 +395,7 @@ void ImHorizontalSplitter::UpdateDrag(const FVector2& mousePosition) {
 
 void ImHorizontalSplitter::EndDrag() {
     m_DraggingBarIndex = -1;
+    m_DragStartTotalRatio = 2.0f;
 }
 
 void ImHorizontalSplitter::RenderBars(const FPaintContext& paintContext) const {

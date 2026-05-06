@@ -100,34 +100,37 @@ int& ImTextBlock::GetVerticalAlignmentProperty() {
 
 void ImTextBlock::Paint(const FPaintContext& paintContext) {
     if (!m_bVisible || m_Text.empty()) {
+        ClearToolTip();
         return;
     }
+
+    UpdateOverflowToolTip();
 
     FVector2 textSize = CalculateTextSize();
     FVector2 textPos = CalculateTextPosition(textSize);
 
-    if (m_bWrapText && m_Geometry.Size.X > 0.0f) {
-        paintContext.DrawContext_.GetImDrawList()->AddText(
-            nullptr,
-            m_FontSize,
-            textPos.ToImVec2(),
-            m_TextColor.ToImU32(),
-            m_Text.c_str(),
-            nullptr,
-            m_Geometry.Size.X
-        );
-    } else {
-        paintContext.DrawContext_.DrawText(
-            textPos,
-            m_TextColor,
-            m_Text,
-            m_FontSize
-        );
-    }
+    paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
+    paintContext.DrawContext_.DrawText(
+        textPos,
+        m_TextColor,
+        m_Text,
+        m_FontSize
+    );
+    paintContext.DrawContext_.PopClipRect();
 }
 
 FVector2 ImTextBlock::GetMinSize() const {
     return CalculateTextSize();
+}
+
+FReply ImTextBlock::OnInputEvent(const FInputEvent& event)
+{
+    if (event.Type == EInputEventType::MouseEnter ||
+        event.Type == EInputEventType::MouseMove) {
+        UpdateOverflowToolTip();
+    }
+
+    return FReply::Unhandled();
 }
 
 FVector2 ImTextBlock::CalculateTextSize() const {
@@ -142,24 +145,13 @@ FVector2 ImTextBlock::CalculateTextSize() const {
     }
 
     const ImFont* font = ImGui::GetFont();
-    ImVec2 size;
-    if (m_bWrapText && m_Geometry.Size.X > 0.0f) {
-        size = font->CalcTextSizeA(
-            m_FontSize,
-            FLT_MAX,
-            m_Geometry.Size.X,
-            m_Text.c_str(),
-            nullptr,
-            nullptr);
-    } else {
-        size = font->CalcTextSizeA(
-            m_FontSize,
-            FLT_MAX,
-            0.0f,
-            m_Text.c_str(),
-            nullptr,
-            nullptr);
-    }
+    const ImVec2 size = font->CalcTextSizeA(
+        m_FontSize,
+        FLT_MAX,
+        0.0f,
+        m_Text.c_str(),
+        nullptr,
+        nullptr);
 
     return FVector2(size.x, size.y);
 }
@@ -192,6 +184,26 @@ FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
     }
 
     return pos;
+}
+
+bool ImTextBlock::IsTextClipped() const
+{
+    if (m_Text.empty() || m_Geometry.Size.X <= 0.0f || m_Geometry.Size.Y <= 0.0f) {
+        return false;
+    }
+
+    const FVector2 textSize = CalculateTextSize();
+    return textSize.X > m_Geometry.Size.X + 0.5f ||
+           textSize.Y > m_Geometry.Size.Y + 0.5f;
+}
+
+void ImTextBlock::UpdateOverflowToolTip()
+{
+    if (IsTextClipped()) {
+        SetToolTipText(m_Text);
+    } else if (GetToolTipText() == m_Text && GetToolTipWidget() == nullptr) {
+        ClearToolTip();
+    }
 }
 
 } // namespace ImWidgetV4

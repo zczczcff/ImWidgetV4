@@ -262,6 +262,50 @@ TEST_F(ButtonTest, MinSizeTracksTextBlockContentInParentLayout) {
     EXPECT_GE(textBlock->GetGeometry().Size.Y, contentMinSize.Y);
 }
 
+TEST_F(ButtonTest, TextBlockMinSizeIsStableAcrossAssignedWidths) {
+    auto textBlock = std::make_shared<ImTextBlock>();
+    textBlock->SetText("A wrapped text block should not feed its current layout width back into min size computation.");
+    textBlock->SetWrapText(true);
+    textBlock->SetFontSize(18.0f);
+
+    textBlock->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(120.0f, 80.0f)));
+    const FVector2 narrowMinSize = textBlock->GetMinSize();
+
+    textBlock->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(360.0f, 80.0f)));
+    const FVector2 wideMinSize = textBlock->GetMinSize();
+
+    EXPECT_NEAR(narrowMinSize.X, wideMinSize.X, 0.01f);
+    EXPECT_NEAR(narrowMinSize.Y, wideMinSize.Y, 0.01f);
+    EXPECT_GT(narrowMinSize.X, 0.0f);
+    EXPECT_GT(narrowMinSize.Y, 0.0f);
+}
+
+TEST_F(ButtonTest, TextBlockEnablesToolTipWhenTextIsClipped) {
+    auto textBlock = std::make_shared<ImTextBlock>();
+    textBlock->SetText("This text is intentionally too long for the assigned geometry.");
+    textBlock->SetFontSize(18.0f);
+    textBlock->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(90.0f, 20.0f)));
+
+    ImDrawList drawList(ImGui::GetDrawListSharedData());
+    drawList._ResetForNewFrame();
+    DrawContext drawContext(&drawList);
+    FPaintContext paintContext(
+        drawContext,
+        textBlock->GetGeometry(),
+        nullptr,
+        FVector2(0.0f, 0.0f),
+        false,
+        1.0f / 60.0f);
+    textBlock->Paint(paintContext);
+
+    EXPECT_TRUE(textBlock->HasToolTip());
+    EXPECT_EQ(textBlock->GetToolTipText(), textBlock->GetText());
+
+    textBlock->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(1200.0f, 40.0f)));
+    textBlock->Paint(paintContext);
+    EXPECT_FALSE(textBlock->HasToolTip());
+}
+
 TEST_F(ButtonTest, ApplicationRoutesHoverCaptureAndClick) {
     bool hoverBegin = false;
     bool hoverEnd = false;

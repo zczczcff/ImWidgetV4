@@ -1515,6 +1515,8 @@ void ImApplication::UpdateHoveredWidget(
     InteractionState_->HoveredWidget_ = hoveredWidget;
     ResetToolTipState();
     ToolTipState_->SourceWidget_ = hoveredWidget;
+    ToolTipState_->SourceToolTipWidget_ = hoveredWidget ? hoveredWidget->GetToolTipWidget() : nullptr;
+    ToolTipState_->SourceToolTipText_ = hoveredWidget ? hoveredWidget->GetToolTipText() : std::string();
     ToolTipState_->AnchorCursorPosition_ = cursorPosition;
     ToolTipState_->HoverStartTime_ = timestamp;
     ToolTipState_->bPendingDisplay_ = hoveredWidget && hoveredWidget->HasToolTip();
@@ -1881,7 +1883,6 @@ std::shared_ptr<ImWidget> ImApplication::BuildToolTipContentForWidget(const std:
         textBlock->SetText(widget->GetToolTipText());
         textBlock->SetTextColor(ToolTipStyle_.TextColor);
         textBlock->SetFontSize(ToolTipStyle_.FontSize);
-        textBlock->SetWrapText(true);
         textBlock->SetHitTestVisible(false);
         return textBlock;
     }
@@ -1921,7 +1922,8 @@ void ImApplication::UpdateToolTip(const FGeometry& viewportGeometry, double curr
         DismissToolTip();
         ToolTipState_->SourceToolTipWidget_ = currentToolTipWidget;
         ToolTipState_->SourceToolTipText_ = currentToolTipText;
-        ToolTipState_->bPendingDisplay_ = false;
+        ToolTipState_->HoverStartTime_ = currentTime;
+        ToolTipState_->bPendingDisplay_ = hoveredWidget && hoveredWidget->HasToolTip();
     }
 
     ToolTipState_->AnchorCursorPosition_ = InteractionState_->LastCursorPosition_;

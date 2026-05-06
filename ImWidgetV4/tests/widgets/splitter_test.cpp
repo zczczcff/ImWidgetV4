@@ -145,6 +145,27 @@ TEST(SplitterTest, HorizontalLayoutCompressesBelowTotalMinimumSize) {
     ExpectFloatNear(splitter->PartGeometries()[1].Size.X, 30.4f);
 }
 
+TEST(SplitterTest, HorizontalMainAxisIgnoresChildDesiredWidthForResizeLimits) {
+    auto splitter = std::make_shared<TestHorizontalSplitter>();
+    FHorizontalSplitterStyle style;
+    style.BarWidth = 4.0f;
+    splitter->SetSplitterStyle(style);
+    splitter->SetGeometry(FGeometry(0.0f, 0.0f, 304.0f, 60.0f));
+
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(500.0f, 10.0f)), 1.0f, 30.0f);
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(500.0f, 10.0f)), 1.0f, 30.0f);
+    splitter->Relayout();
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseButtonDown, FVector2(151.0f, 20.0f)));
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(400.0f, 20.0f)));
+    splitter->Relayout();
+
+    ASSERT_EQ(splitter->PartGeometries().size(), 2u);
+    ExpectFloatNear(splitter->PartGeometries()[0].Size.X, 270.0f);
+    ExpectFloatNear(splitter->PartGeometries()[1].Size.X, 30.0f);
+    ExpectFloatNear(splitter->GetMinSize().X, 64.0f);
+}
+
 TEST(SplitterTest, HorizontalHoverTracksOnlyBarChanges) {
     auto splitter = std::make_shared<TestHorizontalSplitter>();
     FHorizontalSplitterStyle style;
@@ -246,4 +267,77 @@ TEST(SplitterTest, VerticalDragUpdatesAdjacentHeightsOnly) {
 
     splitter->OnInputEvent(MouseEvent(EInputEventType::MouseButtonUp, FVector2(20.0f, 181.0f)));
     EXPECT_EQ(splitter->DraggingBarIndex(), -1);
+}
+
+TEST(SplitterTest, VerticalMainAxisIgnoresChildDesiredHeightForResizeLimits) {
+    auto splitter = std::make_shared<TestVerticalSplitter>();
+    FVerticalSplitterStyle style;
+    style.BarHeight = 4.0f;
+    splitter->SetSplitterStyle(style);
+    splitter->SetGeometry(FGeometry(0.0f, 0.0f, 100.0f, 304.0f));
+
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 500.0f)), 1.0f, 30.0f);
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 500.0f)), 1.0f, 30.0f);
+    splitter->Relayout();
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 151.0f)));
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(20.0f, 400.0f)));
+    splitter->Relayout();
+
+    ASSERT_EQ(splitter->PartGeometries().size(), 2u);
+    ExpectFloatNear(splitter->PartGeometries()[0].Size.Y, 270.0f);
+    ExpectFloatNear(splitter->PartGeometries()[1].Size.Y, 30.0f);
+    ExpectFloatNear(splitter->GetMinSize().Y, 64.0f);
+}
+
+TEST(SplitterTest, HorizontalDragKeepsStableWidthsAcrossRepeatedMoves) {
+    auto splitter = std::make_shared<TestHorizontalSplitter>();
+    FHorizontalSplitterStyle style;
+    style.BarWidth = 4.0f;
+    splitter->SetSplitterStyle(style);
+    splitter->SetGeometry(FGeometry(0.0f, 0.0f, 304.0f, 80.0f));
+
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 10.0f)), 1.0f, 30.0f);
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 10.0f)), 3.0f, 30.0f);
+    splitter->Relayout();
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseButtonDown, FVector2(76.0f, 20.0f)));
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(116.0f, 20.0f)));
+    splitter->Relayout();
+
+    ASSERT_EQ(splitter->PartGeometries().size(), 2u);
+    const float firstLeftWidth = splitter->PartGeometries()[0].Size.X;
+    const float firstRightWidth = splitter->PartGeometries()[1].Size.X;
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(116.0f, 20.0f)));
+    splitter->Relayout();
+
+    ExpectFloatNear(splitter->PartGeometries()[0].Size.X, firstLeftWidth);
+    ExpectFloatNear(splitter->PartGeometries()[1].Size.X, firstRightWidth);
+}
+
+TEST(SplitterTest, VerticalDragKeepsStableHeightsAcrossRepeatedMoves) {
+    auto splitter = std::make_shared<TestVerticalSplitter>();
+    FVerticalSplitterStyle style;
+    style.BarHeight = 4.0f;
+    splitter->SetSplitterStyle(style);
+    splitter->SetGeometry(FGeometry(0.0f, 0.0f, 100.0f, 304.0f));
+
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 10.0f)), 1.0f, 30.0f);
+    splitter->AddPart(std::make_shared<FixedSizeWidget>(FVector2(10.0f, 10.0f)), 3.0f, 30.0f);
+    splitter->Relayout();
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 76.0f)));
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(20.0f, 116.0f)));
+    splitter->Relayout();
+
+    ASSERT_EQ(splitter->PartGeometries().size(), 2u);
+    const float firstTopHeight = splitter->PartGeometries()[0].Size.Y;
+    const float firstBottomHeight = splitter->PartGeometries()[1].Size.Y;
+
+    splitter->OnInputEvent(MouseEvent(EInputEventType::MouseMove, FVector2(20.0f, 116.0f)));
+    splitter->Relayout();
+
+    ExpectFloatNear(splitter->PartGeometries()[0].Size.Y, firstTopHeight);
+    ExpectFloatNear(splitter->PartGeometries()[1].Size.Y, firstBottomHeight);
 }

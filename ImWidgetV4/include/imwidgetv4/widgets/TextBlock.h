@@ -65,6 +65,7 @@ public:
 
     void Paint(const FPaintContext& paintContext) override;
     FVector2 GetMinSize() const override;
+    FReply OnInputEvent(const FInputEvent& event) override;
 
 private:
     void SetTextAlignmentProperty(int& value);
@@ -74,6 +75,8 @@ private:
 
     FVector2 CalculateTextSize() const;
     FVector2 CalculateTextPosition(const FVector2& textSize) const;
+    bool IsTextClipped() const;
+    void UpdateOverflowToolTip();
 
     std::string m_Text;
     FColor m_TextColor;

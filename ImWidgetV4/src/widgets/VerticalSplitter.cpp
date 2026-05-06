@@ -184,9 +184,8 @@ FVector2 ImVerticalSplitter::GetMinSize() const {
 
         const FVector2 childMinSize = children[index]->GetMinSize();
         const float childWidth = childMinSize.X + slot->PaddingLeft + slot->PaddingRight;
-        const float childHeight = childMinSize.Y + slot->PaddingTop + slot->PaddingBottom;
         maxWidth = std::max(maxWidth, childWidth);
-        totalHeight += std::max(childHeight, std::max(0.0f, slot->GetMinSize()));
+        totalHeight += std::max(0.0f, slot->GetMinSize());
     }
 
     return FVector2(maxWidth, totalHeight);
@@ -276,10 +275,8 @@ void ImVerticalSplitter::Relayout() {
         totalWeight += weight;
 
         float paddedMinSize = 0.0f;
-        if (children[index] && slot) {
-            const FVector2 childMinSize = children[index]->GetMinSize();
-            paddedMinSize = childMinSize.Y + slot->PaddingTop + slot->PaddingBottom;
-            paddedMinSize = std::max(paddedMinSize, std::max(0.0f, slot->GetMinSize()));
+        if (slot) {
+            paddedMinSize = std::max(0.0f, slot->GetMinSize());
         }
         minSizes.push_back(paddedMinSize);
     }
@@ -342,10 +339,20 @@ void ImVerticalSplitter::BeginDrag(int barIndex, const FVector2& mousePosition) 
         return;
     }
 
+    auto* topSlot = dynamic_cast<ImVerticalSplitterSlot*>(GetSlotAt(barIndex));
+    auto* bottomSlot = dynamic_cast<ImVerticalSplitterSlot*>(GetSlotAt(barIndex + 1));
+    if (!topSlot || !bottomSlot) {
+        return;
+    }
+
     m_DraggingBarIndex = barIndex;
     m_DragStartMouseY = mousePosition.Y;
     m_DragStartTopHeight = m_PartGeometries[barIndex].Size.Y;
     m_DragStartBottomHeight = m_PartGeometries[barIndex + 1].Size.Y;
+    const float totalRatio =
+        std::max(0.0f, topSlot->GetRatio()) +
+        std::max(0.0f, bottomSlot->GetRatio());
+    m_DragStartTotalRatio = totalRatio > LayoutEpsilon ? totalRatio : 2.0f;
     m_HoveredBarIndex = barIndex;
 }
 
@@ -376,9 +383,9 @@ void ImVerticalSplitter::UpdateDrag(const FVector2& mousePosition) {
         newTopHeight = std::clamp(newTopHeight, minTop, pairHeight - minBottom);
     }
 
-    const float newBottomHeight = pairHeight - newTopHeight;
-    const float totalRatio = std::max(0.0f, topSlot->GetRatio()) + std::max(0.0f, bottomSlot->GetRatio());
-    const float normalizedTotalRatio = totalRatio > LayoutEpsilon ? totalRatio : 2.0f;
+    const float normalizedTotalRatio = m_DragStartTotalRatio > LayoutEpsilon
+        ? m_DragStartTotalRatio
+        : 2.0f;
     const float topRatio = normalizedTotalRatio * newTopHeight / pairHeight;
 
     topSlot->SetRatio(topRatio);
@@ -387,6 +394,7 @@ void ImVerticalSplitter::UpdateDrag(const FVector2& mousePosition) {
 
 void ImVerticalSplitter::EndDrag() {
     m_DraggingBarIndex = -1;
+    m_DragStartTotalRatio = 2.0f;
 }
 
 void ImVerticalSplitter::RenderBars(const FPaintContext& paintContext) const {

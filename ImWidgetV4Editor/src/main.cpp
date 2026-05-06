@@ -45,10 +45,87 @@ std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const s
     return panel;
 }
 
+FTextOutlineViewStyle MakeDockOutlineStyle()
+{
+    FTextOutlineViewStyle style;
+    style.Padding = FMargin(6.0f);
+    style.RowPadding = FMargin(5.0f, 6.0f, 3.0f, 3.0f);
+    style.MinDesiredSize = FVector2(220.0f, 180.0f);
+    style.CornerRadius = 0.0f;
+    style.BorderThickness = 0.0f;
+    style.FontSize = 14.0f;
+    style.RowHeight = 22.0f;
+    style.IndentWidth = 16.0f;
+    style.IndicatorSize = 9.0f;
+    return style;
+}
+
+std::shared_ptr<ImTextOutlineView> BuildControlPalettePanel()
+{
+    auto outline = std::make_shared<ImTextOutlineView>();
+    outline->SetSupportsKeyboardFocus(true);
+    outline->SetStyle(MakeDockOutlineStyle());
+
+    ImTextOutlineItem* layout = outline->AddRootItem("布局");
+    layout->Expanded = true;
+    outline->AddChildItem(layout, "HorizontalBox");
+    outline->AddChildItem(layout, "VerticalBox");
+    outline->AddChildItem(layout, "CanvasPanel");
+    outline->AddChildItem(layout, "ScrollBox");
+    outline->AddChildItem(layout, "TabView");
+
+    ImTextOutlineItem* display = outline->AddRootItem("显示");
+    display->Expanded = true;
+    outline->AddChildItem(display, "TextBlock");
+    outline->AddChildItem(display, "Image");
+    outline->AddChildItem(display, "Border");
+    outline->AddChildItem(display, "ExpandableBox");
+
+    ImTextOutlineItem* input = outline->AddRootItem("输入");
+    input->Expanded = true;
+    outline->AddChildItem(input, "Button");
+    outline->AddChildItem(input, "Switch");
+    outline->AddChildItem(input, "CheckBox");
+    outline->AddChildItem(input, "Slider");
+    outline->AddChildItem(input, "EditableText");
+
+    outline->SetSelectedItem(layout);
+    return outline;
+}
+
+std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
+{
+    auto outline = std::make_shared<ImTextOutlineView>();
+    outline->SetSupportsKeyboardFocus(true);
+    outline->SetStyle(MakeDockOutlineStyle());
+
+    ImTextOutlineItem* project = outline->AddRootItem("ImWidgetV4Editor");
+    project->Expanded = true;
+
+    ImTextOutlineItem* assets = outline->AddChildItem(project, "Assets");
+    assets->Expanded = true;
+    outline->AddChildItem(assets, "Main.ui");
+    outline->AddChildItem(assets, "Preview.ui");
+
+    ImTextOutlineItem* src = outline->AddChildItem(project, "Source");
+    src->Expanded = true;
+    outline->AddChildItem(src, "EditorShell.cpp");
+    outline->AddChildItem(src, "PaletteView.cpp");
+    outline->AddChildItem(src, "PropertyInspector.cpp");
+
+    ImTextOutlineItem* generated = outline->AddChildItem(project, "Generated");
+    generated->Expanded = true;
+    outline->AddChildItem(generated, "ReflectionCache.json");
+
+    outline->SetSelectedItem(project);
+    return outline;
+}
+
 std::shared_ptr<ImTextOutlineView> BuildWidgetTreePanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
+    outline->SetStyle(MakeDockOutlineStyle());
 
     ImTextOutlineItem* root = outline->AddRootItem("RootWindow");
     root->Expanded = true;
@@ -74,6 +151,35 @@ std::shared_ptr<ImTextOutlineView> BuildWidgetTreePanel()
 
     outline->SetSelectedItem(shell);
     return outline;
+}
+
+std::shared_ptr<ImTabView> BuildLeftDockTabs()
+{
+    auto tabView = std::make_shared<ImTabView>();
+    tabView->SetSupportsKeyboardFocus(true);
+    tabView->SetTabStripPlacement(ETabStripPlacement::Bottom);
+
+    FTabViewStyle style = tabView->GetStyle();
+    style.Padding = FMargin(0.0f);
+    style.TabPadding = FMargin(8.0f, 3.0f, 4.0f, 3.0f);
+    style.TabHeight = 20.0f;
+    style.TabMinWidth = 64.0f;
+    style.TabSpacing = 0.0f;
+    style.FontSize = 16.0f;
+    style.BorderThickness = 0.0f;
+    style.CornerRadius = 0.0f;
+    style.BackgroundColor = FColor::FromBytes(22, 27, 33);
+    style.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
+    style.TabColor = FColor::FromBytes(39, 45, 54);
+    style.TabHoveredColor = FColor::FromBytes(52, 60, 71);
+    style.TabPressedColor = FColor::FromBytes(33, 39, 47);
+    style.ActiveTabColor = FColor::FromBytes(66, 94, 134);
+    tabView->SetStyle(style);
+
+    tabView->AddTab("控件列表", BuildControlPalettePanel());
+    tabView->AddTab("项目视图", BuildProjectViewPanel());
+    tabView->AddTab("控件树视图", BuildWidgetTreePanel());
+    return tabView;
 }
 
 std::shared_ptr<ImWidget> BuildDesignerSurface()
@@ -154,12 +260,7 @@ std::shared_ptr<ImWidget> BuildEditorRoot()
     verticalStyle.ActiveColor = FColor::FromBytes(103, 177, 255);
     verticalShell->SetSplitterStyle(verticalStyle);
 
-    auto leftDock = std::make_shared<ImVerticalBox>();
-    leftDock->SetSpacing(10.0f);
-    leftDock->AddChild(MakePanelTitle("Widget Tree"), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
-    leftDock->AddChild(BuildWidgetTreePanel(), FMargin(10.0f));
-    leftDock->AddChild(MakePanelBody(
-        "Left dock is the future hierarchy/palette region. It already uses the same tree widget and splitter system planned for the editor."), FMargin(14.0f, 0.0f, 14.0f, 14.0f));
+    auto leftDock = BuildLeftDockTabs();
 
     auto centerDock = BuildDocumentTabs();
 

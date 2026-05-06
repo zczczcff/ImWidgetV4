@@ -11,6 +11,7 @@ endif()
 add_executable(ImWidgetV4Editor
     src/editor/EditorDocument.cpp
     src/editor/EditorSession.cpp
+    src/inspector/ReflectionDetailsView.cpp
     src/main.cpp
     src/serialization/WidgetFactory.cpp
     src/serialization/WidgetSerializer.cpp

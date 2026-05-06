@@ -12,11 +12,12 @@ class ImDesignerSurface;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
-class ImVerticalBox;
 class ImWidget;
 }
 
 namespace ImWidgetV4Editor {
+
+class ReflectionDetailsView;
 
 class EditorSession {
 public:
@@ -27,6 +28,7 @@ public:
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
+        const std::shared_ptr<ReflectionDetailsView>& detailsView,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& selectionText,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
 
@@ -54,6 +56,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
+    std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_SelectionText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     int m_DocumentTabIndex = -1;

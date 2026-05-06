@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "../inspector/ReflectionDetailsView.h"
 
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -57,6 +58,7 @@ void EditorSession::BindDocumentWidgets(
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
+    const std::shared_ptr<ReflectionDetailsView>& detailsView,
     const std::shared_ptr<ImTextBlock>& selectionText,
     const std::shared_ptr<ImTextBlock>& outputText)
 {
@@ -64,6 +66,7 @@ void EditorSession::BindDocumentWidgets(
     m_DocumentTabIndex = documentTabIndex;
     m_DocumentHost = documentHost;
     m_DesignerSurface = designerSurface;
+    m_DetailsView = detailsView;
     m_SelectionText = selectionText;
     m_OutputText = outputText;
     if (m_DesignerSurface) {
@@ -231,6 +234,10 @@ void EditorSession::HandleDesignerSelectionChanged(
 
 void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
 {
+    if (m_DetailsView) {
+        m_DetailsView->SetTarget(std::dynamic_pointer_cast<ReflectableObject>(selectedWidget));
+    }
+
     if (!m_SelectionText) {
         return;
     }

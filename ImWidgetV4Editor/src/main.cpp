@@ -1,4 +1,5 @@
 #include "editor/EditorSession.h"
+#include "inspector/ReflectionDetailsView.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
@@ -27,6 +28,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
+    std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextBlock> SelectionText;
     std::shared_ptr<ImTextBlock> OutputText;
     int MainDocumentTabIndex = -1;
@@ -297,6 +299,9 @@ FEditorShellWidgets BuildEditorShell()
     selectionPanel->AddChild(selectionText, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
     rightDock->AddChild(selectionPanel, FMargin(10.0f));
 
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    rightDock->AddChild(detailsView, FMargin(10.0f));
+
     topWorkspace->AddPart(leftDock, 0.22f, 240.0f);
     topWorkspace->AddPart(documentTabs, 0.56f, 420.0f);
     topWorkspace->AddPart(rightDock, 0.22f, 260.0f);
@@ -314,6 +319,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
     shell.DesignerSurface = designerSurface;
+    shell.DetailsView = detailsView;
     shell.SelectionText = selectionText;
     shell.OutputText = outputText;
     shell.MainDocumentTabIndex = mainDocumentTabIndex;
@@ -384,6 +390,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.MainDocumentTabIndex,
         shell.DocumentHost,
         shell.DesignerSurface,
+        shell.DetailsView,
         shell.SelectionText,
         shell.OutputText);
 

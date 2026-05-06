@@ -1,0 +1,38 @@
+#pragma once
+
+#include <imwidgetv4/core/ReflectableObject.h>
+#include <imwidgetv4/widgets/UserWidget.h>
+#include <nlohmann/json.hpp>
+#include <memory>
+
+namespace ImWidgetV4Editor {
+
+class ReflectionDetailsView : public ImWidgetV4::ImUserWidget {
+public:
+    ReflectionDetailsView();
+    virtual ~ReflectionDetailsView() = default;
+
+    void SetTarget(const std::shared_ptr<ImWidgetV4::ReflectableObject>& target);
+    std::shared_ptr<ImWidgetV4::ReflectableObject> GetTarget() const { return m_Target; }
+
+protected:
+    virtual Ptr RebuildWidget() override;
+
+private:
+    std::shared_ptr<ImWidgetV4::ImWidget> BuildEmptyState() const;
+    std::shared_ptr<ImWidgetV4::ImWidget> BuildDetailsForObject(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& object,
+        const std::string& title) const;
+    std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyRows(
+        ImWidgetV4::ReflectableObject& object,
+        int indentLevel) const;
+    std::string DescribePropertyValue(
+        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const nlohmann::ordered_json& objectJson) const;
+    std::shared_ptr<ImWidgetV4::ReflectableObject> ResolveNestedObject(
+        const ImWidgetV4::ReflectableObject::ROPProperty& property) const;
+
+    std::shared_ptr<ImWidgetV4::ReflectableObject> m_Target;
+};
+
+} // namespace ImWidgetV4Editor

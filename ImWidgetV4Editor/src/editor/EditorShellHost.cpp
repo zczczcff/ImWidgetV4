@@ -43,7 +43,9 @@ FReply EditorShellHost::OnPreviewInputEvent(const FInputEvent& event)
     }
 
     bool bHandled = false;
-    if (event.Key == EKey::C && !event.Modifiers.bShift) {
+    if (event.Key == EKey::X && !event.Modifiers.bShift) {
+        bHandled = session->CutSelectedWidget();
+    } else if (event.Key == EKey::C && !event.Modifiers.bShift) {
         bHandled = session->CopySelectedWidget();
     } else if (event.Key == EKey::V && !event.Modifiers.bShift) {
         bHandled = session->PasteCopiedWidget();

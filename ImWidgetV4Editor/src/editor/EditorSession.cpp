@@ -534,6 +534,30 @@ bool EditorSession::DeleteSelectedWidget()
     return true;
 }
 
+bool EditorSession::CutSelectedWidget()
+{
+    auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+    if (!selectedWidget) {
+        LogStatus("Cut skipped: no widget selected.");
+        return false;
+    }
+
+    const std::string label = selectedWidget->GetName().empty()
+        ? selectedWidget->GetTypeName()
+        : selectedWidget->GetTypeName() + " [" + selectedWidget->GetName() + "]";
+    if (!CopySelectedWidget()) {
+        return false;
+    }
+
+    if (!DeleteSelectedWidget()) {
+        LogStatus("Cut failed: copied " + label + " but could not remove it.");
+        return false;
+    }
+
+    LogStatus("Cut " + label);
+    return true;
+}
+
 bool EditorSession::CopySelectedWidget()
 {
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
@@ -817,6 +841,21 @@ void EditorSession::HandleWidgetTreeContextMenuRequested(
     popupMenu->SetStyle(style);
 
     std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Cut",
+        FImageBrush(),
+        {},
+        true,
+        false,
+        [this, targetWidget]() {
+            if (m_DesignerSurface) {
+                m_DesignerSurface->SetSelectedWidget(targetWidget);
+            }
+            const bool bCut = CutSelectedWidget();
+            CloseWidgetTreeContextMenu();
+            (void)bCut;
+        }
+    });
     items.push_back(FPopupMenuItem {
         "Copy",
         FImageBrush(),

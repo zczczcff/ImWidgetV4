@@ -332,6 +332,11 @@ std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuNa
 std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorSession>& session)
 {
     return {
+        FApplicationMenuItem {"Cut", {}, {}, true, false, [session]() {
+            if (session) {
+                session->CutSelectedWidget();
+            }
+        }},
         FApplicationMenuItem {"Copy", {}, {}, true, false, [session]() {
             if (session) {
                 session->CopySelectedWidget();

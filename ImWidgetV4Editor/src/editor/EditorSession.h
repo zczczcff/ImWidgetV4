@@ -51,6 +51,7 @@ public:
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool DeleteSelectedWidget();
+    bool CutSelectedWidget();
     bool CopySelectedWidget();
     bool PasteCopiedWidget();
     bool DuplicateSelectedWidget();

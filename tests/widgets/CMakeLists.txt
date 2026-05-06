@@ -180,6 +180,18 @@ target_link_libraries(list_view_test PRIVATE
 
 add_test(NAME ListViewTest COMMAND list_view_test)
 
+add_executable(tab_view_test
+    tab_view_test.cpp
+)
+
+target_link_libraries(tab_view_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME TabViewTest COMMAND tab_view_test)
+
 add_executable(text_outline_view_test
     text_outline_view_test.cpp
 )

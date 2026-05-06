@@ -15,6 +15,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/Switch.h>
+#include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
@@ -261,6 +262,12 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(listView.HasProperty("ItemCount", "ImListView"));
     EXPECT_TRUE(listView.HasProperty("SelectedIndex", "ImListView"));
     EXPECT_TRUE(listView.HasProperty("ScrollOffset", "ImListView"));
+
+    FTabViewStyle tabViewStyle;
+    ImTabView tabView;
+    EXPECT_TRUE(tabViewStyle.HasProperty("TabMinWidth", "FTabViewStyle"));
+    EXPECT_TRUE(tabView.HasProperty("ActiveTabIndex", "ImTabView"));
+    EXPECT_TRUE(tabView.HasProperty("Style", "ImTabView"));
 }
 
 TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)

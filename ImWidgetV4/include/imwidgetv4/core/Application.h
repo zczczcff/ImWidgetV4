@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/CoreIcon.h>
+#include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/core/FileDialog.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/WindowManager.h>
@@ -105,6 +106,9 @@ public:
     void ReleaseMouseCapture();
     const std::shared_ptr<ImWidget>& GetMouseCapture() const;
     EMouseButton GetCapturedMouseButton() const;
+    bool IsDragDropActive() const;
+    std::shared_ptr<FDragDropOperation> GetCurrentDragDropOperation() const;
+    std::shared_ptr<ImWidget> GetCurrentDropTarget() const;
 
     ImWindowManager& GetWindowManager();
     const ImWindowManager& GetWindowManager() const;
@@ -133,6 +137,7 @@ private:
     class FEventRouter;
     class FWidgetPathResolver;
     class FToolTipState;
+    class FDragDropState;
 
     struct FWindowWidgetTarget;
 
@@ -146,6 +151,7 @@ private:
     std::unique_ptr<FEventRouter> EventRouter_;
     std::unique_ptr<FWidgetPathResolver> PathResolver_;
     std::unique_ptr<FToolTipState> ToolTipState_;
+    std::unique_ptr<FDragDropState> DragDropState_;
 
     FGeometry LastFrameGeometry_;
     bool bHasLastFrameGeometry_ = false;
@@ -179,6 +185,23 @@ private:
     void UpdateToolTip(const FGeometry& viewportGeometry, double currentTime);
     void DismissToolTip();
     std::shared_ptr<ImWidget> BuildToolTipContentForWidget(const std::shared_ptr<ImWidget>& widget) const;
+    void ResetDragDropState();
+    void ClearArmedDrag();
+    void BeginArmedDrag(const std::shared_ptr<ImWidget>& widget, EMouseButton button, const FInputEvent& event);
+    bool TryStartDragDrop(const FInputEvent& event);
+    void UpdateDragDrop(const FInputEvent& event);
+    void CompleteDragDrop(const FInputEvent& event, bool bCancelled);
+    void CancelDragDrop();
+    FReply RouteDragEvent(
+        const FDragDropEvent& event,
+        const std::vector<std::shared_ptr<ImWidget>>& eventPath);
+    std::vector<std::shared_ptr<ImWidget>> ResolveDragEventPath(
+        const FDragDropEvent& event,
+        const std::vector<std::shared_ptr<ImWidget>>& hitPath,
+        std::shared_ptr<ImWidget>& outAcceptedTarget,
+        FReply& outReply);
+    void PaintDragDropPreview(const FFrameContext& frameContext);
+    bool IsWidgetInActiveTree(const std::shared_ptr<ImWidget>& widget) const;
 
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(const std::shared_ptr<ImWidget>& widget) const;
     FReply RouteEvent(const FInputEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath);

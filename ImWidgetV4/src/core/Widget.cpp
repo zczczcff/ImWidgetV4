@@ -21,6 +21,21 @@ FVector2 ImWidget::GetMinSize() const
     return FVector2(0.0f, 0.0f);
 }
 
+std::shared_ptr<FDragDropOperation> ImWidget::OnDragDetected(const FDragDetectEvent& event)
+{
+    return nullptr;
+}
+
+FReply ImWidget::OnPreviewDragEvent(const FDragDropEvent& event)
+{
+    return FReply::Unhandled();
+}
+
+FReply ImWidget::OnDragEvent(const FDragDropEvent& event)
+{
+    return FReply::Unhandled();
+}
+
 FReply ImWidget::OnPreviewInputEvent(const FInputEvent& event)
 {
     return FReply::Unhandled();

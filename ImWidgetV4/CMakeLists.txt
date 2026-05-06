@@ -84,6 +84,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/Application.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/ApplicationBackend.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/CoreIcon.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/DragDrop.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/FileDialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
@@ -268,6 +269,7 @@ if(IMWIDGETV4_BUILD_TESTS)
     imwidgetv4_set_target_folder(input_source_test "Tests/Input")
     imwidgetv4_set_target_folder(draw_context_test "Tests/Rendering")
     imwidgetv4_set_target_folder(snapshot_test "Tests/Snapshot")
+    imwidgetv4_set_target_folder(drag_drop_test "Tests/Core")
     imwidgetv4_set_target_folder(button_test "Tests/Widgets")
     imwidgetv4_set_target_folder(widget_reflection_test "Tests/Widgets")
     imwidgetv4_set_target_folder(checkbox_test "Tests/Widgets")
@@ -296,6 +298,7 @@ if(IMWIDGETV4_BUILD_SAMPLES)
     imwidgetv4_set_target_folder(BoxPanelDemo "Samples")
     imwidgetv4_set_target_folder(CanvasPanelDemo "Samples")
     imwidgetv4_set_target_folder(ExpandableBoxDemo "Samples")
+    imwidgetv4_set_target_folder(DragDropDemo "Samples")
     imwidgetv4_set_target_folder(ImageDemo "Samples")
     imwidgetv4_set_target_folder(InputWidgetsDemo "Samples")
     imwidgetv4_set_target_folder(ListViewDemo "Samples")

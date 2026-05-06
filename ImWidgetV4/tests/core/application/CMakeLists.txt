@@ -9,3 +9,15 @@ target_link_libraries(application_test PRIVATE
 )
 
 add_test(NAME ApplicationTest COMMAND application_test)
+
+add_executable(drag_drop_test
+    drag_drop_test.cpp
+)
+
+target_link_libraries(drag_drop_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME DragDropTest COMMAND drag_drop_test)

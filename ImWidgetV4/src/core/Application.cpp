@@ -84,6 +84,22 @@ public:
     bool bSuppressForCurrentFrame_ = false;
 };
 
+class ImApplication::FDragDropState {
+public:
+    std::shared_ptr<ImWidget> ArmedSourceWidget_;
+    EMouseButton ArmedButton_ = EMouseButton::Left;
+    FVector2 PressPosition_ {0.0f, 0.0f};
+    FInputModifiers PressModifiers_;
+    double PressTimestamp_ = 0.0;
+    bool bArmed_ = false;
+
+    std::shared_ptr<FDragDropOperation> ActiveOperation_;
+    std::shared_ptr<ImWidget> ActiveSourceWidget_;
+    std::shared_ptr<ImWidget> CurrentDropTarget_;
+    FVector2 CurrentPosition_ {0.0f, 0.0f};
+    bool bActive_ = false;
+};
+
 class ImApplication::FWidgetPathResolver {
 public:
     std::vector<std::shared_ptr<ImWidget>> BuildPathToSceneRoot(
@@ -136,6 +152,25 @@ public:
 
         for (auto it = eventPath.rbegin(); it != eventPath.rend(); ++it) {
             FReply reply = (*it)->OnInputEvent(event);
+            if (reply.IsHandled()) {
+                return reply;
+            }
+        }
+
+        return FReply::Unhandled();
+    }
+
+    FReply RouteDrag(const FDragDropEvent& event, const std::vector<std::shared_ptr<ImWidget>>& eventPath) const
+    {
+        for (const auto& widget : eventPath) {
+            FReply reply = widget->OnPreviewDragEvent(event);
+            if (reply.IsHandled()) {
+                return reply;
+            }
+        }
+
+        for (auto it = eventPath.rbegin(); it != eventPath.rend(); ++it) {
+            FReply reply = (*it)->OnDragEvent(event);
             if (reply.IsHandled()) {
                 return reply;
             }
@@ -513,6 +548,7 @@ ImApplication::ImApplication()
     , EventRouter_(std::make_unique<FEventRouter>())
     , PathResolver_(std::make_unique<FWidgetPathResolver>())
     , ToolTipState_(std::make_unique<FToolTipState>())
+    , DragDropState_(std::make_unique<FDragDropState>())
 {
     EnsureDefaultFontConfigured();
 
@@ -1096,6 +1132,9 @@ void ImApplication::SetMouseCapture(const std::shared_ptr<ImWidget>& widget, EMo
 void ImApplication::ReleaseMouseCapture()
 {
     InteractionState_->CapturedMouseWidget_.reset();
+    if (!DragDropState_->bActive_) {
+        ClearArmedDrag();
+    }
 }
 
 const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const
@@ -1106,6 +1145,21 @@ const std::shared_ptr<ImWidget>& ImApplication::GetMouseCapture() const
 EMouseButton ImApplication::GetCapturedMouseButton() const
 {
     return InteractionState_->CapturedMouseButton_;
+}
+
+bool ImApplication::IsDragDropActive() const
+{
+    return DragDropState_->bActive_;
+}
+
+std::shared_ptr<FDragDropOperation> ImApplication::GetCurrentDragDropOperation() const
+{
+    return DragDropState_->ActiveOperation_;
+}
+
+std::shared_ptr<ImWidget> ImApplication::GetCurrentDropTarget() const
+{
+    return DragDropState_->CurrentDropTarget_;
 }
 
 ImWindowManager& ImApplication::GetWindowManager()
@@ -1266,6 +1320,9 @@ void ImApplication::RouteInputEvents()
             inputEvent.Type != EInputEventType::MouseLeave) {
             InteractionState_->LastCursorPosition_ = inputEvent.MousePosition;
             InteractionState_->bHasCursorPosition_ = true;
+            if (DragDropState_->bActive_) {
+                DragDropState_->CurrentPosition_ = inputEvent.MousePosition;
+            }
         }
 
         if (inputEvent.Type == EInputEventType::MouseButtonDown ||
@@ -1275,12 +1332,33 @@ void ImApplication::RouteInputEvents()
             DismissToolTip();
         }
 
+        if (DragDropState_->bActive_ &&
+            inputEvent.Type == EInputEventType::KeyDown &&
+            inputEvent.Key == EKey::Escape) {
+            CompleteDragDrop(inputEvent, true);
+            CleanupInteractionState();
+            continue;
+        }
+
         if (inputEvent.IsMouseEvent()) {
             std::shared_ptr<ImWindow> hoveredWindow = WindowManager_.HitTestWindow(inputEvent.MousePosition);
             for (const std::shared_ptr<ImWindow>& window : openWindows) {
                 window->bCloseButtonHovered_ =
                     hoveredWindow == window && window->IsPointInCloseButton(inputEvent.MousePosition);
             }
+        }
+
+        if (DragDropState_->bActive_) {
+            if (inputEvent.Type == EInputEventType::MouseMove) {
+                UpdateDragDrop(inputEvent);
+            } else if (inputEvent.Type == EInputEventType::MouseButtonUp &&
+                       inputEvent.MouseButton == DragDropState_->ActiveOperation_->TriggerButton) {
+                UpdateDragDrop(inputEvent);
+                CompleteDragDrop(inputEvent, false);
+            }
+
+            CleanupInteractionState();
+            continue;
         }
 
         if (inputEvent.Type == EInputEventType::MouseMove && InteractionState_->DraggedWindow_) {
@@ -1386,6 +1464,11 @@ void ImApplication::RouteInputEvents()
         }
 
         if (inputEvent.Type == EInputEventType::MouseMove) {
+            if (TryStartDragDrop(inputEvent)) {
+                CleanupInteractionState();
+                continue;
+            }
+
             UpdateHoveredWidget(
                 eventPath.empty() ? nullptr : eventPath.back(),
                 inputEvent.MousePosition,
@@ -1395,6 +1478,12 @@ void ImApplication::RouteInputEvents()
         if (!eventPath.empty()) {
             ProcessReply(RouteEvent(inputEvent, eventPath));
             CleanupInteractionState();
+        }
+
+        if (inputEvent.Type == EInputEventType::MouseButtonUp &&
+            DragDropState_->bArmed_ &&
+            inputEvent.MouseButton == DragDropState_->ArmedButton_) {
+            ClearArmedDrag();
         }
     }
 }
@@ -1445,6 +1534,14 @@ void ImApplication::UpdateHoveredWidget(
 
 void ImApplication::ProcessReply(const FReply& reply)
 {
+    if (reply.bDetectDrag && reply.DragDetectTarget) {
+        FInputEvent dragDetectEvent;
+        dragDetectEvent.Type = EInputEventType::MouseButtonDown;
+        dragDetectEvent.MouseButton = reply.DragDetectButton;
+        dragDetectEvent.MousePosition = InteractionState_->LastCursorPosition_;
+        BeginArmedDrag(reply.DragDetectTarget, reply.DragDetectButton, dragDetectEvent);
+    }
+
     if (reply.bReleaseMouseCapture) {
         ReleaseMouseCapture();
     }
@@ -1462,6 +1559,7 @@ void ImApplication::ProcessReply(const FReply& reply)
 
 void ImApplication::ResetInteractionState()
 {
+    CancelDragDrop();
     ClearKeyboardFocus();
     ReleaseMouseCapture();
     InteractionState_->HoveredWidget_.reset();
@@ -1483,6 +1581,31 @@ void ImApplication::ResetToolTipState()
     ToolTipState_->bPendingDisplay_ = false;
 }
 
+void ImApplication::ResetDragDropState()
+{
+    DragDropState_->ArmedSourceWidget_.reset();
+    DragDropState_->ArmedButton_ = EMouseButton::Left;
+    DragDropState_->PressPosition_ = FVector2(0.0f, 0.0f);
+    DragDropState_->PressModifiers_ = FInputModifiers();
+    DragDropState_->PressTimestamp_ = 0.0;
+    DragDropState_->bArmed_ = false;
+    DragDropState_->ActiveOperation_.reset();
+    DragDropState_->ActiveSourceWidget_.reset();
+    DragDropState_->CurrentDropTarget_.reset();
+    DragDropState_->CurrentPosition_ = FVector2(0.0f, 0.0f);
+    DragDropState_->bActive_ = false;
+}
+
+void ImApplication::ClearArmedDrag()
+{
+    DragDropState_->ArmedSourceWidget_.reset();
+    DragDropState_->ArmedButton_ = EMouseButton::Left;
+    DragDropState_->PressPosition_ = FVector2(0.0f, 0.0f);
+    DragDropState_->PressModifiers_ = FInputModifiers();
+    DragDropState_->PressTimestamp_ = 0.0;
+    DragDropState_->bArmed_ = false;
+}
+
 void ImApplication::DismissToolTip()
 {
     if (ToolTipState_->Window_) {
@@ -1495,6 +1618,252 @@ void ImApplication::DismissToolTip()
     ToolTipState_->ContentWidget_.reset();
     ToolTipState_->SourceToolTipWidget_.reset();
     ToolTipState_->SourceToolTipText_.clear();
+}
+
+void ImApplication::BeginArmedDrag(const std::shared_ptr<ImWidget>& widget, EMouseButton button, const FInputEvent& event)
+{
+    if (!widget || !IsWidgetInActiveTree(widget)) {
+        return;
+    }
+
+    DragDropState_->ArmedSourceWidget_ = widget;
+    DragDropState_->ArmedButton_ = button;
+    DragDropState_->PressPosition_ = event.MousePosition;
+    DragDropState_->PressModifiers_ = event.Modifiers;
+    DragDropState_->PressTimestamp_ = event.Timestamp;
+    DragDropState_->CurrentPosition_ = event.MousePosition;
+    DragDropState_->bArmed_ = true;
+}
+
+bool ImApplication::TryStartDragDrop(const FInputEvent& event)
+{
+    if (!DragDropState_->bArmed_ || DragDropState_->bActive_) {
+        return false;
+    }
+
+    if (!DragDropState_->ArmedSourceWidget_ || !IsWidgetInActiveTree(DragDropState_->ArmedSourceWidget_)) {
+        ClearArmedDrag();
+        return false;
+    }
+
+    const FVector2 delta = event.MousePosition - DragDropState_->PressPosition_;
+    if (delta.LengthSquared() <= 4.0f) {
+        return false;
+    }
+
+    FDragDetectEvent detectEvent;
+    detectEvent.SourceWidget = DragDropState_->ArmedSourceWidget_;
+    detectEvent.TriggerButton = DragDropState_->ArmedButton_;
+    detectEvent.PressPosition = DragDropState_->PressPosition_;
+    detectEvent.CurrentPosition = event.MousePosition;
+    detectEvent.Modifiers = event.Modifiers;
+    detectEvent.Timestamp = event.Timestamp;
+
+    std::shared_ptr<FDragDropOperation> operation = DragDropState_->ArmedSourceWidget_->OnDragDetected(detectEvent);
+    if (!operation || !operation->IsValid()) {
+        ClearArmedDrag();
+        return false;
+    }
+
+    if (!operation->Payload) {
+        operation->Payload = std::make_shared<FDragDropPayload>();
+    }
+    if (operation->PreviewWidget) {
+        operation->PreviewWidget->SetHitTestVisible(false);
+    }
+    operation->TriggerButton = DragDropState_->ArmedButton_;
+
+    DragDropState_->ActiveOperation_ = operation;
+    DragDropState_->ActiveSourceWidget_ = DragDropState_->ArmedSourceWidget_;
+    DragDropState_->CurrentDropTarget_.reset();
+    DragDropState_->CurrentPosition_ = event.MousePosition;
+    DragDropState_->bActive_ = true;
+    ToolTipState_->bSuppressForCurrentFrame_ = true;
+    DismissToolTip();
+
+    FDragDropEvent dragStartEvent;
+    dragStartEvent.Type = EDragDropEventType::DragStart;
+    dragStartEvent.Operation = operation;
+    dragStartEvent.SourceWidget = DragDropState_->ActiveSourceWidget_;
+    dragStartEvent.PressPosition = DragDropState_->PressPosition_;
+    dragStartEvent.CurrentPosition = event.MousePosition;
+    dragStartEvent.Modifiers = event.Modifiers;
+    dragStartEvent.Timestamp = event.Timestamp;
+
+    std::vector<std::shared_ptr<ImWidget>> sourcePath = BuildPathToSceneRoot(DragDropState_->ActiveSourceWidget_);
+    if (!sourcePath.empty()) {
+        ProcessReply(RouteDragEvent(dragStartEvent, sourcePath));
+    }
+
+    ClearArmedDrag();
+    UpdateDragDrop(event);
+    return true;
+}
+
+void ImApplication::UpdateDragDrop(const FInputEvent& event)
+{
+    if (!DragDropState_->bActive_ || !DragDropState_->ActiveOperation_ || !DragDropState_->ActiveSourceWidget_) {
+        return;
+    }
+
+    if (!IsWidgetInActiveTree(DragDropState_->ActiveSourceWidget_)) {
+        CompleteDragDrop(event, true);
+        return;
+    }
+
+    DragDropState_->CurrentPosition_ = event.MousePosition;
+
+    FDragDropEvent dragUpdateEvent;
+    dragUpdateEvent.Type = EDragDropEventType::DragUpdate;
+    dragUpdateEvent.Operation = DragDropState_->ActiveOperation_;
+    dragUpdateEvent.SourceWidget = DragDropState_->ActiveSourceWidget_;
+    dragUpdateEvent.TargetWidget = DragDropState_->CurrentDropTarget_;
+    dragUpdateEvent.PressPosition = DragDropState_->PressPosition_;
+    dragUpdateEvent.CurrentPosition = event.MousePosition;
+    dragUpdateEvent.Modifiers = event.Modifiers;
+    dragUpdateEvent.Timestamp = event.Timestamp;
+    std::vector<std::shared_ptr<ImWidget>> sourcePath = BuildPathToSceneRoot(DragDropState_->ActiveSourceWidget_);
+    if (!sourcePath.empty()) {
+        ProcessReply(RouteDragEvent(dragUpdateEvent, sourcePath));
+    }
+
+    FWindowWidgetTarget mouseTarget = ResolveMouseTarget(event.MousePosition);
+    FDragDropEvent dragOverEvent;
+    dragOverEvent.Type = EDragDropEventType::DragOver;
+    dragOverEvent.Operation = DragDropState_->ActiveOperation_;
+    dragOverEvent.SourceWidget = DragDropState_->ActiveSourceWidget_;
+    dragOverEvent.PressPosition = DragDropState_->PressPosition_;
+    dragOverEvent.CurrentPosition = event.MousePosition;
+    dragOverEvent.Modifiers = event.Modifiers;
+    dragOverEvent.Timestamp = event.Timestamp;
+
+    std::shared_ptr<ImWidget> acceptedTarget;
+    FReply dragOverReply = FReply::Unhandled();
+    const std::vector<std::shared_ptr<ImWidget>> dragPath =
+        ResolveDragEventPath(dragOverEvent, mouseTarget.WidgetPath, acceptedTarget, dragOverReply);
+    if (!dragPath.empty()) {
+        ProcessReply(dragOverReply);
+    }
+
+    if (DragDropState_->CurrentDropTarget_ != acceptedTarget) {
+        if (DragDropState_->CurrentDropTarget_) {
+            FDragDropEvent leaveEvent;
+            leaveEvent.Type = EDragDropEventType::DragLeave;
+            leaveEvent.Operation = DragDropState_->ActiveOperation_;
+            leaveEvent.SourceWidget = DragDropState_->ActiveSourceWidget_;
+            leaveEvent.TargetWidget = DragDropState_->CurrentDropTarget_;
+            leaveEvent.PressPosition = DragDropState_->PressPosition_;
+            leaveEvent.CurrentPosition = event.MousePosition;
+            leaveEvent.Modifiers = event.Modifiers;
+            leaveEvent.Timestamp = event.Timestamp;
+            const std::vector<std::shared_ptr<ImWidget>> leavePath =
+                BuildPathToSceneRoot(DragDropState_->CurrentDropTarget_);
+            if (!leavePath.empty()) {
+                ProcessReply(RouteDragEvent(leaveEvent, leavePath));
+            }
+        }
+
+        DragDropState_->CurrentDropTarget_ = acceptedTarget;
+        if (DragDropState_->CurrentDropTarget_) {
+            FDragDropEvent enterEvent;
+            enterEvent.Type = EDragDropEventType::DragEnter;
+            enterEvent.Operation = DragDropState_->ActiveOperation_;
+            enterEvent.SourceWidget = DragDropState_->ActiveSourceWidget_;
+            enterEvent.TargetWidget = DragDropState_->CurrentDropTarget_;
+            enterEvent.PressPosition = DragDropState_->PressPosition_;
+            enterEvent.CurrentPosition = event.MousePosition;
+            enterEvent.Modifiers = event.Modifiers;
+            enterEvent.Timestamp = event.Timestamp;
+            const std::vector<std::shared_ptr<ImWidget>> enterPath =
+                BuildPathToSceneRoot(DragDropState_->CurrentDropTarget_);
+            if (!enterPath.empty()) {
+                ProcessReply(RouteDragEvent(enterEvent, enterPath));
+            }
+        }
+    }
+
+    UpdateHoveredWidget(nullptr, event.MousePosition, event.Timestamp);
+}
+
+void ImApplication::CompleteDragDrop(const FInputEvent& event, bool bCancelled)
+{
+    if (!DragDropState_->bActive_ || !DragDropState_->ActiveOperation_) {
+        ClearArmedDrag();
+        return;
+    }
+
+    const std::shared_ptr<FDragDropOperation> operation = DragDropState_->ActiveOperation_;
+    const std::shared_ptr<ImWidget> sourceWidget = DragDropState_->ActiveSourceWidget_;
+    const std::shared_ptr<ImWidget> targetWidget = DragDropState_->CurrentDropTarget_;
+
+    if (bCancelled && targetWidget) {
+        FDragDropEvent leaveEvent;
+        leaveEvent.Type = EDragDropEventType::DragLeave;
+        leaveEvent.Operation = operation;
+        leaveEvent.SourceWidget = sourceWidget;
+        leaveEvent.TargetWidget = targetWidget;
+        leaveEvent.PressPosition = DragDropState_->PressPosition_;
+        leaveEvent.CurrentPosition = event.MousePosition;
+        leaveEvent.Modifiers = event.Modifiers;
+        leaveEvent.Timestamp = event.Timestamp;
+        const std::vector<std::shared_ptr<ImWidget>> leavePath = BuildPathToSceneRoot(targetWidget);
+        if (!leavePath.empty()) {
+            ProcessReply(RouteDragEvent(leaveEvent, leavePath));
+        }
+    }
+
+    std::shared_ptr<ImWidget> dropSucceededTarget;
+    if (!bCancelled && targetWidget && IsWidgetInActiveTree(targetWidget)) {
+        FDragDropEvent dropEvent;
+        dropEvent.Type = EDragDropEventType::Drop;
+        dropEvent.Operation = operation;
+        dropEvent.SourceWidget = sourceWidget;
+        dropEvent.TargetWidget = targetWidget;
+        dropEvent.PressPosition = DragDropState_->PressPosition_;
+        dropEvent.CurrentPosition = event.MousePosition;
+        dropEvent.Modifiers = event.Modifiers;
+        dropEvent.Timestamp = event.Timestamp;
+        const std::vector<std::shared_ptr<ImWidget>> dropPath = BuildPathToSceneRoot(targetWidget);
+        if (!dropPath.empty()) {
+            const FReply dropReply = RouteDragEvent(dropEvent, dropPath);
+            ProcessReply(dropReply);
+            if (dropReply.IsHandled()) {
+                dropSucceededTarget = targetWidget;
+            }
+        }
+    }
+
+    if (sourceWidget && IsWidgetInActiveTree(sourceWidget)) {
+        FDragDropEvent endEvent;
+        endEvent.Type = EDragDropEventType::DragEnd;
+        endEvent.Operation = operation;
+        endEvent.SourceWidget = sourceWidget;
+        endEvent.TargetWidget = dropSucceededTarget;
+        endEvent.PressPosition = DragDropState_->PressPosition_;
+        endEvent.CurrentPosition = event.MousePosition;
+        endEvent.Modifiers = event.Modifiers;
+        endEvent.Timestamp = event.Timestamp;
+        const std::vector<std::shared_ptr<ImWidget>> endPath = BuildPathToSceneRoot(sourceWidget);
+        if (!endPath.empty()) {
+            ProcessReply(RouteDragEvent(endEvent, endPath));
+        }
+    }
+
+    ResetDragDropState();
+    UpdateHoveredWidget(ResolveHoveredWidget(event.MousePosition), event.MousePosition, event.Timestamp);
+}
+
+void ImApplication::CancelDragDrop()
+{
+    if (!DragDropState_->bActive_) {
+        ClearArmedDrag();
+        return;
+    }
+
+    FInputEvent cancelEvent;
+    cancelEvent.Type = EInputEventType::MouseMove;
+    cancelEvent.MousePosition = DragDropState_->CurrentPosition_;
+    CompleteDragDrop(cancelEvent, true);
 }
 
 std::shared_ptr<ImWidget> ImApplication::BuildToolTipContentForWidget(const std::shared_ptr<ImWidget>& widget) const
@@ -1627,6 +1996,17 @@ void ImApplication::CleanupInteractionState()
 {
     const std::shared_ptr<ImWindow> modalWindow = WindowManager_.GetTopmostModalWindow();
 
+    if (DragDropState_->bActive_) {
+        if (!DragDropState_->ActiveSourceWidget_ || !IsWidgetInActiveTree(DragDropState_->ActiveSourceWidget_)) {
+            CancelDragDrop();
+        } else if (DragDropState_->CurrentDropTarget_ && !IsWidgetInActiveTree(DragDropState_->CurrentDropTarget_)) {
+            DragDropState_->CurrentDropTarget_.reset();
+        }
+    } else if (DragDropState_->bArmed_ &&
+               (!DragDropState_->ArmedSourceWidget_ || !IsWidgetInActiveTree(DragDropState_->ArmedSourceWidget_))) {
+        ClearArmedDrag();
+    }
+
     if (InteractionState_->FocusedWidget_) {
         const std::shared_ptr<ImWindow> focusWindow = WindowManager_.FindOwningWindow(InteractionState_->FocusedWidget_);
         if (!focusWindow || (modalWindow && focusWindow != modalWindow)) {
@@ -1701,6 +2081,39 @@ FReply ImApplication::RouteEvent(
     return EventRouter_->Route(event, eventPath);
 }
 
+FReply ImApplication::RouteDragEvent(
+    const FDragDropEvent& event,
+    const std::vector<std::shared_ptr<ImWidget>>& eventPath)
+{
+    return EventRouter_->RouteDrag(event, eventPath);
+}
+
+std::vector<std::shared_ptr<ImWidget>> ImApplication::ResolveDragEventPath(
+    const FDragDropEvent& event,
+    const std::vector<std::shared_ptr<ImWidget>>& hitPath,
+    std::shared_ptr<ImWidget>& outAcceptedTarget,
+    FReply& outReply)
+{
+    outAcceptedTarget.reset();
+    outReply = FReply::Unhandled();
+    if (hitPath.empty()) {
+        return {};
+    }
+
+    std::vector<std::shared_ptr<ImWidget>> probePath = hitPath;
+    while (!probePath.empty()) {
+        FReply reply = RouteDragEvent(event, probePath);
+        if (reply.IsHandled()) {
+            outAcceptedTarget = probePath.back();
+            outReply = reply;
+            return probePath;
+        }
+        probePath.pop_back();
+    }
+
+    return {};
+}
+
 void ImApplication::PerformLayoutPass()
 {
     for (const std::shared_ptr<ImWindow>& window : WindowManager_.GetOpenWindows()) {
@@ -1735,6 +2148,8 @@ void ImApplication::PaintWindows(const FFrameContext& frameContext, const FGeome
 
         frameContext.DrawContext_->PopClipRect();
     }
+
+    PaintDragDropPreview(frameContext);
 }
 
 ImApplication::FWindowWidgetTarget ImApplication::ResolveMouseTarget(const FVector2& position) const
@@ -1757,6 +2172,37 @@ std::shared_ptr<ImWidget> ImApplication::ResolveHoveredWidget(const FVector2& po
 {
     const FWindowWidgetTarget target = ResolveMouseTarget(position);
     return target.WidgetPath.empty() ? nullptr : target.WidgetPath.back();
+}
+
+void ImApplication::PaintDragDropPreview(const FFrameContext& frameContext)
+{
+    if (!frameContext.DrawContext_ ||
+        !DragDropState_->bActive_ ||
+        !DragDropState_->ActiveOperation_ ||
+        !DragDropState_->ActiveOperation_->PreviewWidget) {
+        return;
+    }
+
+    const std::shared_ptr<ImWidget>& previewWidget = DragDropState_->ActiveOperation_->PreviewWidget;
+    previewWidget->SetHitTestVisible(false);
+    const FVector2 previewSize = previewWidget->GetMinSize();
+    const FVector2 previewPosition = DragDropState_->CurrentPosition_ + DragDropState_->ActiveOperation_->PreviewOffset;
+    const FGeometry previewGeometry(previewPosition, previewSize);
+    previewWidget->SetGeometry(previewGeometry);
+
+    FPaintContext paintContext(
+        *frameContext.DrawContext_,
+        previewGeometry,
+        &StyleSet_,
+        InteractionState_->LastCursorPosition_,
+        InteractionState_->bHasCursorPosition_,
+        frameContext.FrameInfo.DeltaTime);
+    previewWidget->Paint(paintContext);
+}
+
+bool ImApplication::IsWidgetInActiveTree(const std::shared_ptr<ImWidget>& widget) const
+{
+    return !BuildPathToSceneRoot(widget).empty();
 }
 
 bool ImApplication::CanMutateTitleBarTabMenus() const

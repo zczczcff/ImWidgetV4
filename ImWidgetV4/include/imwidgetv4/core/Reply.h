@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/input/Input.h>
 #include <memory>
 
@@ -11,9 +12,12 @@ struct FReply {
     bool bHandled = false;
     bool bReleaseMouseCapture = false;
     bool bClearKeyboardFocus = false;
+    bool bDetectDrag = false;
     std::shared_ptr<ImWidget> MouseCaptureTarget;
     std::shared_ptr<ImWidget> FocusTarget;
+    std::shared_ptr<ImWidget> DragDetectTarget;
     EMouseButton MouseCaptureButton = EMouseButton::Left;
+    EMouseButton DragDetectButton = EMouseButton::Left;
 
     FReply() = default;
     explicit FReply(bool handled) : bHandled(handled) {}
@@ -52,6 +56,13 @@ struct FReply {
     FReply& ClearKeyboardFocus() {
         FocusTarget.reset();
         bClearKeyboardFocus = true;
+        return *this;
+    }
+
+    FReply& DetectDrag(const std::shared_ptr<ImWidget>& widget, EMouseButton button) {
+        DragDetectTarget = widget;
+        DragDetectButton = button;
+        bDetectDrag = true;
         return *this;
     }
 };

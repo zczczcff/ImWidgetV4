@@ -3,6 +3,7 @@
 add_subdirectory(ButtonDemo)
 add_subdirectory(BoxPanelDemo)
 add_subdirectory(CanvasPanelDemo)
+add_subdirectory(DragDropDemo)
 add_subdirectory(ExpandableBoxDemo)
 add_subdirectory(ImageDemo)
 add_subdirectory(InputWidgetsDemo)

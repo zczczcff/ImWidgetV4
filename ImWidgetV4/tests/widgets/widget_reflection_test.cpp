@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Slot.h>
+#include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/ButtonStyle.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
@@ -304,4 +305,11 @@ TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)
     ImImage restoredImage;
     restoredImage.FromJson(imageJson);
     EXPECT_EQ(restoredImage.GetStretchMode(), EImageStretchMode::Fill);
+}
+
+TEST(WidgetReflectionTest, DragDropPayloadIsReflectable)
+{
+    FDragDropPayload payload;
+    json serialized = payload.ToJson();
+    EXPECT_EQ(serialized["Type"], "FDragDropPayload");
 }

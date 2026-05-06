@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Reply.h>
 #include <imwidgetv4/core/Types.h>
@@ -63,6 +64,10 @@ public:
 
     void SetGeometry(const FGeometry& geometry) { m_Geometry = geometry; }
     const FGeometry& GetGeometry() const { return m_Geometry; }
+
+    virtual std::shared_ptr<FDragDropOperation> OnDragDetected(const FDragDetectEvent& event);
+    virtual FReply OnPreviewDragEvent(const FDragDropEvent& event);
+    virtual FReply OnDragEvent(const FDragDropEvent& event);
 
     virtual FReply OnPreviewInputEvent(const FInputEvent& event);
     virtual FReply OnInputEvent(const FInputEvent& event);

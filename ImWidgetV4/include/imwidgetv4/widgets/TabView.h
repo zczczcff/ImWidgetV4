@@ -230,6 +230,8 @@ private:
     float TabScrollOffset_ = 0.0f;
     bool bEnsureActiveTabVisible_ = false;
     bool bLayoutDirty_ = true;
+    bool bHasLastLayoutGeometry_ = false;
+    FGeometry LastLayoutGeometry_;
     ETabCloseActivationPolicy CloseActivationPolicy_ = ETabCloseActivationPolicy::LeftNeighbor;
     std::vector<int> ActivationHistory_;
 };

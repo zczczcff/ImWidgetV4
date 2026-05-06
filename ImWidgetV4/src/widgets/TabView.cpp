@@ -11,6 +11,7 @@ namespace ImWidgetV4 {
 namespace {
 
 constexpr double TabDoubleClickThresholdSeconds = 0.35;
+constexpr float LayoutGeometryEpsilon = 0.01f;
 
 FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& margin, float borderThickness)
 {
@@ -24,6 +25,19 @@ FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& margin, float 
         FVector2(
             std::max(0.0f, geometry.Size.X - left - right),
             std::max(0.0f, geometry.Size.Y - top - bottom)));
+}
+
+bool NearlyEqual(float left, float right)
+{
+    return std::fabs(left - right) <= LayoutGeometryEpsilon;
+}
+
+bool AreGeometriesEquivalent(const FGeometry& left, const FGeometry& right)
+{
+    return NearlyEqual(left.Position.X, right.Position.X) &&
+           NearlyEqual(left.Position.Y, right.Position.Y) &&
+           NearlyEqual(left.Size.X, right.Size.X) &&
+           NearlyEqual(left.Size.Y, right.Size.Y);
 }
 
 } // namespace
@@ -676,10 +690,14 @@ int& ImTabView::GetCloseActivationPolicyProperty()
 
 void ImTabView::Relayout()
 {
-    if (!bLayoutDirty_) {
+    if (!bLayoutDirty_ &&
+        bHasLastLayoutGeometry_ &&
+        AreGeometriesEquivalent(LastLayoutGeometry_, m_Geometry)) {
         return;
     }
 
+    LastLayoutGeometry_ = m_Geometry;
+    bHasLastLayoutGeometry_ = true;
     UpdateRegisteredActiveContent();
 
     const FGeometry innerGeometry = GetInnerGeometry();

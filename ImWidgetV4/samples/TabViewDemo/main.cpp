@@ -332,8 +332,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         });
         items.push_back(FPopupMenuItem {
             item->bDirty ? "Mark Clean" : "Mark Dirty",
-            item->bDirty 
-    app->GetCoreIconBrush(ECoreIcon::Unlock) : app->GetCoreIconBrush(ECoreIcon::Lock),
+            item->bDirty
+                ? app->GetCoreIconBrush(ECoreIcon::Unlock)
+                : app->GetCoreIconBrush(ECoreIcon::Lock),
             {},
             true,
             false,

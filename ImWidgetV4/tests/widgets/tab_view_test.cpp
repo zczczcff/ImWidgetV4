@@ -265,6 +265,59 @@ TEST_F(TabViewTest, DisabledAndOverflowTabsDoNotActivate)
     EXPECT_EQ(View->GetActiveTabIndex(), activeBeforeDisabledClick);
 }
 
+TEST_F(TabViewTest, GeometryResizeTriggersRelayoutWithoutExplicitDirty)
+{
+    auto first = std::make_shared<TestContentWidget>();
+    auto second = std::make_shared<TestContentWidget>();
+    View->AddTab("First", first);
+    View->AddTab("Second", second);
+    View->SetActiveTab(1);
+
+    Advance({}, FVector2(260.0f, 180.0f));
+    const FGeometry initialViewGeometry = View->GetGeometry();
+    const FGeometry initialContentGeometry = second->GetGeometry();
+    EXPECT_LT(initialContentGeometry.Position.Y, initialViewGeometry.GetMax().Y);
+    EXPECT_LE(initialContentGeometry.GetMax().X, initialViewGeometry.GetMax().X + 0.01f);
+
+    Advance({}, FVector2(420.0f, 240.0f));
+    const FGeometry resizedViewGeometry = View->GetGeometry();
+    const FGeometry resizedContentGeometry = second->GetGeometry();
+
+    EXPECT_GT(resizedViewGeometry.Size.X, initialViewGeometry.Size.X);
+    EXPECT_GT(resizedContentGeometry.Size.X, initialContentGeometry.Size.X);
+    EXPECT_GT(resizedContentGeometry.Size.Y, initialContentGeometry.Size.Y);
+    EXPECT_GE(resizedContentGeometry.Position.Y, resizedViewGeometry.Position.Y + 20.0f);
+    EXPECT_LE(resizedContentGeometry.GetMax().X, resizedViewGeometry.GetMax().X + 0.01f);
+    EXPECT_LE(resizedContentGeometry.GetMax().Y, resizedViewGeometry.GetMax().Y + 0.01f);
+}
+
+TEST_F(TabViewTest, WideningViewportRelayoutsTabStripAndRevealsPreviouslyHiddenTabs)
+{
+    FTabViewStyle style = MakeCompactStyle();
+    style.TabMinWidth = 70.0f;
+    View->SetStyle(style);
+
+    View->AddTab("First", std::make_shared<TestContentWidget>());
+    View->AddTab("Second", std::make_shared<TestContentWidget>());
+    View->AddTab("Third", std::make_shared<TestContentWidget>());
+
+    Advance({}, FVector2(150.0f, 120.0f));
+    EXPECT_EQ(View->GetActiveTabIndex(), 0);
+
+    Advance({
+        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(138.0f, 14.0f)),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(138.0f, 14.0f))
+    }, FVector2(150.0f, 120.0f));
+    EXPECT_EQ(View->GetActiveTabIndex(), 0);
+
+    Advance({}, FVector2(320.0f, 120.0f));
+    Advance({
+        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(180.0f, 14.0f)),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(180.0f, 14.0f))
+    }, FVector2(320.0f, 120.0f));
+    EXPECT_EQ(View->GetActiveTabIndex(), 2);
+}
+
 TEST_F(TabViewTest, CloseButtonRemovesTabAndBroadcastsClose)
 {
     auto first = std::make_shared<TestContentWidget>();

@@ -51,6 +51,8 @@ public:
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool DeleteSelectedWidget();
+    bool CopySelectedWidget();
+    bool PasteCopiedWidget();
     bool DuplicateSelectedWidget();
     bool Undo();
     bool Redo();
@@ -133,6 +135,8 @@ private:
     std::unique_ptr<FDocumentSnapshot> m_PendingGestureSnapshot;
     std::string m_PendingGestureLabel;
     std::weak_ptr<ImWidgetV4::ImWidget> m_PendingGestureSelection;
+    json m_CopiedWidgetJson;
+    bool m_bHasCopiedWidget = false;
 };
 
 } // namespace ImWidgetV4Editor

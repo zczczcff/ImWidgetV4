@@ -332,6 +332,17 @@ std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuNa
 std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorSession>& session)
 {
     return {
+        FApplicationMenuItem {"Copy", {}, {}, true, false, [session]() {
+            if (session) {
+                session->CopySelectedWidget();
+            }
+        }},
+        FApplicationMenuItem {"Paste", {}, {}, true, false, [session]() {
+            if (session) {
+                session->PasteCopiedWidget();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
         FApplicationMenuItem {"Undo", {}, {}, true, false, [session]() {
             if (session) {
                 session->Undo();

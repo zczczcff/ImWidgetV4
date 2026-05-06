@@ -43,7 +43,11 @@ FReply EditorShellHost::OnPreviewInputEvent(const FInputEvent& event)
     }
 
     bool bHandled = false;
-    if (event.Key == EKey::Z) {
+    if (event.Key == EKey::C && !event.Modifiers.bShift) {
+        bHandled = session->CopySelectedWidget();
+    } else if (event.Key == EKey::V && !event.Modifiers.bShift) {
+        bHandled = session->PasteCopiedWidget();
+    } else if (event.Key == EKey::Z) {
         bHandled = event.Modifiers.bShift
             ? session->Redo()
             : session->Undo();

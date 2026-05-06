@@ -534,6 +534,69 @@ bool EditorSession::DeleteSelectedWidget()
     return true;
 }
 
+bool EditorSession::CopySelectedWidget()
+{
+    auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+    if (!selectedWidget) {
+        LogStatus("Copy skipped: no widget selected.");
+        return false;
+    }
+
+    m_CopiedWidgetJson = WidgetSerializer::SerializeWidgetTree(selectedWidget);
+    m_bHasCopiedWidget = !m_CopiedWidgetJson.is_null();
+    if (!m_bHasCopiedWidget) {
+        LogStatus("Copy failed: selected widget could not be serialized.");
+        return false;
+    }
+
+    const std::string label = selectedWidget->GetName().empty()
+        ? selectedWidget->GetTypeName()
+        : selectedWidget->GetTypeName() + " [" + selectedWidget->GetName() + "]";
+    LogStatus("Copied " + label);
+    return true;
+}
+
+bool EditorSession::PasteCopiedWidget()
+{
+    if (!m_bHasCopiedWidget || m_CopiedWidgetJson.is_null()) {
+        LogStatus("Paste skipped: clipboard is empty.");
+        return false;
+    }
+
+    FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
+    if (!cloneResult.bSuccess || !cloneResult.Widget) {
+        LogStatus("Paste failed: " + (cloneResult.ErrorMessage.empty()
+            ? std::string("clipboard widget could not be restored.")
+            : cloneResult.ErrorMessage));
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> selectedWidget = m_DesignerSurface
+        ? m_DesignerSurface->GetSelectedWidget()
+        : nullptr;
+    FVector2 pastePosition(24.0f, 24.0f);
+    if (selectedWidget) {
+        pastePosition = selectedWidget->GetGeometry().Position + FVector2(24.0f, 24.0f);
+    } else if (m_Document && m_Document->GetRootWidget()) {
+        pastePosition = m_Document->GetRootWidget()->GetGeometry().Position + FVector2(24.0f, 24.0f);
+    }
+
+    const bool pasted = ExecuteDocumentMutation(
+        "Paste Widget",
+        [this, widget = cloneResult.Widget, pastePosition]() {
+            return InsertWidgetIntoDocument(widget, pastePosition);
+        },
+        cloneResult.Widget);
+    if (!pasted) {
+        LogStatus("Paste failed: current selection cannot accept the copied widget.");
+        return false;
+    }
+
+    RefreshDocumentViews(cloneResult.Widget);
+    LogStatus("Pasted " + cloneResult.Widget->GetTypeName());
+    return true;
+}
+
 bool EditorSession::DuplicateSelectedWidget()
 {
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
@@ -754,6 +817,37 @@ void EditorSession::HandleWidgetTreeContextMenuRequested(
     popupMenu->SetStyle(style);
 
     std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Copy",
+        FImageBrush(),
+        {},
+        true,
+        false,
+        [this, targetWidget]() {
+            if (m_DesignerSurface) {
+                m_DesignerSurface->SetSelectedWidget(targetWidget);
+            }
+            const bool bCopied = CopySelectedWidget();
+            CloseWidgetTreeContextMenu();
+            (void)bCopied;
+        }
+    });
+    items.push_back(FPopupMenuItem {
+        "Paste",
+        FImageBrush(),
+        {},
+        true,
+        false,
+        [this, targetWidget]() {
+            if (m_DesignerSurface) {
+                m_DesignerSurface->SetSelectedWidget(targetWidget);
+            }
+            const bool bPasted = PasteCopiedWidget();
+            CloseWidgetTreeContextMenu();
+            (void)bPasted;
+        }
+    });
+    items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
     items.push_back(FPopupMenuItem {
         "Duplicate",
         FImageBrush(),

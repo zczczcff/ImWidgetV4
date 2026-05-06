@@ -510,6 +510,13 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
                     .SetKeyboardFocus(shared_from_this())
                     .CaptureMouse(shared_from_this(), EMouseButton::Left);
             }
+        } else if (event.MouseButton == EMouseButton::Right) {
+            const int tabIndex = ResolveTabIndexAt(event.MousePosition);
+            if (tabIndex >= 0 && IsTabEnabled(tabIndex)) {
+                SetActiveTab(tabIndex);
+                OnTabContextMenuRequested.Broadcast(*this, tabIndex, event.MousePosition);
+                return FReply::Handled().SetKeyboardFocus(shared_from_this());
+            }
         }
         return FReply::Unhandled();
 

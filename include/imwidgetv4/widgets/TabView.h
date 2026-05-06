@@ -108,6 +108,7 @@ class ImTabView : public ImWidget {
 
 public:
     using FTabEvent = TMulticastDelegate<ImTabView&, int>;
+    using FContextMenuRequestedEvent = TMulticastDelegate<ImTabView&, int, FVector2>;
 
     ImTabView();
     virtual ~ImTabView() = default;
@@ -136,6 +137,7 @@ public:
     FTabEvent OnActiveTabChanged;
     FTabEvent OnTabInvoked;
     FTabEvent OnTabClosed;
+    FContextMenuRequestedEvent OnTabContextMenuRequested;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;

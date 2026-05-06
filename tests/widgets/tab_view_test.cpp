@@ -326,6 +326,29 @@ TEST_F(TabViewTest, KeyboardNavigationSupportsCtrlTabAndHomeEnd)
     EXPECT_EQ(View->GetActiveTabIndex(), 0);
 }
 
+TEST_F(TabViewTest, RightClickActivatesTabAndBroadcastsContextMenuRequest)
+{
+    View->AddTab("One", std::make_shared<TestContentWidget>());
+    View->AddTab("Two", std::make_shared<TestContentWidget>());
+    Advance({});
+
+    int requestedIndex = -1;
+    FVector2 requestedPosition(-1.0f, -1.0f);
+    View->OnTabContextMenuRequested.AddLambda([&](ImTabView&, int index, FVector2 position) {
+        requestedIndex = index;
+        requestedPosition = position;
+    });
+
+    const FVector2 secondTabPoint(90.0f, 14.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Right)});
+
+    EXPECT_EQ(View->GetActiveTabIndex(), 1);
+    EXPECT_EQ(requestedIndex, 1);
+    EXPECT_EQ(requestedPosition.X, secondTabPoint.X);
+    EXPECT_EQ(requestedPosition.Y, secondTabPoint.Y);
+    EXPECT_EQ(App->GetKeyboardFocus(), View);
+}
+
 TEST_F(TabViewTest, RemovingActiveTabClearsFocusAndCaptureFromItsContent)
 {
     auto first = std::make_shared<TestContentWidget>();

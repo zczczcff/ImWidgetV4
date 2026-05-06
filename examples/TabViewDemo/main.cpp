@@ -3,6 +3,7 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -168,6 +169,160 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         }
     });
     root->AddChildFill(iconTabs, 1.0f, FMargin(18.0f, 0.0f, 18.0f, 18.0f));
+
+    std::shared_ptr<ImPopupMenu> tabContextMenu;
+    std::shared_ptr<ImWindow> tabContextPopupWindow;
+    const auto closeTabContextMenu = [&]() {
+        if (tabContextPopupWindow) {
+            if (tabContextPopupWindow->IsOpen()) {
+                app->GetWindowManager().CloseWindow(tabContextPopupWindow);
+            }
+            tabContextPopupWindow.reset();
+        }
+        tabContextMenu.reset();
+    };
+
+    const auto openTabContextMenu = [&](const std::shared_ptr<ImTabView>& tabView, int index, const FVector2& position) {
+        const FTabViewItem* item = tabView->GetTab(index);
+        if (item == nullptr) {
+            return;
+        }
+
+        closeTabContextMenu();
+
+        auto menu = std::make_shared<ImPopupMenu>();
+        FPopupMenuStyle menuStyle;
+        menuStyle.MinDesiredSize = FVector2(180.0f, 36.0f);
+
+        const bool canCloseThis = tabView->IsTabClosable(index);
+        bool canCloseOthers = false;
+        bool canCloseAny = false;
+        for (int tabIndex = 0; tabIndex < tabView->GetTabCount(); ++tabIndex) {
+            if (tabView->IsTabClosable(tabIndex)) {
+                canCloseAny = true;
+                if (tabIndex != index) {
+                    canCloseOthers = true;
+                }
+            }
+        }
+
+        std::vector<FPopupMenuItem> items;
+        items.push_back(FPopupMenuItem {
+            "Close",
+            app->GetCoreIconBrush(ECoreIcon::Remove),
+            {},
+            canCloseThis,
+            false,
+            [tabView, status, index, closeTabContextMenu]() {
+                const FTabViewItem* current = tabView->GetTab(index);
+                if (current != nullptr && tabView->IsTabClosable(index)) {
+                    const std::string title = current->Title;
+                    tabView->RemoveTab(index);
+                    status->SetText("Status: closed tab \"" + title + "\" from context menu.");
+                }
+                closeTabContextMenu();
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Close Others",
+            app->GetCoreIconBrush(ECoreIcon::Trash),
+            {},
+            canCloseOthers,
+            false,
+            [tabView, status, index, closeTabContextMenu]() {
+                const FTabViewItem* current = tabView->GetTab(index);
+                const std::string title = current != nullptr ? current->Title : std::string("Unknown");
+                for (int tabIndex = tabView->GetTabCount() - 1; tabIndex >= 0; --tabIndex) {
+                    if (tabIndex != index && tabView->IsTabClosable(tabIndex)) {
+                        tabView->RemoveTab(tabIndex);
+                    }
+                }
+                status->SetText("Status: kept only \"" + title + "\" among closable tabs.");
+                closeTabContextMenu();
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Close All Closable",
+            app->GetCoreIconBrush(ECoreIcon::Trash),
+            {},
+            canCloseAny,
+            false,
+            [tabView, status, closeTabContextMenu]() {
+                int closedCount = 0;
+                for (int tabIndex = tabView->GetTabCount() - 1; tabIndex >= 0; --tabIndex) {
+                    if (tabView->IsTabClosable(tabIndex)) {
+                        tabView->RemoveTab(tabIndex);
+                        ++closedCount;
+                    }
+                }
+                status->SetText("Status: closed " + std::to_string(closedCount) + " closable tab(s).");
+                closeTabContextMenu();
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            std::string(),
+            FImageBrush(),
+            {},
+            true,
+            true,
+            {}
+        });
+        items.push_back(FPopupMenuItem {
+            item->bDirty ? "Mark Clean" : "Mark Dirty",
+            item->bDirty ? app->GetCoreIconBrush(ECoreIcon::Unlock) : app->GetCoreIconBrush(ECoreIcon::Lock),
+            {},
+            true,
+            false,
+            [tabView, status, index, closeTabContextMenu]() {
+                const bool wasDirty = tabView->IsTabDirty(index);
+                tabView->SetTabDirty(index, !wasDirty);
+                const FTabViewItem* current = tabView->GetTab(index);
+                if (current != nullptr) {
+                    status->SetText(
+                        std::string("Status: tab \"") + current->Title + "\" marked " + (!wasDirty ? "dirty." : "clean."));
+                }
+                closeTabContextMenu();
+            }
+        });
+
+        menu->SetStyle(menuStyle);
+        menu->SetItems(std::move(items));
+        menu->OnItemInvoked.AddLambda([closeTabContextMenu](ImPopupMenu&, int) {
+            closeTabContextMenu();
+        });
+
+        const std::shared_ptr<ImWindow> parentWindow =
+            app->GetWindowManager().FindWindowForWidget(std::static_pointer_cast<ImWidget>(tabView));
+        if (!parentWindow) {
+            return;
+        }
+
+        FPopupOptions popupOptions;
+        popupOptions.Title = "TabContextMenu";
+        popupOptions.Position = position;
+        popupOptions.Size = menu->GetMinSize();
+        popupOptions.RootWidget = menu;
+        popupOptions.ParentWindow = parentWindow;
+        popupOptions.Style.BackgroundColor = menuStyle.BackgroundColor;
+        popupOptions.Style.InactiveBackgroundColor = menuStyle.BackgroundColor;
+        popupOptions.Style.BorderColor = menuStyle.BorderColor;
+        popupOptions.Style.ActiveBorderColor = menuStyle.BorderColor;
+        popupOptions.Style.CornerRadius = menuStyle.CornerRadius;
+        popupOptions.Style.BorderThickness = menuStyle.BorderThickness;
+        popupOptions.Style.bDrawShadow = true;
+        popupOptions.Style.ShadowColor = FColor(0.0f, 0.0f, 0.0f, 0.18f);
+        popupOptions.Style.ShadowOffset = FVector2(0.0f, 10.0f);
+
+        tabContextMenu = menu;
+        tabContextPopupWindow = app->GetWindowManager().CreatePopup(popupOptions);
+    };
+
+    textTabs->OnTabContextMenuRequested.AddLambda([&](ImTabView&, int index, FVector2 position) {
+        openTabContextMenu(textTabs, index, position);
+    });
+    iconTabs->OnTabContextMenuRequested.AddLambda([&](ImTabView&, int index, FVector2 position) {
+        openTabContextMenu(iconTabs, index, position);
+    });
 
     auto dynamicCounter = std::make_shared<int>(1);
     addTabButton->OnClicked.AddLambda([textTabs, status, dynamicCounter](ImButton&) {

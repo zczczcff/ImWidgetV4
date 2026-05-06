@@ -8,6 +8,7 @@
 #include <string>
 
 namespace ImWidgetV4 {
+struct FDragDropOperation;
 class ImDesignerSurface;
 class ImScrollBox;
 class ImTabView;
@@ -51,8 +52,17 @@ private:
     void HandleDesignerSelectionChanged(
         ImWidgetV4::ImDesignerSurface& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void HandleDesignerDrop(
+        ImWidgetV4::ImDesignerSurface& designerSurface,
+        const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
+        const ImWidgetV4::FVector2& position,
+        bool& bHandled);
     void UpdateSelectionDetails(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     std::filesystem::path ResolveDialogDirectory() const;
+    std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
+    bool InsertWidgetIntoDocument(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const ImWidgetV4::FVector2& dropPosition);
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
     std::shared_ptr<EditorDocument> m_Document;

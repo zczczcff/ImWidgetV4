@@ -11,6 +11,11 @@ class ImDesignerSurface : public ImUserWidget {
 
 public:
     using FSelectionChangedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>>;
+    using FDropEvent = TMulticastDelegate<
+        ImDesignerSurface&,
+        const std::shared_ptr<FDragDropOperation>&,
+        const FVector2&,
+        bool&>;
 
     ImDesignerSurface();
     virtual ~ImDesignerSurface() = default;
@@ -32,9 +37,11 @@ public:
     float GetSelectionBorderThickness() const { return m_SelectionBorderThickness; }
 
     FSelectionChangedEvent OnSelectionChanged;
+    FDropEvent OnDropReceived;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
+    virtual FReply OnDragEvent(const FDragDropEvent& event) override;
 
 private:
     std::shared_ptr<ImWidget> ResolveSelectableWidgetAt(const FVector2& position) const;

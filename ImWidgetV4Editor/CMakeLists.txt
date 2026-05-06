@@ -13,6 +13,8 @@ add_executable(ImWidgetV4Editor
     src/editor/EditorSession.cpp
     src/inspector/ReflectionDetailsView.cpp
     src/main.cpp
+    src/palette/WidgetPaletteDragDrop.cpp
+    src/palette/WidgetPaletteView.cpp
     src/serialization/WidgetFactory.cpp
     src/serialization/WidgetSerializer.cpp
     src/tree/DocumentTreeViewBinder.cpp

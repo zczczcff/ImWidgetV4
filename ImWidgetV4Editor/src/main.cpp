@@ -1,5 +1,6 @@
 #include "editor/EditorSession.h"
 #include "inspector/ReflectionDetailsView.h"
+#include "palette/WidgetPaletteView.h"
 #include "tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/core/Application.h>
@@ -79,40 +80,19 @@ FTextOutlineViewStyle MakeDockOutlineStyle()
     return style;
 }
 
-std::shared_ptr<ImTextOutlineView> BuildControlPalettePanel()
+std::shared_ptr<ImWidget> BuildControlPalettePanel()
 {
-    auto outline = std::make_shared<ImTextOutlineView>();
-    outline->SetSupportsKeyboardFocus(true);
-    outline->SetStyle(MakeDockOutlineStyle());
-
-    ImTextOutlineItem* layout = outline->AddRootItem("Layout");
-    layout->Expanded = true;
-    outline->AddChildItem(layout, "HorizontalBox");
-    outline->AddChildItem(layout, "VerticalBox");
-    outline->AddChildItem(layout, "CanvasPanel");
-    outline->AddChildItem(layout, "ScrollBox");
-    outline->AddChildItem(layout, "TabView");
-
-    ImTextOutlineItem* display = outline->AddRootItem("Display");
-    display->Expanded = true;
-    outline->AddChildItem(display, "TextBlock");
-    outline->AddChildItem(display, "Image");
-    outline->AddChildItem(display, "Border");
-    outline->AddChildItem(display, "ExpandableBox");
-
-    ImTextOutlineItem* input = outline->AddRootItem("Input");
-    input->Expanded = true;
-    outline->AddChildItem(input, "Button");
-    outline->AddChildItem(input, "Switch");
-    outline->AddChildItem(input, "CheckBox");
-    outline->AddChildItem(input, "Slider");
-    outline->AddChildItem(input, "EditableText");
-
-    outline->SetSelectedItem(layout);
-    return outline;
+    auto host = std::make_shared<ImScrollBox>();
+    FScrollBoxStyle style = host->GetStyle();
+    style.Padding = FMargin(6.0f);
+    style.BorderThickness = 0.0f;
+    style.CornerRadius = 0.0f;
+    host->SetStyle(style);
+    host->SetContent(BuildWidgetPaletteView());
+    return host;
 }
 
-std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
+std::shared_ptr<ImWidget> BuildProjectViewPanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
@@ -137,7 +117,7 @@ std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
     return outline;
 }
 
-std::shared_ptr<ImTextOutlineView> BuildWidgetTreePanel()
+std::shared_ptr<ImWidget> BuildWidgetTreePanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);

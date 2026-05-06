@@ -1,13 +1,21 @@
 #include "EditorSession.h"
 #include "../inspector/ReflectionDetailsView.h"
+#include "../palette/WidgetPaletteDragDrop.h"
+#include "../serialization/WidgetFactory.h"
 #include "../tree/DocumentTreeViewBinder.h"
 
+#include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
 #include <filesystem>
 
 namespace ImWidgetV4Editor {
@@ -83,6 +91,14 @@ void EditorSession::BindDocumentWidgets(
         m_DesignerSurface->OnSelectionChanged.AddLambda(
             [this](ImDesignerSurface& designerSurfaceRef, std::shared_ptr<ImWidget> selectedWidget) {
                 HandleDesignerSelectionChanged(designerSurfaceRef, selectedWidget);
+            });
+        m_DesignerSurface->OnDropReceived.Clear();
+        m_DesignerSurface->OnDropReceived.AddLambda(
+            [this](ImDesignerSurface& designerSurfaceRef,
+                   const std::shared_ptr<FDragDropOperation>& operation,
+                   const FVector2& position,
+                   bool& bHandled) {
+                HandleDesignerDrop(designerSurfaceRef, operation, position, bHandled);
             });
     }
     if (m_DetailsView) {
@@ -268,6 +284,51 @@ void EditorSession::HandleDesignerSelectionChanged(
     LogStatus("Selected " + label);
 }
 
+void EditorSession::HandleDesignerDrop(
+    ImDesignerSurface&,
+    const std::shared_ptr<FDragDropOperation>& operation,
+    const FVector2& position,
+    bool& bHandled)
+{
+    if (!operation || !operation->Payload) {
+        return;
+    }
+
+    auto payload = std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload);
+    if (!payload) {
+        return;
+    }
+
+    auto widget = CreatePaletteWidget(payload->WidgetTypeName);
+    if (!widget) {
+        LogStatus("Create failed: unsupported widget type " + payload->WidgetTypeName);
+        return;
+    }
+
+    bHandled = InsertWidgetIntoDocument(widget, position);
+    if (!bHandled) {
+        LogStatus("Drop rejected by current document root.");
+        return;
+    }
+
+    if (m_Document) {
+        m_Document->SetDirty(true);
+    }
+    if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
+        m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
+        m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
+    }
+    if (m_TreeBinder) {
+        m_TreeBinder->RebuildFromRoot(
+            m_Document ? m_Document->GetRootWidget() : nullptr,
+            widget);
+    }
+    if (m_DesignerSurface) {
+        m_DesignerSurface->SetSelectedWidget(widget);
+    }
+    LogStatus("Created " + payload->Label);
+}
+
 void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     if (m_DetailsView) {
@@ -315,6 +376,94 @@ std::filesystem::path EditorSession::ResolveDialogDirectory() const
     }
 
     return std::filesystem::current_path();
+}
+
+std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& typeName) const
+{
+    auto widget = WidgetFactory::Get().CreateWidget(typeName);
+    if (!widget) {
+        return nullptr;
+    }
+
+    if (widget->GetName().empty()) {
+        std::string baseName = typeName;
+        if (baseName.rfind("Im", 0) == 0) {
+            baseName = baseName.substr(2);
+        }
+        widget->SetName(baseName);
+    }
+
+    if (auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(widget)) {
+        textBlock->SetText("Text");
+    } else if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
+        button->SetText("Button");
+    } else if (auto checkBox = std::dynamic_pointer_cast<ImCheckBox>(widget)) {
+        checkBox->SetLabel("CheckBox");
+    } else if (auto editableText = std::dynamic_pointer_cast<ImEditableText>(widget)) {
+        editableText->SetText("EditableText");
+    }
+
+    return widget;
+}
+
+bool EditorSession::InsertWidgetIntoDocument(
+    const std::shared_ptr<ImWidget>& widget,
+    const FVector2& dropPosition)
+{
+    if (!m_Document || !widget) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root) {
+        m_Document->SetRootWidget(widget);
+        if (m_DesignerSurface) {
+            m_DesignerSurface->SetContentRoot(widget);
+        }
+        return true;
+    }
+
+    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(root)) {
+        const FGeometry geometry = canvas->GetGeometry();
+        FVector2 relativePosition(0.05f, 0.05f);
+        if (geometry.Size.X > 0.0f && geometry.Size.Y > 0.0f) {
+            relativePosition = FVector2(
+                std::clamp((dropPosition.X - geometry.Position.X) / geometry.Size.X, 0.0f, 0.95f),
+                std::clamp((dropPosition.Y - geometry.Position.Y) / geometry.Size.Y, 0.0f, 0.95f));
+        }
+        canvas->AddChildAt(widget, relativePosition);
+        return true;
+    }
+
+    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(root)) {
+        verticalBox->AddChild(widget);
+        return true;
+    }
+
+    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(root)) {
+        horizontalBox->AddChild(widget);
+        return true;
+    }
+
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(root)) {
+        if (!scrollBox->GetContent()) {
+            scrollBox->SetContent(widget);
+            return true;
+        }
+
+        if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
+            contentVerticalBox->AddChild(widget);
+            return true;
+        }
+
+        auto wrapper = std::make_shared<ImVerticalBox>();
+        wrapper->AddChild(scrollBox->GetContent());
+        wrapper->AddChild(widget);
+        scrollBox->SetContent(wrapper);
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace ImWidgetV4Editor

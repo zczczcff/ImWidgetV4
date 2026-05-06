@@ -92,6 +92,22 @@ FReply ImDesignerSurface::OnInputEvent(const FInputEvent& event)
     return ImUserWidget::OnInputEvent(event);
 }
 
+FReply ImDesignerSurface::OnDragEvent(const FDragDropEvent& event)
+{
+    if (event.Type == EDragDropEventType::DragEnter ||
+        event.Type == EDragDropEventType::DragOver) {
+        return FReply::Handled();
+    }
+
+    if (event.Type == EDragDropEventType::Drop) {
+        bool bHandled = false;
+        OnDropReceived.Broadcast(*this, event.Operation, event.CurrentPosition, bHandled);
+        return bHandled ? FReply::Handled() : FReply::Unhandled();
+    }
+
+    return FReply::Unhandled();
+}
+
 std::shared_ptr<ImWidget> ImDesignerSurface::ResolveSelectableWidgetAt(const FVector2& position) const
 {
     std::shared_ptr<ImWidget> contentRoot = GetContentRoot();

@@ -37,6 +37,7 @@ public:
         const std::shared_ptr<ImWidgetV4::ImTabView>& documentTabs,
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
+        const std::shared_ptr<ImWidgetV4::ImScrollBox>& previewHost,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
@@ -99,6 +100,7 @@ private:
     bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void RefreshPreview();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     FDocumentSnapshot CaptureDocumentSnapshot() const;
     bool ExecuteDocumentMutation(
@@ -123,6 +125,7 @@ private:
     std::shared_ptr<EditorDocument> m_Document;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
+    std::shared_ptr<ImWidgetV4::ImScrollBox> m_PreviewHost;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;

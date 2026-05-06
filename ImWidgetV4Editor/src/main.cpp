@@ -31,6 +31,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<EditorShellHost> ShellHost;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
+    std::shared_ptr<ImScrollBox> PreviewHost;
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
@@ -124,6 +125,18 @@ std::shared_ptr<ImWidget> BuildWidgetTreePanel()
     outline->SetSupportsKeyboardFocus(true);
     outline->SetStyle(MakeDockOutlineStyle());
     return outline;
+}
+
+std::shared_ptr<ImScrollBox> BuildPreviewHost()
+{
+    auto previewHost = std::make_shared<ImScrollBox>();
+    FScrollBoxStyle style = previewHost->GetStyle();
+    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
+    style.BorderThickness = 0.0f;
+    style.CornerRadius = 0.0f;
+    style.Padding = FMargin(0.0f);
+    previewHost->SetStyle(style);
+    return previewHost;
 }
 
 std::shared_ptr<ImTabView> BuildLeftDockTabs()
@@ -237,11 +250,10 @@ FEditorShellWidgets BuildEditorShell()
     documentHost->SetStyle(scrollStyle);
 
     auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto previewHost = BuildPreviewHost();
     const int mainDocumentTabIndex = documentTabs->AddTab("Main.ui", documentHost);
     documentHost->SetContent(designerSurface);
-    documentTabs->AddTab("Preview", MakeSimplePanel(
-        "Live Preview",
-        "Runtime preview will be mounted here so the editor can inspect the same widget tree rendered by the core library."));
+    documentTabs->AddTab("Preview", previewHost);
     documentTabs->AddTab("PropertiesSchema", MakeSimplePanel(
         "Schema Notes",
         "Reflection-backed metadata, property editors and drag/drop payload inspection can share this workspace during early editor development."));
@@ -270,6 +282,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.ShellHost = shellHost;
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
+    shell.PreviewHost = previewHost;
     shell.DesignerSurface = designerSurface;
     shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
@@ -360,6 +373,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.DocumentTabs,
         shell.MainDocumentTabIndex,
         shell.DocumentHost,
+        shell.PreviewHost,
         shell.DesignerSurface,
         shell.WidgetTreeView,
         shell.DetailsView,

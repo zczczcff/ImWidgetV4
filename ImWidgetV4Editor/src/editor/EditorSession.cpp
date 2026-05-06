@@ -3,6 +3,7 @@
 #include "../inspector/ReflectionDetailsView.h"
 #include "../palette/WidgetPaletteDragDrop.h"
 #include "../serialization/WidgetFactory.h"
+#include "../serialization/WidgetSerializer.h"
 #include "../tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/widgets/Button.h>
@@ -127,6 +128,7 @@ void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ImTabView>& documentTabs,
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
+    const std::shared_ptr<ImScrollBox>& previewHost,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
@@ -135,6 +137,7 @@ void EditorSession::BindDocumentWidgets(
     m_DocumentTabs = documentTabs;
     m_DocumentTabIndex = documentTabIndex;
     m_DocumentHost = documentHost;
+    m_PreviewHost = previewHost;
     m_DesignerSurface = designerSurface;
     m_WidgetTreeView = widgetTreeView;
     m_DetailsView = detailsView;
@@ -470,6 +473,8 @@ void EditorSession::ApplyDocumentToUi()
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
     }
 
+    RefreshPreview();
+
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
             m_Document ? m_Document->GetRootWidget() : nullptr,
@@ -700,6 +705,8 @@ bool EditorSession::ApplyDocumentSnapshot(
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document->IsDirty());
     }
 
+    RefreshPreview();
+
     return true;
 }
 
@@ -844,6 +851,8 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
         m_DocumentHost->SetContent(m_Document ? m_Document->GetRootWidget() : nullptr);
     }
 
+    RefreshPreview();
+
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
             m_Document ? m_Document->GetRootWidget() : nullptr,
@@ -855,6 +864,30 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
         m_DetailsView->Rebuild();
     }
     UpdateSelectionDetails(selectedWidget);
+}
+
+void EditorSession::RefreshPreview()
+{
+    if (!m_PreviewHost) {
+        return;
+    }
+
+    if (!m_Document || !m_Document->GetRootWidget()) {
+        m_PreviewHost->SetContent(nullptr);
+        return;
+    }
+
+    const json previewRootJson = WidgetSerializer::SerializeWidgetTree(m_Document->GetRootWidget());
+    FWidgetSerializationResult previewResult = WidgetSerializer::DeserializeWidgetTree(previewRootJson);
+    if (!previewResult.bSuccess) {
+        m_PreviewHost->SetContent(nullptr);
+        if (!previewResult.ErrorMessage.empty()) {
+            LogStatus("Preview refresh failed: " + previewResult.ErrorMessage);
+        }
+        return;
+    }
+
+    m_PreviewHost->SetContent(previewResult.Widget);
 }
 
 EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot() const
@@ -888,6 +921,8 @@ bool EditorSession::ExecuteDocumentMutation(
     if (preferredSelection) {
         ApplySelectionToUi(preferredSelection);
     }
+
+    RefreshPreview();
 
     FDocumentSnapshot afterSnapshot = CaptureDocumentSnapshot();
     if (preferredSelection) {

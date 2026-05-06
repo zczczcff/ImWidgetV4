@@ -188,6 +188,37 @@ void EditorSession::BindDocumentWidgets(
                    bool& bHandled) {
                 HandleDesignerDrop(designerSurfaceRef, operation, position, bHandled);
             });
+        m_DesignerSurface->OnTransformStarted.Clear();
+        m_DesignerSurface->OnTransformStarted.AddLambda(
+            [this](
+                ImDesignerSurface&,
+                std::shared_ptr<ImWidget> widget,
+                EDesignerTransformHandle handle) {
+                const std::string commandLabel =
+                    handle == EDesignerTransformHandle::ResizeBottomRight
+                        ? "Resize Widget"
+                        : "Move Widget";
+                BeginDocumentGesture(commandLabel, widget);
+            });
+        m_DesignerSurface->OnTransformFinished.Clear();
+        m_DesignerSurface->OnTransformFinished.AddLambda(
+            [this](
+                ImDesignerSurface&,
+                std::shared_ptr<ImWidget> widget,
+                EDesignerTransformHandle,
+                bool bChanged) {
+                if (!bChanged) {
+                    CancelDocumentGesture();
+                    return;
+                }
+
+                if (CommitDocumentGesture(widget)) {
+                    UpdateSelectionDetails(widget);
+                    if (m_DetailsView) {
+                        m_DetailsView->Rebuild();
+                    }
+                }
+            });
     }
     if (m_DetailsView) {
         m_DetailsView->OnPropertiesChanged.Clear();
@@ -229,6 +260,7 @@ std::string EditorSession::GetDocumentTabTitle() const
 
 bool EditorSession::NewDocument()
 {
+    CancelDocumentGesture();
     m_Document = CreateDefaultDocument();
     m_CommandStack.Clear();
     ApplyDocumentToUi();
@@ -238,6 +270,7 @@ bool EditorSession::NewDocument()
 
 bool EditorSession::OpenDocument(ImApplication& app)
 {
+    CancelDocumentGesture();
     FOpenFileDialogOptions options;
     options.Title = "Open UI Document";
     options.InitialDirectory = ResolveDialogDirectory();
@@ -325,6 +358,7 @@ bool EditorSession::SaveDocumentAs(ImApplication& app)
 
 bool EditorSession::DeleteSelectedWidget()
 {
+    CancelDocumentGesture();
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
         LogStatus("Delete skipped: no widget selected.");
@@ -629,6 +663,7 @@ bool EditorSession::ApplyDocumentSnapshot(
     const std::vector<int>& selectionPath,
     bool bDirty)
 {
+    CancelDocumentGesture();
     if (!m_Document) {
         return false;
     }
@@ -868,6 +903,66 @@ bool EditorSession::ExecuteDocumentMutation(
         afterSnapshot.SelectionPath,
         afterSnapshot.bDirty));
     return true;
+}
+
+void EditorSession::BeginDocumentGesture(
+    const std::string& commandLabel,
+    const std::shared_ptr<ImWidget>& preferredSelection)
+{
+    if (!m_Document) {
+        return;
+    }
+
+    m_PendingGestureSnapshot = std::make_unique<FDocumentSnapshot>(CaptureDocumentSnapshot());
+    m_PendingGestureLabel = commandLabel;
+    m_PendingGestureSelection = preferredSelection;
+}
+
+bool EditorSession::CommitDocumentGesture(const std::shared_ptr<ImWidget>& preferredSelection)
+{
+    if (!m_Document || !m_PendingGestureSnapshot) {
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> selection = preferredSelection
+        ? preferredSelection
+        : m_PendingGestureSelection.lock();
+
+    FDocumentSnapshot afterSnapshot = CaptureDocumentSnapshot();
+    if (selection) {
+        afterSnapshot.SelectionPath = BuildSelectionPath(selection);
+    }
+
+    const bool bDocumentChanged =
+        m_PendingGestureSnapshot->DocumentJson != afterSnapshot.DocumentJson;
+    const bool bSelectionChanged =
+        m_PendingGestureSnapshot->SelectionPath != afterSnapshot.SelectionPath;
+    if (!bDocumentChanged && !bSelectionChanged) {
+        CancelDocumentGesture();
+        return false;
+    }
+
+    MarkDocumentDirty();
+    afterSnapshot.bDirty = m_Document->IsDirty();
+
+    m_CommandStack.PushExecuted(std::make_unique<DocumentSnapshotCommand>(
+        shared_from_this(),
+        m_PendingGestureLabel.empty() ? "Edit Widget" : m_PendingGestureLabel,
+        m_PendingGestureSnapshot->DocumentJson,
+        m_PendingGestureSnapshot->SelectionPath,
+        m_PendingGestureSnapshot->bDirty,
+        afterSnapshot.DocumentJson,
+        afterSnapshot.SelectionPath,
+        afterSnapshot.bDirty));
+    CancelDocumentGesture();
+    return true;
+}
+
+void EditorSession::CancelDocumentGesture()
+{
+    m_PendingGestureSnapshot.reset();
+    m_PendingGestureLabel.clear();
+    m_PendingGestureSelection.reset();
 }
 
 std::vector<int> EditorSession::BuildSelectionPath(const std::shared_ptr<ImWidget>& widget) const

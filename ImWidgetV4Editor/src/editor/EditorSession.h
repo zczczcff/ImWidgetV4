@@ -10,6 +10,7 @@
 #include <vector>
 
 namespace ImWidgetV4 {
+enum class EDesignerTransformHandle : std::uint8_t;
 struct FDragDropOperation;
 struct FPopupMenuItem;
 class ImDesignerSurface;
@@ -104,6 +105,11 @@ private:
         const std::string& commandLabel,
         const std::function<bool()>& mutation,
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection = nullptr);
+    void BeginDocumentGesture(
+        const std::string& commandLabel,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
+    bool CommitDocumentGesture(const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
+    void CancelDocumentGesture();
     std::vector<int> BuildSelectionPath(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
     bool BuildSelectionPathRecursive(
         const std::shared_ptr<ImWidgetV4::ImWidget>& current,
@@ -126,6 +132,9 @@ private:
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
     CommandStack m_CommandStack;
     int m_DocumentTabIndex = -1;
+    std::unique_ptr<FDocumentSnapshot> m_PendingGestureSnapshot;
+    std::string m_PendingGestureLabel;
+    std::weak_ptr<ImWidgetV4::ImWidget> m_PendingGestureSelection;
 };
 
 } // namespace ImWidgetV4Editor

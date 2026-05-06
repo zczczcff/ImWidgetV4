@@ -5,6 +5,15 @@
 
 namespace ImWidgetV4 {
 
+class ImCanvasPanel;
+class ImCanvasPanelSlot;
+
+enum class EDesignerTransformHandle : std::uint8_t {
+    None,
+    Move,
+    ResizeBottomRight
+};
+
 class ImDesignerSurface : public ImUserWidget {
     DECLARE_OBJECT_WITH_PARENT(ImDesignerSurface, ImUserWidget)
     END_DECLARE_OBJECT()
@@ -12,6 +21,15 @@ class ImDesignerSurface : public ImUserWidget {
 public:
     using FSelectionChangedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>>;
     using FDeleteRequestedEvent = TMulticastDelegate<ImDesignerSurface&>;
+    using FTransformStartedEvent = TMulticastDelegate<
+        ImDesignerSurface&,
+        std::shared_ptr<ImWidget>,
+        EDesignerTransformHandle>;
+    using FTransformFinishedEvent = TMulticastDelegate<
+        ImDesignerSurface&,
+        std::shared_ptr<ImWidget>,
+        EDesignerTransformHandle,
+        bool>;
     using FDropEvent = TMulticastDelegate<
         ImDesignerSurface&,
         const std::shared_ptr<FDragDropOperation>&,
@@ -39,9 +57,12 @@ public:
 
     FSelectionChangedEvent OnSelectionChanged;
     FDeleteRequestedEvent OnDeleteRequested;
+    FTransformStartedEvent OnTransformStarted;
+    FTransformFinishedEvent OnTransformFinished;
     FDropEvent OnDropReceived;
 
     virtual void Paint(const FPaintContext& paintContext) override;
+    virtual FReply OnPreviewInputEvent(const FInputEvent& event) override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
     virtual FReply OnDragEvent(const FDragDropEvent& event) override;
 
@@ -50,11 +71,26 @@ private:
     bool ContainsWidgetInContent(const std::shared_ptr<ImWidget>& widget) const;
     bool ContainsWidgetRecursive(const std::shared_ptr<ImWidget>& root, const std::shared_ptr<ImWidget>& target) const;
     void PaintSelectionOverlay(const FPaintContext& paintContext) const;
+    bool ResolveCanvasSelectionContext(std::shared_ptr<ImCanvasPanel>& outCanvas, ImCanvasPanelSlot*& outSlot) const;
+    EDesignerTransformHandle HitTestTransformHandle(const FVector2& position) const;
+    void UpdateHoveredTransformHandle(const FVector2& position);
+    bool BeginTransform(EDesignerTransformHandle handle, const FVector2& mousePosition);
+    bool UpdateTransform(const FVector2& mousePosition);
+    void EndTransform();
+    void CancelTransform();
 
     std::shared_ptr<ImWidget> m_SelectedWidget;
     FColor m_SelectionBorderColor = FColor::FromBytes(103, 177, 255);
     FColor m_SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
     float m_SelectionBorderThickness = 2.0f;
+    float m_TransformHandleSize = 10.0f;
+    EDesignerTransformHandle m_HoveredTransformHandle = EDesignerTransformHandle::None;
+    EDesignerTransformHandle m_ActiveTransformHandle = EDesignerTransformHandle::None;
+    bool m_bTransformChanged = false;
+    FVector2 m_TransformStartMousePosition {0.0f, 0.0f};
+    FVector2 m_TransformStartRelativePosition {0.0f, 0.0f};
+    FVector2 m_TransformStartRelativeSize {0.0f, 0.0f};
+    bool m_bTransformStartAutoSize = true;
 };
 
 } // namespace ImWidgetV4

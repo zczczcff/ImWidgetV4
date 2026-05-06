@@ -17,6 +17,12 @@ namespace ImWidgetV4Editor {
 class ReflectionDetailsView : public ImWidgetV4::ImUserWidget {
 public:
     using FPropertiesChangedEvent = ImWidgetV4::TMulticastDelegate<ReflectionDetailsView&>;
+    using FPropertyValueCommittedEvent = ImWidgetV4::TMulticastDelegate<
+        ReflectionDetailsView&,
+        std::shared_ptr<ImWidgetV4::ReflectableObject>,
+        std::string,
+        std::string,
+        nlohmann::ordered_json>;
 
     ReflectionDetailsView();
     virtual ~ReflectionDetailsView() = default;
@@ -30,6 +36,7 @@ public:
     std::shared_ptr<ImWidgetV4::ImSlot> GetSlotTarget() const { return m_SlotTarget; }
 
     FPropertiesChangedEvent OnPropertiesChanged;
+    FPropertyValueCommittedEvent OnPropertyValueCommitted;
 
 protected:
     virtual Ptr RebuildWidget() override;

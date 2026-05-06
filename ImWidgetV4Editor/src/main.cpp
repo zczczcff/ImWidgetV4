@@ -310,6 +310,24 @@ std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuNa
     return items;
 }
 
+std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorSession>& session)
+{
+    return {
+        FApplicationMenuItem {"Undo", {}, {}, true, false, [session]() {
+            if (session) {
+                session->Undo();
+            }
+        }},
+        FApplicationMenuItem {"Redo", {}, {}, true, false, [session]() {
+            if (session) {
+                session->Redo();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Coming Soon", {}, {}, false, false, {}}
+    };
+}
+
 } // namespace
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
@@ -343,7 +361,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     app->SetApplicationTitle("ImWidgetV4 Editor");
     app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
     app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, session));
-    app->AddTitleBarTabMenu("Edit", BuildSimpleMenuItems("Edit"));
+    app->AddTitleBarTabMenu("Edit", BuildEditMenuItems(session));
     app->AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
     app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
     app->SetRootWidget(shell.Root);

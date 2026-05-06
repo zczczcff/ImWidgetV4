@@ -100,6 +100,16 @@ void EditorDocument::SetRootWidget(const std::shared_ptr<ImWidgetV4::ImWidget>& 
     m_bDirty = true;
 }
 
+json EditorDocument::ExportDocumentJson() const
+{
+    return BuildDocumentJson();
+}
+
+bool EditorDocument::ImportDocumentJson(const json& documentJson, std::string* outError)
+{
+    return LoadFromDocumentJson(documentJson, outError);
+}
+
 std::string EditorDocument::GetTabTitle() const
 {
     std::string title = m_DisplayTitle;
@@ -157,7 +167,7 @@ bool EditorDocument::LoadFromDocumentJson(const json& documentJson, std::string*
     }
 
     FWidgetSerializationResult widgetResult = WidgetSerializer::DeserializeWidgetTree(documentJson.at("RootWidget"));
-    if (!widgetResult.bSuccess || !widgetResult.Widget) {
+    if (!widgetResult.bSuccess) {
         if (outError) {
             *outError = widgetResult.ErrorMessage.empty()
                 ? "Failed to deserialize root widget."

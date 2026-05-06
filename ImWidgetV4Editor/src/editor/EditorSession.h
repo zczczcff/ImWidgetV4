@@ -1,11 +1,13 @@
 #pragma once
 
+#include "../commands/CommandStack.h"
 #include "EditorDocument.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ImWidgetV4 {
 struct FDragDropOperation;
@@ -26,7 +28,7 @@ namespace ImWidgetV4Editor {
 class DocumentTreeViewBinder;
 class ReflectionDetailsView;
 
-class EditorSession {
+class EditorSession : public std::enable_shared_from_this<EditorSession> {
 public:
     explicit EditorSession(std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
 
@@ -47,10 +49,26 @@ public:
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool DeleteSelectedWidget();
+    bool Undo();
+    bool Redo();
+    bool CanUndo() const;
+    bool CanRedo() const;
+    std::string GetUndoLabel() const;
+    std::string GetRedoLabel() const;
 
     void LogStatus(const std::string& text);
+    bool ApplyDocumentSnapshot(
+        const json& documentJson,
+        const std::vector<int>& selectionPath,
+        bool bDirty);
 
 private:
+    struct FDocumentSnapshot {
+        json DocumentJson;
+        std::vector<int> SelectionPath;
+        bool bDirty = false;
+    };
+
     std::shared_ptr<EditorDocument> CreateDefaultDocument() const;
     void ApplyDocumentToUi();
     void HandleDesignerSelectionChanged(
@@ -66,6 +84,12 @@ private:
         ImWidgetV4::ImTextOutlineItem& item,
         ImWidgetV4::FVector2 position);
     void UpdateSelectionDetails(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void HandlePropertyValueCommitted(
+        ReflectionDetailsView& detailsView,
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
+        const std::string& propertyClassName,
+        const std::string& propertyName,
+        const json& value);
     std::filesystem::path ResolveDialogDirectory() const;
     std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
     bool InsertWidgetIntoDocument(
@@ -74,6 +98,18 @@ private:
     bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    FDocumentSnapshot CaptureDocumentSnapshot() const;
+    bool ExecuteDocumentMutation(
+        const std::string& commandLabel,
+        const std::function<bool()>& mutation,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection = nullptr);
+    std::vector<int> BuildSelectionPath(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
+    bool BuildSelectionPathRecursive(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& current,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& target,
+        std::vector<int>& inOutPath) const;
+    std::shared_ptr<ImWidgetV4::ImWidget> ResolveSelectionPath(const std::vector<int>& path) const;
     void MarkDocumentDirty();
     void CloseWidgetTreeContextMenu();
 
@@ -88,6 +124,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
+    CommandStack m_CommandStack;
     int m_DocumentTabIndex = -1;
 };
 

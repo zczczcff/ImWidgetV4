@@ -125,6 +125,12 @@ FWidgetSerializationResult WidgetSerializer::DeserializeWidgetNode(const json& w
     FWidgetSerializationResult result;
 
     try {
+        if (widgetJson.is_null()) {
+            result.bSuccess = true;
+            result.Widget = nullptr;
+            return result;
+        }
+
         if (!widgetJson.is_object()) {
             result.ErrorMessage = "Widget JSON node must be an object.";
             return result;

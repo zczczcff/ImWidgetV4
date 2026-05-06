@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "../commands/DocumentSnapshotCommand.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../palette/WidgetPaletteDragDrop.h"
 #include "../serialization/WidgetFactory.h"
@@ -55,6 +56,11 @@ std::vector<FFileDialogFilter> BuildDocumentFilters()
         FFileDialogFilter {"ImWidgetV4 UI", {"*.ui.json", "*.json"}},
         FFileDialogFilter {"JSON", {"*.json"}}
     };
+}
+
+std::shared_ptr<ReflectableObject> GetReflectableSelectionTarget(const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    return std::dynamic_pointer_cast<ReflectableObject>(selectedWidget);
 }
 
 bool TryInsertIntoTarget(
@@ -196,6 +202,21 @@ void EditorSession::BindDocumentWidgets(
                 }
                 UpdateSelectionDetails(selectedWidget);
             });
+        m_DetailsView->OnPropertyValueCommitted.Clear();
+        m_DetailsView->OnPropertyValueCommitted.AddLambda(
+            [this](
+                ReflectionDetailsView& detailsView,
+                std::shared_ptr<ReflectableObject> owner,
+                std::string propertyClassName,
+                std::string propertyName,
+                json value) {
+                HandlePropertyValueCommitted(
+                    detailsView,
+                    owner,
+                    propertyClassName,
+                    propertyName,
+                    value);
+            });
     }
     ApplyDocumentToUi();
     LogStatus("Ready.");
@@ -209,6 +230,7 @@ std::string EditorSession::GetDocumentTabTitle() const
 bool EditorSession::NewDocument()
 {
     m_Document = CreateDefaultDocument();
+    m_CommandStack.Clear();
     ApplyDocumentToUi();
     LogStatus("Created new document.");
     return true;
@@ -238,6 +260,7 @@ bool EditorSession::OpenDocument(ImApplication& app)
     }
 
     m_Document = std::move(openedDocument);
+    m_CommandStack.Clear();
     ApplyDocumentToUi();
     LogStatus("Opened " + dialogResult.Path.filename().string());
     return true;
@@ -308,18 +331,77 @@ bool EditorSession::DeleteSelectedWidget()
         return false;
     }
 
-    const bool bRemoved = RemoveWidgetFromDocument(selectedWidget);
+    std::string label = selectedWidget->GetTypeName();
+    if (!selectedWidget->GetName().empty()) {
+        label += " [" + selectedWidget->GetName() + "]";
+    }
+
+    const bool bRemoved = ExecuteDocumentMutation(
+        "Delete Widget",
+        [this, selectedWidget]() {
+            return RemoveWidgetFromDocument(selectedWidget);
+        });
     if (!bRemoved) {
         LogStatus("Delete failed for current selection.");
         return false;
     }
 
-    std::string label = selectedWidget->GetTypeName();
-    if (!selectedWidget->GetName().empty()) {
-        label += " [" + selectedWidget->GetName() + "]";
-    }
     LogStatus("Deleted " + label);
     return true;
+}
+
+bool EditorSession::Undo()
+{
+    if (!m_CommandStack.CanUndo()) {
+        LogStatus("Undo unavailable.");
+        return false;
+    }
+
+    const std::string label = m_CommandStack.GetUndoLabel();
+    if (!m_CommandStack.Undo()) {
+        LogStatus("Undo failed.");
+        return false;
+    }
+
+    LogStatus(label.empty() ? "Undo complete." : "Undo: " + label);
+    return true;
+}
+
+bool EditorSession::Redo()
+{
+    if (!m_CommandStack.CanRedo()) {
+        LogStatus("Redo unavailable.");
+        return false;
+    }
+
+    const std::string label = m_CommandStack.GetRedoLabel();
+    if (!m_CommandStack.Redo()) {
+        LogStatus("Redo failed.");
+        return false;
+    }
+
+    LogStatus(label.empty() ? "Redo complete." : "Redo: " + label);
+    return true;
+}
+
+bool EditorSession::CanUndo() const
+{
+    return m_CommandStack.CanUndo();
+}
+
+bool EditorSession::CanRedo() const
+{
+    return m_CommandStack.CanRedo();
+}
+
+std::string EditorSession::GetUndoLabel() const
+{
+    return m_CommandStack.GetUndoLabel();
+}
+
+std::string EditorSession::GetRedoLabel() const
+{
+    return m_CommandStack.GetRedoLabel();
 }
 
 void EditorSession::LogStatus(const std::string& text)
@@ -361,6 +443,9 @@ void EditorSession::ApplyDocumentToUi()
     }
 
     UpdateSelectionDetails(nullptr);
+    if (m_DetailsView) {
+        m_DetailsView->Rebuild();
+    }
 }
 
 void EditorSession::HandleDesignerSelectionChanged(
@@ -406,17 +491,18 @@ void EditorSession::HandleDesignerDrop(
         return;
     }
 
-    bHandled = InsertWidgetIntoDocument(widget, position);
+    bHandled = ExecuteDocumentMutation(
+        "Add Widget",
+        [this, widget, position]() {
+            return InsertWidgetIntoDocument(widget, position);
+        },
+        widget);
     if (!bHandled) {
         LogStatus("Drop rejected by current document root.");
         return;
     }
 
-    MarkDocumentDirty();
     RefreshDocumentViews(widget);
-    if (m_DesignerSurface) {
-        m_DesignerSurface->SetSelectedWidget(widget);
-    }
     LogStatus("Created " + payload->Label);
 }
 
@@ -496,9 +582,90 @@ void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& sele
 
     if (m_DetailsView) {
         m_DetailsView->SetTargets(
-            std::dynamic_pointer_cast<ReflectableObject>(selectedWidget),
+            GetReflectableSelectionTarget(selectedWidget),
             slotTarget);
     }
+}
+
+void EditorSession::HandlePropertyValueCommitted(
+    ReflectionDetailsView&,
+    const std::shared_ptr<ReflectableObject>& owner,
+    const std::string& propertyClassName,
+    const std::string& propertyName,
+    const json& value)
+{
+    if (!owner) {
+        return;
+    }
+
+    const std::shared_ptr<ImWidget> selectedWidget = m_DesignerSurface
+        ? m_DesignerSurface->GetSelectedWidget()
+        : nullptr;
+
+    ExecuteDocumentMutation(
+        "Edit " + propertyName,
+        [this, owner, propertyClassName, propertyName, value, selectedWidget]() {
+            json serialized = owner->ToJson();
+            serialized["Properties"][propertyClassName + "::" + propertyName] = value;
+            owner->FromJson(serialized);
+
+            MarkDocumentDirty();
+            if (m_TreeBinder) {
+                m_TreeBinder->RebuildFromRoot(
+                    m_Document ? m_Document->GetRootWidget() : nullptr,
+                    selectedWidget);
+            }
+            if (m_DetailsView) {
+                m_DetailsView->Rebuild();
+            }
+            UpdateSelectionDetails(selectedWidget);
+            return true;
+        },
+        selectedWidget);
+}
+
+bool EditorSession::ApplyDocumentSnapshot(
+    const json& documentJson,
+    const std::vector<int>& selectionPath,
+    bool bDirty)
+{
+    if (!m_Document) {
+        return false;
+    }
+
+    std::string errorMessage;
+    if (!m_Document->ImportDocumentJson(documentJson, &errorMessage)) {
+        LogStatus("Snapshot restore failed: " + errorMessage);
+        return false;
+    }
+
+    m_Document->SetDirty(bDirty);
+    std::shared_ptr<ImWidget> selectedWidget = ResolveSelectionPath(selectionPath);
+
+    if (m_DesignerSurface) {
+        m_DesignerSurface->SetContentRoot(m_Document->GetRootWidget());
+    } else if (m_DocumentHost) {
+        m_DocumentHost->SetContent(m_Document->GetRootWidget());
+    }
+
+    if (m_TreeBinder) {
+        m_TreeBinder->RebuildFromRoot(
+            m_Document ? m_Document->GetRootWidget() : nullptr,
+            selectedWidget);
+    }
+
+    ApplySelectionToUi(selectedWidget);
+    if (m_DetailsView) {
+        m_DetailsView->Rebuild();
+    }
+    UpdateSelectionDetails(selectedWidget);
+
+    if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
+        m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
+        m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document->IsDirty());
+    }
+
+    return true;
 }
 
 std::filesystem::path EditorSession::ResolveDialogDirectory() const
@@ -549,9 +716,6 @@ bool EditorSession::InsertWidgetIntoDocument(
     auto root = m_Document->GetRootWidget();
     if (!root) {
         m_Document->SetRootWidget(widget);
-        if (m_DesignerSurface) {
-            m_DesignerSurface->SetContentRoot(widget);
-        }
         return true;
     }
 
@@ -597,15 +761,8 @@ bool EditorSession::RemoveWidgetFromDocument(const std::shared_ptr<ImWidget>& wi
         return false;
     }
 
-    if (m_DesignerSurface && m_DesignerSurface->GetSelectedWidget() == widget) {
-        m_DesignerSurface->ClearSelection();
-    }
-
     MarkDocumentDirty();
     RefreshDocumentViews(nextSelection);
-    if (m_DesignerSurface) {
-        m_DesignerSurface->SetSelectedWidget(nextSelection);
-    }
     return true;
 }
 
@@ -631,6 +788,19 @@ bool EditorSession::RemoveWidgetFromParent(
     return parent->RemoveChild(widget);
 }
 
+void EditorSession::ApplySelectionToUi(const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    if (!m_DesignerSurface) {
+        return;
+    }
+
+    if (selectedWidget) {
+        m_DesignerSurface->SetSelectedWidget(selectedWidget);
+    } else {
+        m_DesignerSurface->ClearSelection();
+    }
+}
+
 void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     if (m_DesignerSurface) {
@@ -645,7 +815,128 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
             selectedWidget);
     }
 
+    ApplySelectionToUi(selectedWidget);
+    if (m_DetailsView) {
+        m_DetailsView->Rebuild();
+    }
     UpdateSelectionDetails(selectedWidget);
+}
+
+EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot() const
+{
+    FDocumentSnapshot snapshot;
+    if (!m_Document) {
+        return snapshot;
+    }
+
+    snapshot.DocumentJson = m_Document->ExportDocumentJson();
+    snapshot.SelectionPath = BuildSelectionPath(
+        m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr);
+    snapshot.bDirty = m_Document->IsDirty();
+    return snapshot;
+}
+
+bool EditorSession::ExecuteDocumentMutation(
+    const std::string& commandLabel,
+    const std::function<bool()>& mutation,
+    const std::shared_ptr<ImWidget>& preferredSelection)
+{
+    if (!m_Document || !mutation) {
+        return false;
+    }
+
+    const FDocumentSnapshot beforeSnapshot = CaptureDocumentSnapshot();
+    if (!mutation()) {
+        return false;
+    }
+
+    if (preferredSelection) {
+        ApplySelectionToUi(preferredSelection);
+    }
+
+    FDocumentSnapshot afterSnapshot = CaptureDocumentSnapshot();
+    if (preferredSelection) {
+        afterSnapshot.SelectionPath = BuildSelectionPath(preferredSelection);
+    }
+    m_CommandStack.PushExecuted(std::make_unique<DocumentSnapshotCommand>(
+        shared_from_this(),
+        commandLabel,
+        beforeSnapshot.DocumentJson,
+        beforeSnapshot.SelectionPath,
+        beforeSnapshot.bDirty,
+        afterSnapshot.DocumentJson,
+        afterSnapshot.SelectionPath,
+        afterSnapshot.bDirty));
+    return true;
+}
+
+std::vector<int> EditorSession::BuildSelectionPath(const std::shared_ptr<ImWidget>& widget) const
+{
+    std::vector<int> path;
+    if (!m_Document || !m_Document->GetRootWidget() || !widget) {
+        return path;
+    }
+
+    if (widget == m_Document->GetRootWidget()) {
+        return path;
+    }
+
+    if (!BuildSelectionPathRecursive(m_Document->GetRootWidget(), widget, path)) {
+        path.clear();
+    }
+    return path;
+}
+
+bool EditorSession::BuildSelectionPathRecursive(
+    const std::shared_ptr<ImWidget>& current,
+    const std::shared_ptr<ImWidget>& target,
+    std::vector<int>& inOutPath) const
+{
+    if (!current || !target) {
+        return false;
+    }
+
+    const auto& children = current->GetChildren();
+    for (std::size_t childIndex = 0; childIndex < children.size(); ++childIndex) {
+        const auto& child = children[childIndex];
+        if (!child) {
+            continue;
+        }
+
+        inOutPath.push_back(static_cast<int>(childIndex));
+        if (child == target || BuildSelectionPathRecursive(child, target, inOutPath)) {
+            return true;
+        }
+        inOutPath.pop_back();
+    }
+
+    return false;
+}
+
+std::shared_ptr<ImWidget> EditorSession::ResolveSelectionPath(const std::vector<int>& path) const
+{
+    if (!m_Document) {
+        return nullptr;
+    }
+
+    std::shared_ptr<ImWidget> current = m_Document->GetRootWidget();
+    if (!current) {
+        return nullptr;
+    }
+
+    for (int childIndex : path) {
+        const auto& children = current->GetChildren();
+        if (childIndex < 0 || childIndex >= static_cast<int>(children.size())) {
+            return nullptr;
+        }
+
+        current = children[childIndex];
+        if (!current) {
+            return nullptr;
+        }
+    }
+
+    return current;
 }
 
 void EditorSession::MarkDocumentDirty()

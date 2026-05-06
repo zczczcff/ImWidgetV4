@@ -429,11 +429,22 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
             return false;
         }
 
+        ReflectionDetailsView* mutableThis = const_cast<ReflectionDetailsView*>(this);
+        if (mutableThis->OnPropertyValueCommitted.IsBound()) {
+            mutableThis->OnPropertyValueCommitted.Broadcast(
+                *mutableThis,
+                owner,
+                propertyClassName,
+                propertyName,
+                value);
+            return true;
+        }
+
         auto serialized = owner->ToJson();
         serialized["Properties"][propertyClassName + "::" + propertyName] = value;
         owner->FromJson(serialized);
-        const_cast<ReflectionDetailsView*>(this)->Rebuild();
-        const_cast<ReflectionDetailsView*>(this)->OnPropertiesChanged.Broadcast(*const_cast<ReflectionDetailsView*>(this));
+        mutableThis->Rebuild();
+        mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
         return true;
     };
 
@@ -517,6 +528,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     return;
                 }
 
+                const std::string key = propertyClassName + "::" + propertyName;
+                nlohmann::ordered_json beforeSerialized = owner->ToJson();
+                if (!beforeSerialized.contains("Properties") || !beforeSerialized["Properties"].contains(key)) {
+                    return;
+                }
+
                 auto reloaded = owner->GetProperty(propertyName, propertyClassName);
                 if (!reloaded.IsValid()) {
                     return;
@@ -524,8 +541,27 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
 
                 auto optional = owner->ToOptionalProperty(reloaded);
                 optional.SetOptionByIndex(index);
-                const_cast<ReflectionDetailsView*>(this)->Rebuild();
-                const_cast<ReflectionDetailsView*>(this)->OnPropertiesChanged.Broadcast(*const_cast<ReflectionDetailsView*>(this));
+
+                nlohmann::ordered_json afterSerialized = owner->ToJson();
+                const nlohmann::ordered_json afterValue =
+                    afterSerialized.contains("Properties") && afterSerialized["Properties"].contains(key)
+                    ? afterSerialized["Properties"].at(key)
+                    : nlohmann::ordered_json();
+
+                ReflectionDetailsView* mutableThis = const_cast<ReflectionDetailsView*>(this);
+                if (mutableThis->OnPropertyValueCommitted.IsBound()) {
+                    owner->FromJson(beforeSerialized);
+                    mutableThis->OnPropertyValueCommitted.Broadcast(
+                        *mutableThis,
+                        owner,
+                        propertyClassName,
+                        propertyName,
+                        afterValue);
+                    return;
+                }
+
+                mutableThis->Rebuild();
+                mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
             });
         return MakeInspectorPropertyRow(labelText, editor);
     }

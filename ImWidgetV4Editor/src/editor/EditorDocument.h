@@ -18,6 +18,8 @@ public:
     bool Load(const std::filesystem::path& filePath, std::string* outError = nullptr);
     bool Save(std::string* outError = nullptr);
     bool SaveAs(const std::filesystem::path& filePath, std::string* outError = nullptr);
+    json ExportDocumentJson() const;
+    bool ImportDocumentJson(const json& documentJson, std::string* outError = nullptr);
 
     void SetRootWidget(const std::shared_ptr<ImWidgetV4::ImWidget>& rootWidget);
     std::shared_ptr<ImWidgetV4::ImWidget> GetRootWidget() const { return m_RootWidget; }

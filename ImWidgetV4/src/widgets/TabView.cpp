@@ -32,6 +32,11 @@ bool NearlyEqual(float left, float right)
     return std::fabs(left - right) <= LayoutGeometryEpsilon;
 }
 
+float SnapToPixel(float value)
+{
+    return std::round(value);
+}
+
 bool AreGeometriesEquivalent(const FGeometry& left, const FGeometry& right)
 {
     return NearlyEqual(left.Position.X, right.Position.X) &&
@@ -390,7 +395,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 true);
 
             const FColor contentColor = ResolveTabTextColor(tabGeometry.Index);
-            float contentX = tabGeometry.Geometry.Position.X + Style_.TabPadding.Left;
+            float contentX = tabGeometry.ContentStartX;
             if (item.Icon.IsValid()) {
                 const float iconSize = std::min(
                     Style_.IconSize,
@@ -416,14 +421,18 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
             }
 
-            const float textY = tabGeometry.Geometry.Position.Y +
-                std::max(0.0f, (tabGeometry.Geometry.Size.Y - MeasureTextHeight()) * 0.5f);
+            const float textWidth = MeasureTextWidth(item.Title);
+            const float textLaneWidth = std::max(0.0f, tabGeometry.TextClipMaxX - contentX);
+            const float textDrawX = SnapToPixel(contentX + (textLaneWidth - textWidth) * 0.5f);
+            const float textY = SnapToPixel(
+                tabGeometry.Geometry.Position.Y +
+                std::max(0.0f, (tabGeometry.Geometry.Size.Y - MeasureTextHeight()) * 0.5f));
             paintContext.DrawContext_.PushClipRect(
                 FVector2(contentX, tabGeometry.Geometry.Position.Y),
                 FVector2(tabGeometry.TextClipMaxX, tabGeometry.Geometry.GetMax().Y),
                 true);
             paintContext.DrawContext_.DrawText(
-                FVector2(contentX, textY),
+                FVector2(textDrawX, textY),
                 contentColor,
                 item.Title,
                 Style_.FontSize);
@@ -782,35 +791,58 @@ void ImTabView::Relayout()
 
     for (int index = 0; index < static_cast<int>(Tabs_.size()); ++index) {
         const FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
-        const float tabWidth = naturalTabWidths[static_cast<std::size_t>(index)] * widthScale;
-        const float tabMaxX = cursorX + tabWidth;
+        const float exactTabStartX = cursorX;
+        const float exactTabMaxX = exactTabStartX + naturalTabWidths[static_cast<std::size_t>(index)] * widthScale;
+        const float tabMinX = SnapToPixel(exactTabStartX);
+        const float tabMaxX = SnapToPixel(exactTabMaxX);
+        const float tabWidth = std::max(0.0f, tabMaxX - tabMinX);
 
         if (tabMaxX >= stripMinX && cursorX <= stripMaxX) {
             FTabGeometry geometry;
             geometry.Index = index;
             geometry.Geometry = FGeometry(
-                FVector2(cursorX, TabStripGeometry_.Position.Y),
+                FVector2(tabMinX, TabStripGeometry_.Position.Y),
                 FVector2(tabWidth, TabStripGeometry_.Size.Y));
             geometry.bShowsCloseButton = item.bClosable;
-            float contentX = geometry.Geometry.Position.X + Style_.TabPadding.Left;
+
+            const float innerMinX = geometry.Geometry.Position.X + Style_.TabPadding.Left;
+            const float innerMaxX = std::max(innerMinX, geometry.Geometry.GetMax().X - Style_.TabPadding.Right);
+            const float availableInnerWidth = std::max(0.0f, innerMaxX - innerMinX);
+            const float iconSize = item.Icon.IsValid()
+                ? std::min(
+                    Style_.IconSize,
+                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom))
+                : 0.0f;
+            const float iconWidth = item.Icon.IsValid() ? (iconSize + 6.0f) : 0.0f;
+            const float dirtyWidth = item.bDirty ? (Style_.DirtyMarkerRadius * 2.0f + 6.0f) : 0.0f;
+            const float textWidth = MeasureTextWidth(item.Title);
+            const float closeSize = geometry.bShowsCloseButton
+                ? std::min(
+                    Style_.CloseButtonSize,
+                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom))
+                : 0.0f;
+            const float closeWidth = geometry.bShowsCloseButton ? (closeSize + 6.0f) : 0.0f;
+            const float contentWidth = iconWidth + dirtyWidth + textWidth + closeWidth;
+
+            geometry.ContentStartX = innerMinX;
+            if (contentWidth < availableInnerWidth - 0.5f) {
+                geometry.ContentStartX += (availableInnerWidth - contentWidth) * 0.5f;
+            }
+            geometry.ContentStartX = SnapToPixel(geometry.ContentStartX);
+
+            float contentX = geometry.ContentStartX;
             if (item.Icon.IsValid()) {
-                contentX += Style_.IconSize + 6.0f;
+                contentX += iconSize + 6.0f;
             }
             if (item.bDirty) {
                 contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
             }
             float textClipMaxX = geometry.Geometry.GetMax().X - Style_.TabPadding.Right;
             if (geometry.bShowsCloseButton) {
-                const float closeSize = std::min(
-                    Style_.CloseButtonSize,
-                    std::max(0.0f, std::min(
-                        geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom,
-                        geometry.Geometry.Size.X - Style_.TabPadding.Left - Style_.TabPadding.Right)));
-                const float closeX = std::max(
-                    geometry.Geometry.Position.X + Style_.TabPadding.Left,
-                    geometry.Geometry.GetMax().X - Style_.TabPadding.Right - closeSize);
-                const float closeY = geometry.Geometry.Position.Y +
-                    std::max(0.0f, (geometry.Geometry.Size.Y - closeSize) * 0.5f);
+                const float closeX = SnapToPixel(contentX + textWidth + 6.0f);
+                const float closeY = SnapToPixel(
+                    geometry.Geometry.Position.Y +
+                    std::max(0.0f, (geometry.Geometry.Size.Y - closeSize) * 0.5f));
                 geometry.CloseButtonGeometry = FGeometry(
                     FVector2(closeX, closeY),
                     FVector2(closeSize, closeSize));
@@ -823,7 +855,7 @@ void ImTabView::Relayout()
             VisibleTabGeometries_.push_back(geometry);
         }
 
-        cursorX = tabMaxX + Style_.TabSpacing;
+        cursorX = exactTabMaxX + Style_.TabSpacing;
     }
 
     if (const std::shared_ptr<ImWidget> activeContent = GetActiveContent()) {

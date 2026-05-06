@@ -161,7 +161,7 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs()
 
     FTabViewStyle style = tabView->GetStyle();
     style.Padding = FMargin(0.0f);
-    style.TabPadding = FMargin(8.0f, 3.0f, 4.0f, 3.0f);
+    style.TabPadding = FMargin(4.0f, 4.0f, 2.0f, 2.0f);
     style.TabHeight = 20.0f;
     style.TabMinWidth = 64.0f;
     style.TabSpacing = 0.0f;

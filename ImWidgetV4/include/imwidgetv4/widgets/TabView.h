@@ -183,6 +183,7 @@ private:
         FGeometry Geometry;
         FGeometry CloseButtonGeometry;
         bool bShowsCloseButton = false;
+        float ContentStartX = 0.0f;
         float TextClipMaxX = 0.0f;
         bool bTitleClipped = false;
     };

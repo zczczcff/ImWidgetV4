@@ -145,6 +145,15 @@ TEST_F(TabViewTest, DefaultStateAndAddTabActivationAreStable)
 
     EXPECT_FALSE(View->SetActiveTab(8));
     EXPECT_EQ(View->GetActiveTabIndex(), 1);
+
+    EXPECT_TRUE(View->SetTabClosable(1, true));
+    EXPECT_TRUE(View->SetTabDirty(1, true));
+    EXPECT_TRUE(View->SetTabTitle(1, "Renamed"));
+    EXPECT_TRUE(View->SetTabIcon(1, FImageBrush()));
+    EXPECT_TRUE(View->IsTabClosable(1));
+    EXPECT_TRUE(View->IsTabDirty(1));
+    ASSERT_NE(View->GetTab(1), nullptr);
+    EXPECT_EQ(View->GetTab(1)->Title, "Renamed");
 }
 
 TEST_F(TabViewTest, RemoveAndClearTabsUpdateActiveSelection)
@@ -249,6 +258,51 @@ TEST_F(TabViewTest, DisabledAndOverflowTabsDoNotActivate)
         CreateMouseEvent(EInputEventType::MouseButtonUp, overflowPoint)
     }, FVector2(150.0f, 120.0f));
     EXPECT_EQ(View->GetActiveTabIndex(), activeBeforeDisabledClick);
+}
+
+TEST_F(TabViewTest, CloseButtonRemovesTabAndBroadcastsClose)
+{
+    auto first = std::make_shared<TestContentWidget>();
+    auto second = std::make_shared<TestContentWidget>();
+    View->AddTab("First", first);
+    View->AddTab("Second", second);
+    View->SetTabClosable(0, true);
+    Advance({});
+
+    int closedIndex = -1;
+    View->OnTabClosed.AddLambda([&](ImTabView&, int index) {
+        closedIndex = index;
+    });
+
+    const FVector2 closeButtonPoint(58.0f, 14.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, closeButtonPoint)});
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, closeButtonPoint)});
+
+    EXPECT_EQ(closedIndex, 0);
+    EXPECT_EQ(View->GetTabCount(), 1);
+    ASSERT_NE(View->GetTab(0), nullptr);
+    EXPECT_EQ(View->GetTab(0)->Title, "Second");
+}
+
+TEST_F(TabViewTest, OverflowButtonsRevealHiddenTabs)
+{
+    FTabViewStyle style = MakeCompactStyle();
+    style.TabMinWidth = 70.0f;
+    View->SetStyle(style);
+
+    View->AddTab("First", std::make_shared<TestContentWidget>());
+    View->AddTab("Second", std::make_shared<TestContentWidget>());
+    View->AddTab("Third", std::make_shared<TestContentWidget>());
+    Advance({}, FVector2(150.0f, 120.0f));
+
+    const FVector2 rightOverflowPoint(138.0f, 14.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, rightOverflowPoint)}, FVector2(150.0f, 120.0f));
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, rightOverflowPoint)}, FVector2(150.0f, 120.0f));
+
+    const FVector2 thirdTabPoint(80.0f, 14.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, thirdTabPoint)}, FVector2(150.0f, 120.0f));
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, thirdTabPoint)}, FVector2(150.0f, 120.0f));
+    EXPECT_EQ(View->GetActiveTabIndex(), 2);
 }
 
 TEST_F(TabViewTest, KeyboardNavigationSupportsCtrlTabAndHomeEnd)

@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 
 namespace ImWidgetV4 {
 
@@ -74,6 +75,7 @@ bool ImTabView::RemoveTab(int index)
 
     if (Tabs_.empty()) {
         ActiveTabIndex_ = -1;
+        TabScrollOffset_ = 0.0f;
     } else if (bRemovingActive) {
         ActiveTabIndex_ = ResolveReplacementActiveIndex(index);
     } else if (ActiveTabIndex_ > index) {
@@ -82,12 +84,16 @@ bool ImTabView::RemoveTab(int index)
 
     HoveredTabIndex_ = HoveredTabIndex_ == index ? -1 : (HoveredTabIndex_ > index ? HoveredTabIndex_ - 1 : HoveredTabIndex_);
     PressedTabIndex_ = PressedTabIndex_ == index ? -1 : (PressedTabIndex_ > index ? PressedTabIndex_ - 1 : PressedTabIndex_);
+    HoveredCloseTabIndex_ = HoveredCloseTabIndex_ == index ? -1 : (HoveredCloseTabIndex_ > index ? HoveredCloseTabIndex_ - 1 : HoveredCloseTabIndex_);
+    PressedCloseTabIndex_ = PressedCloseTabIndex_ == index ? -1 : (PressedCloseTabIndex_ > index ? PressedCloseTabIndex_ - 1 : PressedCloseTabIndex_);
+    bEnsureActiveTabVisible_ = bRemovingActive && ActiveTabIndex_ >= 0;
     bLayoutDirty_ = true;
     UpdateRegisteredActiveContent();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     if (ActiveTabIndex_ != previousActiveIndex) {
         OnActiveTabChanged.Broadcast(*this, ActiveTabIndex_);
     }
+    OnTabClosed.Broadcast(*this, index);
     return true;
 }
 
@@ -106,6 +112,12 @@ void ImTabView::ClearTabs()
     ActiveTabIndex_ = -1;
     HoveredTabIndex_ = -1;
     PressedTabIndex_ = -1;
+    HoveredCloseTabIndex_ = -1;
+    PressedCloseTabIndex_ = -1;
+    HoveredOverflowDirection_ = 0;
+    PressedOverflowDirection_ = 0;
+    TabScrollOffset_ = 0.0f;
+    bEnsureActiveTabVisible_ = false;
     bLayoutDirty_ = true;
     UpdateRegisteredActiveContent();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -127,6 +139,7 @@ bool ImTabView::SetActiveTab(int index)
 
     CleanupInteractionStateForContent(GetActiveContent());
     ActiveTabIndex_ = index;
+    bEnsureActiveTabVisible_ = true;
     bLayoutDirty_ = true;
     UpdateRegisteredActiveContent();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -166,6 +179,11 @@ bool ImTabView::SetTabEnabled(int index, bool bEnabled)
     if (!item.bEnabled && ActiveTabIndex_ == index) {
         CleanupInteractionStateForContent(item.Content);
         ActiveTabIndex_ = ResolveReplacementActiveIndex(index);
+        bEnsureActiveTabVisible_ = ActiveTabIndex_ >= 0;
+        UpdateRegisteredActiveContent();
+    } else if (item.bEnabled && ActiveTabIndex_ < 0) {
+        ActiveTabIndex_ = index;
+        bEnsureActiveTabVisible_ = true;
         UpdateRegisteredActiveContent();
     }
 
@@ -174,6 +192,80 @@ bool ImTabView::SetTabEnabled(int index, bool bEnabled)
     if (ActiveTabIndex_ != previousActiveIndex) {
         OnActiveTabChanged.Broadcast(*this, ActiveTabIndex_);
     }
+    return true;
+}
+
+bool ImTabView::SetTabClosable(int index, bool bClosable)
+{
+    if (!IsValidIndex(index)) {
+        return false;
+    }
+
+    FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
+    if (item.bClosable == bClosable) {
+        return true;
+    }
+
+    item.bClosable = bClosable;
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    return true;
+}
+
+bool ImTabView::IsTabClosable(int index) const
+{
+    return IsValidIndex(index) && Tabs_[static_cast<std::size_t>(index)].bClosable;
+}
+
+bool ImTabView::SetTabDirty(int index, bool bDirty)
+{
+    if (!IsValidIndex(index)) {
+        return false;
+    }
+
+    FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
+    if (item.bDirty == bDirty) {
+        return true;
+    }
+
+    item.bDirty = bDirty;
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    return true;
+}
+
+bool ImTabView::IsTabDirty(int index) const
+{
+    return IsValidIndex(index) && Tabs_[static_cast<std::size_t>(index)].bDirty;
+}
+
+bool ImTabView::SetTabTitle(int index, const std::string& title)
+{
+    if (!IsValidIndex(index)) {
+        return false;
+    }
+
+    FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
+    if (item.Title == title) {
+        return true;
+    }
+
+    item.Title = title;
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    return true;
+}
+
+bool ImTabView::SetTabIcon(int index, const FImageBrush& icon)
+{
+    if (!IsValidIndex(index)) {
+        return false;
+    }
+
+    FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
+    item.Icon = icon;
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     return true;
 }
 
@@ -204,7 +296,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
         Style_.CornerRadius,
         Style_.BorderThickness);
 
-    if (HasKeyboardFocus()) {
+    if (HasFocusWithinTabView()) {
         paintContext.DrawContext_.DrawRect(
             m_Geometry.GetMin() + FVector2(2.0f, 2.0f),
             m_Geometry.GetMax() - FVector2(2.0f, 2.0f),
@@ -238,7 +330,9 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             const FColor contentColor = ResolveTabTextColor(tabGeometry.Index);
             float contentX = tabGeometry.Geometry.Position.X + Style_.TabPadding.Left;
             if (item.Icon.IsValid()) {
-                const float iconSize = std::min(Style_.IconSize, std::max(0.0f, tabGeometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
+                const float iconSize = std::min(
+                    Style_.IconSize,
+                    std::max(0.0f, tabGeometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
                 const float iconY = tabGeometry.Geometry.Position.Y +
                     std::max(0.0f, (tabGeometry.Geometry.Size.Y - iconSize) * 0.5f);
                 paintContext.DrawContext_.DrawImage(
@@ -251,6 +345,15 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 contentX += iconSize + 6.0f;
             }
 
+            if (item.bDirty) {
+                const float markerCenterY = tabGeometry.Geometry.Position.Y + tabGeometry.Geometry.Size.Y * 0.5f;
+                paintContext.DrawContext_.DrawCircleFilled(
+                    FVector2(contentX + Style_.DirtyMarkerRadius, markerCenterY),
+                    Style_.DirtyMarkerRadius,
+                    Style_.DirtyMarkerColor);
+                contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+            }
+
             const float textY = tabGeometry.Geometry.Position.Y +
                 std::max(0.0f, (tabGeometry.Geometry.Size.Y - MeasureTextHeight()) * 0.5f);
             paintContext.DrawContext_.DrawText(
@@ -258,6 +361,47 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 contentColor,
                 item.Title,
                 Style_.FontSize);
+
+            if (tabGeometry.bShowsCloseButton) {
+                const FColor closeColor = ResolveCloseButtonColor(tabGeometry);
+                const FVector2 closeMin = tabGeometry.CloseButtonGeometry.GetMin();
+                const FVector2 closeMax = tabGeometry.CloseButtonGeometry.GetMax();
+                const float inset = 2.0f;
+                paintContext.DrawContext_.DrawLine(
+                    closeMin + FVector2(inset, inset),
+                    closeMax - FVector2(inset, inset),
+                    closeColor,
+                    1.5f);
+                paintContext.DrawContext_.DrawLine(
+                    FVector2(closeMin.X + inset, closeMax.Y - inset),
+                    FVector2(closeMax.X - inset, closeMin.Y + inset),
+                    closeColor,
+                    1.5f);
+            }
+        }
+
+        if (LeftOverflowButtonGeometry_.IsValid()) {
+            const FColor buttonColor = ResolveOverflowButtonColor(-1);
+            paintContext.DrawContext_.DrawRectFilled(
+                LeftOverflowButtonGeometry_.GetMin(),
+                LeftOverflowButtonGeometry_.GetMax(),
+                Style_.TabColor,
+                Style_.CornerRadius);
+            const FVector2 center = LeftOverflowButtonGeometry_.GetCenter();
+            paintContext.DrawContext_.DrawLine(center + FVector2(3.0f, -5.0f), center + FVector2(-3.0f, 0.0f), buttonColor, 1.5f);
+            paintContext.DrawContext_.DrawLine(center + FVector2(-3.0f, 0.0f), center + FVector2(3.0f, 5.0f), buttonColor, 1.5f);
+        }
+
+        if (RightOverflowButtonGeometry_.IsValid()) {
+            const FColor buttonColor = ResolveOverflowButtonColor(1);
+            paintContext.DrawContext_.DrawRectFilled(
+                RightOverflowButtonGeometry_.GetMin(),
+                RightOverflowButtonGeometry_.GetMax(),
+                Style_.TabColor,
+                Style_.CornerRadius);
+            const FVector2 center = RightOverflowButtonGeometry_.GetCenter();
+            paintContext.DrawContext_.DrawLine(center + FVector2(-3.0f, -5.0f), center + FVector2(3.0f, 0.0f), buttonColor, 1.5f);
+            paintContext.DrawContext_.DrawLine(center + FVector2(3.0f, 0.0f), center + FVector2(-3.0f, 5.0f), buttonColor, 1.5f);
         }
 
         paintContext.DrawContext_.PopClipRect();
@@ -309,23 +453,54 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
     switch (event.Type) {
     case EInputEventType::MouseMove:
     case EInputEventType::MouseEnter: {
-        const int hoveredTab = ResolveTabIndexAt(event.MousePosition);
-        if (HoveredTabIndex_ != hoveredTab) {
+        const int hoveredCloseTab = ResolveCloseButtonTabIndexAt(event.MousePosition);
+        const int hoveredOverflowDirection = LeftOverflowButtonGeometry_.Contains(event.MousePosition)
+            ? -1
+            : (RightOverflowButtonGeometry_.Contains(event.MousePosition) ? 1 : 0);
+        const int hoveredTab = hoveredCloseTab >= 0 ? -1 : ResolveTabIndexAt(event.MousePosition);
+
+        if (HoveredTabIndex_ != hoveredTab ||
+            HoveredCloseTabIndex_ != hoveredCloseTab ||
+            HoveredOverflowDirection_ != hoveredOverflowDirection) {
             HoveredTabIndex_ = hoveredTab;
+            HoveredCloseTabIndex_ = hoveredCloseTab;
+            HoveredOverflowDirection_ = hoveredOverflowDirection;
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
     }
 
     case EInputEventType::MouseLeave:
-        if (HoveredTabIndex_ != -1) {
+        if (HoveredTabIndex_ != -1 || HoveredCloseTabIndex_ != -1 || HoveredOverflowDirection_ != 0) {
             HoveredTabIndex_ = -1;
+            HoveredCloseTabIndex_ = -1;
+            HoveredOverflowDirection_ = 0;
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
 
     case EInputEventType::MouseButtonDown:
         if (event.MouseButton == EMouseButton::Left) {
+            const int closeTabIndex = ResolveCloseButtonTabIndexAt(event.MousePosition);
+            if (closeTabIndex >= 0) {
+                PressedCloseTabIndex_ = closeTabIndex;
+                Invalidate(EInvalidateReason::Paint);
+                return FReply::Handled()
+                    .SetKeyboardFocus(shared_from_this())
+                    .CaptureMouse(shared_from_this(), EMouseButton::Left);
+            }
+
+            const int overflowDirection = LeftOverflowButtonGeometry_.Contains(event.MousePosition)
+                ? -1
+                : (RightOverflowButtonGeometry_.Contains(event.MousePosition) ? 1 : 0);
+            if (overflowDirection != 0) {
+                PressedOverflowDirection_ = overflowDirection;
+                Invalidate(EInvalidateReason::Paint);
+                return FReply::Handled()
+                    .SetKeyboardFocus(shared_from_this())
+                    .CaptureMouse(shared_from_this(), EMouseButton::Left);
+            }
+
             const int tabIndex = ResolveTabIndexAt(event.MousePosition);
             if (tabIndex >= 0 && IsTabEnabled(tabIndex)) {
                 PressedTabIndex_ = tabIndex;
@@ -339,18 +514,44 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
         return FReply::Unhandled();
 
     case EInputEventType::MouseButtonUp:
-        if (event.MouseButton == EMouseButton::Left && PressedTabIndex_ >= 0) {
-            const int pressedTab = PressedTabIndex_;
-            PressedTabIndex_ = -1;
-            const int releasedTab = ResolveTabIndexAt(event.MousePosition);
-            Invalidate(EInvalidateReason::Paint);
-
-            if (pressedTab == releasedTab && IsTabEnabled(pressedTab)) {
-                OnTabInvoked.Broadcast(*this, pressedTab);
-                SetActiveTab(pressedTab);
+        if (event.MouseButton == EMouseButton::Left) {
+            if (PressedCloseTabIndex_ >= 0) {
+                const int pressedCloseTab = PressedCloseTabIndex_;
+                PressedCloseTabIndex_ = -1;
+                const int releasedCloseTab = ResolveCloseButtonTabIndexAt(event.MousePosition);
+                Invalidate(EInvalidateReason::Paint);
+                if (pressedCloseTab == releasedCloseTab && IsTabClosable(pressedCloseTab)) {
+                    RemoveTab(pressedCloseTab);
+                }
+                return FReply::Handled().ReleaseMouseCapture();
             }
 
-            return FReply::Handled().ReleaseMouseCapture();
+            if (PressedOverflowDirection_ != 0) {
+                const int pressedDirection = PressedOverflowDirection_;
+                PressedOverflowDirection_ = 0;
+                const int releasedDirection = LeftOverflowButtonGeometry_.Contains(event.MousePosition)
+                    ? -1
+                    : (RightOverflowButtonGeometry_.Contains(event.MousePosition) ? 1 : 0);
+                Invalidate(EInvalidateReason::Paint);
+                if (pressedDirection == releasedDirection && CanScrollTabs(pressedDirection)) {
+                    ScrollTabs(pressedDirection);
+                }
+                return FReply::Handled().ReleaseMouseCapture();
+            }
+
+            if (PressedTabIndex_ >= 0) {
+                const int pressedTab = PressedTabIndex_;
+                PressedTabIndex_ = -1;
+                const int releasedTab = ResolveTabIndexAt(event.MousePosition);
+                Invalidate(EInvalidateReason::Paint);
+
+                if (pressedTab == releasedTab && IsTabEnabled(pressedTab)) {
+                    OnTabInvoked.Broadcast(*this, pressedTab);
+                    SetActiveTab(pressedTab);
+                }
+
+                return FReply::Handled().ReleaseMouseCapture();
+            }
         }
         return FReply::Unhandled();
 
@@ -416,29 +617,67 @@ void ImTabView::Relayout()
         FVector2(innerGeometry.Position.X, innerGeometry.Position.Y + stripHeight),
         FVector2(innerGeometry.Size.X, std::max(0.0f, innerGeometry.Size.Y - stripHeight)));
 
+    float totalTabsWidth = 0.0f;
+    for (std::size_t tabIndex = 0; tabIndex < Tabs_.size(); ++tabIndex) {
+        totalTabsWidth += ComputeTabWidth(Tabs_[tabIndex]);
+        if (tabIndex + 1 < Tabs_.size()) {
+            totalTabsWidth += Style_.TabSpacing;
+        }
+    }
+
+    const bool bHasOverflow = totalTabsWidth > TabStripGeometry_.Size.X + 0.5f;
+    LeftOverflowButtonGeometry_ = FGeometry();
+    RightOverflowButtonGeometry_ = FGeometry();
+    if (bHasOverflow) {
+        const float buttonWidth = std::min(Style_.OverflowButtonWidth, std::max(0.0f, TabStripGeometry_.Size.X * 0.25f));
+        RightOverflowButtonGeometry_ = FGeometry(
+            FVector2(TabStripGeometry_.GetMax().X - buttonWidth, TabStripGeometry_.Position.Y),
+            FVector2(buttonWidth, TabStripGeometry_.Size.Y));
+        LeftOverflowButtonGeometry_ = FGeometry(
+            FVector2(RightOverflowButtonGeometry_.Position.X - buttonWidth - Style_.TabSpacing, TabStripGeometry_.Position.Y),
+            FVector2(buttonWidth, TabStripGeometry_.Size.Y));
+    }
+
+    const float tabsViewportWidth = GetTabsViewportWidth();
+    const float maxScrollOffset = std::max(0.0f, totalTabsWidth - tabsViewportWidth);
+    TabScrollOffset_ = std::clamp(TabScrollOffset_, 0.0f, maxScrollOffset);
+    if (bEnsureActiveTabVisible_) {
+        EnsureTabVisible(ActiveTabIndex_, tabsViewportWidth);
+        bEnsureActiveTabVisible_ = false;
+    }
+
     VisibleTabGeometries_.clear();
-    float cursorX = TabStripGeometry_.Position.X;
-    const float stripMaxX = TabStripGeometry_.Position.X + TabStripGeometry_.Size.X;
+    float cursorX = TabStripGeometry_.Position.X - TabScrollOffset_;
+    const float stripMinX = TabStripGeometry_.Position.X;
+    const float stripMaxX = stripMinX + tabsViewportWidth;
 
     for (int index = 0; index < static_cast<int>(Tabs_.size()); ++index) {
         const FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
-        float tabWidth = Style_.TabPadding.Left + Style_.TabPadding.Right + MeasureTextWidth(item.Title);
-        if (item.Icon.IsValid()) {
-            tabWidth += Style_.IconSize + 6.0f;
-        }
-        tabWidth = std::max(tabWidth, Style_.TabMinWidth);
+        const float tabWidth = ComputeTabWidth(item);
+        const float tabMaxX = cursorX + tabWidth;
 
-        if (cursorX + tabWidth > stripMaxX) {
-            break;
-        }
-
-        VisibleTabGeometries_.push_back(FTabGeometry {
-            index,
-            FGeometry(
+        if (tabMaxX >= stripMinX && cursorX <= stripMaxX) {
+            FTabGeometry geometry;
+            geometry.Index = index;
+            geometry.Geometry = FGeometry(
                 FVector2(cursorX, TabStripGeometry_.Position.Y),
-                FVector2(tabWidth, TabStripGeometry_.Size.Y))
-        });
-        cursorX += tabWidth + Style_.TabSpacing;
+                FVector2(tabWidth, TabStripGeometry_.Size.Y));
+            geometry.bShowsCloseButton = item.bClosable;
+            if (geometry.bShowsCloseButton) {
+                const float closeSize = std::min(
+                    Style_.CloseButtonSize,
+                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
+                const float closeX = geometry.Geometry.GetMax().X - Style_.TabPadding.Right - closeSize;
+                const float closeY = geometry.Geometry.Position.Y +
+                    std::max(0.0f, (geometry.Geometry.Size.Y - closeSize) * 0.5f);
+                geometry.CloseButtonGeometry = FGeometry(
+                    FVector2(closeX, closeY),
+                    FVector2(closeSize, closeSize));
+            }
+            VisibleTabGeometries_.push_back(geometry);
+        }
+
+        cursorX = tabMaxX + Style_.TabSpacing;
     }
 
     if (const std::shared_ptr<ImWidget> activeContent = GetActiveContent()) {
@@ -501,12 +740,30 @@ bool ImTabView::ContainsWidgetInSubtree(const std::shared_ptr<ImWidget>& widget,
 
 int ImTabView::ResolveTabIndexAt(const FVector2& position) const
 {
+    if (!TabStripGeometry_.Contains(position) ||
+        LeftOverflowButtonGeometry_.Contains(position) ||
+        RightOverflowButtonGeometry_.Contains(position)) {
+        return -1;
+    }
+
+    for (const FTabGeometry& tabGeometry : VisibleTabGeometries_) {
+        if (tabGeometry.Geometry.Contains(position) &&
+            (!tabGeometry.bShowsCloseButton || !tabGeometry.CloseButtonGeometry.Contains(position))) {
+            return tabGeometry.Index;
+        }
+    }
+
+    return -1;
+}
+
+int ImTabView::ResolveCloseButtonTabIndexAt(const FVector2& position) const
+{
     if (!TabStripGeometry_.Contains(position)) {
         return -1;
     }
 
     for (const FTabGeometry& tabGeometry : VisibleTabGeometries_) {
-        if (tabGeometry.Geometry.Contains(position)) {
+        if (tabGeometry.bShowsCloseButton && tabGeometry.CloseButtonGeometry.Contains(position)) {
             return tabGeometry.Index;
         }
     }
@@ -677,6 +934,31 @@ FColor ImTabView::ResolveTabTextColor(int index) const
     return Style_.TextColor;
 }
 
+FColor ImTabView::ResolveCloseButtonColor(const FTabGeometry& tabGeometry) const
+{
+    if (PressedCloseTabIndex_ == tabGeometry.Index) {
+        return Style_.CloseButtonPressedColor;
+    }
+    if (HoveredCloseTabIndex_ == tabGeometry.Index) {
+        return Style_.CloseButtonHoveredColor;
+    }
+    return Style_.CloseButtonColor;
+}
+
+FColor ImTabView::ResolveOverflowButtonColor(int direction) const
+{
+    if (!CanScrollTabs(direction)) {
+        return Style_.OverflowButtonDisabledColor;
+    }
+    if (PressedOverflowDirection_ == direction) {
+        return Style_.OverflowButtonPressedColor;
+    }
+    if (HoveredOverflowDirection_ == direction) {
+        return Style_.OverflowButtonHoveredColor;
+    }
+    return Style_.OverflowButtonColor;
+}
+
 bool ImTabView::HasFocusWithinTabView() const
 {
     ImApplication* application = GetApplication();
@@ -694,6 +976,85 @@ bool ImTabView::HasFocusWithinTabView() const
     }
 
     return ContainsWidgetInSubtree(focusedWidget, GetActiveContent());
+}
+
+bool ImTabView::CanScrollTabs(int direction) const
+{
+    if (direction < 0) {
+        return TabScrollOffset_ > 0.5f;
+    }
+
+    const float totalTabsWidth = [&]() {
+        float width = 0.0f;
+        for (std::size_t index = 0; index < Tabs_.size(); ++index) {
+            width += ComputeTabWidth(Tabs_[index]);
+            if (index + 1 < Tabs_.size()) {
+                width += Style_.TabSpacing;
+            }
+        }
+        return width;
+    }();
+
+    return TabScrollOffset_ < std::max(0.0f, totalTabsWidth - GetTabsViewportWidth()) - 0.5f;
+}
+
+void ImTabView::ScrollTabs(int direction)
+{
+    const float viewportWidth = GetTabsViewportWidth();
+    const float step = std::max(viewportWidth * 0.75f, Style_.TabMinWidth);
+    TabScrollOffset_ = std::max(0.0f, TabScrollOffset_ + static_cast<float>(direction) * step);
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTabView::EnsureTabVisible(int index, float viewportWidth)
+{
+    if (!IsValidIndex(index) || viewportWidth <= 0.0f) {
+        return;
+    }
+
+    float tabStart = 0.0f;
+    for (int currentIndex = 0; currentIndex < index; ++currentIndex) {
+        tabStart += ComputeTabWidth(Tabs_[static_cast<std::size_t>(currentIndex)]) + Style_.TabSpacing;
+    }
+    const float tabEnd = tabStart + ComputeTabWidth(Tabs_[static_cast<std::size_t>(index)]);
+
+    if (tabStart < TabScrollOffset_) {
+        TabScrollOffset_ = tabStart;
+    } else if (tabEnd > TabScrollOffset_ + viewportWidth) {
+        TabScrollOffset_ = tabEnd - viewportWidth;
+    }
+}
+
+float ImTabView::ComputeTabWidth(const FTabViewItem& item) const
+{
+    float tabWidth = Style_.TabPadding.Left + Style_.TabPadding.Right + MeasureTextWidth(item.Title);
+    if (item.Icon.IsValid()) {
+        tabWidth += Style_.IconSize + 6.0f;
+    }
+    if (item.bDirty) {
+        tabWidth += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+    }
+    if (item.bClosable) {
+        tabWidth += Style_.CloseButtonSize + 6.0f;
+    }
+
+    return std::max(tabWidth, Style_.TabMinWidth);
+}
+
+float ImTabView::GetTabsViewportWidth() const
+{
+    float width = TabStripGeometry_.Size.X;
+    if (LeftOverflowButtonGeometry_.IsValid()) {
+        width -= LeftOverflowButtonGeometry_.Size.X;
+    }
+    if (RightOverflowButtonGeometry_.IsValid()) {
+        width -= RightOverflowButtonGeometry_.Size.X;
+    }
+    if (LeftOverflowButtonGeometry_.IsValid() && RightOverflowButtonGeometry_.IsValid()) {
+        width -= Style_.TabSpacing;
+    }
+    return std::max(0.0f, width);
 }
 
 } // namespace ImWidgetV4

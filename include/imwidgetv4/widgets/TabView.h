@@ -25,12 +25,23 @@ struct FTabViewStyle : public ReflectableObject {
         .RegisterProperty(PropertyType::Color, "ActiveTextColor", &FTabViewStyle::ActiveTextColor, "Active text color")
         .RegisterProperty(PropertyType::Color, "DisabledTextColor", &FTabViewStyle::DisabledTextColor, "Disabled text color")
         .RegisterProperty(PropertyType::Color, "TabBorderColor", &FTabViewStyle::TabBorderColor, "Tab border color")
+        .RegisterProperty(PropertyType::Color, "DirtyMarkerColor", &FTabViewStyle::DirtyMarkerColor, "Dirty marker color")
+        .RegisterProperty(PropertyType::Color, "CloseButtonColor", &FTabViewStyle::CloseButtonColor, "Close button color")
+        .RegisterProperty(PropertyType::Color, "CloseButtonHoveredColor", &FTabViewStyle::CloseButtonHoveredColor, "Hovered close button color")
+        .RegisterProperty(PropertyType::Color, "CloseButtonPressedColor", &FTabViewStyle::CloseButtonPressedColor, "Pressed close button color")
+        .RegisterProperty(PropertyType::Color, "OverflowButtonColor", &FTabViewStyle::OverflowButtonColor, "Overflow button color")
+        .RegisterProperty(PropertyType::Color, "OverflowButtonHoveredColor", &FTabViewStyle::OverflowButtonHoveredColor, "Hovered overflow button color")
+        .RegisterProperty(PropertyType::Color, "OverflowButtonPressedColor", &FTabViewStyle::OverflowButtonPressedColor, "Pressed overflow button color")
+        .RegisterProperty(PropertyType::Color, "OverflowButtonDisabledColor", &FTabViewStyle::OverflowButtonDisabledColor, "Disabled overflow button color")
         .RegisterProperty(PropertyType::Struct, "Padding", &FTabViewStyle::Padding, "Outer padding")
         .RegisterProperty(PropertyType::Struct, "TabPadding", &FTabViewStyle::TabPadding, "Tab padding")
         .RegisterProperty(PropertyType::Float, "TabSpacing", &FTabViewStyle::TabSpacing, "Spacing between tabs")
         .RegisterProperty(PropertyType::Float, "TabMinWidth", &FTabViewStyle::TabMinWidth, "Minimum tab width")
         .RegisterProperty(PropertyType::Float, "TabHeight", &FTabViewStyle::TabHeight, "Tab strip item height")
         .RegisterProperty(PropertyType::Float, "IconSize", &FTabViewStyle::IconSize, "Tab icon size")
+        .RegisterProperty(PropertyType::Float, "DirtyMarkerRadius", &FTabViewStyle::DirtyMarkerRadius, "Dirty marker radius")
+        .RegisterProperty(PropertyType::Float, "CloseButtonSize", &FTabViewStyle::CloseButtonSize, "Close button size")
+        .RegisterProperty(PropertyType::Float, "OverflowButtonWidth", &FTabViewStyle::OverflowButtonWidth, "Overflow button width")
         .RegisterProperty(PropertyType::Float, "FontSize", &FTabViewStyle::FontSize, "Tab font size")
         .RegisterProperty(PropertyType::Float, "BorderThickness", &FTabViewStyle::BorderThickness, "Border thickness")
         .RegisterProperty(PropertyType::Float, "CornerRadius", &FTabViewStyle::CornerRadius, "Corner radius")
@@ -51,12 +62,23 @@ public:
     FColor ActiveTextColor = FColor::White;
     FColor DisabledTextColor = FColor::FromBytes(126, 132, 141);
     FColor TabBorderColor = FColor::FromBytes(18, 22, 28);
+    FColor DirtyMarkerColor = FColor::FromBytes(255, 196, 84);
+    FColor CloseButtonColor = FColor::FromBytes(182, 190, 202);
+    FColor CloseButtonHoveredColor = FColor::White;
+    FColor CloseButtonPressedColor = FColor::FromBytes(255, 214, 102);
+    FColor OverflowButtonColor = FColor::FromBytes(88, 102, 119);
+    FColor OverflowButtonHoveredColor = FColor::FromBytes(122, 143, 168);
+    FColor OverflowButtonPressedColor = FColor::FromBytes(156, 182, 212);
+    FColor OverflowButtonDisabledColor = FColor::FromBytes(72, 78, 86);
     FMargin Padding = FMargin(6.0f);
     FMargin TabPadding = FMargin(12.0f, 12.0f, 6.0f, 6.0f);
     float TabSpacing = 4.0f;
     float TabMinWidth = 96.0f;
     float TabHeight = 32.0f;
     float IconSize = 16.0f;
+    float DirtyMarkerRadius = 4.0f;
+    float CloseButtonSize = 12.0f;
+    float OverflowButtonWidth = 24.0f;
     float FontSize = 14.0f;
     float BorderThickness = 1.0f;
     float CornerRadius = 6.0f;
@@ -68,6 +90,8 @@ struct FTabViewItem {
     FImageBrush Icon;
     std::shared_ptr<ImWidget> Content;
     bool bEnabled = true;
+    bool bClosable = false;
+    bool bDirty = false;
 };
 
 class ImTabView : public ImWidget {
@@ -99,12 +123,19 @@ public:
     std::shared_ptr<ImWidget> GetActiveContent() const;
     const FTabViewItem* GetTab(int index) const;
     bool SetTabEnabled(int index, bool bEnabled);
+    bool SetTabClosable(int index, bool bClosable);
+    bool IsTabClosable(int index) const;
+    bool SetTabDirty(int index, bool bDirty);
+    bool IsTabDirty(int index) const;
+    bool SetTabTitle(int index, const std::string& title);
+    bool SetTabIcon(int index, const FImageBrush& icon);
 
     void SetStyle(const FTabViewStyle& style);
     const FTabViewStyle& GetStyle() const { return Style_; }
 
     FTabEvent OnActiveTabChanged;
     FTabEvent OnTabInvoked;
+    FTabEvent OnTabClosed;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
@@ -119,6 +150,8 @@ private:
     struct FTabGeometry {
         int Index = -1;
         FGeometry Geometry;
+        FGeometry CloseButtonGeometry;
+        bool bShowsCloseButton = false;
     };
 
     void SetActiveTabProperty(int& index);
@@ -129,6 +162,7 @@ private:
     void CleanupInteractionStateForContent(const std::shared_ptr<ImWidget>& content);
     bool ContainsWidgetInSubtree(const std::shared_ptr<ImWidget>& widget, const std::shared_ptr<ImWidget>& subtreeRoot) const;
     int ResolveTabIndexAt(const FVector2& position) const;
+    int ResolveCloseButtonTabIndexAt(const FVector2& position) const;
     bool HandleKeyboardNavigation(const FInputEvent& event);
     bool IsValidIndex(int index) const;
     bool IsTabEnabled(int index) const;
@@ -141,18 +175,33 @@ private:
     FGeometry GetInnerGeometry() const;
     FColor ResolveTabBackgroundColor(int index) const;
     FColor ResolveTabTextColor(int index) const;
+    FColor ResolveCloseButtonColor(const FTabGeometry& tabGeometry) const;
+    FColor ResolveOverflowButtonColor(int direction) const;
     bool HasFocusWithinTabView() const;
+    bool CanScrollTabs(int direction) const;
+    void ScrollTabs(int direction);
+    void EnsureTabVisible(int index, float viewportWidth);
+    float ComputeTabWidth(const FTabViewItem& item) const;
+    float GetTabsViewportWidth() const;
 
     FTabViewStyle Style_;
     std::vector<FTabViewItem> Tabs_;
     std::vector<FTabGeometry> VisibleTabGeometries_;
     FGeometry TabStripGeometry_;
     FGeometry ContentGeometry_;
+    FGeometry LeftOverflowButtonGeometry_;
+    FGeometry RightOverflowButtonGeometry_;
     int ActiveTabIndex_ = -1;
     int HoveredTabIndex_ = -1;
     int PressedTabIndex_ = -1;
+    int HoveredCloseTabIndex_ = -1;
+    int PressedCloseTabIndex_ = -1;
+    int HoveredOverflowDirection_ = 0;
+    int PressedOverflowDirection_ = 0;
     int ReflectedActiveTabIndex_ = -1;
     int RegisteredActiveTabIndex_ = -2;
+    float TabScrollOffset_ = 0.0f;
+    bool bEnsureActiveTabVisible_ = false;
     bool bLayoutDirty_ = true;
 };
 

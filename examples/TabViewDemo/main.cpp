@@ -92,7 +92,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     root->AddChild(title, FMargin(18.0f, 18.0f, 18.0f, 0.0f));
 
     auto subtitle = std::make_shared<ImTextBlock>();
-    subtitle->SetText("This demo shows editor-style document tabs with text-only and icon-labeled headers, active-content routing, and programmatic tab management.");
+    subtitle->SetText("This demo shows editor-style document tabs with text-only and icon-labeled headers, dirty markers, close buttons, overflow navigation, and active-content routing.");
     subtitle->SetWrapText(true);
     subtitle->SetTextColor(FColor::FromBytes(214, 222, 234));
     root->AddChild(subtitle, FMargin(18.0f, 0.0f, 18.0f, 0.0f));
@@ -119,13 +119,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     auto textTabs = std::make_shared<ImTabView>();
     textTabs->AddTab("Welcome", MakeTextDocument("Welcome", "This tab uses a simple text-only header and hosts a vertical document layout."));
-    textTabs->AddTab("Notes", MakeTextDocument("Notes", "Tabs keep their widget instances alive while inactive, but only the active one participates in the current frame chain."));
-    textTabs->AddTab("Logs", MakeScrollDocument("Build Logs"));
+    const int notesTab = textTabs->AddTab("Notes", MakeTextDocument("Notes", "Tabs keep their widget instances alive while inactive, but only the active one participates in the current frame chain."));
+    const int logsTab = textTabs->AddTab("Logs", MakeScrollDocument("Build Logs"));
+    const int graphTab = textTabs->AddTab("Graph", MakeTextDocument("Graph", "Extra tabs intentionally force overflow buttons into view when the demo window is narrow."));
+    const int previewTab = textTabs->AddTab("Preview", MakeTextDocument("Preview", "Close buttons and dirty markers are meant for document-style workspaces."));
+    textTabs->SetTabClosable(notesTab, true);
+    textTabs->SetTabClosable(logsTab, true);
+    textTabs->SetTabClosable(graphTab, true);
+    textTabs->SetTabClosable(previewTab, true);
+    textTabs->SetTabDirty(notesTab, true);
+    textTabs->SetTabDirty(previewTab, true);
     textTabs->OnActiveTabChanged.AddLambda([status](ImTabView& sender, int index) {
         const FTabViewItem* item = sender.GetTab(index);
         status->SetText(item != nullptr
             ? "Status: activated text tab \"" + item->Title + "\""
             : "Status: text tab selection cleared");
+    });
+    textTabs->OnTabClosed.AddLambda([status](ImTabView&, int index) {
+        status->SetText("Status: closed text tab at previous index " + std::to_string(index));
     });
     root->AddChild(textTabs, FMargin(18.0f, 0.0f, 18.0f, 0.0f));
 
@@ -135,18 +146,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     root->AddChild(iconLabel, FMargin(18.0f, 8.0f, 18.0f, 0.0f));
 
     auto iconTabs = std::make_shared<ImTabView>();
-    iconTabs->AddTab(
+    const int searchTab = iconTabs->AddTab(
         "Search",
         app->GetCoreIconBrush(ECoreIcon::Search),
         MakeTextDocument("Search Workspace", "Icon headers are intended for editor-style workspaces and tool tabs."));
-    iconTabs->AddTab(
+    const int settingsTab = iconTabs->AddTab(
         "Settings",
         app->GetCoreIconBrush(ECoreIcon::Settings),
         MakeTextDocument("Project Settings", "This tab demonstrates icon + text layout inside the tab strip."));
-    iconTabs->AddTab(
+    const int viewTab = iconTabs->AddTab(
         "View",
         app->GetCoreIconBrush(ECoreIcon::View),
         MakeScrollDocument("Viewport Overlay Layers"));
+    iconTabs->SetTabClosable(settingsTab, true);
+    iconTabs->SetTabClosable(viewTab, true);
+    iconTabs->SetTabDirty(searchTab, true);
     iconTabs->OnTabInvoked.AddLambda([status](ImTabView& sender, int index) {
         const FTabViewItem* item = sender.GetTab(index);
         if (item != nullptr) {
@@ -162,6 +176,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         const int index = textTabs->AddTab(
             title,
             MakeTextDocument(title, "This tab was added programmatically through the demo action row."));
+        textTabs->SetTabClosable(index, true);
+        textTabs->SetTabDirty(index, true);
         textTabs->SetActiveTab(index);
         status->SetText("Status: added document \"" + title + "\"");
     });

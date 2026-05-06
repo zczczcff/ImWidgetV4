@@ -7,6 +7,11 @@
 #include <nlohmann/json.hpp>
 #include <memory>
 
+namespace ImWidgetV4 {
+class ImOutlineItem;
+class ImOutlineView;
+}
+
 namespace ImWidgetV4Editor {
 
 class ReflectionDetailsView : public ImWidgetV4::ImUserWidget {
@@ -31,17 +36,21 @@ protected:
 
 private:
     std::shared_ptr<ImWidgetV4::ImWidget> BuildEmptyState() const;
-    std::shared_ptr<ImWidgetV4::ImWidget> BuildDetailsForObject(
+    void BuildCommonSection(
+        ImWidgetV4::ImOutlineView& outlineView,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
+    void BuildObjectSection(
+        ImWidgetV4::ImOutlineView& outlineView,
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& object,
         const std::string& title) const;
-    std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyRows(
-        const std::shared_ptr<ImWidgetV4::ReflectableObject>& object,
-        int indentLevel) const;
+    void BuildPropertyItems(
+        ImWidgetV4::ImOutlineView& outlineView,
+        ImWidgetV4::ImOutlineItem* parentItem,
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& object) const;
     std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyEditorRow(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
-        const nlohmann::ordered_json& objectJson,
-        int indentLevel) const;
+        const nlohmann::ordered_json& objectJson) const;
     std::string DescribePropertyValue(
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
         const nlohmann::ordered_json& objectJson) const;

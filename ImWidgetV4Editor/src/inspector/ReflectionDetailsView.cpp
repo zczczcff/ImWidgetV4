@@ -4,9 +4,8 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
-#include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
-#include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
@@ -226,15 +225,14 @@ std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget
     return rows;
 }
 
-std::shared_ptr<ImWidget> BuildDetailsSection(
-    const std::string& title,
-    const std::shared_ptr<ImWidget>& body)
+std::shared_ptr<ImWidget> MakeSectionLabelWidget(const std::string& title)
 {
-    auto expandable = std::make_shared<ImExpandableBox>();
-    expandable->SetExpanded(true);
-    expandable->SetHeader(MakeText(title, 14.0f, FColor::FromBytes(242, 246, 250)));
-    expandable->SetBody(body);
-    return expandable;
+    auto label = std::make_shared<ImTextBlock>();
+    label->SetText(title);
+    label->SetWrapText(false);
+    label->SetFontSize(14.0f);
+    label->SetTextColor(FColor::FromBytes(242, 246, 250));
+    return label;
 }
 
 } // namespace
@@ -274,65 +272,118 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
         return BuildEmptyState();
     }
 
-    auto root = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle style = root->GetStyle();
-    style.Padding = FMargin(10.0f);
+    auto outlineView = std::make_shared<ImOutlineView>();
+    outlineView->SetSupportsKeyboardFocus(true);
+
+    FOutlineViewStyle style = outlineView->GetStyle();
+    style.Padding = FMargin(0.0f);
+    style.RowPadding = FMargin(6.0f, 8.0f, 4.0f, 4.0f);
+    style.BackgroundColor = FColor::FromBytes(24, 28, 34);
     style.BorderThickness = 0.0f;
     style.CornerRadius = 0.0f;
-    root->SetStyle(style);
+    style.IndentWidth = 16.0f;
+    style.IndicatorSize = 10.0f;
+    style.IndicatorSpacing = 6.0f;
+    style.RowMinHeight = 30.0f;
+    style.MinDesiredSize = FVector2(280.0f, 220.0f);
+    outlineView->SetStyle(style);
 
-    auto stack = std::make_shared<ImVerticalBox>();
-    stack->SetSpacing(10.0f);
     if (m_Target) {
         if (auto widget = std::dynamic_pointer_cast<ImWidget>(m_Target)) {
-            stack->AddChild(BuildDetailsSection("Common", BuildWidgetMetadataRows(widget)));
-            stack->AddChild(BuildDetailsForObject(m_Target, "Properties"));
+            BuildCommonSection(*outlineView, widget);
+            BuildObjectSection(*outlineView, m_Target, "Properties");
         } else {
-            stack->AddChild(BuildDetailsForObject(m_Target, m_Target->GetTypeName()));
+            BuildObjectSection(*outlineView, m_Target, m_Target->GetTypeName());
         }
     }
     if (m_SlotTarget) {
-        stack->AddChild(BuildDetailsForObject(m_SlotTarget, "Slot"));
+        BuildObjectSection(*outlineView, m_SlotTarget, "Slot");
     }
-    root->SetContent(stack);
-    return root;
+
+    return outlineView;
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
 {
-    auto box = std::make_shared<ImVerticalBox>();
-    box->SetSpacing(8.0f);
-    box->AddChild(MakeText("Details", 16.0f, FColor::FromBytes(235, 240, 247)), FMargin(6.0f));
-    box->AddChild(
-        MakeText(
-            "Select a widget in the designer surface to inspect its reflected properties.",
-            13.0f,
-            FColor::FromBytes(178, 188, 201)),
-        FMargin(6.0f, 6.0f, 0.0f, 6.0f));
-    return box;
+    auto outlineView = std::make_shared<ImOutlineView>();
+    FOutlineViewStyle style = outlineView->GetStyle();
+    style.Padding = FMargin(0.0f);
+    style.BorderThickness = 0.0f;
+    style.CornerRadius = 0.0f;
+    outlineView->SetStyle(style);
+
+    ImOutlineItem* rootItem = outlineView->AddRootItem(MakeSectionLabelWidget("Details"));
+    if (rootItem) {
+        rootItem->Expanded = true;
+        outlineView->AddChildItem(
+            rootItem,
+            MakeText(
+                "Select a widget in the designer surface to inspect its reflected properties.",
+                13.0f,
+                FColor::FromBytes(178, 188, 201)));
+    }
+    return outlineView;
 }
 
-std::shared_ptr<ImWidget> ReflectionDetailsView::BuildDetailsForObject(
+void ReflectionDetailsView::BuildCommonSection(
+    ImOutlineView& outlineView,
+    const std::shared_ptr<ImWidget>& widget) const
+{
+    if (!widget) {
+        return;
+    }
+
+    ImOutlineItem* sectionItem = outlineView.AddRootItem(MakeSectionLabelWidget("Common"));
+    if (!sectionItem) {
+        return;
+    }
+
+    sectionItem->Expanded = true;
+
+    const FGeometry geometry = widget->GetGeometry();
+    std::string parentLabel = "<root>";
+    if (auto parent = widget->GetParent()) {
+        parentLabel = parent->GetTypeName();
+        if (!parent->GetName().empty()) {
+            parentLabel += " [" + parent->GetName() + "]";
+        }
+    }
+
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(widget->GetTypeName())));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(
+        "Name",
+        MakeInspectorReadOnlyField(widget->GetName().empty() ? "<unnamed>" : widget->GetName())));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
+}
+
+void ReflectionDetailsView::BuildObjectSection(
+    ImOutlineView& outlineView,
     const std::shared_ptr<ReflectableObject>& object,
     const std::string& title) const
 {
-    auto expandable = std::make_shared<ImExpandableBox>();
-    expandable->SetExpanded(true);
-    expandable->SetHeader(MakeText(title, 14.0f, FColor::FromBytes(242, 246, 250)));
-    expandable->SetBody(BuildPropertyRows(object, 0));
-    return expandable;
-}
-
-std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
-    const std::shared_ptr<ReflectableObject>& object,
-    int indentLevel) const
-{
     if (!object) {
-        return BuildEmptyState();
+        return;
     }
 
-    auto rows = std::make_shared<ImVerticalBox>();
-    rows->SetSpacing(6.0f);
+    ImOutlineItem* sectionItem = outlineView.AddRootItem(MakeSectionLabelWidget(title));
+    if (!sectionItem) {
+        return;
+    }
+
+    sectionItem->Expanded = true;
+    BuildPropertyItems(outlineView, sectionItem, object);
+}
+
+void ReflectionDetailsView::BuildPropertyItems(
+    ImOutlineView& outlineView,
+    ImOutlineItem* parentItem,
+    const std::shared_ptr<ReflectableObject>& object) const
+{
+    if (!parentItem || !object) {
+        return;
+    }
 
     const auto objectJson = object->ToJson();
     const auto& propertyJson = objectJson.contains("Properties")
@@ -348,34 +399,31 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
 
         auto nestedObject = ResolveNestedObject(object, property);
         if (nestedObject) {
-            rows->AddChild(
-                BuildDetailsForObject(
-                    nestedObject,
-                    std::string(indentLevel * 2, ' ') + property.GetNameString()),
-                FMargin(12.0f, 0.0f, 4.0f, 0.0f));
+            ImOutlineItem* groupItem = outlineView.AddChildItem(parentItem, MakeSectionLabelWidget(property.GetNameString()));
+            if (groupItem) {
+                groupItem->Expanded = true;
+                BuildPropertyItems(outlineView, groupItem, nestedObject);
+            }
             continue;
         }
 
-        rows->AddChild(
+        outlineView.AddChildItem(
+            parentItem,
             BuildPropertyEditorRow(
                 object,
                 property,
-                propertyJson,
-                indentLevel));
+                propertyJson));
     }
-
-    return rows;
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     const std::shared_ptr<ReflectableObject>& owner,
     const ReflectableObject::ROPProperty& property,
-    const nlohmann::ordered_json& objectJson,
-    int indentLevel) const
+    const nlohmann::ordered_json& objectJson) const
 {
     const std::string propertyName = property.GetNameString();
     const std::string propertyClassName = property.GetClassName();
-    const std::string labelText = std::string(indentLevel * 2, ' ') + propertyName;
+    const std::string labelText = propertyName;
     const auto applyJsonValue = [this, owner, propertyName, propertyClassName](const nlohmann::ordered_json& value) {
         if (!owner) {
             return false;

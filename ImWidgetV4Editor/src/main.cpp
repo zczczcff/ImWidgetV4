@@ -246,7 +246,7 @@ FEditorShellWidgets BuildEditorShell()
     auto rightDock = std::make_shared<ImVerticalBox>();
     rightDock->SetSpacing(0.0f);
     auto detailsView = std::make_shared<ReflectionDetailsView>();
-    rightDock->AddChildFill(detailsView, 1.0f, FMargin(10.0f));
+    rightDock->AddChildFill(detailsView, 1.0f, FMargin(0.0f));
 
     topWorkspace->AddPart(leftDock, 0.22f, 240.0f);
     topWorkspace->AddPart(documentTabs, 0.56f, 420.0f);

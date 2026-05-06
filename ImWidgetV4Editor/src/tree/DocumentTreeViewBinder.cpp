@@ -85,6 +85,30 @@ void DocumentTreeViewBinder::SyncSelectionFromDesigner(const std::shared_ptr<ImW
     m_bSyncingSelection = false;
 }
 
+std::shared_ptr<ImWidget> DocumentTreeViewBinder::ResolveWidget(ImTextOutlineItem* item) const
+{
+    auto it = m_ItemToWidget.find(item);
+    if (it == m_ItemToWidget.end()) {
+        return nullptr;
+    }
+
+    return it->second;
+}
+
+ImTextOutlineItem* DocumentTreeViewBinder::ResolveItem(const std::shared_ptr<ImWidget>& widget) const
+{
+    if (!widget) {
+        return nullptr;
+    }
+
+    auto it = m_WidgetToItem.find(widget.get());
+    if (it == m_WidgetToItem.end()) {
+        return nullptr;
+    }
+
+    return it->second;
+}
+
 void DocumentTreeViewBinder::RebuildChildren(
     ImTextOutlineItem* parentItem,
     const std::shared_ptr<ImWidget>& parentWidget)

@@ -16,6 +16,9 @@ public:
     ReflectionDetailsView();
     virtual ~ReflectionDetailsView() = default;
 
+    void SetTargets(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& target,
+        const std::shared_ptr<ImWidgetV4::ImSlot>& slotTarget);
     void SetTarget(const std::shared_ptr<ImWidgetV4::ReflectableObject>& target);
     std::shared_ptr<ImWidgetV4::ReflectableObject> GetTarget() const { return m_Target; }
     void SetSlotTarget(const std::shared_ptr<ImWidgetV4::ImSlot>& slotTarget);
@@ -32,7 +35,7 @@ private:
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& object,
         const std::string& title) const;
     std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyRows(
-        ImWidgetV4::ReflectableObject& object,
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& object,
         int indentLevel) const;
     std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyEditorRow(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
@@ -43,6 +46,7 @@ private:
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
         const nlohmann::ordered_json& objectJson) const;
     std::shared_ptr<ImWidgetV4::ReflectableObject> ResolveNestedObject(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
         const ImWidgetV4::ReflectableObject::ROPProperty& property) const;
 
     std::shared_ptr<ImWidgetV4::ReflectableObject> m_Target;

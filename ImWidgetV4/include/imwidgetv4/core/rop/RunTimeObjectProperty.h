@@ -17,6 +17,7 @@
 #include <list>
 #include <initializer_list>
 #include <sstream>
+#include <utility>
 
 #ifdef GetClassName
 #undef GetClassName
@@ -24,6 +25,28 @@
 
 namespace ROP
 {
+    template<typename KeyType, typename KeyToString, typename StringType>
+    StringType ConvertPropertyKeyToString(const KeyType& key)
+    {
+        if constexpr (std::is_same_v<KeyType, StringType>)
+        {
+            return key;
+        }
+        else if constexpr (std::is_invocable_r_v<StringType, KeyToString, const KeyType&>)
+        {
+            return KeyToString{}(key);
+        }
+        else if constexpr (std::is_constructible_v<StringType, KeyType>)
+        {
+            return StringType(key);
+        }
+        else
+        {
+            std::ostringstream stream;
+            stream << key;
+            return stream.str();
+        }
+    }
     // Ĭ�ϴ�������ص�
     template<typename StringType>
     struct DefaultErrorCallback
@@ -212,7 +235,7 @@ namespace ROP
                 return StringType{};
 
             KeyType name = GetName();
-            return KeyToString()(name);
+            return ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name);
         }
 
         // ��ȡ������������
@@ -1095,15 +1118,15 @@ namespace ROP
             auto prop = GetProperty(name);
             if (!prop.IsValid())
             {
-                return KeyToString()(name) + StringType(" - [Invalid Property]");
+                return ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name) + StringType(" - [Invalid Property]");
             }
 
             StringType description = prop.GetDescription();
             if (!description.empty())
             {
-                return KeyToString()(name) + StringType(" - ") + description;
+                return ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name) + StringType(" - ") + description;
             }
-            return KeyToString()(name);
+            return ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name);
         }
 
         // ��ȡ����ͬ�����ԣ���˳����������࣬ÿ�����ڰ�ע��˳��
@@ -1308,7 +1331,7 @@ namespace ROP
                     {
                         // ʹ�ô���ص��������
                         StringType warningMsg = StringType("Warning: Duplicate option string '") + option +
-                            "' in property '" + KeyToString()(name) +
+                            "' in property '" + ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name) +
                             "' of class '" + m_className + "'";
                         ErrorCallback()(warningMsg);
                     }
@@ -1355,7 +1378,7 @@ namespace ROP
                     {
                         // ʹ�ô���ص��������
                         StringType warningMsg = StringType("Warning: Duplicate option string '") + option +
-                            "' in property '" + KeyToString()(name) +
+                            "' in property '" + ConvertPropertyKeyToString<KeyType, KeyToString, StringType>(name) +
                             "' of class '" + m_className + "'";
                         ErrorCallback()(warningMsg);
                     }

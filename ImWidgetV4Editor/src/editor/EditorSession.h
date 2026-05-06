@@ -9,12 +9,16 @@
 
 namespace ImWidgetV4 {
 struct FDragDropOperation;
+struct FPopupMenuItem;
 class ImDesignerSurface;
+class ImPopupMenu;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
+class ImTextOutlineItem;
 class ImTextOutlineView;
 class ImWidget;
+class ImWindow;
 }
 
 namespace ImWidgetV4Editor {
@@ -43,6 +47,7 @@ public:
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
+    bool DeleteSelectedWidget();
 
     void LogStatus(const std::string& text);
 
@@ -57,12 +62,21 @@ private:
         const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
         const ImWidgetV4::FVector2& position,
         bool& bHandled);
+    void HandleWidgetTreeContextMenuRequested(
+        ImWidgetV4::ImTextOutlineView& treeView,
+        ImWidgetV4::ImTextOutlineItem& item,
+        ImWidgetV4::FVector2 position);
     void UpdateSelectionDetails(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     std::filesystem::path ResolveDialogDirectory() const;
     std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
     bool InsertWidgetIntoDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const ImWidgetV4::FVector2& dropPosition);
+    bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void MarkDocumentDirty();
+    void CloseWidgetTreeContextMenu();
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
     std::shared_ptr<EditorDocument> m_Document;
@@ -74,6 +88,8 @@ private:
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_SelectionText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
+    std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
+    std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
     int m_DocumentTabIndex = -1;
 };
 

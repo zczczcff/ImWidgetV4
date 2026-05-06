@@ -87,6 +87,16 @@ void ImScrollBox::AddChild(const Ptr& child)
     SetContent(child);
 }
 
+bool ImScrollBox::RemoveChild(const Ptr& child)
+{
+    if (!child || child != m_Content) {
+        return false;
+    }
+
+    ClearChildren();
+    return true;
+}
+
 void ImScrollBox::ClearChildren()
 {
     ImWidget::ClearChildren();

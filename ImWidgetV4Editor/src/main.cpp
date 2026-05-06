@@ -362,6 +362,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     app->AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
     app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
     app->SetRootWidget(shell.Root);
+
     backend->Run();
     backend->Shutdown();
     return 0;

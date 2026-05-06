@@ -79,6 +79,28 @@ const ImSlot* ImPanelWidget::GetSlotForChild(const Ptr& child) const {
     return nullptr;
 }
 
+bool ImPanelWidget::RemoveChild(const Ptr& child) {
+    if (!child) {
+        return false;
+    }
+
+    auto it = std::find(m_Children.begin(), m_Children.end(), child);
+    if (it == m_Children.end()) {
+        return false;
+    }
+
+    const std::size_t index = static_cast<std::size_t>(std::distance(m_Children.begin(), it));
+    if (!ImWidget::RemoveChild(child)) {
+        return false;
+    }
+
+    if (index < m_Slots.size()) {
+        m_Slots.erase(m_Slots.begin() + static_cast<std::ptrdiff_t>(index));
+    }
+
+    return true;
+}
+
 void ImPanelWidget::RenderChildren(const FPaintContext& paintContext) {
     // 遍历所有子控件并渲染
     for (const Ptr& child : m_Children) {

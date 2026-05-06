@@ -100,6 +100,7 @@ public:
     using FSelectionChangedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem*>;
     using FExpandedChangedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, bool>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, FVector2>;
+    using FDeleteRequestedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem*>;
 
     ImTextOutlineView();
     virtual ~ImTextOutlineView() = default;
@@ -127,6 +128,7 @@ public:
     FSelectionChangedEvent OnSelectionChanged;
     FExpandedChangedEvent OnItemExpandedChanged;
     FContextMenuRequestedEvent OnItemContextMenuRequested;
+    FDeleteRequestedEvent OnDeleteRequested;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;

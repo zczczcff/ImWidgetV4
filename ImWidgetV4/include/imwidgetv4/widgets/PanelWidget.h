@@ -66,6 +66,7 @@ public:
      * @return Slot 指针，如果未找到返回 nullptr
      */
     const ImSlot* GetSlotForChild(const Ptr& child) const;
+    virtual bool RemoveChild(const Ptr& child) override;
 
     /**
      * @brief 渲染所有子控件

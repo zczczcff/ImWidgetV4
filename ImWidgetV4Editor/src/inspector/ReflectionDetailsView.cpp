@@ -204,24 +204,27 @@ ReflectionDetailsView::ReflectionDetailsView()
     SetHitTestVisible(true);
 }
 
-void ReflectionDetailsView::SetTarget(const std::shared_ptr<ReflectableObject>& target)
+void ReflectionDetailsView::SetTargets(
+    const std::shared_ptr<ReflectableObject>& target,
+    const std::shared_ptr<ImSlot>& slotTarget)
 {
-    if (m_Target == target) {
+    if (m_Target == target && m_SlotTarget == slotTarget) {
         return;
     }
 
     m_Target = target;
+    m_SlotTarget = slotTarget;
     Rebuild();
+}
+
+void ReflectionDetailsView::SetTarget(const std::shared_ptr<ReflectableObject>& target)
+{
+    SetTargets(target, m_SlotTarget);
 }
 
 void ReflectionDetailsView::SetSlotTarget(const std::shared_ptr<ImSlot>& slotTarget)
 {
-    if (m_SlotTarget == slotTarget) {
-        return;
-    }
-
-    m_SlotTarget = slotTarget;
-    Rebuild();
+    SetTargets(m_Target, slotTarget);
 }
 
 ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
@@ -270,24 +273,28 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildDetailsForObject(
     auto expandable = std::make_shared<ImExpandableBox>();
     expandable->SetExpanded(true);
     expandable->SetHeader(MakeText(title, 14.0f, FColor::FromBytes(242, 246, 250)));
-    expandable->SetBody(BuildPropertyRows(*object, 0));
+    expandable->SetBody(BuildPropertyRows(object, 0));
     return expandable;
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
-    ReflectableObject& object,
+    const std::shared_ptr<ReflectableObject>& object,
     int indentLevel) const
 {
+    if (!object) {
+        return BuildEmptyState();
+    }
+
     auto rows = std::make_shared<ImVerticalBox>();
     rows->SetSpacing(6.0f);
 
-    const auto objectJson = object.ToJson();
+    const auto objectJson = object->ToJson();
     const auto& propertyJson = objectJson.contains("Properties")
         ? objectJson.at("Properties")
         : nlohmann::ordered_json::object();
-    const auto properties = object.GetAllPropertiesOrdered();
+    const auto properties = object->GetAllPropertiesOrdered();
     for (const auto& property : properties) {
-        auto nestedObject = ResolveNestedObject(property);
+        auto nestedObject = ResolveNestedObject(object, property);
         if (nestedObject) {
             rows->AddChild(
                 BuildDetailsForObject(
@@ -299,7 +306,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
 
         rows->AddChild(
             BuildPropertyEditorRow(
-                std::shared_ptr<ReflectableObject>(m_Target, &object),
+                object,
                 property,
                 propertyJson,
                 indentLevel));
@@ -508,6 +515,7 @@ std::string ReflectionDetailsView::DescribePropertyValue(
 }
 
 std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(
+    const std::shared_ptr<ReflectableObject>& owner,
     const ReflectableObject::ROPProperty& property) const
 {
     if (property.GetType() != PropertyType::Struct) {
@@ -520,7 +528,7 @@ std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(
     }
 
     return std::shared_ptr<ReflectableObject>(
-        m_Target,
+        owner,
         const_cast<ReflectableObject*>(nested));
 }
 

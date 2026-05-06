@@ -57,6 +57,7 @@ public:
     std::shared_ptr<ImWidget> GetContent() const { return m_Content; }
 
     virtual void AddChild(const Ptr& child) override;
+    virtual bool RemoveChild(const Ptr& child) override;
     virtual void ClearChildren() override;
 
     void SetScrollOffset(const FVector2& scrollOffset);

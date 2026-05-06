@@ -393,6 +393,10 @@ FReply ImTextOutlineView::OnInputEvent(const FInputEvent& event)
         if (!HasKeyboardFocus()) {
             return FReply::Unhandled();
         }
+        if (event.Key == EKey::DeleteKey) {
+            OnDeleteRequested.Broadcast(*this, SelectedItem_);
+            return FReply::Handled();
+        }
         HandleKeyboardNavigation(event.Key);
         return FReply::Handled();
 

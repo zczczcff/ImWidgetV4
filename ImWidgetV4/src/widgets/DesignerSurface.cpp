@@ -82,6 +82,13 @@ void ImDesignerSurface::Paint(const FPaintContext& paintContext)
 
 FReply ImDesignerSurface::OnInputEvent(const FInputEvent& event)
 {
+    if (event.Type == EInputEventType::KeyDown &&
+        event.Key == EKey::DeleteKey &&
+        HasKeyboardFocus()) {
+        OnDeleteRequested.Broadcast(*this);
+        return FReply::Handled();
+    }
+
     if (event.Type == EInputEventType::MouseButtonDown &&
         event.MouseButton == EMouseButton::Left &&
         m_Geometry.Contains(event.MousePosition)) {

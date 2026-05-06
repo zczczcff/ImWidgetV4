@@ -1,4 +1,5 @@
 #include <imwidgetv4/core/Widget.h>
+#include <algorithm>
 
 namespace ImWidgetV4 {
 
@@ -72,6 +73,26 @@ void ImWidget::AddChild(const Ptr& child)
     child->m_Parent = weak_from_this();
     child->SetApplicationRecursive(m_Application);
     m_Children.push_back(child);
+}
+
+bool ImWidget::RemoveChild(const Ptr& child)
+{
+    if (!child) {
+        return false;
+    }
+
+    auto it = std::find(m_Children.begin(), m_Children.end(), child);
+    if (it == m_Children.end()) {
+        return false;
+    }
+
+    if (*it) {
+        (*it)->m_Parent.reset();
+        (*it)->SetApplicationRecursive(nullptr);
+    }
+
+    m_Children.erase(it);
+    return true;
 }
 
 void ImWidget::ClearChildren()

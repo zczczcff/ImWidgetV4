@@ -26,6 +26,8 @@ public:
         const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
 
     void SyncSelectionFromDesigner(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    std::shared_ptr<ImWidgetV4::ImWidget> ResolveWidget(ImWidgetV4::ImTextOutlineItem* item) const;
+    ImWidgetV4::ImTextOutlineItem* ResolveItem(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
 
 private:
     void RebuildChildren(

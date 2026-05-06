@@ -11,6 +11,7 @@
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -56,6 +57,58 @@ std::vector<FFileDialogFilter> BuildDocumentFilters()
     };
 }
 
+bool TryInsertIntoTarget(
+    const std::shared_ptr<ImWidget>& target,
+    const std::shared_ptr<ImWidget>& widget,
+    const FVector2& dropPosition)
+{
+    if (!target || !widget) {
+        return false;
+    }
+
+    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(target)) {
+        const FGeometry geometry = canvas->GetGeometry();
+        FVector2 relativePosition(0.05f, 0.05f);
+        if (geometry.Size.X > 0.0f && geometry.Size.Y > 0.0f) {
+            relativePosition = FVector2(
+                std::clamp((dropPosition.X - geometry.Position.X) / geometry.Size.X, 0.0f, 0.95f),
+                std::clamp((dropPosition.Y - geometry.Position.Y) / geometry.Size.Y, 0.0f, 0.95f));
+        }
+        canvas->AddChildAt(widget, relativePosition);
+        return true;
+    }
+
+    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(target)) {
+        verticalBox->AddChild(widget);
+        return true;
+    }
+
+    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(target)) {
+        horizontalBox->AddChild(widget);
+        return true;
+    }
+
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(target)) {
+        if (!scrollBox->GetContent()) {
+            scrollBox->SetContent(widget);
+            return true;
+        }
+
+        if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
+            contentVerticalBox->AddChild(widget);
+            return true;
+        }
+
+        auto wrapper = std::make_shared<ImVerticalBox>();
+        wrapper->AddChild(scrollBox->GetContent());
+        wrapper->AddChild(widget);
+        scrollBox->SetContent(wrapper);
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
@@ -86,11 +139,42 @@ void EditorSession::BindDocumentWidgets(
         m_TreeBinder = std::make_shared<DocumentTreeViewBinder>();
     }
     m_TreeBinder->Bind(m_WidgetTreeView, m_DesignerSurface);
+    if (m_WidgetTreeView) {
+        m_WidgetTreeView->OnItemContextMenuRequested.Clear();
+        m_WidgetTreeView->OnItemContextMenuRequested.AddLambda(
+            [this](ImTextOutlineView& treeView, ImTextOutlineItem& item, FVector2 position) {
+                HandleWidgetTreeContextMenuRequested(treeView, item, position);
+            });
+        m_WidgetTreeView->OnDeleteRequested.Clear();
+        m_WidgetTreeView->OnDeleteRequested.AddLambda(
+            [this](ImTextOutlineView&, ImTextOutlineItem* item) {
+                if (!m_TreeBinder || item == nullptr) {
+                    LogStatus("Delete skipped: no tree item selected.");
+                    return;
+                }
+
+                auto widget = m_TreeBinder->ResolveWidget(item);
+                if (!widget) {
+                    LogStatus("Delete failed: tree item no longer maps to a widget.");
+                    return;
+                }
+
+                if (m_DesignerSurface) {
+                    m_DesignerSurface->SetSelectedWidget(widget);
+                }
+                DeleteSelectedWidget();
+            });
+    }
     if (m_DesignerSurface) {
         m_DesignerSurface->OnSelectionChanged.Clear();
         m_DesignerSurface->OnSelectionChanged.AddLambda(
             [this](ImDesignerSurface& designerSurfaceRef, std::shared_ptr<ImWidget> selectedWidget) {
                 HandleDesignerSelectionChanged(designerSurfaceRef, selectedWidget);
+            });
+        m_DesignerSurface->OnDeleteRequested.Clear();
+        m_DesignerSurface->OnDeleteRequested.AddLambda(
+            [this](ImDesignerSurface&) {
+                DeleteSelectedWidget();
             });
         m_DesignerSurface->OnDropReceived.Clear();
         m_DesignerSurface->OnDropReceived.AddLambda(
@@ -105,16 +189,13 @@ void EditorSession::BindDocumentWidgets(
         m_DetailsView->OnPropertiesChanged.Clear();
         m_DetailsView->OnPropertiesChanged.AddLambda(
             [this](ReflectionDetailsView&) {
-                if (m_Document) {
-                    m_Document->SetDirty(true);
-                }
-
-                if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
-                    m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
-                    m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
-                }
-
+                MarkDocumentDirty();
                 auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+                if (m_TreeBinder) {
+                    m_TreeBinder->RebuildFromRoot(
+                        m_Document ? m_Document->GetRootWidget() : nullptr,
+                        selectedWidget);
+                }
                 UpdateSelectionDetails(selectedWidget);
             });
     }
@@ -221,6 +302,28 @@ bool EditorSession::SaveDocumentAs(ImApplication& app)
     return true;
 }
 
+bool EditorSession::DeleteSelectedWidget()
+{
+    auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+    if (!selectedWidget) {
+        LogStatus("Delete skipped: no widget selected.");
+        return false;
+    }
+
+    const bool bRemoved = RemoveWidgetFromDocument(selectedWidget);
+    if (!bRemoved) {
+        LogStatus("Delete failed for current selection.");
+        return false;
+    }
+
+    std::string label = selectedWidget->GetTypeName();
+    if (!selectedWidget->GetName().empty()) {
+        label += " [" + selectedWidget->GetName() + "]";
+    }
+    LogStatus("Deleted " + label);
+    return true;
+}
+
 void EditorSession::LogStatus(const std::string& text)
 {
     if (m_OutputText) {
@@ -311,42 +414,92 @@ void EditorSession::HandleDesignerDrop(
         return;
     }
 
-    if (m_Document) {
-        m_Document->SetDirty(true);
-    }
-    if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
-        m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
-        m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
-    }
-    if (m_TreeBinder) {
-        m_TreeBinder->RebuildFromRoot(
-            m_Document ? m_Document->GetRootWidget() : nullptr,
-            widget);
-    }
+    MarkDocumentDirty();
+    RefreshDocumentViews(widget);
     if (m_DesignerSurface) {
         m_DesignerSurface->SetSelectedWidget(widget);
     }
     LogStatus("Created " + payload->Label);
 }
 
+void EditorSession::HandleWidgetTreeContextMenuRequested(
+    ImTextOutlineView&,
+    ImTextOutlineItem& item,
+    FVector2 position)
+{
+    CloseWidgetTreeContextMenu();
+
+    if (!m_TreeBinder || !m_WidgetTreeView) {
+        return;
+    }
+
+    auto targetWidget = m_TreeBinder->ResolveWidget(&item);
+    if (!targetWidget || !m_WidgetTreeView->GetApplication()) {
+        return;
+    }
+
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    FPopupMenuStyle style = popupMenu->GetStyle();
+    style.CornerRadius = 6.0f;
+    popupMenu->SetStyle(style);
+
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Delete",
+        FImageBrush(),
+        {},
+        true,
+        false,
+        [this, targetWidget]() {
+            if (m_DesignerSurface) {
+                m_DesignerSurface->SetSelectedWidget(targetWidget);
+            }
+            const bool bRemoved = DeleteSelectedWidget();
+            CloseWidgetTreeContextMenu();
+            (void)bRemoved;
+        }
+    });
+
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([this](ImPopupMenu&, int) {
+        CloseWidgetTreeContextMenu();
+    });
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "WidgetTreeContextMenu";
+    popupOptions.Position = position;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_WidgetTreeContextMenu = popupMenu;
+    m_WidgetTreeContextMenuWindow =
+        m_WidgetTreeView->GetApplication()->GetWindowManager().CreatePopup(popupOptions);
+}
+
 void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
 {
-    if (m_DetailsView) {
-        m_DetailsView->SetTarget(std::dynamic_pointer_cast<ReflectableObject>(selectedWidget));
-        std::shared_ptr<ImSlot> slotTarget;
-        if (selectedWidget) {
-            if (auto parent = selectedWidget->GetParent()) {
-                if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
-                    ImSlot* slot = panelParent->GetSlotForChild(selectedWidget);
-                    if (slot) {
-                        slotTarget = std::shared_ptr<ImSlot>(
-                            panelParent,
-                            slot);
-                    }
+    std::shared_ptr<ImSlot> slotTarget;
+    if (selectedWidget) {
+        if (auto parent = selectedWidget->GetParent()) {
+            if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
+                ImSlot* slot = panelParent->GetSlotForChild(selectedWidget);
+                if (slot) {
+                    slotTarget = std::shared_ptr<ImSlot>(
+                        panelParent,
+                        slot);
                 }
             }
         }
-        m_DetailsView->SetSlotTarget(slotTarget);
+    }
+
+    if (m_DetailsView) {
+        m_DetailsView->SetTargets(
+            std::dynamic_pointer_cast<ReflectableObject>(selectedWidget),
+            slotTarget);
     }
 
     if (!m_SelectionText) {
@@ -423,47 +576,119 @@ bool EditorSession::InsertWidgetIntoDocument(
         return true;
     }
 
-    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(root)) {
-        const FGeometry geometry = canvas->GetGeometry();
-        FVector2 relativePosition(0.05f, 0.05f);
-        if (geometry.Size.X > 0.0f && geometry.Size.Y > 0.0f) {
-            relativePosition = FVector2(
-                std::clamp((dropPosition.X - geometry.Position.X) / geometry.Size.X, 0.0f, 0.95f),
-                std::clamp((dropPosition.Y - geometry.Position.Y) / geometry.Size.Y, 0.0f, 0.95f));
-        }
-        canvas->AddChildAt(widget, relativePosition);
-        return true;
-    }
+    std::shared_ptr<ImWidget> insertionTarget =
+        m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
 
-    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(root)) {
-        verticalBox->AddChild(widget);
-        return true;
-    }
-
-    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(root)) {
-        horizontalBox->AddChild(widget);
-        return true;
-    }
-
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(root)) {
-        if (!scrollBox->GetContent()) {
-            scrollBox->SetContent(widget);
+    while (insertionTarget) {
+        if (TryInsertIntoTarget(insertionTarget, widget, dropPosition)) {
             return true;
         }
 
-        if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
-            contentVerticalBox->AddChild(widget);
-            return true;
+        if (insertionTarget == root) {
+            break;
         }
 
-        auto wrapper = std::make_shared<ImVerticalBox>();
-        wrapper->AddChild(scrollBox->GetContent());
-        wrapper->AddChild(widget);
-        scrollBox->SetContent(wrapper);
-        return true;
+        insertionTarget = insertionTarget->GetParent();
     }
 
-    return false;
+    return TryInsertIntoTarget(root, widget, dropPosition);
+}
+
+bool EditorSession::RemoveWidgetFromDocument(const std::shared_ptr<ImWidget>& widget)
+{
+    if (!m_Document || !widget) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root) {
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> nextSelection;
+    if (m_DesignerSurface && m_DesignerSurface->GetSelectedWidget() == widget) {
+        nextSelection = widget->GetParent();
+    }
+
+    const bool bRemoved = (widget == root)
+        ? (m_Document->SetRootWidget(nullptr), true)
+        : RemoveWidgetFromParent(widget->GetParent(), widget);
+
+    if (!bRemoved) {
+        return false;
+    }
+
+    if (m_DesignerSurface && m_DesignerSurface->GetSelectedWidget() == widget) {
+        m_DesignerSurface->ClearSelection();
+    }
+
+    MarkDocumentDirty();
+    RefreshDocumentViews(nextSelection);
+    if (m_DesignerSurface) {
+        m_DesignerSurface->SetSelectedWidget(nextSelection);
+    }
+    return true;
+}
+
+bool EditorSession::RemoveWidgetFromParent(
+    const std::shared_ptr<ImWidget>& parent,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!parent || !widget) {
+        return false;
+    }
+
+    if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
+        return panelParent->RemoveChild(widget);
+    }
+
+    if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
+        if (userWidget->GetRootWidget() == widget) {
+            userWidget->SetRootWidget(nullptr);
+            return true;
+        }
+    }
+
+    return parent->RemoveChild(widget);
+}
+
+void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    if (m_DesignerSurface) {
+        m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
+    } else if (m_DocumentHost) {
+        m_DocumentHost->SetContent(m_Document ? m_Document->GetRootWidget() : nullptr);
+    }
+
+    if (m_TreeBinder) {
+        m_TreeBinder->RebuildFromRoot(
+            m_Document ? m_Document->GetRootWidget() : nullptr,
+            selectedWidget);
+    }
+
+    UpdateSelectionDetails(selectedWidget);
+}
+
+void EditorSession::MarkDocumentDirty()
+{
+    if (m_Document) {
+        m_Document->SetDirty(true);
+    }
+
+    if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
+        m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
+        m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
+    }
+}
+
+void EditorSession::CloseWidgetTreeContextMenu()
+{
+    if (m_WidgetTreeContextMenuWindow && m_WidgetTreeView && m_WidgetTreeView->GetApplication()) {
+        m_WidgetTreeView->GetApplication()->GetWindowManager().CloseWindow(m_WidgetTreeContextMenuWindow);
+    }
+
+    m_WidgetTreeContextMenuWindow.reset();
+    m_WidgetTreeContextMenu.reset();
 }
 
 } // namespace ImWidgetV4Editor

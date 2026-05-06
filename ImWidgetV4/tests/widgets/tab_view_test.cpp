@@ -318,6 +318,43 @@ TEST_F(TabViewTest, WideningViewportRelayoutsTabStripAndRevealsPreviouslyHiddenT
     EXPECT_EQ(View->GetActiveTabIndex(), 2);
 }
 
+TEST_F(TabViewTest, BottomTabStripPlacementMovesContentAboveTabs)
+{
+    auto first = std::make_shared<TestContentWidget>();
+    auto second = std::make_shared<TestContentWidget>();
+    View->AddTab("First", first);
+    View->AddTab("Second", second);
+    View->SetActiveTab(1);
+    View->SetTabStripPlacement(ETabStripPlacement::Bottom);
+
+    Advance({}, FVector2(220.0f, 140.0f));
+
+    const FGeometry viewGeometry = View->GetGeometry();
+    const FGeometry contentGeometry = second->GetGeometry();
+    EXPECT_EQ(View->GetTabStripPlacement(), ETabStripPlacement::Bottom);
+    EXPECT_EQ(contentGeometry.Position.X, viewGeometry.Position.X);
+    EXPECT_EQ(contentGeometry.Position.Y, viewGeometry.Position.Y);
+    EXPECT_LE(contentGeometry.GetMax().Y, viewGeometry.GetMax().Y - 20.0f);
+}
+
+TEST_F(TabViewTest, BottomTabStripPlacementSupportsTabClicks)
+{
+    auto first = std::make_shared<TestContentWidget>();
+    auto second = std::make_shared<TestContentWidget>();
+    View->AddTab("First", first);
+    View->AddTab("Second", second);
+    View->SetTabStripPlacement(ETabStripPlacement::Bottom);
+
+    Advance({}, FVector2(180.0f, 120.0f));
+
+    const FVector2 secondTabPoint(90.0f, 106.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint)});
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, secondTabPoint)});
+
+    EXPECT_EQ(View->GetActiveTabIndex(), 1);
+    EXPECT_EQ(App->GetKeyboardFocus(), View);
+}
+
 TEST_F(TabViewTest, CloseButtonRemovesTabAndBroadcastsClose)
 {
     auto first = std::make_shared<TestContentWidget>();

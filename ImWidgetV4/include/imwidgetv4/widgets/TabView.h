@@ -14,6 +14,11 @@ enum class ETabCloseActivationPolicy {
     MostRecentlyActive = 1
 };
 
+enum class ETabStripPlacement {
+    Top = 0,
+    Bottom = 1
+};
+
 struct FTabViewStyle : public ReflectableObject {
     DECLARE_OBJECT_WITH_PARENT(FTabViewStyle, ReflectableObject)
     registrar
@@ -115,6 +120,13 @@ class ImTabView : public ImWidget {
             static_cast<int& (ImTabView::*)()>(&ImTabView::GetCloseActivationPolicyProperty),
             {"LeftNeighbor", "MostRecentlyActive"},
             "Policy used to choose the next active tab after closing the active tab")
+        .RegisterOptionalProperty(
+            PropertyType::Enum,
+            "TabStripPlacement",
+            static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetTabStripPlacementProperty),
+            static_cast<int& (ImTabView::*)()>(&ImTabView::GetTabStripPlacementProperty),
+            {"Top", "Bottom"},
+            "Placement of the tab strip relative to the content area")
         .RegisterProperty(PropertyType::Struct, "Style", &ImTabView::Style_, "Tab view style");
     END_DECLARE_OBJECT()
 
@@ -144,6 +156,8 @@ public:
     bool SetTabIcon(int index, const FImageBrush& icon);
     void SetCloseActivationPolicy(ETabCloseActivationPolicy policy);
     ETabCloseActivationPolicy GetCloseActivationPolicy() const { return CloseActivationPolicy_; }
+    void SetTabStripPlacement(ETabStripPlacement placement);
+    ETabStripPlacement GetTabStripPlacement() const { return TabStripPlacement_; }
 
     void SetStyle(const FTabViewStyle& style);
     const FTabViewStyle& GetStyle() const { return Style_; }
@@ -177,6 +191,8 @@ private:
     int& GetActiveTabProperty();
     void SetCloseActivationPolicyProperty(int& value);
     int& GetCloseActivationPolicyProperty();
+    void SetTabStripPlacementProperty(int& value);
+    int& GetTabStripPlacementProperty();
 
     void Relayout();
     void UpdateRegisteredActiveContent();
@@ -227,12 +243,14 @@ private:
     int ReflectedActiveTabIndex_ = -1;
     int RegisteredActiveTabIndex_ = -2;
     int ReflectedCloseActivationPolicy_ = 0;
+    int ReflectedTabStripPlacement_ = 0;
     float TabScrollOffset_ = 0.0f;
     bool bEnsureActiveTabVisible_ = false;
     bool bLayoutDirty_ = true;
     bool bHasLastLayoutGeometry_ = false;
     FGeometry LastLayoutGeometry_;
     ETabCloseActivationPolicy CloseActivationPolicy_ = ETabCloseActivationPolicy::LeftNeighbor;
+    ETabStripPlacement TabStripPlacement_ = ETabStripPlacement::Top;
     std::vector<int> ActivationHistory_;
 };
 

@@ -315,6 +315,17 @@ void ImTabView::SetCloseActivationPolicy(ETabCloseActivationPolicy policy)
     CloseActivationPolicy_ = policy;
 }
 
+void ImTabView::SetTabStripPlacement(ETabStripPlacement placement)
+{
+    if (TabStripPlacement_ == placement) {
+        return;
+    }
+
+    TabStripPlacement_ = placement;
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
 void ImTabView::SetStyle(const FTabViewStyle& style)
 {
     Style_ = style;
@@ -688,6 +699,18 @@ int& ImTabView::GetCloseActivationPolicyProperty()
     return ReflectedCloseActivationPolicy_;
 }
 
+void ImTabView::SetTabStripPlacementProperty(int& value)
+{
+    value = std::clamp(value, 0, 1);
+    SetTabStripPlacement(static_cast<ETabStripPlacement>(value));
+}
+
+int& ImTabView::GetTabStripPlacementProperty()
+{
+    ReflectedTabStripPlacement_ = static_cast<int>(TabStripPlacement_);
+    return ReflectedTabStripPlacement_;
+}
+
 void ImTabView::Relayout()
 {
     if (!bLayoutDirty_ &&
@@ -702,12 +725,22 @@ void ImTabView::Relayout()
 
     const FGeometry innerGeometry = GetInnerGeometry();
     const float stripHeight = std::min(Style_.TabHeight, innerGeometry.Size.Y);
-    TabStripGeometry_ = FGeometry(
-        innerGeometry.Position,
-        FVector2(innerGeometry.Size.X, stripHeight));
-    ContentGeometry_ = FGeometry(
-        FVector2(innerGeometry.Position.X, innerGeometry.Position.Y + stripHeight),
-        FVector2(innerGeometry.Size.X, std::max(0.0f, innerGeometry.Size.Y - stripHeight)));
+    const float contentHeight = std::max(0.0f, innerGeometry.Size.Y - stripHeight);
+    if (TabStripPlacement_ == ETabStripPlacement::Bottom) {
+        ContentGeometry_ = FGeometry(
+            innerGeometry.Position,
+            FVector2(innerGeometry.Size.X, contentHeight));
+        TabStripGeometry_ = FGeometry(
+            FVector2(innerGeometry.Position.X, innerGeometry.Position.Y + contentHeight),
+            FVector2(innerGeometry.Size.X, stripHeight));
+    } else {
+        TabStripGeometry_ = FGeometry(
+            innerGeometry.Position,
+            FVector2(innerGeometry.Size.X, stripHeight));
+        ContentGeometry_ = FGeometry(
+            FVector2(innerGeometry.Position.X, innerGeometry.Position.Y + stripHeight),
+            FVector2(innerGeometry.Size.X, contentHeight));
+    }
 
     float totalTabsWidth = 0.0f;
     for (std::size_t tabIndex = 0; tabIndex < Tabs_.size(); ++tabIndex) {

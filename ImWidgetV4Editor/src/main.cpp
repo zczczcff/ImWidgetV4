@@ -109,8 +109,12 @@ std::shared_ptr<ImTabView> BuildDocumentTabs()
     tabView->SetSupportsKeyboardFocus(true);
 
     FTabViewStyle style = tabView->GetStyle();
+    style.Padding = FMargin(0.0f);
     style.TabHeight = 36.0f;
     style.TabMinWidth = 150.0f;
+    style.TabSpacing = 0.0f;
+    style.BorderThickness = 0.0f;
+    style.CornerRadius = 0.0f;
     style.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
     style.BackgroundColor = FColor::FromBytes(18, 23, 29);
     style.ActiveTabColor = FColor::FromBytes(63, 90, 128);

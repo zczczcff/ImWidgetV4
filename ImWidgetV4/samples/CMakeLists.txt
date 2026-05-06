@@ -1,0 +1,17 @@
+﻿# ImWidgetV4 sample targets
+
+add_subdirectory(ButtonDemo)
+add_subdirectory(BoxPanelDemo)
+add_subdirectory(CanvasPanelDemo)
+add_subdirectory(ExpandableBoxDemo)
+add_subdirectory(ImageDemo)
+add_subdirectory(InputWidgetsDemo)
+add_subdirectory(ListViewDemo)
+add_subdirectory(OutlineViewDemo)
+add_subdirectory(ReflectionInspectorDemo)
+add_subdirectory(ScrollBoxDemo)
+add_subdirectory(SplitterDemo)
+add_subdirectory(TabViewDemo)
+add_subdirectory(TextListDemo)
+add_subdirectory(UserWidgetDemo)
+add_subdirectory(WindowDemo)

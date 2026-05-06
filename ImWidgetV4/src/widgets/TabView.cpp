@@ -384,6 +384,11 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 Style_.CornerRadius,
                 1.0f);
 
+            paintContext.DrawContext_.PushClipRect(
+                tabGeometry.Geometry.GetMin(),
+                tabGeometry.Geometry.GetMax(),
+                true);
+
             const FColor contentColor = ResolveTabTextColor(tabGeometry.Index);
             float contentX = tabGeometry.Geometry.Position.X + Style_.TabPadding.Left;
             if (item.Icon.IsValid()) {
@@ -440,6 +445,8 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                     closeColor,
                     1.5f);
             }
+
+            paintContext.DrawContext_.PopClipRect();
         }
 
         if (LeftOverflowButtonGeometry_.IsValid()) {
@@ -743,42 +750,39 @@ void ImTabView::Relayout()
     }
 
     float totalTabsWidth = 0.0f;
+    std::vector<float> naturalTabWidths;
+    naturalTabWidths.reserve(Tabs_.size());
     for (std::size_t tabIndex = 0; tabIndex < Tabs_.size(); ++tabIndex) {
-        totalTabsWidth += ComputeTabWidth(Tabs_[tabIndex]);
+        const float naturalWidth = ComputeTabWidth(Tabs_[tabIndex]);
+        naturalTabWidths.push_back(naturalWidth);
+        totalTabsWidth += naturalWidth;
         if (tabIndex + 1 < Tabs_.size()) {
             totalTabsWidth += Style_.TabSpacing;
         }
     }
 
-    const bool bHasOverflow = totalTabsWidth > TabStripGeometry_.Size.X + 0.5f;
     LeftOverflowButtonGeometry_ = FGeometry();
     RightOverflowButtonGeometry_ = FGeometry();
-    if (bHasOverflow) {
-        const float buttonWidth = std::min(Style_.OverflowButtonWidth, std::max(0.0f, TabStripGeometry_.Size.X * 0.25f));
-        RightOverflowButtonGeometry_ = FGeometry(
-            FVector2(TabStripGeometry_.GetMax().X - buttonWidth, TabStripGeometry_.Position.Y),
-            FVector2(buttonWidth, TabStripGeometry_.Size.Y));
-        LeftOverflowButtonGeometry_ = FGeometry(
-            FVector2(RightOverflowButtonGeometry_.Position.X - buttonWidth - Style_.TabSpacing, TabStripGeometry_.Position.Y),
-            FVector2(buttonWidth, TabStripGeometry_.Size.Y));
-    }
-
     const float tabsViewportWidth = GetTabsViewportWidth();
-    const float maxScrollOffset = std::max(0.0f, totalTabsWidth - tabsViewportWidth);
-    TabScrollOffset_ = std::clamp(TabScrollOffset_, 0.0f, maxScrollOffset);
-    if (bEnsureActiveTabVisible_) {
-        EnsureTabVisible(ActiveTabIndex_, tabsViewportWidth);
-        bEnsureActiveTabVisible_ = false;
-    }
+    const float totalSpacing = Tabs_.size() > 1
+        ? Style_.TabSpacing * static_cast<float>(Tabs_.size() - 1)
+        : 0.0f;
+    const float widthAvailableForTabs = std::max(0.0f, tabsViewportWidth - totalSpacing);
+    float naturalTabsWidth = std::max(0.0f, totalTabsWidth - totalSpacing);
+    const float widthScale = naturalTabsWidth > 0.0f && naturalTabsWidth > widthAvailableForTabs
+        ? (widthAvailableForTabs / naturalTabsWidth)
+        : 1.0f;
+    TabScrollOffset_ = 0.0f;
+    bEnsureActiveTabVisible_ = false;
 
     VisibleTabGeometries_.clear();
-    float cursorX = TabStripGeometry_.Position.X - TabScrollOffset_;
+    float cursorX = TabStripGeometry_.Position.X;
     const float stripMinX = TabStripGeometry_.Position.X;
     const float stripMaxX = stripMinX + tabsViewportWidth;
 
     for (int index = 0; index < static_cast<int>(Tabs_.size()); ++index) {
         const FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
-        const float tabWidth = ComputeTabWidth(item);
+        const float tabWidth = naturalTabWidths[static_cast<std::size_t>(index)] * widthScale;
         const float tabMaxX = cursorX + tabWidth;
 
         if (tabMaxX >= stripMinX && cursorX <= stripMaxX) {
@@ -799,8 +803,12 @@ void ImTabView::Relayout()
             if (geometry.bShowsCloseButton) {
                 const float closeSize = std::min(
                     Style_.CloseButtonSize,
-                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
-                const float closeX = geometry.Geometry.GetMax().X - Style_.TabPadding.Right - closeSize;
+                    std::max(0.0f, std::min(
+                        geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom,
+                        geometry.Geometry.Size.X - Style_.TabPadding.Left - Style_.TabPadding.Right)));
+                const float closeX = std::max(
+                    geometry.Geometry.Position.X + Style_.TabPadding.Left,
+                    geometry.Geometry.GetMax().X - Style_.TabPadding.Right - closeSize);
                 const float closeY = geometry.Geometry.Position.Y +
                     std::max(0.0f, (geometry.Geometry.Size.Y - closeSize) * 0.5f);
                 geometry.CloseButtonGeometry = FGeometry(
@@ -808,11 +816,9 @@ void ImTabView::Relayout()
                     FVector2(closeSize, closeSize));
                 textClipMaxX = std::min(textClipMaxX, closeX - 6.0f);
             }
-            const float visibleTextClipMinX = std::max(contentX, stripMinX);
-            geometry.TextClipMaxX = std::max(visibleTextClipMinX, std::min(textClipMaxX, stripMaxX));
+            const float visibleTextClipMinX = std::max(contentX, geometry.Geometry.Position.X);
+            geometry.TextClipMaxX = std::max(visibleTextClipMinX, std::min(textClipMaxX, geometry.Geometry.GetMax().X));
             geometry.bTitleClipped =
-                cursorX < stripMinX - 0.5f ||
-                tabMaxX > stripMaxX + 0.5f ||
                 MeasureTextWidth(item.Title) > std::max(0.0f, geometry.TextClipMaxX - visibleTextClipMinX) + 0.5f;
             VisibleTabGeometries_.push_back(geometry);
         }
@@ -1192,11 +1198,7 @@ bool ImTabView::CanScrollTabs(int direction) const
 
 void ImTabView::ScrollTabs(int direction)
 {
-    const float viewportWidth = GetTabsViewportWidth();
-    const float step = std::max(viewportWidth * 0.75f, Style_.TabMinWidth);
-    TabScrollOffset_ = std::max(0.0f, TabScrollOffset_ + static_cast<float>(direction) * step);
-    bLayoutDirty_ = true;
-    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    (void)direction;
 }
 
 void ImTabView::EnsureTabVisible(int index, float viewportWidth)
@@ -1231,7 +1233,7 @@ float ImTabView::ComputeTabWidth(const FTabViewItem& item) const
         tabWidth += Style_.CloseButtonSize + 6.0f;
     }
 
-    return std::max(tabWidth, Style_.TabMinWidth);
+    return std::max(0.0f, tabWidth);
 }
 
 float ImTabView::GetTabsViewportWidth() const

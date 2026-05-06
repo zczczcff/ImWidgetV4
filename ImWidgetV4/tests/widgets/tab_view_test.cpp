@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#define private public
 #include <imwidgetv4/widgets/TabView.h>
+#undef private
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -44,6 +46,24 @@ FTabViewStyle MakeCompactStyle()
     style.TabPadding = FMargin(8.0f, 8.0f, 4.0f, 4.0f);
     style.MinDesiredSize = FVector2(180.0f, 120.0f);
     return style;
+}
+
+const ImTabView::FTabGeometry* FindTabGeometry(const std::shared_ptr<ImTabView>& view, int index)
+{
+    for (const ImTabView::FTabGeometry& geometry : view->VisibleTabGeometries_) {
+        if (geometry.Index == index) {
+            return &geometry;
+        }
+    }
+
+    return nullptr;
+}
+
+FVector2 GetTabCenter(const std::shared_ptr<ImTabView>& view, int index)
+{
+    const ImTabView::FTabGeometry* geometry = FindTabGeometry(view, index);
+    EXPECT_NE(geometry, nullptr);
+    return geometry != nullptr ? geometry->Geometry.GetCenter() : FVector2();
 }
 
 class TestContentWidget : public ImWidget {
@@ -234,7 +254,7 @@ TEST_F(TabViewTest, ClickingTabSwitchesSelectionAndRequestsFocus)
     EXPECT_EQ(App->GetMouseCapture(), nullptr);
 }
 
-TEST_F(TabViewTest, DisabledAndOverflowTabsDoNotActivate)
+TEST_F(TabViewTest, DisabledTabsDoNotActivateAndCompressedTabsRemainClickable)
 {
     FTabViewStyle style = MakeCompactStyle();
     style.TabMinWidth = 70.0f;
@@ -250,19 +270,19 @@ TEST_F(TabViewTest, DisabledAndOverflowTabsDoNotActivate)
     Advance({}, FVector2(150.0f, 120.0f));
 
     const int activeBeforeDisabledClick = View->GetActiveTabIndex();
-    const FVector2 secondTabPoint(105.0f, 14.0f);
+    const FVector2 secondTabPoint = GetTabCenter(View, 1);
     Advance({
         CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint),
         CreateMouseEvent(EInputEventType::MouseButtonUp, secondTabPoint)
     }, FVector2(150.0f, 120.0f));
     EXPECT_EQ(View->GetActiveTabIndex(), activeBeforeDisabledClick);
 
-    const FVector2 overflowPoint(145.0f, 14.0f);
+    const FVector2 thirdTabPoint = GetTabCenter(View, 2);
     Advance({
-        CreateMouseEvent(EInputEventType::MouseButtonDown, overflowPoint),
-        CreateMouseEvent(EInputEventType::MouseButtonUp, overflowPoint)
+        CreateMouseEvent(EInputEventType::MouseButtonDown, thirdTabPoint),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, thirdTabPoint)
     }, FVector2(150.0f, 120.0f));
-    EXPECT_EQ(View->GetActiveTabIndex(), activeBeforeDisabledClick);
+    EXPECT_EQ(View->GetActiveTabIndex(), 2);
 }
 
 TEST_F(TabViewTest, GeometryResizeTriggersRelayoutWithoutExplicitDirty)
@@ -291,30 +311,29 @@ TEST_F(TabViewTest, GeometryResizeTriggersRelayoutWithoutExplicitDirty)
     EXPECT_LE(resizedContentGeometry.GetMax().Y, resizedViewGeometry.GetMax().Y + 0.01f);
 }
 
-TEST_F(TabViewTest, WideningViewportRelayoutsTabStripAndRevealsPreviouslyHiddenTabs)
+TEST_F(TabViewTest, WideningViewportRestoresTabsFromCompressedState)
 {
     FTabViewStyle style = MakeCompactStyle();
     style.TabMinWidth = 70.0f;
     View->SetStyle(style);
 
-    View->AddTab("First", std::make_shared<TestContentWidget>());
-    View->AddTab("Second", std::make_shared<TestContentWidget>());
-    View->AddTab("Third", std::make_shared<TestContentWidget>());
+    View->AddTab("Short", std::make_shared<TestContentWidget>());
+    View->AddTab("A much longer title", std::make_shared<TestContentWidget>());
+    View->AddTab("Mid", std::make_shared<TestContentWidget>());
 
     Advance({}, FVector2(150.0f, 120.0f));
-    EXPECT_EQ(View->GetActiveTabIndex(), 0);
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, GetTabCenter(View, 1))}, FVector2(150.0f, 120.0f));
+    EXPECT_EQ(View->GetToolTipText(), "A much longer title");
 
-    Advance({
-        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(138.0f, 14.0f)),
-        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(138.0f, 14.0f))
-    }, FVector2(150.0f, 120.0f));
-    EXPECT_EQ(View->GetActiveTabIndex(), 0);
+    Advance({}, FVector2(360.0f, 120.0f));
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, GetTabCenter(View, 1))}, FVector2(360.0f, 120.0f));
+    EXPECT_TRUE(View->GetToolTipText().empty());
 
-    Advance({}, FVector2(320.0f, 120.0f));
+    const FVector2 thirdTabPoint = GetTabCenter(View, 2);
     Advance({
-        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(180.0f, 14.0f)),
-        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(180.0f, 14.0f))
-    }, FVector2(320.0f, 120.0f));
+        CreateMouseEvent(EInputEventType::MouseButtonDown, thirdTabPoint),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, thirdTabPoint)
+    }, FVector2(360.0f, 120.0f));
     EXPECT_EQ(View->GetActiveTabIndex(), 2);
 }
 
@@ -379,7 +398,7 @@ TEST_F(TabViewTest, CloseButtonRemovesTabAndBroadcastsClose)
     EXPECT_EQ(View->GetTab(0)->Title, "Second");
 }
 
-TEST_F(TabViewTest, OverflowButtonsRevealHiddenTabs)
+TEST_F(TabViewTest, NarrowViewportKeepsAllTabsReachableByCompression)
 {
     FTabViewStyle style = MakeCompactStyle();
     style.TabMinWidth = 70.0f;
@@ -390,11 +409,7 @@ TEST_F(TabViewTest, OverflowButtonsRevealHiddenTabs)
     View->AddTab("Third", std::make_shared<TestContentWidget>());
     Advance({}, FVector2(150.0f, 120.0f));
 
-    const FVector2 rightOverflowPoint(138.0f, 14.0f);
-    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, rightOverflowPoint)}, FVector2(150.0f, 120.0f));
-    Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, rightOverflowPoint)}, FVector2(150.0f, 120.0f));
-
-    const FVector2 thirdTabPoint(80.0f, 14.0f);
+    const FVector2 thirdTabPoint = GetTabCenter(View, 2);
     Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, thirdTabPoint)}, FVector2(150.0f, 120.0f));
     Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, thirdTabPoint)}, FVector2(150.0f, 120.0f));
     EXPECT_EQ(View->GetActiveTabIndex(), 2);
@@ -443,10 +458,10 @@ TEST_F(TabViewTest, ClippedTabTitlePublishesTooltipText)
     View->AddTab("Short", std::make_shared<TestContentWidget>());
     Advance({}, FVector2(160.0f, 120.0f));
 
-    Advance({CreateMouseEvent(EInputEventType::MouseMove, FVector2(36.0f, 14.0f))}, FVector2(160.0f, 120.0f));
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, GetTabCenter(View, 0))}, FVector2(160.0f, 120.0f));
     EXPECT_EQ(View->GetToolTipText(), "A very long clipped title");
 
-    Advance({CreateMouseEvent(EInputEventType::MouseMove, FVector2(110.0f, 14.0f))}, FVector2(160.0f, 120.0f));
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, FVector2(80.0f, 56.0f))}, FVector2(160.0f, 120.0f));
     EXPECT_TRUE(View->GetToolTipText().empty());
 }
 
@@ -465,7 +480,7 @@ TEST_F(TabViewTest, DoubleClickBroadcastsDedicatedTabEvent)
         doubleClickedIndex = index;
     });
 
-    const FVector2 secondTabPoint(90.0f, 14.0f);
+    const FVector2 secondTabPoint = GetTabCenter(View, 1);
     Advance({
         CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Left, 1.00),
         CreateMouseEvent(EInputEventType::MouseButtonUp, secondTabPoint, EMouseButton::Left, 1.05),
@@ -512,7 +527,7 @@ TEST_F(TabViewTest, RightClickActivatesTabAndBroadcastsContextMenuRequest)
         requestedPosition = position;
     });
 
-    const FVector2 secondTabPoint(90.0f, 14.0f);
+    const FVector2 secondTabPoint = GetTabCenter(View, 1);
     Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Right)});
 
     EXPECT_EQ(View->GetActiveTabIndex(), 1);

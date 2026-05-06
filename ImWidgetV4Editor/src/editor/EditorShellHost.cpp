@@ -49,6 +49,8 @@ FReply EditorShellHost::OnPreviewInputEvent(const FInputEvent& event)
             : session->Undo();
     } else if (event.Key == EKey::Y && !event.Modifiers.bShift) {
         bHandled = session->Redo();
+    } else if (event.Key == EKey::D && !event.Modifiers.bShift) {
+        bHandled = session->DuplicateSelectedWidget();
     }
 
     return bHandled

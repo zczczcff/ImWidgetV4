@@ -343,6 +343,12 @@ std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<Edito
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Duplicate", {}, {}, true, false, [session]() {
+            if (session) {
+                session->DuplicateSelectedWidget();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
         FApplicationMenuItem {"Coming Soon", {}, {}, false, false, {}}
     };
 }

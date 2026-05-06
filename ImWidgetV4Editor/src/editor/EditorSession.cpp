@@ -86,6 +86,41 @@ std::shared_ptr<ReflectableObject> GetReflectableSelectionTarget(const std::shar
     return std::dynamic_pointer_cast<ReflectableObject>(selectedWidget);
 }
 
+std::shared_ptr<ImWidget> CloneWidgetTree(const std::shared_ptr<ImWidget>& widget, std::string& outError)
+{
+    if (!widget) {
+        outError = "No widget selected.";
+        return nullptr;
+    }
+
+    FWidgetSerializationResult result =
+        WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(widget));
+    if (!result.bSuccess) {
+        outError = result.ErrorMessage.empty()
+            ? "Failed to clone widget tree."
+            : result.ErrorMessage;
+        return nullptr;
+    }
+
+    return result.Widget;
+}
+
+int FindTabIndexForContent(const std::shared_ptr<ImTabView>& tabView, const std::shared_ptr<ImWidget>& content)
+{
+    if (!tabView || !content) {
+        return -1;
+    }
+
+    for (int index = 0; index < tabView->GetTabCount(); ++index) {
+        const FTabViewItem* tab = tabView->GetTab(index);
+        if (tab && tab->Content == content) {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
 bool TryInsertIntoTarget(
     const std::shared_ptr<ImWidget>& target,
     const std::shared_ptr<ImWidget>& widget,
@@ -142,6 +177,87 @@ bool TryInsertIntoTarget(
             return true;
         }
         return false;
+    }
+
+    return false;
+}
+
+bool TryDuplicateInParent(
+    const std::shared_ptr<ImWidget>& parent,
+    const std::shared_ptr<ImWidget>& sourceWidget,
+    const std::shared_ptr<ImWidget>& cloneWidget)
+{
+    if (!parent || !sourceWidget || !cloneWidget) {
+        return false;
+    }
+
+    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(parent)) {
+        auto* sourceSlot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(sourceWidget));
+        if (!sourceSlot) {
+            return false;
+        }
+
+        canvas->AddChild(cloneWidget);
+        auto* cloneSlot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(cloneWidget));
+        if (!cloneSlot) {
+            return false;
+        }
+
+        cloneSlot->FromJson(sourceSlot->ToJson());
+        const FVector2 duplicatedPosition(
+            std::clamp(sourceSlot->GetRelativePosition().X + 0.03f, 0.0f, 0.95f),
+            std::clamp(sourceSlot->GetRelativePosition().Y + 0.03f, 0.0f, 0.95f));
+        cloneSlot->SetRelativePosition(duplicatedPosition);
+        return true;
+    }
+
+    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
+        const ImSlot* sourceSlot = verticalBox->GetSlotForChild(sourceWidget);
+        verticalBox->AddChild(cloneWidget);
+        if (sourceSlot) {
+            if (auto* cloneSlot = verticalBox->GetSlotForChild(cloneWidget)) {
+                cloneSlot->FromJson(sourceSlot->ToJson());
+            }
+        }
+        return true;
+    }
+
+    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
+        const ImSlot* sourceSlot = horizontalBox->GetSlotForChild(sourceWidget);
+        horizontalBox->AddChild(cloneWidget);
+        if (sourceSlot) {
+            if (auto* cloneSlot = horizontalBox->GetSlotForChild(cloneWidget)) {
+                cloneSlot->FromJson(sourceSlot->ToJson());
+            }
+        }
+        return true;
+    }
+
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
+        return TryInsertIntoTarget(scrollBox, cloneWidget, sourceWidget->GetGeometry().Position);
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
+        const int sourceTabIndex = FindTabIndexForContent(tabView, sourceWidget);
+        if (sourceTabIndex < 0) {
+            return false;
+        }
+
+        const FTabViewItem* sourceTab = tabView->GetTab(sourceTabIndex);
+        if (!sourceTab) {
+            return false;
+        }
+
+        int duplicatedIndex = tabView->AddTab(sourceTab->Title + " Copy", cloneWidget);
+        if (duplicatedIndex < 0) {
+            return false;
+        }
+
+        tabView->SetTabEnabled(duplicatedIndex, sourceTab->bEnabled);
+        tabView->SetTabClosable(duplicatedIndex, sourceTab->bClosable);
+        tabView->SetTabDirty(duplicatedIndex, sourceTab->bDirty);
+        tabView->SetActiveTab(duplicatedIndex);
+        return true;
     }
 
     return false;
@@ -418,6 +534,46 @@ bool EditorSession::DeleteSelectedWidget()
     return true;
 }
 
+bool EditorSession::DuplicateSelectedWidget()
+{
+    auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+    if (!selectedWidget) {
+        LogStatus("Duplicate skipped: no widget selected.");
+        return false;
+    }
+
+    auto parent = selectedWidget->GetParent();
+    if (!parent) {
+        LogStatus("Duplicate skipped: document root cannot be duplicated in place.");
+        return false;
+    }
+
+    std::string cloneError;
+    std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTree(selectedWidget, cloneError);
+    if (!cloneWidget) {
+        LogStatus("Duplicate failed: " + cloneError);
+        return false;
+    }
+
+    const std::string sourceLabel = selectedWidget->GetName().empty()
+        ? selectedWidget->GetTypeName()
+        : selectedWidget->GetTypeName() + " [" + selectedWidget->GetName() + "]";
+    const bool duplicated = ExecuteDocumentMutation(
+        "Duplicate Widget",
+        [parent, selectedWidget, cloneWidget]() {
+            return TryDuplicateInParent(parent, selectedWidget, cloneWidget);
+        },
+        cloneWidget);
+    if (!duplicated) {
+        LogStatus("Duplicate failed: unsupported parent container.");
+        return false;
+    }
+
+    RefreshDocumentViews(cloneWidget);
+    LogStatus("Duplicated " + sourceLabel);
+    return true;
+}
+
 bool EditorSession::Undo()
 {
     if (!m_CommandStack.CanUndo()) {
@@ -598,6 +754,22 @@ void EditorSession::HandleWidgetTreeContextMenuRequested(
     popupMenu->SetStyle(style);
 
     std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Duplicate",
+        FImageBrush(),
+        {},
+        true,
+        false,
+        [this, targetWidget]() {
+            if (m_DesignerSurface) {
+                m_DesignerSurface->SetSelectedWidget(targetWidget);
+            }
+            const bool bDuplicated = DuplicateSelectedWidget();
+            CloseWidgetTreeContextMenu();
+            (void)bDuplicated;
+        }
+    });
+    items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
     items.push_back(FPopupMenuItem {
         "Delete",
         FImageBrush(),

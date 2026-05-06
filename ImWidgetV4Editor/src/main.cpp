@@ -1,4 +1,5 @@
 #include "editor/EditorSession.h"
+#include "editor/EditorShellHost.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "palette/WidgetPaletteView.h"
 #include "tree/DocumentTreeViewBinder.h"
@@ -27,6 +28,7 @@ namespace {
 
 struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
+    std::shared_ptr<EditorShellHost> ShellHost;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
@@ -187,6 +189,7 @@ FEditorShellWidgets BuildEditorShell()
 {
     FEditorShellWidgets shell;
 
+    auto shellHost = std::make_shared<EditorShellHost>();
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
     verticalShell->SetPartMinSize(0, 300.0f);
@@ -261,7 +264,10 @@ FEditorShellWidgets BuildEditorShell()
     verticalShell->AddPart(topWorkspace, 0.78f, 360.0f);
     verticalShell->AddPart(bottomDock, 0.22f, 140.0f);
 
-    shell.Root = verticalShell;
+    shellHost->SetRootWidget(verticalShell);
+
+    shell.Root = shellHost;
+    shell.ShellHost = shellHost;
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
     shell.DesignerSurface = designerSurface;
@@ -349,6 +355,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     FEditorShellWidgets shell = BuildEditorShell();
     auto session = std::make_shared<EditorSession>(&BuildInitialDocumentRoot);
+    shell.ShellHost->SetSession(session);
     session->BindDocumentWidgets(
         shell.DocumentTabs,
         shell.MainDocumentTabIndex,

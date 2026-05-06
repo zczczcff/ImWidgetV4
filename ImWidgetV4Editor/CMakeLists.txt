@@ -12,6 +12,7 @@ add_executable(ImWidgetV4Editor
     src/commands/CommandStack.cpp
     src/commands/DocumentSnapshotCommand.cpp
     src/editor/EditorDocument.cpp
+    src/editor/EditorShellHost.cpp
     src/editor/EditorSession.cpp
     src/inspector/ReflectionDetailsView.cpp
     src/main.cpp

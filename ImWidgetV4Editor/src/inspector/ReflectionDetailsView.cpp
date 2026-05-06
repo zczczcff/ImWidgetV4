@@ -1,5 +1,6 @@
 #include "ReflectionDetailsView.h"
 
+#include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -169,24 +170,63 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyRows(
             continue;
         }
 
-        auto line = std::make_shared<ImHorizontalBox>();
-        line->SetSpacing(8.0f);
-        line->AddChild(
-            MakeText(
-                std::string(indentLevel * 2, ' ') + property.GetNameString() + ":",
-                13.0f,
-                FColor::FromBytes(224, 230, 237)),
-            FMargin(2.0f));
-        line->AddChild(
-            MakeText(
-                DescribePropertyValue(property, propertyJson),
-                13.0f,
-                FColor::FromBytes(167, 197, 255)),
-            FMargin(2.0f));
-        rows->AddChild(line);
+        rows->AddChild(
+            BuildPropertyEditorRow(
+                std::shared_ptr<ReflectableObject>(m_Target, &object),
+                property,
+                propertyJson,
+                indentLevel));
     }
 
     return rows;
+}
+
+std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
+    const std::shared_ptr<ReflectableObject>& owner,
+    const ReflectableObject::ROPProperty& property,
+    const nlohmann::ordered_json& objectJson,
+    int indentLevel) const
+{
+    if (property.GetType() == PropertyType::Bool) {
+        const std::string propertyName = property.GetNameString();
+        const std::string propertyClassName = property.GetClassName();
+        auto checkBox = std::make_shared<ImCheckBox>();
+        checkBox->SetLabel(std::string(indentLevel * 2, ' ') + property.GetNameString());
+        checkBox->SetChecked(property.GetValue<bool>());
+        checkBox->OnCheckStateChanged.AddLambda(
+            [this, owner, propertyName, propertyClassName](ImCheckBox&, bool checked) {
+                if (!owner) {
+                    return;
+                }
+
+                auto editableProperty = owner->GetProperty(propertyName, propertyClassName);
+                if (!editableProperty.IsValid()) {
+                    return;
+                }
+
+                editableProperty.SetValue<bool>(checked);
+                if (owner == m_Target) {
+                    const_cast<ReflectionDetailsView*>(this)->Rebuild();
+                }
+            });
+        return checkBox;
+    }
+
+    auto line = std::make_shared<ImHorizontalBox>();
+    line->SetSpacing(8.0f);
+    line->AddChild(
+        MakeText(
+            std::string(indentLevel * 2, ' ') + property.GetNameString() + ":",
+            13.0f,
+            FColor::FromBytes(224, 230, 237)),
+        FMargin(2.0f));
+    line->AddChild(
+        MakeText(
+            DescribePropertyValue(property, objectJson),
+            13.0f,
+            FColor::FromBytes(167, 197, 255)),
+        FMargin(2.0f));
+    return line;
 }
 
 std::string ReflectionDetailsView::DescribePropertyValue(

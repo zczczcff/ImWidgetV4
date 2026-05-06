@@ -26,6 +26,11 @@ private:
     std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyRows(
         ImWidgetV4::ReflectableObject& object,
         int indentLevel) const;
+    std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyEditorRow(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
+        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const nlohmann::ordered_json& objectJson,
+        int indentLevel) const;
     std::string DescribePropertyValue(
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
         const nlohmann::ordered_json& objectJson) const;

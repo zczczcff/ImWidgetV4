@@ -214,9 +214,19 @@ void ReflectionDetailsView::SetTarget(const std::shared_ptr<ReflectableObject>& 
     Rebuild();
 }
 
+void ReflectionDetailsView::SetSlotTarget(const std::shared_ptr<ImSlot>& slotTarget)
+{
+    if (m_SlotTarget == slotTarget) {
+        return;
+    }
+
+    m_SlotTarget = slotTarget;
+    Rebuild();
+}
+
 ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 {
-    if (!m_Target) {
+    if (!m_Target && !m_SlotTarget) {
         return BuildEmptyState();
     }
 
@@ -229,7 +239,12 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 
     auto stack = std::make_shared<ImVerticalBox>();
     stack->SetSpacing(10.0f);
-    stack->AddChild(BuildDetailsForObject(m_Target, m_Target->GetTypeName()));
+    if (m_Target) {
+        stack->AddChild(BuildDetailsForObject(m_Target, m_Target->GetTypeName()));
+    }
+    if (m_SlotTarget) {
+        stack->AddChild(BuildDetailsForObject(m_SlotTarget, m_SlotTarget->GetTypeName()));
+    }
     root->SetContent(stack);
     return root;
 }
@@ -311,6 +326,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         serialized["Properties"][propertyClassName + "::" + propertyName] = value;
         owner->FromJson(serialized);
         const_cast<ReflectionDetailsView*>(this)->Rebuild();
+        const_cast<ReflectionDetailsView*>(this)->OnPropertiesChanged.Broadcast(*const_cast<ReflectionDetailsView*>(this));
         return true;
     };
 
@@ -410,6 +426,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                 auto optional = owner->ToOptionalProperty(reloaded);
                 optional.SetOptionByIndex(index);
                 const_cast<ReflectionDetailsView*>(this)->Rebuild();
+                const_cast<ReflectionDetailsView*>(this)->OnPropertiesChanged.Broadcast(*const_cast<ReflectionDetailsView*>(this));
             });
         line->AddChild(editor, FMargin(2.0f));
         return line;

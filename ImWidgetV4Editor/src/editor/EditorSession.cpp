@@ -2,6 +2,7 @@
 #include "../inspector/ReflectionDetailsView.h"
 
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -74,6 +75,23 @@ void EditorSession::BindDocumentWidgets(
         m_DesignerSurface->OnSelectionChanged.AddLambda(
             [this](ImDesignerSurface& designerSurfaceRef, std::shared_ptr<ImWidget> selectedWidget) {
                 HandleDesignerSelectionChanged(designerSurfaceRef, selectedWidget);
+            });
+    }
+    if (m_DetailsView) {
+        m_DetailsView->OnPropertiesChanged.Clear();
+        m_DetailsView->OnPropertiesChanged.AddLambda(
+            [this](ReflectionDetailsView&) {
+                if (m_Document) {
+                    m_Document->SetDirty(true);
+                }
+
+                if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
+                    m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
+                    m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
+                }
+
+                auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
+                UpdateSelectionDetails(selectedWidget);
             });
     }
     ApplyDocumentToUi();
@@ -236,6 +254,20 @@ void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& sele
 {
     if (m_DetailsView) {
         m_DetailsView->SetTarget(std::dynamic_pointer_cast<ReflectableObject>(selectedWidget));
+        std::shared_ptr<ImSlot> slotTarget;
+        if (selectedWidget) {
+            if (auto parent = selectedWidget->GetParent()) {
+                if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
+                    ImSlot* slot = panelParent->GetSlotForChild(selectedWidget);
+                    if (slot) {
+                        slotTarget = std::shared_ptr<ImSlot>(
+                            panelParent,
+                            slot);
+                    }
+                }
+            }
+        }
+        m_DetailsView->SetSlotTarget(slotTarget);
     }
 
     if (!m_SelectionText) {
@@ -252,6 +284,9 @@ void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& sele
     const FGeometry geometry = selectedWidget->GetGeometry();
     text += "\nPosition: (" + std::to_string(static_cast<int>(geometry.Position.X)) + ", " + std::to_string(static_cast<int>(geometry.Position.Y)) + ")";
     text += "\nSize: (" + std::to_string(static_cast<int>(geometry.Size.X)) + ", " + std::to_string(static_cast<int>(geometry.Size.Y)) + ")";
+    if (auto parent = selectedWidget->GetParent()) {
+        text += "\nParent: " + parent->GetTypeName();
+    }
     m_SelectionText->SetText(text);
 }
 

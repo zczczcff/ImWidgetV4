@@ -1,21 +1,33 @@
+#include "editor/EditorSession.h"
+
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
+#include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
-#include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
-#include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
-#include <filesystem>
+#include <Windows.h>
 #include <memory>
 #include <string>
-#include <Windows.h>
+#include <vector>
 
 using namespace ImWidgetV4;
+using namespace ImWidgetV4Editor;
 
 namespace {
+
+struct FEditorShellWidgets {
+    std::shared_ptr<ImWidget> Root;
+    std::shared_ptr<ImTabView> DocumentTabs;
+    std::shared_ptr<ImScrollBox> DocumentHost;
+    std::shared_ptr<ImTextBlock> OutputText;
+    int MainDocumentTabIndex = -1;
+};
 
 std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
 {
@@ -30,7 +42,7 @@ std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSi
 {
     auto body = std::make_shared<ImTextBlock>();
     body->SetText(text);
-    body->SetWrapText(true);
+    body->SetWrapText(false);
     body->SetFontSize(fontSize);
     body->SetTextColor(FColor::FromBytes(180, 190, 204));
     return body;
@@ -66,7 +78,7 @@ std::shared_ptr<ImTextOutlineView> BuildControlPalettePanel()
     outline->SetSupportsKeyboardFocus(true);
     outline->SetStyle(MakeDockOutlineStyle());
 
-    ImTextOutlineItem* layout = outline->AddRootItem("布局");
+    ImTextOutlineItem* layout = outline->AddRootItem("Layout");
     layout->Expanded = true;
     outline->AddChildItem(layout, "HorizontalBox");
     outline->AddChildItem(layout, "VerticalBox");
@@ -74,14 +86,14 @@ std::shared_ptr<ImTextOutlineView> BuildControlPalettePanel()
     outline->AddChildItem(layout, "ScrollBox");
     outline->AddChildItem(layout, "TabView");
 
-    ImTextOutlineItem* display = outline->AddRootItem("显示");
+    ImTextOutlineItem* display = outline->AddRootItem("Display");
     display->Expanded = true;
     outline->AddChildItem(display, "TextBlock");
     outline->AddChildItem(display, "Image");
     outline->AddChildItem(display, "Border");
     outline->AddChildItem(display, "ExpandableBox");
 
-    ImTextOutlineItem* input = outline->AddRootItem("输入");
+    ImTextOutlineItem* input = outline->AddRootItem("Input");
     input->Expanded = true;
     outline->AddChildItem(input, "Button");
     outline->AddChildItem(input, "Switch");
@@ -104,18 +116,15 @@ std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
 
     ImTextOutlineItem* assets = outline->AddChildItem(project, "Assets");
     assets->Expanded = true;
-    outline->AddChildItem(assets, "Main.ui");
-    outline->AddChildItem(assets, "Preview.ui");
+    outline->AddChildItem(assets, "Main.ui.json");
+    outline->AddChildItem(assets, "Preview.ui.json");
 
     ImTextOutlineItem* src = outline->AddChildItem(project, "Source");
     src->Expanded = true;
-    outline->AddChildItem(src, "EditorShell.cpp");
-    outline->AddChildItem(src, "PaletteView.cpp");
-    outline->AddChildItem(src, "PropertyInspector.cpp");
-
-    ImTextOutlineItem* generated = outline->AddChildItem(project, "Generated");
-    generated->Expanded = true;
-    outline->AddChildItem(generated, "ReflectionCache.json");
+    outline->AddChildItem(src, "EditorDocument.cpp");
+    outline->AddChildItem(src, "EditorSession.cpp");
+    outline->AddChildItem(src, "WidgetSerializer.cpp");
+    outline->AddChildItem(src, "main.cpp");
 
     outline->SetSelectedItem(project);
     return outline;
@@ -176,32 +185,35 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs()
     style.ActiveTabColor = FColor::FromBytes(66, 94, 134);
     tabView->SetStyle(style);
 
-    tabView->AddTab("控件列表", BuildControlPalettePanel());
-    tabView->AddTab("项目视图", BuildProjectViewPanel());
-    tabView->AddTab("控件树视图", BuildWidgetTreePanel());
+    tabView->AddTab("Controls", BuildControlPalettePanel());
+    tabView->AddTab("Project", BuildProjectViewPanel());
+    tabView->AddTab("Widget Tree", BuildWidgetTreePanel());
     return tabView;
 }
 
-std::shared_ptr<ImWidget> BuildDesignerSurface()
+std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 {
     auto canvas = std::make_shared<ImCanvasPanel>();
+    canvas->SetName("DocumentRoot");
     canvas->SetDesiredSize(FVector2(640.0f, 420.0f));
 
     auto heading = std::make_shared<ImTextBlock>();
+    heading->SetName("Heading");
     heading->SetText("Designer Surface");
     heading->SetFontSize(22.0f);
     heading->SetTextColor(FColor::White);
     canvas->AddChildAt(heading, FVector2(0.04f, 0.06f));
 
     auto body = std::make_shared<ImTextBlock>();
-    body->SetText("This central workspace is reserved for the upcoming visual designer. The surrounding docks already use retained-mode widgets and splitters, so the editor shell can grow from here.");
-    body->SetWrapText(true);
+    body->SetName("Body");
+    body->SetText("This central workspace is now owned by EditorDocument. Save and reopen will round-trip this widget tree through the editor serializer.");
     body->SetFontSize(16.0f);
     body->SetTextColor(FColor::FromBytes(196, 205, 218));
-    canvas->AddChildAt(body, FVector2(0.04f, 0.18f), FVector2(0.56f, 0.26f));
+    canvas->AddChildAt(body, FVector2(0.04f, 0.18f), FVector2(0.62f, 0.26f));
 
     auto hint = std::make_shared<ImTextBlock>();
-    hint->SetText("Drag palette items here next.");
+    hint->SetName("Hint");
+    hint->SetText("Next step: replace this with a real designer surface.");
     hint->SetFontSize(15.0f);
     hint->SetTextColor(FColor::FromBytes(122, 188, 255));
     canvas->AddChildAt(hint, FVector2(0.04f, 0.52f));
@@ -209,36 +221,10 @@ std::shared_ptr<ImWidget> BuildDesignerSurface()
     return canvas;
 }
 
-std::shared_ptr<ImTabView> BuildDocumentTabs()
+FEditorShellWidgets BuildEditorShell()
 {
-    auto tabView = std::make_shared<ImTabView>();
-    tabView->SetSupportsKeyboardFocus(true);
+    FEditorShellWidgets shell;
 
-    FTabViewStyle style = tabView->GetStyle();
-    style.Padding = FMargin(0.0f);
-    style.TabHeight = 36.0f;
-    style.TabMinWidth = 150.0f;
-    style.TabSpacing = 0.0f;
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
-    style.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.ActiveTabColor = FColor::FromBytes(63, 90, 128);
-    tabView->SetStyle(style);
-
-    tabView->AddTab("Main.ui", BuildDesignerSurface());
-    tabView->AddTab("Preview", MakeSimplePanel(
-        "Live Preview",
-        "Runtime preview will be mounted here so the editor can inspect the same widget tree rendered by the core library."));
-    tabView->AddTab("PropertiesSchema", MakeSimplePanel(
-        "Schema Notes",
-        "Reflection-backed metadata, property editors and drag/drop payload inspection can share this workspace during early editor development."));
-
-    return tabView;
-}
-
-std::shared_ptr<ImWidget> BuildEditorRoot()
-{
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
     verticalShell->SetPartMinSize(0, 300.0f);
@@ -262,33 +248,98 @@ std::shared_ptr<ImWidget> BuildEditorRoot()
 
     auto leftDock = BuildLeftDockTabs();
 
-    auto centerDock = BuildDocumentTabs();
+    auto documentTabs = std::make_shared<ImTabView>();
+    documentTabs->SetSupportsKeyboardFocus(true);
+    FTabViewStyle tabStyle = documentTabs->GetStyle();
+    tabStyle.Padding = FMargin(0.0f);
+    tabStyle.TabHeight = 36.0f;
+    tabStyle.TabMinWidth = 150.0f;
+    tabStyle.TabSpacing = 0.0f;
+    tabStyle.BorderThickness = 0.0f;
+    tabStyle.CornerRadius = 0.0f;
+    tabStyle.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
+    tabStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
+    tabStyle.ActiveTabColor = FColor::FromBytes(63, 90, 128);
+    documentTabs->SetStyle(tabStyle);
+
+    auto documentHost = std::make_shared<ImScrollBox>();
+    FScrollBoxStyle scrollStyle = documentHost->GetStyle();
+    scrollStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
+    scrollStyle.BorderThickness = 0.0f;
+    scrollStyle.CornerRadius = 0.0f;
+    scrollStyle.Padding = FMargin(0.0f);
+    documentHost->SetStyle(scrollStyle);
+
+    const int mainDocumentTabIndex = documentTabs->AddTab("Main.ui", documentHost);
+    documentTabs->AddTab("Preview", MakeSimplePanel(
+        "Live Preview",
+        "Runtime preview will be mounted here so the editor can inspect the same widget tree rendered by the core library."));
+    documentTabs->AddTab("PropertiesSchema", MakeSimplePanel(
+        "Schema Notes",
+        "Reflection-backed metadata, property editors and drag/drop payload inspection can share this workspace during early editor development."));
 
     auto rightDock = std::make_shared<ImVerticalBox>();
     rightDock->SetSpacing(10.0f);
     rightDock->AddChild(MakePanelTitle("Details"), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
     rightDock->AddChild(MakePanelBody(
-        "The right dock is reserved for reflection-driven property editing. Selection summaries, category groups and custom editors will land here next."), FMargin(14.0f, 0.0f, 14.0f, 6.0f));
+        "The right dock is reserved for reflection-driven property editing. Selection summaries, category groups and custom editors will land here next."),
+        FMargin(14.0f, 0.0f, 14.0f, 6.0f));
     rightDock->AddChild(MakeSimplePanel(
         "Selection",
-        "No widget selected.\nChoose a node from the hierarchy or the designer surface to populate this panel."), FMargin(10.0f));
+        "No widget selected.\nChoose a node from the hierarchy or the designer surface to populate this panel."),
+        FMargin(10.0f));
 
     topWorkspace->AddPart(leftDock, 0.22f, 240.0f);
-    topWorkspace->AddPart(centerDock, 0.56f, 420.0f);
+    topWorkspace->AddPart(documentTabs, 0.56f, 420.0f);
     topWorkspace->AddPart(rightDock, 0.22f, 260.0f);
 
     auto bottomDock = std::make_shared<ImVerticalBox>();
     bottomDock->SetSpacing(8.0f);
     bottomDock->AddChild(MakePanelTitle("Output"), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
-    bottomDock->AddChild(MakePanelBody(
-        "[Info] Editor shell booted with custom host chrome.\n[Info] Core library and editor workspace are now split.\n[Next] Palette, designer interactions and property inspector editing will build on this layout."), FMargin(14.0f, 0.0f, 14.0f, 14.0f));
+    auto outputText = MakePanelBody("Booting editor session...");
+    bottomDock->AddChild(outputText, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
 
     verticalShell->AddPart(topWorkspace, 0.78f, 360.0f);
     verticalShell->AddPart(bottomDock, 0.22f, 140.0f);
-    return verticalShell;
+
+    shell.Root = verticalShell;
+    shell.DocumentTabs = documentTabs;
+    shell.DocumentHost = documentHost;
+    shell.OutputText = outputText;
+    shell.MainDocumentTabIndex = mainDocumentTabIndex;
+    return shell;
 }
 
-std::vector<FApplicationMenuItem> BuildMenuItems(const std::string& menuName)
+std::vector<FApplicationMenuItem> BuildFileMenuItems(
+    ImApplication& app,
+    const std::shared_ptr<EditorSession>& session)
+{
+    return {
+        FApplicationMenuItem {"New", {}, {}, true, false, [&app, session]() {
+            if (session) {
+                session->NewDocument();
+            }
+        }},
+        FApplicationMenuItem {"Open...", {}, {}, true, false, [&app, session]() {
+            if (session) {
+                session->OpenDocument(app);
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Save", {}, {}, true, false, [&app, session]() {
+            if (session) {
+                session->SaveDocument(app);
+            }
+        }},
+        FApplicationMenuItem {"Save As...", {}, {}, true, false, [&app, session]() {
+            if (session) {
+                session->SaveDocumentAs(app);
+            }
+        }}
+    };
+}
+
+std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuName)
 {
     std::vector<FApplicationMenuItem> items;
     items.push_back(FApplicationMenuItem {menuName + " Action", FImageBrush(), {}, true, false, []() {}});
@@ -315,13 +366,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     auto app = std::make_shared<ImApplication>();
     app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ImWidgetV4Editor.ini"));
     backend->SetApplication(app.get());
+
+    FEditorShellWidgets shell = BuildEditorShell();
+    auto session = std::make_shared<EditorSession>(&BuildInitialDocumentRoot);
+    session->BindDocumentWidgets(
+        shell.DocumentTabs,
+        shell.MainDocumentTabIndex,
+        shell.DocumentHost,
+        shell.OutputText);
+
     app->SetApplicationTitle("ImWidgetV4 Editor");
     app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
-    app->AddTitleBarTabMenu("File", BuildMenuItems("File"));
-    app->AddTitleBarTabMenu("Edit", BuildMenuItems("Edit"));
-    app->AddTitleBarTabMenu("View", BuildMenuItems("View"));
-    app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildMenuItems("Search"));
-    app->SetRootWidget(BuildEditorRoot());
+    app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, session));
+    app->AddTitleBarTabMenu("Edit", BuildSimpleMenuItems("Edit"));
+    app->AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
+    app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
+    app->SetRootWidget(shell.Root);
     backend->Run();
     backend->Shutdown();
     return 0;

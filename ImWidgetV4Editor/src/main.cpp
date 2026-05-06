@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -25,6 +26,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
+    std::shared_ptr<ImDesignerSurface> DesignerSurface;
     std::shared_ptr<ImTextBlock> OutputText;
     int MainDocumentTabIndex = -1;
 };
@@ -270,7 +272,9 @@ FEditorShellWidgets BuildEditorShell()
     scrollStyle.Padding = FMargin(0.0f);
     documentHost->SetStyle(scrollStyle);
 
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
     const int mainDocumentTabIndex = documentTabs->AddTab("Main.ui", documentHost);
+    documentHost->SetContent(designerSurface);
     documentTabs->AddTab("Preview", MakeSimplePanel(
         "Live Preview",
         "Runtime preview will be mounted here so the editor can inspect the same widget tree rendered by the core library."));
@@ -305,6 +309,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.Root = verticalShell;
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
+    shell.DesignerSurface = designerSurface;
     shell.OutputText = outputText;
     shell.MainDocumentTabIndex = mainDocumentTabIndex;
     return shell;
@@ -373,6 +378,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.DocumentTabs,
         shell.MainDocumentTabIndex,
         shell.DocumentHost,
+        shell.DesignerSurface,
         shell.OutputText);
 
     app->SetApplicationTitle("ImWidgetV4 Editor");

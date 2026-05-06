@@ -118,6 +118,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/CanvasPanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/CheckBox.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ComboBox.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/DesignerSurface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/EditableText.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ExpandableBox.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
@@ -159,6 +160,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CanvasPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CheckBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ComboBox.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/DesignerSurface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/EditableText.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ExpandableBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/HorizontalBox.cpp

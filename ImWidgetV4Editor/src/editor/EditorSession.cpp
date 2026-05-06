@@ -1,5 +1,6 @@
 #include "EditorSession.h"
 
+#include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -55,11 +56,13 @@ void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ImTabView>& documentTabs,
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
+    const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextBlock>& outputText)
 {
     m_DocumentTabs = documentTabs;
     m_DocumentTabIndex = documentTabIndex;
     m_DocumentHost = documentHost;
+    m_DesignerSurface = designerSurface;
     m_OutputText = outputText;
     ApplyDocumentToUi();
     LogStatus("Ready.");
@@ -184,7 +187,9 @@ std::shared_ptr<EditorDocument> EditorSession::CreateDefaultDocument() const
 
 void EditorSession::ApplyDocumentToUi()
 {
-    if (m_DocumentHost) {
+    if (m_DesignerSurface) {
+        m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
+    } else if (m_DocumentHost) {
         m_DocumentHost->SetContent(m_Document ? m_Document->GetRootWidget() : nullptr);
     }
 

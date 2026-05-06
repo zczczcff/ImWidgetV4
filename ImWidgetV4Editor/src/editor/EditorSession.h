@@ -8,6 +8,7 @@
 #include <string>
 
 namespace ImWidgetV4 {
+class ImDesignerSurface;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
@@ -24,6 +25,7 @@ public:
         const std::shared_ptr<ImWidgetV4::ImTabView>& documentTabs,
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
+        const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
@@ -45,6 +47,7 @@ private:
     std::shared_ptr<EditorDocument> m_Document;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
+    std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     int m_DocumentTabIndex = -1;
 };

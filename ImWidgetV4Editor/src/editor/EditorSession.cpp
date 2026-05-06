@@ -1,11 +1,13 @@
 #include "EditorSession.h"
 #include "../inspector/ReflectionDetailsView.h"
+#include "../tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextOutlineView.h>
 #include <filesystem>
 
 namespace ImWidgetV4Editor {
@@ -59,6 +61,7 @@ void EditorSession::BindDocumentWidgets(
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
+    const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
     const std::shared_ptr<ImTextBlock>& selectionText,
     const std::shared_ptr<ImTextBlock>& outputText)
@@ -67,9 +70,14 @@ void EditorSession::BindDocumentWidgets(
     m_DocumentTabIndex = documentTabIndex;
     m_DocumentHost = documentHost;
     m_DesignerSurface = designerSurface;
+    m_WidgetTreeView = widgetTreeView;
     m_DetailsView = detailsView;
     m_SelectionText = selectionText;
     m_OutputText = outputText;
+    if (!m_TreeBinder) {
+        m_TreeBinder = std::make_shared<DocumentTreeViewBinder>();
+    }
+    m_TreeBinder->Bind(m_WidgetTreeView, m_DesignerSurface);
     if (m_DesignerSurface) {
         m_DesignerSurface->OnSelectionChanged.Clear();
         m_DesignerSurface->OnSelectionChanged.AddLambda(
@@ -229,6 +237,12 @@ void EditorSession::ApplyDocumentToUi()
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
     }
 
+    if (m_TreeBinder) {
+        m_TreeBinder->RebuildFromRoot(
+            m_Document ? m_Document->GetRootWidget() : nullptr,
+            nullptr);
+    }
+
     UpdateSelectionDetails(nullptr);
 }
 
@@ -236,6 +250,10 @@ void EditorSession::HandleDesignerSelectionChanged(
     ImDesignerSurface&,
     const std::shared_ptr<ImWidget>& selectedWidget)
 {
+    if (m_TreeBinder) {
+        m_TreeBinder->SyncSelectionFromDesigner(selectedWidget);
+    }
+
     UpdateSelectionDetails(selectedWidget);
 
     if (!selectedWidget) {

@@ -12,11 +12,13 @@ class ImDesignerSurface;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
+class ImTextOutlineView;
 class ImWidget;
 }
 
 namespace ImWidgetV4Editor {
 
+class DocumentTreeViewBinder;
 class ReflectionDetailsView;
 
 class EditorSession {
@@ -28,6 +30,7 @@ public:
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
+        const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& selectionText,
         const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
@@ -56,6 +59,8 @@ private:
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
+    std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
+    std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_SelectionText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;

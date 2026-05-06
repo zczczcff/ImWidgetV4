@@ -15,6 +15,7 @@ add_executable(ImWidgetV4Editor
     src/main.cpp
     src/serialization/WidgetFactory.cpp
     src/serialization/WidgetSerializer.cpp
+    src/tree/DocumentTreeViewBinder.cpp
 )
 
 target_link_libraries(ImWidgetV4Editor PRIVATE

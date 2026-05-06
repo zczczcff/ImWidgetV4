@@ -1,5 +1,6 @@
 #include "editor/EditorSession.h"
 #include "inspector/ReflectionDetailsView.h"
+#include "tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
@@ -28,6 +29,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImScrollBox> DocumentHost;
     std::shared_ptr<ImDesignerSurface> DesignerSurface;
+    std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextBlock> SelectionText;
     std::shared_ptr<ImTextBlock> OutputText;
@@ -140,30 +142,6 @@ std::shared_ptr<ImTextOutlineView> BuildWidgetTreePanel()
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
     outline->SetStyle(MakeDockOutlineStyle());
-
-    ImTextOutlineItem* root = outline->AddRootItem("RootWindow");
-    root->Expanded = true;
-
-    ImTextOutlineItem* shell = outline->AddChildItem(root, "EditorShell");
-    shell->Expanded = true;
-
-    ImTextOutlineItem* leftDock = outline->AddChildItem(shell, "HierarchyDock");
-    leftDock->Expanded = true;
-    outline->AddChildItem(leftDock, "WidgetTree");
-    outline->AddChildItem(leftDock, "Palette");
-
-    ImTextOutlineItem* centerDock = outline->AddChildItem(shell, "DocumentDock");
-    centerDock->Expanded = true;
-    outline->AddChildItem(centerDock, "Main.ui");
-    outline->AddChildItem(centerDock, "Preview");
-
-    ImTextOutlineItem* rightDock = outline->AddChildItem(shell, "DetailsDock");
-    rightDock->Expanded = true;
-    outline->AddChildItem(rightDock, "Selection");
-    outline->AddChildItem(rightDock, "Layout");
-    outline->AddChildItem(rightDock, "Appearance");
-
-    outline->SetSelectedItem(shell);
     return outline;
 }
 
@@ -252,6 +230,7 @@ FEditorShellWidgets BuildEditorShell()
     verticalShell->SetSplitterStyle(verticalStyle);
 
     auto leftDock = BuildLeftDockTabs();
+    auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(2)->Content);
 
     auto documentTabs = std::make_shared<ImTabView>();
     documentTabs->SetSupportsKeyboardFocus(true);
@@ -319,6 +298,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.DocumentTabs = documentTabs;
     shell.DocumentHost = documentHost;
     shell.DesignerSurface = designerSurface;
+    shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
     shell.SelectionText = selectionText;
     shell.OutputText = outputText;
@@ -390,6 +370,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.MainDocumentTabIndex,
         shell.DocumentHost,
         shell.DesignerSurface,
+        shell.WidgetTreeView,
         shell.DetailsView,
         shell.SelectionText,
         shell.OutputText);

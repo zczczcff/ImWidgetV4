@@ -76,6 +76,8 @@ public:
     std::weak_ptr<ImWidget> SourceWidget_;
     std::shared_ptr<ImWidget> ContentWidget_;
     std::shared_ptr<ImWindow> Window_;
+    std::shared_ptr<ImWidget> SourceToolTipWidget_;
+    std::string SourceToolTipText_;
     FVector2 AnchorCursorPosition_ {0.0f, 0.0f};
     double HoverStartTime_ = 0.0;
     bool bPendingDisplay_ = false;
@@ -1475,6 +1477,8 @@ void ImApplication::ResetToolTipState()
 {
     ToolTipState_->SourceWidget_.reset();
     ToolTipState_->ContentWidget_.reset();
+    ToolTipState_->SourceToolTipWidget_.reset();
+    ToolTipState_->SourceToolTipText_.clear();
     ToolTipState_->HoverStartTime_ = 0.0;
     ToolTipState_->bPendingDisplay_ = false;
 }
@@ -1489,6 +1493,8 @@ void ImApplication::DismissToolTip()
     }
 
     ToolTipState_->ContentWidget_.reset();
+    ToolTipState_->SourceToolTipWidget_.reset();
+    ToolTipState_->SourceToolTipText_.clear();
 }
 
 std::shared_ptr<ImWidget> ImApplication::BuildToolTipContentForWidget(const std::shared_ptr<ImWidget>& widget) const
@@ -1535,6 +1541,18 @@ void ImApplication::UpdateToolTip(const FGeometry& viewportGeometry, double curr
     if (!ownerWindow || WindowManager_.IsBlockedByModal(ownerWindow)) {
         DismissToolTip();
         return;
+    }
+
+    const std::shared_ptr<ImWidget> currentToolTipWidget = hoveredWidget->GetToolTipWidget();
+    const std::string currentToolTipText = hoveredWidget->GetToolTipText();
+    const bool bToolTipSpecChanged =
+        currentToolTipWidget != ToolTipState_->SourceToolTipWidget_ ||
+        currentToolTipText != ToolTipState_->SourceToolTipText_;
+    if (bToolTipSpecChanged) {
+        DismissToolTip();
+        ToolTipState_->SourceToolTipWidget_ = currentToolTipWidget;
+        ToolTipState_->SourceToolTipText_ = currentToolTipText;
+        ToolTipState_->bPendingDisplay_ = false;
     }
 
     ToolTipState_->AnchorCursorPosition_ = InteractionState_->LastCursorPosition_;
@@ -1598,6 +1616,8 @@ void ImApplication::UpdateToolTip(const FGeometry& viewportGeometry, double curr
     popupOptions.Style.bDrawShadow = false;
 
     ToolTipState_->ContentWidget_ = toolTipContent;
+    ToolTipState_->SourceToolTipWidget_ = currentToolTipWidget;
+    ToolTipState_->SourceToolTipText_ = currentToolTipText;
     ToolTipState_->Window_ = WindowManager_.CreateToolTip(popupOptions);
     ToolTipState_->bPendingDisplay_ = false;
     updateWindowPlacement(ToolTipState_->Window_);

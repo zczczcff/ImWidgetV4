@@ -93,7 +93,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     root->AddChild(title, FMargin(18.0f, 18.0f, 18.0f, 0.0f));
 
     auto subtitle = std::make_shared<ImTextBlock>();
-    subtitle->SetText("This demo shows editor-style document tabs with text-only and icon-labeled headers, dirty markers, close buttons, overflow navigation, and active-content routing.");
+    subtitle->SetText("This demo shows editor-style document tabs with text-only and icon-labeled headers, dirty markers, close buttons, middle-click close, clipped-title tooltips, overflow navigation, and active-content routing.");
     subtitle->SetWrapText(true);
     subtitle->SetTextColor(FColor::FromBytes(214, 222, 234));
     root->AddChild(subtitle, FMargin(18.0f, 0.0f, 18.0f, 0.0f));
@@ -124,6 +124,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     const int logsTab = textTabs->AddTab("Logs", MakeScrollDocument("Build Logs"));
     const int graphTab = textTabs->AddTab("Graph", MakeTextDocument("Graph", "Extra tabs intentionally force overflow buttons into view when the demo window is narrow."));
     const int previewTab = textTabs->AddTab("Preview", MakeTextDocument("Preview", "Close buttons and dirty markers are meant for document-style workspaces."));
+    textTabs->SetCloseActivationPolicy(ETabCloseActivationPolicy::MostRecentlyActive);
     textTabs->SetTabClosable(notesTab, true);
     textTabs->SetTabClosable(logsTab, true);
     textTabs->SetTabClosable(graphTab, true);
@@ -138,6 +139,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     });
     textTabs->OnTabClosed.AddLambda([status](ImTabView&, int index) {
         status->SetText("Status: closed text tab at previous index " + std::to_string(index));
+    });
+    textTabs->OnTabDoubleClicked.AddLambda([status](ImTabView& sender, int index) {
+        const FTabViewItem* item = sender.GetTab(index);
+        if (item != nullptr) {
+            status->SetText("Status: double-clicked text tab \"" + item->Title + "\"");
+        }
     });
     root->AddChild(textTabs, FMargin(18.0f, 0.0f, 18.0f, 0.0f));
 
@@ -168,6 +175,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
             status->SetText("Status: clicked icon tab \"" + item->Title + "\"");
         }
     });
+    iconTabs->OnTabDoubleClicked.AddLambda([status](ImTabView& sender, int index) {
+        const FTabViewItem* item = sender.GetTab(index);
+        if (item != nullptr) {
+            status->SetText("Status: double-clicked icon tab \"" + item->Title + "\"");
+        }
+    });
     root->AddChildFill(iconTabs, 1.0f, FMargin(18.0f, 0.0f, 18.0f, 18.0f));
 
     std::shared_ptr<ImPopupMenu> tabContextMenu;
@@ -195,11 +208,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         menuStyle.MinDesiredSize = FVector2(180.0f, 36.0f);
 
         const bool canCloseThis = tabView->IsTabClosable(index);
+        bool canCloseLeft = false;
+        bool canCloseRight = false;
         bool canCloseOthers = false;
         bool canCloseAny = false;
         for (int tabIndex = 0; tabIndex < tabView->GetTabCount(); ++tabIndex) {
             if (tabView->IsTabClosable(tabIndex)) {
                 canCloseAny = true;
+                if (tabIndex < index) {
+                    canCloseLeft = true;
+                }
+                if (tabIndex > index) {
+                    canCloseRight = true;
+                }
                 if (tabIndex != index) {
                     canCloseOthers = true;
                 }
@@ -238,6 +259,48 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
                     }
                 }
                 status->SetText("Status: kept only \"" + title + "\" among closable tabs.");
+                closeTabContextMenu();
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Close Left",
+            app->GetCoreIconBrush(ECoreIcon::ArrowUp),
+            {},
+            canCloseLeft,
+            false,
+            [tabView, status, index, closeTabContextMenu]() {
+                int closedCount = 0;
+                for (int tabIndex = index - 1; tabIndex >= 0; --tabIndex) {
+                    if (tabView->IsTabClosable(tabIndex)) {
+                        tabView->RemoveTab(tabIndex);
+                        ++closedCount;
+                    }
+                }
+                const FTabViewItem* current = tabView->GetTab(tabView->GetActiveTabIndex());
+                const std::string title = current != nullptr ? current->Title : std::string("current tab");
+                status->SetText(
+                    "Status: closed " + std::to_string(closedCount) + " closable tab(s) to the left of \"" + title + "\".");
+                closeTabContextMenu();
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Close Right",
+            app->GetCoreIconBrush(ECoreIcon::ArrowDown),
+            {},
+            canCloseRight,
+            false,
+            [tabView, status, index, closeTabContextMenu]() {
+                int closedCount = 0;
+                for (int tabIndex = tabView->GetTabCount() - 1; tabIndex > index; --tabIndex) {
+                    if (tabView->IsTabClosable(tabIndex)) {
+                        tabView->RemoveTab(tabIndex);
+                        ++closedCount;
+                    }
+                }
+                const FTabViewItem* current = tabView->GetTab(tabView->GetActiveTabIndex());
+                const std::string title = current != nullptr ? current->Title : std::string("current tab");
+                status->SetText(
+                    "Status: closed " + std::to_string(closedCount) + " closable tab(s) to the right of \"" + title + "\".");
                 closeTabContextMenu();
             }
         });

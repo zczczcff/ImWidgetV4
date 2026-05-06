@@ -10,12 +10,17 @@ using namespace ImWidgetV4;
 
 namespace {
 
-FInputEvent CreateMouseEvent(EInputEventType type, const FVector2& position, EMouseButton button = EMouseButton::Left)
+FInputEvent CreateMouseEvent(
+    EInputEventType type,
+    const FVector2& position,
+    EMouseButton button = EMouseButton::Left,
+    double timestamp = 0.0)
 {
     FInputEvent event;
     event.Type = type;
     event.MousePosition = position;
     event.MouseButton = button;
+    event.Timestamp = timestamp;
     return event;
 }
 
@@ -303,6 +308,84 @@ TEST_F(TabViewTest, OverflowButtonsRevealHiddenTabs)
     Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, thirdTabPoint)}, FVector2(150.0f, 120.0f));
     Advance({CreateMouseEvent(EInputEventType::MouseButtonUp, thirdTabPoint)}, FVector2(150.0f, 120.0f));
     EXPECT_EQ(View->GetActiveTabIndex(), 2);
+}
+
+TEST_F(TabViewTest, MiddleClickClosesClosableTabWithoutActivatingAnotherFirst)
+{
+    View->AddTab("First", std::make_shared<TestContentWidget>());
+    View->AddTab("Second", std::make_shared<TestContentWidget>());
+    View->SetTabClosable(1, true);
+    Advance({});
+
+    const FVector2 secondTabPoint(90.0f, 14.0f);
+    Advance({CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Middle)});
+
+    EXPECT_EQ(View->GetTabCount(), 1);
+    ASSERT_NE(View->GetTab(0), nullptr);
+    EXPECT_EQ(View->GetTab(0)->Title, "First");
+    EXPECT_EQ(View->GetActiveTabIndex(), 0);
+}
+
+TEST_F(TabViewTest, MostRecentlyActiveClosePolicyOverridesLeftNeighborFallback)
+{
+    View->AddTab("Zero", std::make_shared<TestContentWidget>());
+    View->AddTab("One", std::make_shared<TestContentWidget>());
+    View->AddTab("Two", std::make_shared<TestContentWidget>());
+    View->AddTab("Three", std::make_shared<TestContentWidget>());
+    View->SetCloseActivationPolicy(ETabCloseActivationPolicy::MostRecentlyActive);
+
+    EXPECT_TRUE(View->SetActiveTab(1));
+    EXPECT_TRUE(View->SetActiveTab(3));
+    EXPECT_TRUE(View->RemoveTab(3));
+
+    EXPECT_EQ(View->GetActiveTabIndex(), 1);
+    ASSERT_NE(View->GetTab(1), nullptr);
+    EXPECT_EQ(View->GetTab(1)->Title, "One");
+}
+
+TEST_F(TabViewTest, ClippedTabTitlePublishesTooltipText)
+{
+    FTabViewStyle style = MakeCompactStyle();
+    style.TabMinWidth = 72.0f;
+    View->SetStyle(style);
+
+    View->AddTab("A very long clipped title", std::make_shared<TestContentWidget>());
+    View->AddTab("Short", std::make_shared<TestContentWidget>());
+    Advance({}, FVector2(160.0f, 120.0f));
+
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, FVector2(36.0f, 14.0f))}, FVector2(160.0f, 120.0f));
+    EXPECT_EQ(View->GetToolTipText(), "A very long clipped title");
+
+    Advance({CreateMouseEvent(EInputEventType::MouseMove, FVector2(110.0f, 14.0f))}, FVector2(160.0f, 120.0f));
+    EXPECT_TRUE(View->GetToolTipText().empty());
+}
+
+TEST_F(TabViewTest, DoubleClickBroadcastsDedicatedTabEvent)
+{
+    View->AddTab("One", std::make_shared<TestContentWidget>());
+    View->AddTab("Two", std::make_shared<TestContentWidget>());
+    Advance({});
+
+    int doubleClickedIndex = -1;
+    int invokedCount = 0;
+    View->OnTabInvoked.AddLambda([&](ImTabView&, int) {
+        ++invokedCount;
+    });
+    View->OnTabDoubleClicked.AddLambda([&](ImTabView&, int index) {
+        doubleClickedIndex = index;
+    });
+
+    const FVector2 secondTabPoint(90.0f, 14.0f);
+    Advance({
+        CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Left, 1.00),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, secondTabPoint, EMouseButton::Left, 1.05),
+        CreateMouseEvent(EInputEventType::MouseButtonDown, secondTabPoint, EMouseButton::Left, 1.20),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, secondTabPoint, EMouseButton::Left, 1.25)
+    });
+
+    EXPECT_EQ(View->GetActiveTabIndex(), 1);
+    EXPECT_EQ(invokedCount, 2);
+    EXPECT_EQ(doubleClickedIndex, 1);
 }
 
 TEST_F(TabViewTest, KeyboardNavigationSupportsCtrlTabAndHomeEnd)

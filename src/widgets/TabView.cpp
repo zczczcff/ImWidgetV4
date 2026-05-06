@@ -10,6 +10,8 @@ namespace ImWidgetV4 {
 
 namespace {
 
+constexpr double TabDoubleClickThresholdSeconds = 0.35;
+
 FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& margin, float borderThickness)
 {
     const float left = borderThickness + margin.Left;
@@ -72,6 +74,14 @@ bool ImTabView::RemoveTab(int index)
     }
 
     Tabs_.erase(Tabs_.begin() + index);
+    ActivationHistory_.erase(
+        std::remove(ActivationHistory_.begin(), ActivationHistory_.end(), index),
+        ActivationHistory_.end());
+    for (int& historyIndex : ActivationHistory_) {
+        if (historyIndex > index) {
+            --historyIndex;
+        }
+    }
 
     if (Tabs_.empty()) {
         ActiveTabIndex_ = -1;
@@ -86,6 +96,12 @@ bool ImTabView::RemoveTab(int index)
     PressedTabIndex_ = PressedTabIndex_ == index ? -1 : (PressedTabIndex_ > index ? PressedTabIndex_ - 1 : PressedTabIndex_);
     HoveredCloseTabIndex_ = HoveredCloseTabIndex_ == index ? -1 : (HoveredCloseTabIndex_ > index ? HoveredCloseTabIndex_ - 1 : HoveredCloseTabIndex_);
     PressedCloseTabIndex_ = PressedCloseTabIndex_ == index ? -1 : (PressedCloseTabIndex_ > index ? PressedCloseTabIndex_ - 1 : PressedCloseTabIndex_);
+    if (LastClickedTabIndex_ == index) {
+        LastClickedTabIndex_ = -1;
+        LastClickTimestamp_ = -1.0;
+    } else if (LastClickedTabIndex_ > index) {
+        --LastClickedTabIndex_;
+    }
     bEnsureActiveTabVisible_ = bRemovingActive && ActiveTabIndex_ >= 0;
     bLayoutDirty_ = true;
     UpdateRegisteredActiveContent();
@@ -116,6 +132,8 @@ void ImTabView::ClearTabs()
     PressedCloseTabIndex_ = -1;
     HoveredOverflowDirection_ = 0;
     PressedOverflowDirection_ = 0;
+    LastClickedTabIndex_ = -1;
+    LastClickTimestamp_ = -1.0;
     TabScrollOffset_ = 0.0f;
     bEnsureActiveTabVisible_ = false;
     bLayoutDirty_ = true;
@@ -139,6 +157,7 @@ bool ImTabView::SetActiveTab(int index)
 
     CleanupInteractionStateForContent(GetActiveContent());
     ActiveTabIndex_ = index;
+    NoteTabActivated(index);
     bEnsureActiveTabVisible_ = true;
     bLayoutDirty_ = true;
     UpdateRegisteredActiveContent();
@@ -179,10 +198,14 @@ bool ImTabView::SetTabEnabled(int index, bool bEnabled)
     if (!item.bEnabled && ActiveTabIndex_ == index) {
         CleanupInteractionStateForContent(item.Content);
         ActiveTabIndex_ = ResolveReplacementActiveIndex(index);
+        if (ActiveTabIndex_ >= 0) {
+            NoteTabActivated(ActiveTabIndex_);
+        }
         bEnsureActiveTabVisible_ = ActiveTabIndex_ >= 0;
         UpdateRegisteredActiveContent();
     } else if (item.bEnabled && ActiveTabIndex_ < 0) {
         ActiveTabIndex_ = index;
+        NoteTabActivated(index);
         bEnsureActiveTabVisible_ = true;
         UpdateRegisteredActiveContent();
     }
@@ -267,6 +290,15 @@ bool ImTabView::SetTabIcon(int index, const FImageBrush& icon)
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     return true;
+}
+
+void ImTabView::SetCloseActivationPolicy(ETabCloseActivationPolicy policy)
+{
+    if (CloseActivationPolicy_ == policy) {
+        return;
+    }
+
+    CloseActivationPolicy_ = policy;
 }
 
 void ImTabView::SetStyle(const FTabViewStyle& style)
@@ -356,11 +388,16 @@ void ImTabView::Paint(const FPaintContext& paintContext)
 
             const float textY = tabGeometry.Geometry.Position.Y +
                 std::max(0.0f, (tabGeometry.Geometry.Size.Y - MeasureTextHeight()) * 0.5f);
+            paintContext.DrawContext_.PushClipRect(
+                FVector2(contentX, tabGeometry.Geometry.Position.Y),
+                FVector2(tabGeometry.TextClipMaxX, tabGeometry.Geometry.GetMax().Y),
+                true);
             paintContext.DrawContext_.DrawText(
                 FVector2(contentX, textY),
                 contentColor,
                 item.Title,
                 Style_.FontSize);
+            paintContext.DrawContext_.PopClipRect();
 
             if (tabGeometry.bShowsCloseButton) {
                 const FColor closeColor = ResolveCloseButtonColor(tabGeometry);
@@ -465,6 +502,7 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
             HoveredTabIndex_ = hoveredTab;
             HoveredCloseTabIndex_ = hoveredCloseTab;
             HoveredOverflowDirection_ = hoveredOverflowDirection;
+            UpdateHoveredTitleToolTip();
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
@@ -475,6 +513,7 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
             HoveredTabIndex_ = -1;
             HoveredCloseTabIndex_ = -1;
             HoveredOverflowDirection_ = 0;
+            UpdateHoveredTitleToolTip();
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
@@ -509,6 +548,12 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
                 return FReply::Handled()
                     .SetKeyboardFocus(shared_from_this())
                     .CaptureMouse(shared_from_this(), EMouseButton::Left);
+            }
+        } else if (event.MouseButton == EMouseButton::Middle) {
+            const int tabIndex = ResolveTabIndexAt(event.MousePosition);
+            if (tabIndex >= 0 && IsTabClosable(tabIndex)) {
+                RemoveTab(tabIndex);
+                return FReply::Handled();
             }
         } else if (event.MouseButton == EMouseButton::Right) {
             const int tabIndex = ResolveTabIndexAt(event.MousePosition);
@@ -555,6 +600,16 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
                 if (pressedTab == releasedTab && IsTabEnabled(pressedTab)) {
                     OnTabInvoked.Broadcast(*this, pressedTab);
                     SetActiveTab(pressedTab);
+                    const bool bIsDoubleClick =
+                        LastClickedTabIndex_ == pressedTab &&
+                        LastClickTimestamp_ >= 0.0 &&
+                        event.Timestamp > 0.0 &&
+                        (event.Timestamp - LastClickTimestamp_) <= TabDoubleClickThresholdSeconds;
+                    LastClickedTabIndex_ = pressedTab;
+                    LastClickTimestamp_ = event.Timestamp;
+                    if (bIsDoubleClick) {
+                        OnTabDoubleClicked.Broadcast(*this, pressedTab);
+                    }
                 }
 
                 return FReply::Handled().ReleaseMouseCapture();
@@ -605,6 +660,18 @@ int& ImTabView::GetActiveTabProperty()
 {
     ReflectedActiveTabIndex_ = ActiveTabIndex_;
     return ReflectedActiveTabIndex_;
+}
+
+void ImTabView::SetCloseActivationPolicyProperty(int& value)
+{
+    value = std::clamp(value, 0, 1);
+    SetCloseActivationPolicy(static_cast<ETabCloseActivationPolicy>(value));
+}
+
+int& ImTabView::GetCloseActivationPolicyProperty()
+{
+    ReflectedCloseActivationPolicy_ = static_cast<int>(CloseActivationPolicy_);
+    return ReflectedCloseActivationPolicy_;
 }
 
 void ImTabView::Relayout()
@@ -670,6 +737,14 @@ void ImTabView::Relayout()
                 FVector2(cursorX, TabStripGeometry_.Position.Y),
                 FVector2(tabWidth, TabStripGeometry_.Size.Y));
             geometry.bShowsCloseButton = item.bClosable;
+            float contentX = geometry.Geometry.Position.X + Style_.TabPadding.Left;
+            if (item.Icon.IsValid()) {
+                contentX += Style_.IconSize + 6.0f;
+            }
+            if (item.bDirty) {
+                contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+            }
+            float textClipMaxX = geometry.Geometry.GetMax().X - Style_.TabPadding.Right;
             if (geometry.bShowsCloseButton) {
                 const float closeSize = std::min(
                     Style_.CloseButtonSize,
@@ -680,7 +755,14 @@ void ImTabView::Relayout()
                 geometry.CloseButtonGeometry = FGeometry(
                     FVector2(closeX, closeY),
                     FVector2(closeSize, closeSize));
+                textClipMaxX = std::min(textClipMaxX, closeX - 6.0f);
             }
+            const float visibleTextClipMinX = std::max(contentX, stripMinX);
+            geometry.TextClipMaxX = std::max(visibleTextClipMinX, std::min(textClipMaxX, stripMaxX));
+            geometry.bTitleClipped =
+                cursorX < stripMinX - 0.5f ||
+                tabMaxX > stripMaxX + 0.5f ||
+                MeasureTextWidth(item.Title) > std::max(0.0f, geometry.TextClipMaxX - visibleTextClipMinX) + 0.5f;
             VisibleTabGeometries_.push_back(geometry);
         }
 
@@ -691,6 +773,7 @@ void ImTabView::Relayout()
         activeContent->SetGeometry(ContentGeometry_);
     }
 
+    UpdateHoveredTitleToolTip();
     bLayoutDirty_ = false;
 }
 
@@ -708,6 +791,39 @@ void ImTabView::UpdateRegisteredActiveContent()
         AddChild(desiredContent);
     }
     RegisteredActiveTabIndex_ = ActiveTabIndex_;
+}
+
+void ImTabView::NoteTabActivated(int index)
+{
+    if (!IsValidIndex(index)) {
+        return;
+    }
+
+    ActivationHistory_.erase(
+        std::remove(ActivationHistory_.begin(), ActivationHistory_.end(), index),
+        ActivationHistory_.end());
+    ActivationHistory_.push_back(index);
+}
+
+void ImTabView::UpdateHoveredTitleToolTip()
+{
+    if (HoveredTabIndex_ < 0) {
+        ClearToolTip();
+        return;
+    }
+
+    for (const FTabGeometry& geometry : VisibleTabGeometries_) {
+        if (geometry.Index == HoveredTabIndex_) {
+            if (geometry.bTitleClipped && IsValidIndex(geometry.Index)) {
+                SetToolTipText(Tabs_[static_cast<std::size_t>(geometry.Index)].Title);
+            } else {
+                ClearToolTip();
+            }
+            return;
+        }
+    }
+
+    ClearToolTip();
 }
 
 void ImTabView::CleanupInteractionStateForContent(const std::shared_ptr<ImWidget>& content)
@@ -857,10 +973,28 @@ int ImTabView::FindLastEnabledTab() const
     return -1;
 }
 
+int ImTabView::FindMostRecentlyActiveTab() const
+{
+    for (auto it = ActivationHistory_.rbegin(); it != ActivationHistory_.rend(); ++it) {
+        if (IsTabEnabled(*it)) {
+            return *it;
+        }
+    }
+
+    return -1;
+}
+
 int ImTabView::ResolveReplacementActiveIndex(int removedIndex) const
 {
     if (Tabs_.empty()) {
         return -1;
+    }
+
+    if (CloseActivationPolicy_ == ETabCloseActivationPolicy::MostRecentlyActive) {
+        const int recentIndex = FindMostRecentlyActiveTab();
+        if (recentIndex >= 0) {
+            return recentIndex;
+        }
     }
 
     const int leftStart = std::min(removedIndex - 1, static_cast<int>(Tabs_.size()) - 1);

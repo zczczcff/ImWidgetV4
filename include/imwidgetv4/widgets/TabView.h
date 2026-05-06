@@ -9,6 +9,11 @@
 
 namespace ImWidgetV4 {
 
+enum class ETabCloseActivationPolicy {
+    LeftNeighbor = 0,
+    MostRecentlyActive = 1
+};
+
 struct FTabViewStyle : public ReflectableObject {
     DECLARE_OBJECT_WITH_PARENT(FTabViewStyle, ReflectableObject)
     registrar
@@ -103,6 +108,13 @@ class ImTabView : public ImWidget {
             static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetActiveTabProperty),
             static_cast<int& (ImTabView::*)()>(&ImTabView::GetActiveTabProperty),
             "Active tab index")
+        .RegisterOptionalProperty(
+            PropertyType::Enum,
+            "CloseActivationPolicy",
+            static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetCloseActivationPolicyProperty),
+            static_cast<int& (ImTabView::*)()>(&ImTabView::GetCloseActivationPolicyProperty),
+            {"LeftNeighbor", "MostRecentlyActive"},
+            "Policy used to choose the next active tab after closing the active tab")
         .RegisterProperty(PropertyType::Struct, "Style", &ImTabView::Style_, "Tab view style");
     END_DECLARE_OBJECT()
 
@@ -130,12 +142,15 @@ public:
     bool IsTabDirty(int index) const;
     bool SetTabTitle(int index, const std::string& title);
     bool SetTabIcon(int index, const FImageBrush& icon);
+    void SetCloseActivationPolicy(ETabCloseActivationPolicy policy);
+    ETabCloseActivationPolicy GetCloseActivationPolicy() const { return CloseActivationPolicy_; }
 
     void SetStyle(const FTabViewStyle& style);
     const FTabViewStyle& GetStyle() const { return Style_; }
 
     FTabEvent OnActiveTabChanged;
     FTabEvent OnTabInvoked;
+    FTabEvent OnTabDoubleClicked;
     FTabEvent OnTabClosed;
     FContextMenuRequestedEvent OnTabContextMenuRequested;
 
@@ -154,13 +169,19 @@ private:
         FGeometry Geometry;
         FGeometry CloseButtonGeometry;
         bool bShowsCloseButton = false;
+        float TextClipMaxX = 0.0f;
+        bool bTitleClipped = false;
     };
 
     void SetActiveTabProperty(int& index);
     int& GetActiveTabProperty();
+    void SetCloseActivationPolicyProperty(int& value);
+    int& GetCloseActivationPolicyProperty();
 
     void Relayout();
     void UpdateRegisteredActiveContent();
+    void NoteTabActivated(int index);
+    void UpdateHoveredTitleToolTip();
     void CleanupInteractionStateForContent(const std::shared_ptr<ImWidget>& content);
     bool ContainsWidgetInSubtree(const std::shared_ptr<ImWidget>& widget, const std::shared_ptr<ImWidget>& subtreeRoot) const;
     int ResolveTabIndexAt(const FVector2& position) const;
@@ -171,6 +192,7 @@ private:
     int FindNextEnabledTab(int startIndex, int direction, bool bWrap) const;
     int FindFirstEnabledTab() const;
     int FindLastEnabledTab() const;
+    int FindMostRecentlyActiveTab() const;
     int ResolveReplacementActiveIndex(int removedIndex) const;
     float MeasureTextWidth(const std::string& text) const;
     float MeasureTextHeight() const;
@@ -200,11 +222,16 @@ private:
     int PressedCloseTabIndex_ = -1;
     int HoveredOverflowDirection_ = 0;
     int PressedOverflowDirection_ = 0;
+    int LastClickedTabIndex_ = -1;
+    double LastClickTimestamp_ = -1.0;
     int ReflectedActiveTabIndex_ = -1;
     int RegisteredActiveTabIndex_ = -2;
+    int ReflectedCloseActivationPolicy_ = 0;
     float TabScrollOffset_ = 0.0f;
     bool bEnsureActiveTabVisible_ = false;
     bool bLayoutDirty_ = true;
+    ETabCloseActivationPolicy CloseActivationPolicy_ = ETabCloseActivationPolicy::LeftNeighbor;
+    std::vector<int> ActivationHistory_;
 };
 
 } // namespace ImWidgetV4

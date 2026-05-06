@@ -268,6 +268,7 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(tabViewStyle.HasProperty("TabMinWidth", "FTabViewStyle"));
     EXPECT_TRUE(tabViewStyle.HasProperty("CloseButtonSize", "FTabViewStyle"));
     EXPECT_TRUE(tabView.HasProperty("ActiveTabIndex", "ImTabView"));
+    EXPECT_TRUE(tabView.HasProperty("CloseActivationPolicy", "ImTabView"));
     EXPECT_TRUE(tabView.HasProperty("Style", "ImTabView"));
 }
 

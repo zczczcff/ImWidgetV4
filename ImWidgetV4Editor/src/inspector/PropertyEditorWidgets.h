@@ -3,7 +3,9 @@
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
 #include <memory>
 #include <string>
 
@@ -70,6 +72,20 @@ inline void ApplyInspectorComboBoxStyle(ImComboBox& comboBox)
     comboBox.SetStyle(MakeInspectorComboBoxStyle());
 }
 
+inline FSwitchStyle MakeInspectorSwitchStyle()
+{
+    FSwitchStyle style;
+    style.DesiredSize = FVector2(46.0f, 24.0f);
+    style.BorderThickness = 1.0f;
+    style.ThumbInset = 3.0f;
+    return style;
+}
+
+inline void ApplyInspectorSwitchStyle(ImSwitch& switchWidget)
+{
+    switchWidget.SetStyle(MakeInspectorSwitchStyle());
+}
+
 inline std::shared_ptr<ImTextBlock> MakeInspectorPropertyLabel(const std::string& text)
 {
     auto label = std::make_shared<ImTextBlock>();
@@ -94,8 +110,48 @@ inline std::shared_ptr<ImHorizontalBox> MakeInspectorPropertyRow(
 {
     auto row = std::make_shared<ImHorizontalBox>();
     row->SetSpacing(8.0f);
-    row->AddChild(MakeInspectorPropertyLabel(labelText), FMargin(2.0f));
+    if (!labelText.empty()) {
+        row->AddChild(MakeInspectorPropertyLabel(labelText), FMargin(2.0f));
+    }
     row->AddChildFill(valueWidget, 1.0f, FMargin(2.0f));
+    return row;
+}
+
+inline std::shared_ptr<ImHorizontalBox> MakeInspectorSplitValueRow(
+    const std::string& labelText,
+    const std::vector<std::shared_ptr<ImWidget>>& valueWidgets)
+{
+    auto values = std::make_shared<ImHorizontalBox>();
+    values->SetSpacing(6.0f);
+    for (const auto& widget : valueWidgets) {
+        if (!widget) {
+            continue;
+        }
+        values->AddChildFill(widget, 1.0f, FMargin(0.0f));
+    }
+
+    return MakeInspectorPropertyRow(labelText, values);
+}
+
+inline std::shared_ptr<ImHorizontalBox> MakeInspectorCompactLabeledEditors(
+    const std::vector<std::pair<std::string, std::shared_ptr<ImWidget>>>& labeledWidgets)
+{
+    auto row = std::make_shared<ImHorizontalBox>();
+    row->SetSpacing(6.0f);
+    for (const auto& entry : labeledWidgets) {
+        auto cell = std::make_shared<ImVerticalBox>();
+        cell->SetSpacing(3.0f);
+
+        auto label = std::make_shared<ImTextBlock>();
+        label->SetText(entry.first);
+        label->SetWrapText(false);
+        label->SetFontSize(11.0f);
+        label->SetTextColor(FColor::FromBytes(158, 168, 180));
+
+        cell->AddChild(label);
+        cell->AddChildFill(entry.second, 1.0f, FMargin(0.0f));
+        row->AddChildFill(cell, 1.0f, FMargin(0.0f));
+    }
     return row;
 }
 

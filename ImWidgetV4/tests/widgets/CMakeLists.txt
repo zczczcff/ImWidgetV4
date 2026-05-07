@@ -36,6 +36,18 @@ target_link_libraries(checkbox_test PRIVATE
 
 add_test(NAME CheckBoxTest COMMAND checkbox_test)
 
+add_executable(color_picker_test
+    color_picker_test.cpp
+)
+
+target_link_libraries(color_picker_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME ColorPickerTest COMMAND color_picker_test)
+
 add_executable(canvas_panel_test
     canvas_panel_test.cpp
 )

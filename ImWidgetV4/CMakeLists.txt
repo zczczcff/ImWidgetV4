@@ -117,6 +117,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ButtonStyle.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/CanvasPanel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/CheckBox.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ColorPicker.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ComboBox.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/DesignerSurface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/EditableText.h
@@ -159,6 +160,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/Button.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CanvasPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CheckBox.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ColorPicker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ComboBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/DesignerSurface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/EditableText.cpp
@@ -275,6 +277,7 @@ if(IMWIDGETV4_BUILD_TESTS)
     imwidgetv4_set_target_folder(button_test "Tests/Widgets")
     imwidgetv4_set_target_folder(widget_reflection_test "Tests/Widgets")
     imwidgetv4_set_target_folder(checkbox_test "Tests/Widgets")
+    imwidgetv4_set_target_folder(color_picker_test "Tests/Widgets")
     imwidgetv4_set_target_folder(canvas_panel_test "Tests/Widgets")
     imwidgetv4_set_target_folder(editable_text_test "Tests/Widgets")
     imwidgetv4_set_target_folder(expandable_box_test "Tests/Widgets")

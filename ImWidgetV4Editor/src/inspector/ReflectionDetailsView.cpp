@@ -2,10 +2,12 @@
 #include "PropertyEditorWidgets.h"
 
 #include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/OutlineView.h>
+#include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
@@ -183,6 +185,43 @@ bool TryParseVec2(const std::string& text, FVector2& outValue)
     return true;
 }
 
+std::vector<std::string> JsonValueToStringArray(const nlohmann::ordered_json& value)
+{
+    if (!value.is_array()) {
+        return {};
+    }
+
+    std::vector<std::string> items;
+    items.reserve(value.size());
+    for (const auto& item : value) {
+        items.push_back(JsonValueToString(item));
+    }
+    return items;
+}
+
+std::string JoinLines(const std::vector<std::string>& lines)
+{
+    std::ostringstream stream;
+    for (std::size_t index = 0; index < lines.size(); ++index) {
+        if (index > 0) {
+            stream << "\n";
+        }
+        stream << lines[index];
+    }
+    return stream.str();
+}
+
+bool TryParseStringArrayLines(const std::string& text, std::vector<std::string>& outItems)
+{
+    outItems.clear();
+    std::stringstream stream(text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        outItems.push_back(TrimCopy(line));
+    }
+    return true;
+}
+
 std::string FormatColor(const FColor& color)
 {
     const int r = static_cast<int>(std::round(color.R * 255.0f));
@@ -192,9 +231,32 @@ std::string FormatColor(const FColor& color)
     return std::to_string(r) + ", " + std::to_string(g) + ", " + std::to_string(b) + ", " + std::to_string(a);
 }
 
+std::array<int, 4> GetColorChannels(const FColor& color)
+{
+    return {
+        static_cast<int>(std::round(color.R * 255.0f)),
+        static_cast<int>(std::round(color.G * 255.0f)),
+        static_cast<int>(std::round(color.B * 255.0f)),
+        static_cast<int>(std::round(color.A * 255.0f))
+    };
+}
+
 std::string FormatVec2(const FVector2& value)
 {
     return FormatFloat(value.X) + ", " + FormatFloat(value.Y);
+}
+
+std::shared_ptr<ImEditableText> CreateInspectorTextEditor(
+    const std::string& initialText,
+    const std::string& hintText = {})
+{
+    auto editor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*editor, false);
+    editor->SetText(initialText);
+    if (!hintText.empty()) {
+        editor->SetHintText(hintText);
+    }
+    return editor;
 }
 
 std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget>& widget)
@@ -449,20 +511,18 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     };
 
     if (property.GetType() == PropertyType::Bool) {
-        auto checkBox = std::make_shared<ImCheckBox>();
-        checkBox->SetLabel(labelText);
-        checkBox->SetChecked(property.GetValue<bool>());
-        checkBox->OnCheckStateChanged.AddLambda(
-            [applyJsonValue](ImCheckBox&, bool checked) {
+        auto toggle = std::make_shared<ImSwitch>();
+        ApplyInspectorSwitchStyle(*toggle);
+        toggle->SetChecked(property.GetValue<bool>());
+        toggle->OnCheckStateChanged.AddLambda(
+            [applyJsonValue](ImSwitch&, bool checked) {
                 applyJsonValue(checked);
             });
-        return checkBox;
+        return MakeInspectorPropertyRow(labelText, toggle);
     }
 
     if (property.GetType() == PropertyType::String) {
-        auto editor = std::make_shared<ImEditableText>();
-        ApplyInspectorEditableTextStyle(*editor, false);
-        editor->SetText(property.GetValue<std::string>());
+        auto editor = CreateInspectorTextEditor(property.GetValue<std::string>());
         editor->OnTextCommitted.AddLambda(
             [applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 applyJsonValue(text);
@@ -474,9 +534,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     }
 
     if (property.GetType() == PropertyType::Int) {
-        auto editor = std::make_shared<ImEditableText>();
-        ApplyInspectorEditableTextStyle(*editor, false);
-        editor->SetText(std::to_string(property.GetValue<int>()));
+        auto editor = CreateInspectorTextEditor(std::to_string(property.GetValue<int>()), "Integer");
         editor->OnTextCommitted.AddLambda(
             [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 int value = 0;
@@ -491,9 +549,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     }
 
     if (property.GetType() == PropertyType::Float) {
-        auto editor = std::make_shared<ImEditableText>();
-        ApplyInspectorEditableTextStyle(*editor, false);
-        editor->SetText(FormatFloat(property.GetValue<float>()));
+        auto editor = CreateInspectorTextEditor(FormatFloat(property.GetValue<float>()), "Float");
         editor->OnTextCommitted.AddLambda(
             [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 float value = 0.0f;
@@ -567,43 +623,169 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     }
 
     if (property.GetType() == PropertyType::Color) {
-        auto editor = std::make_shared<ImEditableText>();
-        ApplyInspectorEditableTextStyle(*editor, false);
+        FColor currentColor;
         const std::string currentText = DescribePropertyValue(property, objectJson);
-        editor->SetText(currentText);
-        editor->OnTextCommitted.AddLambda(
-            [owner, propertyName, propertyClassName, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
-                FColor value;
-                if (TryParseColor(text, value)) {
-                    applyJsonValue(nlohmann::ordered_json::array({
-                        static_cast<int>(std::round(value.R * 255.0f)),
-                        static_cast<int>(std::round(value.G * 255.0f)),
-                        static_cast<int>(std::round(value.B * 255.0f)),
-                        static_cast<int>(std::round(value.A * 255.0f))}));
+        if (!TryParseColor(currentText, currentColor)) {
+            currentColor = property.GetValue<FColor>();
+        }
+
+        auto picker = std::make_shared<ImColorPicker>();
+        picker->SetColor(currentColor);
+
+        auto rEditor = CreateInspectorTextEditor(std::to_string(GetColorChannels(currentColor)[0]), "R");
+        auto gEditor = CreateInspectorTextEditor(std::to_string(GetColorChannels(currentColor)[1]), "G");
+        auto bEditor = CreateInspectorTextEditor(std::to_string(GetColorChannels(currentColor)[2]), "B");
+        auto aEditor = CreateInspectorTextEditor(std::to_string(GetColorChannels(currentColor)[3]), "A");
+
+        const auto syncEditorsFromJson =
+            [owner, propertyName, propertyClassName, weakPicker = std::weak_ptr<ImColorPicker>(picker), weakR = std::weak_ptr<ImEditableText>(rEditor), weakG = std::weak_ptr<ImEditableText>(gEditor), weakB = std::weak_ptr<ImEditableText>(bEditor), weakA = std::weak_ptr<ImEditableText>(aEditor)]() {
+                const auto refreshed = owner ? owner->ToJson() : nlohmann::ordered_json::object();
+                const auto& refreshedProperties = refreshed.contains("Properties")
+                    ? refreshed.at("Properties")
+                    : nlohmann::ordered_json::object();
+                const auto key = propertyClassName + "::" + propertyName;
+                if (!refreshedProperties.contains(key)) {
+                    return;
                 }
-                if (auto locked = weakEditor.lock()) {
-                    const auto refreshed = owner ? owner->ToJson() : nlohmann::ordered_json::object();
-                    const auto& refreshedProperties = refreshed.contains("Properties")
-                        ? refreshed.at("Properties")
-                        : nlohmann::ordered_json::object();
-                    const auto key = propertyClassName + "::" + propertyName;
-                    if (refreshedProperties.contains(key)) {
-                        locked->SetText(JsonValueToString(refreshedProperties.at(key)));
-                    }
+
+                FColor refreshedColor;
+                if (!TryParseColor(JsonValueToString(refreshedProperties.at(key)), refreshedColor)) {
+                    return;
                 }
+
+                const auto channels = GetColorChannels(refreshedColor);
+                if (auto lockedPicker = weakPicker.lock()) {
+                    lockedPicker->SetColor(refreshedColor);
+                }
+                if (auto locked = weakR.lock()) {
+                    locked->SetText(std::to_string(channels[0]));
+                }
+                if (auto locked = weakG.lock()) {
+                    locked->SetText(std::to_string(channels[1]));
+                }
+                if (auto locked = weakB.lock()) {
+                    locked->SetText(std::to_string(channels[2]));
+                }
+                if (auto locked = weakA.lock()) {
+                    locked->SetText(std::to_string(channels[3]));
+                }
+            };
+
+        picker->OnColorCommitted.AddLambda(
+            [applyJsonValue, syncEditorsFromJson](ImColorPicker&, const FColor& color) {
+                const auto channels = GetColorChannels(color);
+                applyJsonValue(nlohmann::ordered_json::array({channels[0], channels[1], channels[2], channels[3]}));
+                syncEditorsFromJson();
             });
-        return MakeInspectorPropertyRow(labelText, editor);
+
+        const auto commitChannelEditors =
+            [applyJsonValue, syncEditorsFromJson, weakR = std::weak_ptr<ImEditableText>(rEditor), weakG = std::weak_ptr<ImEditableText>(gEditor), weakB = std::weak_ptr<ImEditableText>(bEditor), weakA = std::weak_ptr<ImEditableText>(aEditor)]() {
+                auto lockedR = weakR.lock();
+                auto lockedG = weakG.lock();
+                auto lockedB = weakB.lock();
+                auto lockedA = weakA.lock();
+                if (!lockedR || !lockedG || !lockedB || !lockedA) {
+                    return;
+                }
+
+                int r = 0;
+                int g = 0;
+                int b = 0;
+                int a = 0;
+                if (!TryParseInt(lockedR->GetText(), r) ||
+                    !TryParseInt(lockedG->GetText(), g) ||
+                    !TryParseInt(lockedB->GetText(), b) ||
+                    !TryParseInt(lockedA->GetText(), a)) {
+                    syncEditorsFromJson();
+                    return;
+                }
+
+                applyJsonValue(nlohmann::ordered_json::array({
+                    std::clamp(r, 0, 255),
+                    std::clamp(g, 0, 255),
+                    std::clamp(b, 0, 255),
+                    std::clamp(a, 0, 255)}));
+                syncEditorsFromJson();
+            };
+
+        rEditor->OnTextCommitted.AddLambda([commitChannelEditors](ImEditableText&, const std::string&) { commitChannelEditors(); });
+        gEditor->OnTextCommitted.AddLambda([commitChannelEditors](ImEditableText&, const std::string&) { commitChannelEditors(); });
+        bEditor->OnTextCommitted.AddLambda([commitChannelEditors](ImEditableText&, const std::string&) { commitChannelEditors(); });
+        aEditor->OnTextCommitted.AddLambda([commitChannelEditors](ImEditableText&, const std::string&) { commitChannelEditors(); });
+
+        auto group = std::make_shared<ImVerticalBox>();
+        group->SetSpacing(6.0f);
+        group->AddChild(picker);
+        group->AddChild(MakeInspectorCompactLabeledEditors({
+            {"R", rEditor},
+            {"G", gEditor},
+            {"B", bEditor},
+            {"A", aEditor}}));
+        return MakeInspectorPropertyRow(labelText, group);
     }
 
     if (property.GetType() == PropertyType::Vec2) {
-        auto editor = std::make_shared<ImEditableText>();
-        ApplyInspectorEditableTextStyle(*editor, false);
-        editor->SetText(DescribePropertyValue(property, objectJson));
+        const std::string key = propertyClassName + "::" + propertyName;
+        FVector2 currentValue = property.GetValue<FVector2>();
+        if (objectJson.contains(key) && objectJson.at(key).is_array() && objectJson.at(key).size() == 2) {
+            currentValue.X = objectJson.at(key)[0].get<float>();
+            currentValue.Y = objectJson.at(key)[1].get<float>();
+        }
+
+        auto xEditor = CreateInspectorTextEditor(FormatFloat(currentValue.X), "X");
+        auto yEditor = CreateInspectorTextEditor(FormatFloat(currentValue.Y), "Y");
+        const auto commitVec2 = [owner, propertyName, propertyClassName, applyJsonValue, weakX = std::weak_ptr<ImEditableText>(xEditor), weakY = std::weak_ptr<ImEditableText>(yEditor)]() {
+            auto lockedX = weakX.lock();
+            auto lockedY = weakY.lock();
+            if (!lockedX || !lockedY) {
+                return;
+            }
+
+            float x = 0.0f;
+            float y = 0.0f;
+            if (TryParseFloat(lockedX->GetText(), x) && TryParseFloat(lockedY->GetText(), y)) {
+                applyJsonValue(nlohmann::ordered_json::array({x, y}));
+            }
+
+            const auto refreshed = owner ? owner->ToJson() : nlohmann::ordered_json::object();
+            const auto& refreshedProperties = refreshed.contains("Properties")
+                ? refreshed.at("Properties")
+                : nlohmann::ordered_json::object();
+            const auto propertyKey = propertyClassName + "::" + propertyName;
+            if (refreshedProperties.contains(propertyKey) &&
+                refreshedProperties.at(propertyKey).is_array() &&
+                refreshedProperties.at(propertyKey).size() == 2) {
+                lockedX->SetText(FormatFloat(refreshedProperties.at(propertyKey)[0].get<float>()));
+                lockedY->SetText(FormatFloat(refreshedProperties.at(propertyKey)[1].get<float>()));
+            }
+        };
+
+        xEditor->OnTextCommitted.AddLambda(
+            [commitVec2](ImEditableText&, const std::string&) {
+                commitVec2();
+            });
+        yEditor->OnTextCommitted.AddLambda(
+            [commitVec2](ImEditableText&, const std::string&) {
+                commitVec2();
+            });
+        return MakeInspectorSplitValueRow(labelText, {xEditor, yEditor});
+    }
+
+    if (property.GetType() == PropertyType::StringArray) {
+        const std::string key = propertyClassName + "::" + propertyName;
+        std::vector<std::string> items;
+        if (objectJson.contains(key)) {
+            items = JsonValueToStringArray(objectJson.at(key));
+        } else {
+            items = property.GetValue<std::vector<std::string>>();
+        }
+
+        auto editor = CreateInspectorTextEditor(JoinLines(items), "One item per line");
         editor->OnTextCommitted.AddLambda(
             [owner, propertyName, propertyClassName, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
-                FVector2 value;
-                if (TryParseVec2(text, value)) {
-                    applyJsonValue(nlohmann::ordered_json::array({value.X, value.Y}));
+                std::vector<std::string> items;
+                if (TryParseStringArrayLines(text, items)) {
+                    applyJsonValue(items);
                 }
                 if (auto locked = weakEditor.lock()) {
                     const auto refreshed = owner ? owner->ToJson() : nlohmann::ordered_json::object();
@@ -612,7 +794,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                         : nlohmann::ordered_json::object();
                     const auto key = propertyClassName + "::" + propertyName;
                     if (refreshedProperties.contains(key)) {
-                        locked->SetText(JsonValueToString(refreshedProperties.at(key)));
+                        locked->SetText(JoinLines(JsonValueToStringArray(refreshedProperties.at(key))));
                     }
                 }
             });

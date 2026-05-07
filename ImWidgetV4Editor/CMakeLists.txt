@@ -9,8 +9,12 @@ if(MSVC)
 endif()
 
 add_executable(ImWidgetV4Editor
+    src/commands/AddWidgetCommand.cpp
     src/commands/CommandStack.cpp
     src/commands/DocumentSnapshotCommand.cpp
+    src/commands/MoveWidgetCommand.cpp
+    src/commands/RemoveWidgetCommand.cpp
+    src/commands/ReflectablePropertyCommand.cpp
     src/editor/EditorDocument.cpp
     src/editor/EditorShellHost.cpp
     src/editor/EditorSession.cpp
@@ -29,8 +33,12 @@ add_executable(ImWidgetV4Editor
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_executable(editor_selection_test
+        src/commands/AddWidgetCommand.cpp
         src/commands/CommandStack.cpp
         src/commands/DocumentSnapshotCommand.cpp
+        src/commands/MoveWidgetCommand.cpp
+        src/commands/RemoveWidgetCommand.cpp
+        src/commands/ReflectablePropertyCommand.cpp
         src/editor/EditorDocument.cpp
         src/editor/EditorShellHost.cpp
         src/editor/EditorSession.cpp

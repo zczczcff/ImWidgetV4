@@ -76,12 +76,51 @@ public:
         const json& documentJson,
         const std::string& selectionId,
         bool bDirty);
+    bool ApplyReflectablePropertyChange(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
+        const json& objectJson,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
+    bool ApplyWidgetInsertion(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& insertionTarget,
+        const ImWidgetV4::FVector2& dropPosition,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
+    bool ApplyWidgetInsertionAtTreeTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
+    bool ApplyWidgetMoveAtTreeTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
+    bool ApplyWidgetMoveAtParentIndex(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
+        int insertIndex,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
+    bool ApplyWidgetRemoval(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
 
 private:
     struct FDocumentSnapshot {
         json DocumentJson;
         std::string SelectionId;
         bool bDirty = false;
+    };
+
+    struct FReflectableGestureSnapshot {
+        std::weak_ptr<ImWidgetV4::ReflectableObject> Owner;
+        json BeforeJson;
+        bool bBeforeDirty = false;
     };
 
     std::shared_ptr<EditorDocument> CreateDefaultDocument() const;
@@ -95,6 +134,10 @@ private:
         const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
         const ImWidgetV4::FVector2& position,
         bool& bHandled);
+    void HandleDesignerContextMenuRequested(
+        ImWidgetV4::ImDesignerSurface& designerSurface,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::FVector2 position);
     void HandleWidgetTreeContextMenuRequested(
         ImWidgetV4::ImTextOutlineView& treeView,
         ImWidgetV4::ImTextOutlineItem& item,
@@ -115,13 +158,32 @@ private:
         const json& value);
     std::filesystem::path ResolveDialogDirectory() const;
     std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
+    bool CreatePaletteWidgetAtTreeTarget(
+        const std::string& widgetTypeName,
+        const std::string& label,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone);
+    bool PasteCopiedWidgetAtTreeTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone);
+    bool CanInsertWidgetAtTreeTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone) const;
+    bool CanInsertIntoParentAt(const std::shared_ptr<ImWidgetV4::ImWidget>& parent) const;
     bool InsertWidgetIntoDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const ImWidgetV4::FVector2& dropPosition);
+    bool InsertWidgetIntoDocumentAtTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& insertionTarget,
         const ImWidgetV4::FVector2& dropPosition);
     bool InsertWidgetAtTreeTarget(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone);
+    bool DetachWidgetFromDocument(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        std::shared_ptr<ImWidgetV4::ImWidget>* outNextSelection = nullptr);
     bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool MoveWidgetInDocument(
@@ -131,6 +193,11 @@ private:
         const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
         int insertIndex,
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    bool ResolveTreeInsertionParentAndIndex(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone,
+        std::shared_ptr<ImWidgetV4::ImWidget>& outParent,
+        int& outInsertIndex) const;
     bool MoveWidgetRelativeToTarget(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
@@ -139,18 +206,18 @@ private:
     void RefreshPreview();
     void RefreshSchemaView();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
-    FDocumentSnapshot CaptureDocumentSnapshot() const;
-    bool ExecuteDocumentMutation(
-        const std::string& commandLabel,
-        const std::function<bool()>& mutation,
-        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection = nullptr);
-    void BeginDocumentGesture(
+    void BeginReflectableGesture(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
         const std::string& commandLabel,
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
-    bool CommitDocumentGesture(const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
-    void CancelDocumentGesture();
+    bool CommitReflectableGesture(const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
+    void CancelReflectableGesture();
+    void SetDocumentDirtyState(bool bDirty);
     void MarkDocumentDirty();
     void CloseWidgetTreeContextMenu();
+    void OpenStructureContextMenu(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::FVector2 position);
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
     std::shared_ptr<EditorDocument> m_Document;
@@ -166,9 +233,11 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextList> m_OutputText;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
+    std::shared_ptr<ImWidgetV4::ImPopupMenu> m_DesignerContextMenu;
+    std::shared_ptr<ImWidgetV4::ImWindow> m_DesignerContextMenuWindow;
     CommandStack m_CommandStack;
     int m_DocumentTabIndex = -1;
-    std::unique_ptr<FDocumentSnapshot> m_PendingGestureSnapshot;
+    std::unique_ptr<FReflectableGestureSnapshot> m_PendingReflectableGestureSnapshot;
     std::string m_PendingGestureLabel;
     std::weak_ptr<ImWidgetV4::ImWidget> m_PendingGestureSelection;
     json m_CopiedWidgetJson;

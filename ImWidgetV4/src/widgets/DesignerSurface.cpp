@@ -145,6 +145,15 @@ FReply ImDesignerSurface::OnPreviewInputEvent(const FInputEvent& event)
 
 FReply ImDesignerSurface::OnInputEvent(const FInputEvent& event)
 {
+    if (event.Type == EInputEventType::MouseButtonDown &&
+        event.MouseButton == EMouseButton::Right &&
+        m_Geometry.Contains(event.MousePosition)) {
+        std::shared_ptr<ImWidget> hitWidget = ResolveSelectableWidgetAt(event.MousePosition);
+        SetSelectedWidget(hitWidget);
+        OnContextMenuRequested.Broadcast(*this, hitWidget, event.MousePosition);
+        return FReply::Handled().SetKeyboardFocus(shared_from_this());
+    }
+
     if (event.Type == EInputEventType::KeyDown &&
         event.Key == EKey::DeleteKey &&
         HasKeyboardFocus()) {

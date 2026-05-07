@@ -21,6 +21,7 @@ class ImDesignerSurface : public ImUserWidget {
 public:
     using FSelectionChangedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>>;
     using FDeleteRequestedEvent = TMulticastDelegate<ImDesignerSurface&>;
+    using FContextMenuRequestedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>, FVector2>;
     using FTransformStartedEvent = TMulticastDelegate<
         ImDesignerSurface&,
         std::shared_ptr<ImWidget>,
@@ -57,6 +58,7 @@ public:
 
     FSelectionChangedEvent OnSelectionChanged;
     FDeleteRequestedEvent OnDeleteRequested;
+    FContextMenuRequestedEvent OnContextMenuRequested;
     FTransformStartedEvent OnTransformStarted;
     FTransformFinishedEvent OnTransformFinished;
     FDropEvent OnDropReceived;

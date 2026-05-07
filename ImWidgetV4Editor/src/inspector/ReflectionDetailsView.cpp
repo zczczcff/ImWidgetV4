@@ -339,6 +339,20 @@ void ReflectionDetailsView::SetSlotTarget(const std::shared_ptr<ImSlot>& slotTar
     SetTargets(m_Target, slotTarget);
 }
 
+void ReflectionDetailsView::RebuildPreservingViewState()
+{
+    float scrollOffset = 0.0f;
+    if (auto outlineView = GetCurrentOutlineView()) {
+        scrollOffset = outlineView->GetScrollOffset();
+    }
+
+    Rebuild();
+
+    if (auto outlineView = GetCurrentOutlineView()) {
+        outlineView->SetScrollOffset(scrollOffset);
+    }
+}
+
 ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 {
     if (!m_Target && !m_SlotTarget) {
@@ -532,7 +546,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         auto serialized = owner->ToJson();
         serialized["Properties"][propertyClassName + "::" + propertyName] = value;
         owner->FromJson(serialized);
-        mutableThis->Rebuild();
+        mutableThis->RebuildPreservingViewState();
         mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
         return true;
     };
@@ -643,7 +657,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     return;
                 }
 
-                mutableThis->Rebuild();
+                mutableThis->RebuildPreservingViewState();
                 mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
             });
         return MakeInspectorPropertyRow(labelText, editor);
@@ -883,7 +897,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildStructPropertyEditorRow(
             auto serialized = owner->ToJson();
             serialized["Properties"][propertyClassName + "::" + propertyName] = value;
             owner->FromJson(serialized);
-            mutableThis->Rebuild();
+            mutableThis->RebuildPreservingViewState();
             mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
             return true;
         };
@@ -996,6 +1010,11 @@ std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(
     return std::shared_ptr<ReflectableObject>(
         owner,
         const_cast<ReflectableObject*>(nested));
+}
+
+std::shared_ptr<ImOutlineView> ReflectionDetailsView::GetCurrentOutlineView() const
+{
+    return std::dynamic_pointer_cast<ImOutlineView>(GetRootWidget());
 }
 
 } // namespace ImWidgetV4Editor

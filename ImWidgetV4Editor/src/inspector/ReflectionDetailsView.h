@@ -34,6 +34,7 @@ public:
     std::shared_ptr<ImWidgetV4::ReflectableObject> GetTarget() const { return m_Target; }
     void SetSlotTarget(const std::shared_ptr<ImWidgetV4::ImSlot>& slotTarget);
     std::shared_ptr<ImWidgetV4::ImSlot> GetSlotTarget() const { return m_SlotTarget; }
+    void RebuildPreservingViewState();
 
     FPropertiesChangedEvent OnPropertiesChanged;
     FPropertyValueCommittedEvent OnPropertyValueCommitted;
@@ -70,6 +71,7 @@ private:
     std::shared_ptr<ImWidgetV4::ReflectableObject> ResolveNestedObject(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
         const ImWidgetV4::ReflectableObject::ROPProperty& property) const;
+    std::shared_ptr<ImWidgetV4::ImOutlineView> GetCurrentOutlineView() const;
 
     std::shared_ptr<ImWidgetV4::ReflectableObject> m_Target;
     std::shared_ptr<ImWidgetV4::ImSlot> m_SlotTarget;

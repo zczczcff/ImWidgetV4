@@ -450,7 +450,7 @@ void EditorSession::BindDocumentWidgets(
                 if (CommitDocumentGesture(widget)) {
                     UpdateSelectionDetails(widget);
                     if (m_DetailsView) {
-                        m_DetailsView->Rebuild();
+                        m_DetailsView->RebuildPreservingViewState();
                     }
                 }
             });
@@ -852,7 +852,7 @@ void EditorSession::ApplyDocumentToUi()
 
     UpdateSelectionDetails(nullptr);
     if (m_DetailsView) {
-        m_DetailsView->Rebuild();
+        m_DetailsView->RebuildPreservingViewState();
     }
 }
 
@@ -1132,7 +1132,7 @@ void EditorSession::HandlePropertyValueCommitted(
                     selectedWidget);
             }
             if (m_DetailsView) {
-                m_DetailsView->Rebuild();
+                m_DetailsView->RebuildPreservingViewState();
             }
             UpdateSelectionDetails(selectedWidget);
             return true;
@@ -1176,7 +1176,7 @@ bool EditorSession::ApplyDocumentSnapshot(
 
     ApplySelectionToUi(selectedWidget);
     if (m_DetailsView) {
-        m_DetailsView->Rebuild();
+        m_DetailsView->RebuildPreservingViewState();
     }
     UpdateSelectionDetails(selectedWidget);
 
@@ -1500,7 +1500,7 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
 
     ApplySelectionToUi(selectedWidget);
     if (m_DetailsView) {
-        m_DetailsView->Rebuild();
+        m_DetailsView->RebuildPreservingViewState();
     }
     UpdateSelectionDetails(selectedWidget);
 }

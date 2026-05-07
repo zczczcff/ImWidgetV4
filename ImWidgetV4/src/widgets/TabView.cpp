@@ -56,27 +56,62 @@ ImTabView::ImTabView()
 
 int ImTabView::AddTab(const std::string& title, const std::shared_ptr<ImWidget>& content)
 {
-    return AddTab(title, FImageBrush(), content);
+    return InsertTab(static_cast<int>(Tabs_.size()), title, FImageBrush(), content);
 }
 
 int ImTabView::AddTab(const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
+{
+    return InsertTab(static_cast<int>(Tabs_.size()), title, icon, content);
+}
+
+int ImTabView::InsertTab(int index, const std::string& title, const std::shared_ptr<ImWidget>& content)
+{
+    return InsertTab(index, title, FImageBrush(), content);
+}
+
+int ImTabView::InsertTab(int index, const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
 {
     FTabViewItem item;
     item.Title = title;
     item.Icon = icon;
     item.Content = content;
-    Tabs_.push_back(std::move(item));
+    const int insertIndex = std::clamp(index, 0, static_cast<int>(Tabs_.size()));
+    Tabs_.insert(Tabs_.begin() + insertIndex, std::move(item));
 
-    const int addedIndex = static_cast<int>(Tabs_.size() - 1);
+    for (int& historyIndex : ActivationHistory_) {
+        if (historyIndex >= insertIndex) {
+            ++historyIndex;
+        }
+    }
+
+    if (HoveredTabIndex_ >= insertIndex) {
+        ++HoveredTabIndex_;
+    }
+    if (PressedTabIndex_ >= insertIndex) {
+        ++PressedTabIndex_;
+    }
+    if (HoveredCloseTabIndex_ >= insertIndex) {
+        ++HoveredCloseTabIndex_;
+    }
+    if (PressedCloseTabIndex_ >= insertIndex) {
+        ++PressedCloseTabIndex_;
+    }
+    if (LastClickedTabIndex_ >= insertIndex) {
+        ++LastClickedTabIndex_;
+    }
+    if (ActiveTabIndex_ >= insertIndex) {
+        ++ActiveTabIndex_;
+    }
+
     bLayoutDirty_ = true;
 
-    if (ActiveTabIndex_ < 0 && Tabs_[static_cast<std::size_t>(addedIndex)].bEnabled) {
-        SetActiveTab(addedIndex);
+    if (ActiveTabIndex_ < 0 && Tabs_[static_cast<std::size_t>(insertIndex)].bEnabled) {
+        SetActiveTab(insertIndex);
     } else {
         Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     }
 
-    return addedIndex;
+    return insertIndex;
 }
 
 bool ImTabView::RemoveTab(int index)

@@ -284,6 +284,28 @@ bool TryDuplicateInParent(
     return false;
 }
 
+int FindLogicalChildIndex(
+    const std::shared_ptr<ImWidget>& parent,
+    const std::shared_ptr<ImWidget>& child)
+{
+    if (!parent || !child) {
+        return -1;
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
+        return FindTabIndexForContent(tabView, child);
+    }
+
+    const auto& children = parent->GetChildren();
+    for (std::size_t index = 0; index < children.size(); ++index) {
+        if (children[index] == child) {
+            return static_cast<int>(index);
+        }
+    }
+
+    return -1;
+}
+
 } // namespace
 
 EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
@@ -344,10 +366,11 @@ void EditorSession::BindDocumentWidgets(
             [this](
                 ImTextOutlineView& treeView,
                 ImTextOutlineItem& item,
+                ETextOutlineDropZone zone,
                 const std::shared_ptr<FDragDropOperation>& operation,
                 FVector2 position,
                 bool& bHandled) {
-                HandleWidgetTreeItemDropped(treeView, item, operation, position, bHandled);
+                HandleWidgetTreeItemDropped(treeView, item, zone, operation, position, bHandled);
             });
     }
     if (m_DesignerSurface) {
@@ -977,6 +1000,7 @@ void EditorSession::HandleWidgetTreeContextMenuRequested(
 void EditorSession::HandleWidgetTreeItemDropped(
     ImTextOutlineView&,
     ImTextOutlineItem& item,
+    ETextOutlineDropZone zone,
     const std::shared_ptr<FDragDropOperation>& operation,
     FVector2,
     bool& bHandled)
@@ -1004,8 +1028,10 @@ void EditorSession::HandleWidgetTreeItemDropped(
 
     bHandled = ExecuteDocumentMutation(
         "Move Widget",
-        [this, sourceWidget, targetWidget]() {
-            return MoveWidgetInDocument(sourceWidget, targetWidget);
+        [this, sourceWidget, targetWidget, zone]() {
+            return zone == ETextOutlineDropZone::OnItem
+                ? MoveWidgetInDocument(sourceWidget, targetWidget)
+                : MoveWidgetRelativeToTarget(sourceWidget, targetWidget, zone);
         },
         sourceWidget);
     if (!bHandled) {
@@ -1281,6 +1307,85 @@ bool EditorSession::MoveWidgetInDocument(
     const bool bInserted = TryInsertIntoTarget(newParent, widget, newParent->GetGeometry().Position);
     if (!bInserted) {
         TryInsertIntoTarget(oldLogicalParent, widget, oldLogicalParent->GetGeometry().Position);
+        return false;
+    }
+
+    MarkDocumentDirty();
+    return true;
+}
+
+bool EditorSession::InsertWidgetIntoParentAt(
+    const std::shared_ptr<ImWidget>& parent,
+    int insertIndex,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!parent || !widget) {
+        return false;
+    }
+
+    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
+        verticalBox->InsertChild(insertIndex, widget);
+        return true;
+    }
+
+    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
+        horizontalBox->InsertChild(insertIndex, widget);
+        return true;
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
+        const int insertedIndex = tabView->InsertTab(insertIndex, BuildTabTitleForWidget(widget), widget);
+        if (insertedIndex >= 0) {
+            tabView->SetActiveTab(insertedIndex);
+            return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+bool EditorSession::MoveWidgetRelativeToTarget(
+    const std::shared_ptr<ImWidget>& widget,
+    const std::shared_ptr<ImWidget>& targetWidget,
+    ETextOutlineDropZone zone)
+{
+    if (!m_Document || !widget || !targetWidget || zone == ETextOutlineDropZone::OnItem) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root || widget == root || widget == targetWidget) {
+        return false;
+    }
+
+    const std::shared_ptr<ImWidget> targetParent = m_Document->FindLogicalParent(targetWidget);
+    const std::shared_ptr<ImWidget> oldParent = m_Document->FindLogicalParent(widget);
+    if (!targetParent || !oldParent || IsLogicalAncestorOf(m_Document, widget, targetParent)) {
+        return false;
+    }
+
+    int targetIndex = FindLogicalChildIndex(targetParent, targetWidget);
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    const int oldIndex = FindLogicalChildIndex(oldParent, widget);
+    if (oldIndex < 0) {
+        return false;
+    }
+
+    int insertIndex = zone == ETextOutlineDropZone::BeforeItem ? targetIndex : (targetIndex + 1);
+    if (oldParent == targetParent && oldIndex < targetIndex) {
+        --insertIndex;
+    }
+
+    if (!RemoveWidgetFromParent(oldParent, widget)) {
+        return false;
+    }
+
+    if (!InsertWidgetIntoParentAt(targetParent, insertIndex, widget)) {
+        InsertWidgetIntoParentAt(oldParent, oldIndex, widget);
         return false;
     }
 

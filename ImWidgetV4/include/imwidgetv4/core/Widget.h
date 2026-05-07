@@ -74,6 +74,7 @@ public:
     virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath);
 
     virtual void AddChild(const Ptr& child);
+    virtual void InsertChildAt(int index, const Ptr& child);
     virtual bool RemoveChild(const Ptr& child);
     virtual void ClearChildren();
 

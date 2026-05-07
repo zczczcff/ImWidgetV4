@@ -138,11 +138,11 @@ void DocumentTreeViewBinder::Bind(
         });
     m_TreeView->OnItemDropTest.Clear();
     m_TreeView->OnItemDropTest.AddLambda(
-        [this](ImTextOutlineView&, ImTextOutlineItem& item, const std::shared_ptr<FDragDropOperation>& operation, FVector2, bool& bAccepted) {
+        [this](ImTextOutlineView&, ImTextOutlineItem& item, ETextOutlineDropZone zone, const std::shared_ptr<FDragDropOperation>& operation, FVector2, bool& bAccepted) {
             auto payload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation ? operation->Payload : nullptr);
             auto document = m_Document.lock();
             auto targetWidget = ResolveWidget(&item);
-            if (!payload || !document || !targetWidget || !IsDropCandidateContainer(targetWidget)) {
+            if (!payload || !document || !targetWidget) {
                 bAccepted = false;
                 return;
             }
@@ -151,6 +151,11 @@ void DocumentTreeViewBinder::Bind(
             if (!sourceWidget ||
                 sourceWidget == targetWidget ||
                 IsLogicalAncestorOf(document, sourceWidget, targetWidget)) {
+                bAccepted = false;
+                return;
+            }
+
+            if (zone == ETextOutlineDropZone::OnItem && !IsDropCandidateContainer(targetWidget)) {
                 bAccepted = false;
                 return;
             }

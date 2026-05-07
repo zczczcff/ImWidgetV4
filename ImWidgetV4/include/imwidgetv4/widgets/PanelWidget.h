@@ -38,6 +38,7 @@ public:
      * @param slot Slot（如果为 nullptr，则使用 CreateSlot 创建）
      */
     void AddSlot(const Ptr& child, std::unique_ptr<ImSlot> slot = nullptr);
+    void InsertSlot(int index, const Ptr& child, std::unique_ptr<ImSlot> slot = nullptr);
 
     /**
      * @brief 获取指定索引的 Slot

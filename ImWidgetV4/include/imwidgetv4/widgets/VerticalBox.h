@@ -20,6 +20,9 @@ public:
     void AddChild(const Ptr& child, const FMargin& padding = FMargin());
     void AddChildFill(const Ptr& child, float fillCoefficient = 1.0f, const FMargin& padding = FMargin());
     void AddChildWithSlot(const Ptr& child, std::unique_ptr<ImBoxSlot> slot = nullptr);
+    void InsertChild(int index, const Ptr& child, const FMargin& padding = FMargin());
+    void InsertChildFill(int index, const Ptr& child, float fillCoefficient = 1.0f, const FMargin& padding = FMargin());
+    void InsertChildWithSlot(int index, const Ptr& child, std::unique_ptr<ImBoxSlot> slot = nullptr);
 
     void SetSpacing(float spacing) { m_Spacing = spacing; }
     float GetSpacing() const { return m_Spacing; }

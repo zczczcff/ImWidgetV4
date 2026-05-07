@@ -11,6 +11,7 @@
 
 namespace ImWidgetV4 {
 enum class EDesignerTransformHandle : std::uint8_t;
+enum class ETextOutlineDropZone : std::uint8_t;
 struct FDragDropOperation;
 struct FPopupMenuItem;
 class ImDesignerSurface;
@@ -92,6 +93,7 @@ private:
     void HandleWidgetTreeItemDropped(
         ImWidgetV4::ImTextOutlineView& treeView,
         ImWidgetV4::ImTextOutlineItem& item,
+        ImWidgetV4::ETextOutlineDropZone zone,
         const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
         ImWidgetV4::FVector2 position,
         bool& bHandled);
@@ -112,6 +114,14 @@ private:
     bool MoveWidgetInDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const std::shared_ptr<ImWidgetV4::ImWidget>& newParent);
+    bool InsertWidgetIntoParentAt(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
+        int insertIndex,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    bool MoveWidgetRelativeToTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void RefreshPreview();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);

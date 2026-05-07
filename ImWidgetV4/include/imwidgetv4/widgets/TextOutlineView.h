@@ -8,6 +8,12 @@
 
 namespace ImWidgetV4 {
 
+enum class ETextOutlineDropZone : std::uint8_t {
+    OnItem,
+    BeforeItem,
+    AfterItem
+};
+
 class ImTextOutlineItem : public ReflectableObject {
     DECLARE_OBJECT_WITH_PARENT(ImTextOutlineItem, ReflectableObject)
     registrar
@@ -104,9 +110,9 @@ public:
     using FDragDetectedEvent =
         TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, std::shared_ptr<FDragDropOperation>&>;
     using FDropTestEvent =
-        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
+        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, ETextOutlineDropZone, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
     using FDropEvent =
-        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
+        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, ETextOutlineDropZone, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
 
     ImTextOutlineView();
     virtual ~ImTextOutlineView() = default;
@@ -159,6 +165,21 @@ private:
         FGeometry ContentGeometry;
     };
 
+    struct FDropTargetState {
+        ImTextOutlineItem* Item = nullptr;
+        ETextOutlineDropZone Zone = ETextOutlineDropZone::OnItem;
+
+        bool operator==(const FDropTargetState& other) const
+        {
+            return Item == other.Item && Zone == other.Zone;
+        }
+
+        bool operator!=(const FDropTargetState& other) const
+        {
+            return !(*this == other);
+        }
+    };
+
     void SetScrollOffsetProperty(float& offset) { SetScrollOffset(offset); }
     float& GetScrollOffsetProperty() { return ScrollOffsetY_; }
 
@@ -187,6 +208,8 @@ private:
     void HandleKeyboardNavigation(EKey key);
     void FlattenVisibleChildren(ImTextOutlineItem& item, int depth, float& cursorY);
     float MeasureTextWidth(const std::string& text) const;
+    ETextOutlineDropZone ResolveDropZone(const FVisibleEntry& entry, const FVector2& position) const;
+    FGeometry ResolveDropIndicatorGeometry(const FVisibleEntry& entry, ETextOutlineDropZone zone) const;
 
     FTextOutlineViewStyle Style_;
     std::vector<std::unique_ptr<ImTextOutlineItem>> RootItems_;
@@ -195,7 +218,7 @@ private:
     ImTextOutlineItem* HoveredItem_ = nullptr;
     ImTextOutlineItem* PressedItem_ = nullptr;
     ImTextOutlineItem* DraggedItem_ = nullptr;
-    ImTextOutlineItem* DropTargetItem_ = nullptr;
+    FDropTargetState DropTarget_;
     FGeometry ViewportGeometry_;
     FGeometry VerticalScrollbarGeometry_;
     FGeometry VerticalThumbGeometry_;

@@ -139,6 +139,8 @@ public:
 
     int AddTab(const std::string& title, const std::shared_ptr<ImWidget>& content);
     int AddTab(const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
+    int InsertTab(int index, const std::string& title, const std::shared_ptr<ImWidget>& content);
+    int InsertTab(int index, const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
     bool RemoveTab(int index);
     void ClearTabs();
     int GetTabCount() const { return static_cast<int>(Tabs_.size()); }

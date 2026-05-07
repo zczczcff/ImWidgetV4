@@ -75,6 +75,18 @@ void ImWidget::AddChild(const Ptr& child)
     m_Children.push_back(child);
 }
 
+void ImWidget::InsertChildAt(int index, const Ptr& child)
+{
+    if (!child) {
+        return;
+    }
+
+    const int clampedIndex = std::clamp(index, 0, static_cast<int>(m_Children.size()));
+    child->m_Parent = weak_from_this();
+    child->SetApplicationRecursive(m_Application);
+    m_Children.insert(m_Children.begin() + clampedIndex, child);
+}
+
 bool ImWidget::RemoveChild(const Ptr& child)
 {
     if (!child) {

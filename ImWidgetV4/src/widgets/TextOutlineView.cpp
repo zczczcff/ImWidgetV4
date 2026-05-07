@@ -110,8 +110,8 @@ void ImTextOutlineView::RemoveItem(ImTextOutlineItem* item)
     if (DraggedItem_ != nullptr && (DraggedItem_ == item || IsDescendantOf(DraggedItem_, item))) {
         DraggedItem_ = nullptr;
     }
-    if (DropTargetItem_ != nullptr && (DropTargetItem_ == item || IsDescendantOf(DropTargetItem_, item))) {
-        DropTargetItem_ = nullptr;
+    if (DropTarget_.Item != nullptr && (DropTarget_.Item == item || IsDescendantOf(DropTarget_.Item, item))) {
+        DropTarget_ = FDropTargetState();
     }
 
     bLayoutDirty_ = true;
@@ -130,7 +130,7 @@ void ImTextOutlineView::ClearItems()
     HoveredItem_ = nullptr;
     PressedItem_ = nullptr;
     DraggedItem_ = nullptr;
-    DropTargetItem_ = nullptr;
+    DropTarget_ = FDropTargetState();
     ContentHeight_ = 0.0f;
     ScrollOffsetY_ = 0.0f;
     MaxScrollOffsetY_ = 0.0f;
@@ -258,7 +258,7 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
         FColor rowColor = FColor::Transparent;
         if (entry.Item == SelectedItem_) {
             rowColor = HasKeyboardFocus() ? Style_.SelectedFocusedRowColor : Style_.SelectedRowColor;
-        } else if (entry.Item == DropTargetItem_) {
+        } else if (entry.Item == DropTarget_.Item && DropTarget_.Zone == ETextOutlineDropZone::OnItem) {
             rowColor = Style_.SelectedRowColor.Lerp(Style_.SelectedFocusedRowColor, 0.35f);
         } else if (entry.Item == HoveredItem_) {
             rowColor = Style_.HoveredRowColor;
@@ -294,6 +294,15 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
             entry.Item->Text,
             Style_.FontSize);
         paintContext.DrawContext_.PopClipRect();
+
+        if (entry.Item == DropTarget_.Item && DropTarget_.Zone != ETextOutlineDropZone::OnItem) {
+            const FGeometry indicatorGeometry = ResolveDropIndicatorGeometry(entry, DropTarget_.Zone);
+            paintContext.DrawContext_.DrawRectFilled(
+                indicatorGeometry.GetMin(),
+                indicatorGeometry.GetMax(),
+                Style_.SelectedFocusedRowColor,
+                0.0f);
+        }
     }
     paintContext.DrawContext_.PopClipRect();
 
@@ -433,7 +442,7 @@ std::shared_ptr<FDragDropOperation> ImTextOutlineView::OnDragDetected(const FDra
     }
 
     DraggedItem_ = PressedItem_;
-    DropTargetItem_ = nullptr;
+    DropTarget_ = FDropTargetState();
 
     std::shared_ptr<FDragDropOperation> operation;
     OnItemDragDetected.Broadcast(*this, *PressedItem_, operation);
@@ -453,13 +462,16 @@ FReply ImTextOutlineView::OnDragEvent(const FDragDropEvent& event)
     case EDragDropEventType::DragOver: {
         FVisibleEntry* entry = ResolveEntryAt(event.CurrentPosition);
         ImTextOutlineItem* candidate = entry != nullptr ? entry->Item : nullptr;
+        const ETextOutlineDropZone zone =
+            entry != nullptr ? ResolveDropZone(*entry, event.CurrentPosition) : ETextOutlineDropZone::OnItem;
         bool bAccepted = false;
         if (candidate != nullptr) {
-            OnItemDropTest.Broadcast(*this, *candidate, event.Operation, event.CurrentPosition, bAccepted);
+            OnItemDropTest.Broadcast(*this, *candidate, zone, event.Operation, event.CurrentPosition, bAccepted);
         }
 
-        if (DropTargetItem_ != candidate) {
-            DropTargetItem_ = candidate;
+        const FDropTargetState nextDropTarget {candidate, zone};
+        if (DropTarget_ != nextDropTarget) {
+            DropTarget_ = nextDropTarget;
             Invalidate(EInvalidateReason::Paint);
         }
 
@@ -471,29 +483,31 @@ FReply ImTextOutlineView::OnDragEvent(const FDragDropEvent& event)
     }
 
     case EDragDropEventType::DragLeave:
-        if (DropTargetItem_ != nullptr) {
-            DropTargetItem_ = nullptr;
+        if (DropTarget_.Item != nullptr) {
+            DropTarget_ = FDropTargetState();
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
 
     case EDragDropEventType::Drop: {
         FVisibleEntry* entry = ResolveEntryAt(event.CurrentPosition);
-        ImTextOutlineItem* candidate = entry != nullptr ? entry->Item : DropTargetItem_;
+        ImTextOutlineItem* candidate = entry != nullptr ? entry->Item : DropTarget_.Item;
+        const ETextOutlineDropZone zone =
+            entry != nullptr ? ResolveDropZone(*entry, event.CurrentPosition) : DropTarget_.Zone;
         bool bHandled = false;
         if (candidate != nullptr) {
-            DropTargetItem_ = candidate;
-            OnItemDropped.Broadcast(*this, *candidate, event.Operation, event.CurrentPosition, bHandled);
+            DropTarget_ = FDropTargetState {candidate, zone};
+            OnItemDropped.Broadcast(*this, *candidate, zone, event.Operation, event.CurrentPosition, bHandled);
         }
 
-        DropTargetItem_ = nullptr;
+        DropTarget_ = FDropTargetState();
         Invalidate(EInvalidateReason::Paint);
         return bHandled ? FReply::Handled() : FReply::Unhandled();
     }
 
     case EDragDropEventType::DragEnd:
         DraggedItem_ = nullptr;
-        DropTargetItem_ = nullptr;
+        DropTarget_ = FDropTargetState();
         PressedItem_ = nullptr;
         Invalidate(EInvalidateReason::Paint);
         return FReply::Unhandled();
@@ -949,6 +963,32 @@ float ImTextOutlineView::MeasureTextWidth(const std::string& text) const
     }
 
     return Style_.FontSize * 0.55f * static_cast<float>(text.size());
+}
+
+ETextOutlineDropZone ImTextOutlineView::ResolveDropZone(const FVisibleEntry& entry, const FVector2& position) const
+{
+    const float localY = position.Y - entry.RowGeometry.Position.Y;
+    const float topThreshold = entry.RowGeometry.Size.Y * 0.25f;
+    const float bottomThreshold = entry.RowGeometry.Size.Y * 0.75f;
+    if (localY <= topThreshold) {
+        return ETextOutlineDropZone::BeforeItem;
+    }
+    if (localY >= bottomThreshold) {
+        return ETextOutlineDropZone::AfterItem;
+    }
+    return ETextOutlineDropZone::OnItem;
+}
+
+FGeometry ImTextOutlineView::ResolveDropIndicatorGeometry(const FVisibleEntry& entry, ETextOutlineDropZone zone) const
+{
+    const float lineHeight = 2.0f;
+    float y = entry.RowGeometry.Position.Y;
+    if (zone == ETextOutlineDropZone::AfterItem) {
+        y = entry.RowGeometry.GetMax().Y - lineHeight;
+    }
+    return FGeometry(
+        FVector2(entry.RowGeometry.Position.X, y),
+        FVector2(entry.RowGeometry.Size.X, lineHeight));
 }
 
 } // namespace ImWidgetV4

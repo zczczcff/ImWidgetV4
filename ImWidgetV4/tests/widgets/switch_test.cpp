@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/Switch.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <memory>
 
@@ -141,4 +142,23 @@ TEST_F(SwitchTest, DisabledSwitchDoesNotRespond) {
     App->SetKeyboardFocus(Switch);
     AdvanceWithEvents({CreateKeyEvent(EInputEventType::KeyDown, EKey::Space)});
     EXPECT_FALSE(Switch->IsChecked());
+}
+
+TEST_F(SwitchTest, CheckStateCallbackCanReplaceOwningWidgetTreeSafely) {
+    std::weak_ptr<ImSwitch> oldSwitch = Switch;
+    int callbackCount = 0;
+
+    Switch->OnCheckStateChanged.AddLambda([&](ImSwitch&, bool) {
+        ++callbackCount;
+
+        auto replacement = std::make_shared<ImTextBlock>();
+        replacement->SetText("Rebuilt");
+        App->SetRootWidget(replacement);
+        Switch.reset();
+    });
+
+    Switch->SetChecked(true);
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_TRUE(oldSwitch.expired());
 }

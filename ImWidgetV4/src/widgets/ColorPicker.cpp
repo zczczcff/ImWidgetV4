@@ -370,6 +370,7 @@ void ImColorPicker::SyncColorFromHsv(bool bBroadcastChanged)
     m_Color = HsvToColor(m_Hue, m_Saturation, m_Value, m_Alpha);
     Invalidate(EInvalidateReason::Paint);
     if (bBroadcastChanged) {
+        const std::shared_ptr<ImColorPicker> keepAlive = std::static_pointer_cast<ImColorPicker>(shared_from_this());
         OnColorChanged.Broadcast(*this, m_Color);
     }
 }
@@ -416,6 +417,7 @@ void ImColorPicker::EndInteraction(bool bCommit)
     const bool bShouldCommit = bCommit && m_bInteractionChanged;
     m_ActiveRegion = EActiveRegion::None;
     if (bShouldCommit) {
+        const std::shared_ptr<ImColorPicker> keepAlive = std::static_pointer_cast<ImColorPicker>(shared_from_this());
         OnColorCommitted.Broadcast(*this, m_Color);
     }
     m_bInteractionChanged = false;
@@ -483,6 +485,7 @@ bool ImColorPicker::HandleKeyboardAdjust(const FInputEvent& event)
     }
 
     SyncColorFromHsv(true);
+    const std::shared_ptr<ImColorPicker> keepAlive = std::static_pointer_cast<ImColorPicker>(shared_from_this());
     OnColorCommitted.Broadcast(*this, m_Color);
     return true;
 }

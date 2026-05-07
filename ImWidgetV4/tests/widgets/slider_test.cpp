@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/Slider.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <cmath>
 #include <memory>
@@ -151,4 +152,23 @@ TEST_F(SliderTest, DisabledSliderDoesNotRespond) {
     App->SetKeyboardFocus(Slider);
     AdvanceWithEvents({CreateKeyEvent(EInputEventType::KeyDown, EKey::Right)});
     EXPECT_FLOAT_EQ(Slider->GetValue(), 0.0f);
+}
+
+TEST_F(SliderTest, ValueChangedCallbackCanReplaceOwningWidgetTreeSafely) {
+    std::weak_ptr<ImSlider> oldSlider = Slider;
+    int callbackCount = 0;
+
+    Slider->OnValueChanged.AddLambda([&](ImSlider&, float) {
+        ++callbackCount;
+
+        auto replacement = std::make_shared<ImTextBlock>();
+        replacement->SetText("Rebuilt");
+        App->SetRootWidget(replacement);
+        Slider.reset();
+    });
+
+    Slider->SetValue(42.0f);
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_TRUE(oldSlider.expired());
 }

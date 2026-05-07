@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/ColorPicker.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <memory>
 
@@ -129,4 +130,25 @@ TEST_F(ColorPickerTest, KeyboardAdjustmentChangesAndCommitsColor)
 
     AdvanceWithEvents({CreateKeyEvent(EKey::PageDown)});
     EXPECT_LT(Picker->GetColor().A, 1.0f);
+}
+
+TEST_F(ColorPickerTest, CommitCallbackCanReplaceOwningWidgetTreeSafely)
+{
+    std::weak_ptr<ImColorPicker> oldPicker = Picker;
+    int commitCount = 0;
+
+    Picker->OnColorCommitted.AddLambda([&](ImColorPicker&, const FColor&) {
+        ++commitCount;
+
+        auto replacement = std::make_shared<ImTextBlock>();
+        replacement->SetText("Rebuilt");
+        App->SetRootWidget(replacement);
+        Picker.reset();
+    });
+
+    App->SetKeyboardFocus(Picker);
+    AdvanceWithEvents({CreateKeyEvent(EKey::Right)});
+
+    EXPECT_EQ(commitCount, 1);
+    EXPECT_TRUE(oldPicker.expired());
 }

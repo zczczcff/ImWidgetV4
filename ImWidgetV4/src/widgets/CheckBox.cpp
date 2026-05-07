@@ -52,6 +52,7 @@ void ImCheckBox::SetChecked(bool bChecked) {
 
     m_bChecked = bChecked;
     Invalidate(EInvalidateReason::Paint);
+    const std::shared_ptr<ImCheckBox> keepAlive = std::static_pointer_cast<ImCheckBox>(shared_from_this());
     OnCheckStateChanged.Broadcast(*this, m_bChecked);
 }
 

@@ -274,6 +274,7 @@ void ImSlider::SetValueInternal(float value, bool bBroadcast) {
     Invalidate(EInvalidateReason::Paint);
 
     if (bBroadcast) {
+        const std::shared_ptr<ImSlider> keepAlive = std::static_pointer_cast<ImSlider>(shared_from_this());
         OnValueChanged.Broadcast(*this, m_Value);
     }
 }

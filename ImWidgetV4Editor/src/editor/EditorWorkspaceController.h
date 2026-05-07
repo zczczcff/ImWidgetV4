@@ -27,6 +27,7 @@ namespace ImWidgetV4Editor {
 
 class EditorSession;
 class EditorShellHost;
+class InputDialog;
 class ReflectionDetailsView;
 
 class EditorWorkspaceController : public std::enable_shared_from_this<EditorWorkspaceController> {
@@ -133,6 +134,12 @@ private:
     void OpenRenameProjectItemDialog(
         ImWidgetV4::ImApplication& app,
         const std::filesystem::path& path);
+    void OpenCreateDocumentDialog(
+        ImWidgetV4::ImApplication& app,
+        const std::filesystem::path& directoryPath);
+    void OpenCreateFolderDialog(
+        ImWidgetV4::ImApplication& app,
+        const std::filesystem::path& directoryPath);
     void PromptDeleteProjectItem(ImWidgetV4::ImApplication& app, const std::filesystem::path& path);
     void ClosePendingPrompt();
     json BuildWorkspaceStateJson() const;
@@ -170,10 +177,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImWindow> m_DocumentTabContextMenuWindow;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_ProjectItemContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_ProjectItemContextMenuWindow;
-    std::shared_ptr<ImWidgetV4::ImWidget> m_PendingInputDialogRoot;
-    std::shared_ptr<ImWidgetV4::ImEditableText> m_PendingInputDialogEditor;
-    std::shared_ptr<ImWidgetV4::ImButton> m_PendingInputDialogConfirmButton;
-    std::shared_ptr<ImWidgetV4::ImButton> m_PendingInputDialogCancelButton;
+    std::shared_ptr<InputDialog> m_PendingInputDialog;
     std::shared_ptr<ImWidgetV4::ImApplication> m_ExitPromptAppLock;
     std::filesystem::path m_PendingProjectRootChange;
     std::filesystem::path m_PendingRenameProjectItemPath;

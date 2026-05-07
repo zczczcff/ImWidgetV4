@@ -17,6 +17,7 @@ add_executable(ImWidgetV4Editor
     src/commands/ReflectablePropertyCommand.cpp
     src/editor/EditorDocument.cpp
     src/editor/EditorShellHost.cpp
+    src/editor/InputDialog.cpp
     src/editor/EditorSession.cpp
     src/editor/EditorWorkspaceController.cpp
     src/editor/LogicalWidgetTree.cpp
@@ -41,6 +42,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/commands/ReflectablePropertyCommand.cpp
         src/editor/EditorDocument.cpp
         src/editor/EditorShellHost.cpp
+        src/editor/InputDialog.cpp
         src/editor/EditorSession.cpp
         src/editor/EditorWorkspaceController.cpp
         src/editor/LogicalWidgetTree.cpp

@@ -2,14 +2,12 @@
 
 #include "EditorSession.h"
 #include "EditorShellHost.h"
+#include "InputDialog.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
 #include <imwidgetv4/core/WindowManager.h>
-#include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
-#include <imwidgetv4/widgets/EditableText.h>
-#include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -30,8 +28,6 @@
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
-using namespace ImWidgetV4Editor::PropertyEditorWidgets;
-
 namespace {
 
 std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
@@ -60,11 +56,6 @@ std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const s
     panel->AddChild(MakePanelTitle(title), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
     panel->AddChild(MakePanelBody(bodyText), FMargin(14.0f, 0.0f, 14.0f, 14.0f));
     return panel;
-}
-
-FButtonStyle MakeWorkspaceDialogButtonStyle(bool bPrimary)
-{
-    return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
 }
 
 std::shared_ptr<ImScrollBox> CreateDocumentHost()
@@ -305,41 +296,18 @@ bool EditorWorkspaceController::CreateDocumentInDirectory(ImApplication& app, co
         return false;
     }
 
-    FSaveFileDialogOptions options;
-    options.Title = "Create UI Document";
-    options.InitialDirectory = directoryPath;
-    options.DefaultFileName = "NewWidget.ui.json";
-    options.DefaultExtension = "json";
-    options.Filters = {
-        FFileDialogFilter {"ImWidgetV4 UI", {"*.ui.json", "*.json"}},
-        FFileDialogFilter {"JSON", {"*.json"}}
-    };
-    options.DefaultFilterIndex = 0;
-    options.bPromptOverwrite = true;
-
-    const FPathDialogResult dialogResult = app.SaveFileDialog(options);
-    if (!dialogResult.IsAccepted()) {
-        return false;
-    }
-
-    return CreateAndOpenDocumentAtPath(dialogResult.Path);
+    OpenCreateDocumentDialog(app, directoryPath);
+    return true;
 }
 
-bool EditorWorkspaceController::CreateFolderInDirectory(ImApplication&, const std::filesystem::path& directoryPath)
+bool EditorWorkspaceController::CreateFolderInDirectory(ImApplication& app, const std::filesystem::path& directoryPath)
 {
     if (directoryPath.empty()) {
         return false;
     }
 
-    const std::filesystem::path newFolderPath = BuildUniqueChildPath(directoryPath, "NewFolder");
-    if (newFolderPath.empty()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create folder failed: unable to allocate a unique folder name."});
-        }
-        return false;
-    }
-
-    return CreateFolderAtPath(newFolderPath);
+    OpenCreateFolderDialog(app, directoryPath);
+    return true;
 }
 
 void EditorWorkspaceController::Bind(
@@ -1217,89 +1185,127 @@ void EditorWorkspaceController::OpenRenameProjectItemDialog(
     CloseProjectItemContextMenu();
     m_PendingRenameProjectItemPath = path;
 
-    auto title = std::make_shared<ImTextBlock>();
-    title->SetText(std::filesystem::is_directory(path) ? "Rename Folder" : "Rename File");
-    title->SetWrapText(false);
-    title->SetFontSize(16.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
-
-    auto editor = std::make_shared<ImEditableText>();
-    ApplyInspectorEditableTextStyle(*editor, false);
-    editor->SetText(path.filename().string());
-
-    auto confirmButton = std::make_shared<ImButton>();
-    confirmButton->SetStyle(MakeWorkspaceDialogButtonStyle(true));
-    confirmButton->SetText("Rename");
-
-    auto cancelButton = std::make_shared<ImButton>();
-    cancelButton->SetStyle(MakeWorkspaceDialogButtonStyle(false));
-    cancelButton->SetText("Cancel");
-
-    auto buttonRow = std::make_shared<ImHorizontalBox>();
-    buttonRow->SetSpacing(8.0f);
-    buttonRow->AddChildFill(MakeInspectorFlexibleSpacer(), 1.0f, FMargin(0.0f));
-    buttonRow->AddChild(confirmButton);
-    buttonRow->AddChild(cancelButton);
-
-    auto root = std::make_shared<ImVerticalBox>();
-    root->SetSpacing(10.0f);
-    root->AddChild(title, FMargin(12.0f, 12.0f, 12.0f, 0.0f));
-    root->AddChild(editor, FMargin(12.0f, 0.0f, 12.0f, 0.0f));
-    root->AddChild(buttonRow, FMargin(12.0f, 0.0f, 12.0f, 12.0f));
-
     auto weakThis = weak_from_this();
-    auto commitRename = [weakThis]() {
+    FInputDialogOptions dialogOptions;
+    dialogOptions.PopupTitle = "RenameProjectItemDialog";
+    dialogOptions.HeadingText = std::filesystem::is_directory(path) ? "Rename Folder" : "Rename File";
+    dialogOptions.InitialText = path.filename().string();
+    dialogOptions.ConfirmText = "Rename";
+    dialogOptions.CancelText = "Cancel";
+    dialogOptions.Size = FVector2(360.0f, 116.0f);
+    dialogOptions.bSelectAllOnOpen = true;
+    dialogOptions.OnConfirm = [weakThis](const std::string& newName) {
         if (auto self = weakThis.lock()) {
-            if (!self->m_PendingInputDialogEditor) {
-                self->ClosePendingPrompt();
-                return;
-            }
-
-            const std::string newName = self->m_PendingInputDialogEditor->GetText();
             const std::filesystem::path oldPath = self->m_PendingRenameProjectItemPath;
             self->m_PendingRenameProjectItemPath.clear();
             self->RenameProjectItem(oldPath, newName);
-            self->ClosePendingPrompt();
         }
     };
-
-    confirmButton->OnClicked.AddLambda([commitRename](ImButton&) {
-        commitRename();
-    });
-    cancelButton->OnClicked.AddLambda([weakThis](ImButton&) {
+    dialogOptions.OnCancel = [weakThis]() {
         if (auto self = weakThis.lock()) {
             self->m_PendingRenameProjectItemPath.clear();
-            self->ClosePendingPrompt();
         }
-    });
-    editor->OnTextCommitted.AddLambda([commitRename](ImEditableText&, const std::string&) {
-        commitRename();
-    });
-
-    FPopupOptions popupOptions;
-    popupOptions.Title = "RenameProjectItemDialog";
-    popupOptions.Position = FVector2(220.0f, 120.0f);
+    };
+    dialogOptions.Position = FVector2(220.0f, 120.0f);
     if (m_ProjectView) {
         const FGeometry geometry = m_ProjectView->GetGeometry();
-        popupOptions.Position = FVector2(
+        dialogOptions.Position = FVector2(
             geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.30f),
             geometry.Position.Y + 52.0f);
     }
-    popupOptions.Size = FVector2(360.0f, 116.0f);
-    popupOptions.RootWidget = root;
-    popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
 
-    m_PendingInputDialogRoot = root;
-    m_PendingInputDialogEditor = editor;
-    m_PendingInputDialogConfirmButton = confirmButton;
-    m_PendingInputDialogCancelButton = cancelButton;
-    m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
+    m_PendingInputDialog = std::make_shared<InputDialog>();
+    m_PendingInputDialog->Open(app, dialogOptions);
+    m_CloseConfirmWindow = m_PendingInputDialog->GetWindow();
     m_CloseConfirmMenu.reset();
+}
 
-    app.SetKeyboardFocus(editor);
+void EditorWorkspaceController::OpenCreateDocumentDialog(
+    ImApplication& app,
+    const std::filesystem::path& directoryPath)
+{
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+
+    auto weakThis = weak_from_this();
+    FInputDialogOptions dialogOptions;
+    dialogOptions.PopupTitle = "CreateDocumentDialog";
+    dialogOptions.HeadingText = "Create UI Document";
+    dialogOptions.InitialText = "NewWidget.ui.json";
+    dialogOptions.ConfirmText = "Create";
+    dialogOptions.CancelText = "Cancel";
+    dialogOptions.Size = FVector2(400.0f, 116.0f);
+    dialogOptions.bSelectAllOnOpen = true;
+    dialogOptions.OnConfirm = [weakThis, directoryPath](const std::string& fileName) {
+        if (auto self = weakThis.lock()) {
+            const std::filesystem::path trimmedName = std::filesystem::path(fileName).filename();
+            if (trimmedName.empty() || trimmedName != fileName) {
+                if (self->m_OutputText) {
+                    self->m_OutputText->SetItems({"Create document failed: file name must not contain path separators."});
+                }
+                return;
+            }
+
+            self->CreateAndOpenDocumentAtPath(directoryPath / trimmedName);
+        }
+    };
+    dialogOptions.Position = FVector2(220.0f, 120.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        dialogOptions.Position = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.30f),
+            geometry.Position.Y + 52.0f);
+    }
+
+    m_PendingInputDialog = std::make_shared<InputDialog>();
+    m_PendingInputDialog->Open(app, dialogOptions);
+    m_CloseConfirmWindow = m_PendingInputDialog->GetWindow();
+    m_CloseConfirmMenu.reset();
+}
+
+void EditorWorkspaceController::OpenCreateFolderDialog(
+    ImApplication& app,
+    const std::filesystem::path& directoryPath)
+{
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+
+    auto weakThis = weak_from_this();
+    FInputDialogOptions dialogOptions;
+    dialogOptions.PopupTitle = "CreateFolderDialog";
+    dialogOptions.HeadingText = "Create Folder";
+    dialogOptions.InitialText = "NewFolder";
+    dialogOptions.ConfirmText = "Create";
+    dialogOptions.CancelText = "Cancel";
+    dialogOptions.Size = FVector2(360.0f, 116.0f);
+    dialogOptions.bSelectAllOnOpen = true;
+    dialogOptions.OnConfirm = [weakThis, directoryPath](const std::string& folderName) {
+        if (auto self = weakThis.lock()) {
+            const std::filesystem::path trimmedName = std::filesystem::path(folderName).filename();
+            if (trimmedName.empty() || trimmedName != folderName) {
+                if (self->m_OutputText) {
+                    self->m_OutputText->SetItems({"Create folder failed: folder name must not contain path separators."});
+                }
+                return;
+            }
+
+            self->CreateFolderAtPath(directoryPath / trimmedName);
+        }
+    };
+    dialogOptions.Position = FVector2(220.0f, 120.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        dialogOptions.Position = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.30f),
+            geometry.Position.Y + 52.0f);
+    }
+
+    m_PendingInputDialog = std::make_shared<InputDialog>();
+    m_PendingInputDialog->Open(app, dialogOptions);
+    m_CloseConfirmWindow = m_PendingInputDialog->GetWindow();
+    m_CloseConfirmMenu.reset();
 }
 
 void EditorWorkspaceController::PromptDeleteProjectItem(
@@ -1390,10 +1396,7 @@ void EditorWorkspaceController::ClosePendingPrompt()
 
     m_CloseConfirmMenu.reset();
     m_CloseConfirmWindow.reset();
-    m_PendingInputDialogRoot.reset();
-    m_PendingInputDialogEditor.reset();
-    m_PendingInputDialogConfirmButton.reset();
-    m_PendingInputDialogCancelButton.reset();
+    m_PendingInputDialog.reset();
     m_PendingCloseDocumentIndex = -1;
     m_PendingProjectRootChange.clear();
     m_PendingRenameProjectItemPath.clear();

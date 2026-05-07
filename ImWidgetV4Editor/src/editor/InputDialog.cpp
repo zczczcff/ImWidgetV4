@@ -61,11 +61,12 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     auto requestConfirm = [weakThis, &app]() {
         if (auto self = weakThis.lock()) {
             const std::string text = self->m_Editor ? self->m_Editor->GetText() : std::string();
-            const std::function<void(const std::string&)> onConfirm = self->m_Options.OnConfirm;
-            self->Close(app);
-            if (onConfirm) {
-                onConfirm(text);
+            const std::function<bool(const std::string&)> onConfirm = self->m_Options.OnConfirm;
+            if (onConfirm && !onConfirm(text)) {
+                return;
             }
+
+            self->Close(app);
         }
     };
 
@@ -106,6 +107,9 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     m_Window = app.GetWindowManager().CreatePopup(popupOptions);
 
     app.SetKeyboardFocus(editor);
+    if (m_Options.bSelectAllOnOpen && m_Editor) {
+        m_Editor->SelectAll();
+    }
 
     return static_cast<bool>(m_Window);
 }

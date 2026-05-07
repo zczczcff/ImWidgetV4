@@ -23,7 +23,7 @@ struct FInputDialogOptions {
     ImWidgetV4::FVector2 Position {220.0f, 120.0f};
     ImWidgetV4::FVector2 Size {360.0f, 116.0f};
     bool bSelectAllOnOpen = true;
-    std::function<void(const std::string& text)> OnConfirm;
+    std::function<bool(const std::string& text)> OnConfirm;
     std::function<void()> OnCancel;
 };
 

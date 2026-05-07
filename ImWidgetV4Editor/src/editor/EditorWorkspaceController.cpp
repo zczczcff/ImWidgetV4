@@ -21,6 +21,7 @@
 #include <Windows.h>
 #include <Shellapi.h>
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <system_error>
@@ -196,6 +197,50 @@ std::filesystem::path BuildUniqueChildPath(
     }
 
     return {};
+}
+
+std::filesystem::path BuildUniqueChildFilePath(
+    const std::filesystem::path& directoryPath,
+    const std::string& baseStem,
+    const std::string& compoundExtension)
+{
+    if (directoryPath.empty() || baseStem.empty()) {
+        return {};
+    }
+
+    std::filesystem::path candidate = directoryPath / (baseStem + compoundExtension);
+    if (!std::filesystem::exists(candidate)) {
+        return candidate;
+    }
+
+    for (int suffix = 2; suffix < 10000; ++suffix) {
+        std::ostringstream builder;
+        builder << baseStem << suffix << compoundExtension;
+        candidate = directoryPath / builder.str();
+        if (!std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return {};
+}
+
+bool EndsWithCaseInsensitive(const std::string& value, const std::string& suffix)
+{
+    if (suffix.size() > value.size()) {
+        return false;
+    }
+
+    const std::size_t offset = value.size() - suffix.size();
+    for (std::size_t index = 0; index < suffix.size(); ++index) {
+        const char left = static_cast<char>(std::tolower(static_cast<unsigned char>(value[offset + index])));
+        const char right = static_cast<char>(std::tolower(static_cast<unsigned char>(suffix[index])));
+        if (left != right) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace
@@ -1197,9 +1242,12 @@ void EditorWorkspaceController::OpenRenameProjectItemDialog(
     dialogOptions.OnConfirm = [weakThis](const std::string& newName) {
         if (auto self = weakThis.lock()) {
             const std::filesystem::path oldPath = self->m_PendingRenameProjectItemPath;
-            self->m_PendingRenameProjectItemPath.clear();
-            self->RenameProjectItem(oldPath, newName);
+            if (self->RenameProjectItem(oldPath, newName)) {
+                self->m_PendingRenameProjectItemPath.clear();
+                return true;
+            }
         }
+        return false;
     };
     dialogOptions.OnCancel = [weakThis]() {
         if (auto self = weakThis.lock()) {
@@ -1229,10 +1277,14 @@ void EditorWorkspaceController::OpenCreateDocumentDialog(
     CloseProjectItemContextMenu();
 
     auto weakThis = weak_from_this();
+    const std::filesystem::path defaultDocumentPath =
+        BuildUniqueChildFilePath(directoryPath, "NewWidget", ".ui.json");
     FInputDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "CreateDocumentDialog";
     dialogOptions.HeadingText = "Create UI Document";
-    dialogOptions.InitialText = "NewWidget.ui.json";
+    dialogOptions.InitialText = defaultDocumentPath.empty()
+        ? std::string("NewWidget.ui.json")
+        : defaultDocumentPath.filename().string();
     dialogOptions.ConfirmText = "Create";
     dialogOptions.CancelText = "Cancel";
     dialogOptions.Size = FVector2(400.0f, 116.0f);
@@ -1244,11 +1296,17 @@ void EditorWorkspaceController::OpenCreateDocumentDialog(
                 if (self->m_OutputText) {
                     self->m_OutputText->SetItems({"Create document failed: file name must not contain path separators."});
                 }
-                return;
+                return false;
             }
 
-            self->CreateAndOpenDocumentAtPath(directoryPath / trimmedName);
+            std::string normalizedName = trimmedName.string();
+            if (!EndsWithCaseInsensitive(normalizedName, ".json")) {
+                normalizedName += ".ui.json";
+            }
+
+            return self->CreateAndOpenDocumentAtPath(directoryPath / normalizedName);
         }
+        return false;
     };
     dialogOptions.Position = FVector2(220.0f, 120.0f);
     if (m_ProjectView) {
@@ -1273,10 +1331,13 @@ void EditorWorkspaceController::OpenCreateFolderDialog(
     CloseProjectItemContextMenu();
 
     auto weakThis = weak_from_this();
+    const std::filesystem::path defaultFolderPath = BuildUniqueChildPath(directoryPath, "NewFolder");
     FInputDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "CreateFolderDialog";
     dialogOptions.HeadingText = "Create Folder";
-    dialogOptions.InitialText = "NewFolder";
+    dialogOptions.InitialText = defaultFolderPath.empty()
+        ? std::string("NewFolder")
+        : defaultFolderPath.filename().string();
     dialogOptions.ConfirmText = "Create";
     dialogOptions.CancelText = "Cancel";
     dialogOptions.Size = FVector2(360.0f, 116.0f);
@@ -1288,11 +1349,12 @@ void EditorWorkspaceController::OpenCreateFolderDialog(
                 if (self->m_OutputText) {
                     self->m_OutputText->SetItems({"Create folder failed: folder name must not contain path separators."});
                 }
-                return;
+                return false;
             }
 
-            self->CreateFolderAtPath(directoryPath / trimmedName);
+            return self->CreateFolderAtPath(directoryPath / trimmedName);
         }
+        return false;
     };
     dialogOptions.Position = FVector2(220.0f, 120.0f);
     if (m_ProjectView) {

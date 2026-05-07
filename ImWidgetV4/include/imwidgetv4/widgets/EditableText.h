@@ -91,6 +91,7 @@ public:
     std::size_t GetSelectionStartByteIndex() const;
     std::size_t GetSelectionEndByteIndex() const;
     float GetHorizontalScrollOffset() const { return m_HorizontalScrollOffset; }
+    void SelectAll();
 
     FTextEvent OnTextChanged;
     FTextEvent OnTextCommitted;
@@ -127,7 +128,6 @@ private:
     void MoveCursorWordRight(bool bExtendSelection = false);
     void MoveCursorToStart(bool bExtendSelection = false);
     void MoveCursorToEnd(bool bExtendSelection = false);
-    void SelectAll();
     std::string GetSelectedText() const;
     void CopySelectionToClipboard() const;
     void CutSelectionToClipboard();

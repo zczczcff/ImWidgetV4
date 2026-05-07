@@ -6,7 +6,9 @@
 #include "../src/commands/ReflectablePropertyCommand.h"
 #include "../src/commands/RemoveWidgetCommand.h"
 #include "../src/editor/EditorDocument.h"
+#include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
+#include "../src/editor/EditorWorkspaceController.h"
 #include "../src/editor/SelectionModel.h"
 
 #include <imwidgetv4/core/Application.h>
@@ -20,6 +22,8 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
+#include <filesystem>
+#include <fstream>
 #include "../src/inspector/ReflectionDetailsView.h"
 
 using namespace ImWidgetV4;
@@ -166,6 +170,27 @@ void SyncDesignerCanvasLayout(
 
     canvas->SetGeometry(designerSurface->GetGeometry());
     canvas->Relayout();
+}
+
+std::shared_ptr<EditorWorkspaceController> CreateBoundWorkspaceController(
+    const std::shared_ptr<EditorShellHost>& shellHost,
+    const std::shared_ptr<ImTabView>& documentTabs,
+    const std::shared_ptr<ImTextOutlineView>& projectView,
+    const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
+    const std::shared_ptr<ReflectionDetailsView>& detailsView,
+    const std::shared_ptr<ImTextList>& outputText)
+{
+    auto workspaceController =
+        std::make_shared<EditorWorkspaceController>(BuildDocumentRoot);
+    shellHost->SetWorkspaceController(workspaceController);
+    workspaceController->Bind(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+    return workspaceController;
 }
 
 } // namespace
@@ -806,6 +831,96 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
     EXPECT_FALSE(slot->GetAutoSize());
     EXPECT_NEAR(slot->GetRelativeSize().X, expectedRelativeSize.X, 0.0001f);
     EXPECT_NEAR(slot->GetRelativeSize().Y, expectedRelativeSize.Y, 0.0001f);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerOpenDocumentFromPathDeduplicatesAndActivatesExistingTab)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto seedSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(seedSession);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    std::filesystem::create_directories(tempDirectory);
+    const std::filesystem::path filePath = tempDirectory / "dedupe-open.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove(filePath, removeError);
+
+    ASSERT_TRUE(seedSession->GetDocument());
+    ASSERT_TRUE(seedSession->GetDocument()->SaveAs(filePath));
+
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 1);
+    ASSERT_EQ(workspaceController->GetActiveDocumentIndex(), 0);
+
+    ASSERT_TRUE(workspaceController->NewDocument());
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 2);
+    ASSERT_EQ(workspaceController->GetActiveDocumentIndex(), 1);
+    ASSERT_EQ(documentTabs->GetTabCount(), 2);
+
+    ASSERT_TRUE(workspaceController->OpenDocumentFromPath(filePath));
+    EXPECT_EQ(workspaceController->GetDocumentCount(), 2);
+    EXPECT_EQ(workspaceController->GetActiveDocumentIndex(), 0);
+    EXPECT_EQ(documentTabs->GetActiveTabIndex(), 0);
+    ASSERT_TRUE(workspaceController->GetActiveSession());
+    ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
+    EXPECT_EQ(
+        workspaceController->GetActiveSession()->GetDocument()->GetFilePath().lexically_normal(),
+        filePath.lexically_normal());
+
+    std::filesystem::remove(filePath, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerCloseActiveDocumentPromotesRemainingTab)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto app = std::make_shared<ImApplication>();
+    auto rootHost = std::make_shared<ImVerticalBox>();
+    rootHost->AddChild(shellHost);
+    rootHost->AddChild(documentTabs);
+    rootHost->AddChild(projectView);
+    rootHost->AddChild(widgetTreeView);
+    rootHost->AddChild(detailsView);
+    rootHost->AddChild(outputText);
+    app->SetRootWidget(rootHost);
+
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 1);
+    ASSERT_TRUE(workspaceController->NewDocument());
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 2);
+    ASSERT_EQ(workspaceController->GetActiveDocumentIndex(), 1);
+    ASSERT_EQ(documentTabs->GetActiveTabIndex(), 1);
+
+    ASSERT_TRUE(workspaceController->CloseActiveDocument(*app));
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 1);
+    ASSERT_EQ(workspaceController->GetActiveDocumentIndex(), 0);
+    ASSERT_EQ(documentTabs->GetTabCount(), 1);
+    ASSERT_EQ(documentTabs->GetActiveTabIndex(), 0);
+    ASSERT_TRUE(workspaceController->GetActiveSession());
 }
 
 int main(int argc, char** argv)

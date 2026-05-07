@@ -45,6 +45,7 @@ public:
 
     bool NewDocument();
     bool OpenDocument(ImWidgetV4::ImApplication& app);
+    bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
@@ -56,6 +57,8 @@ public:
     bool DuplicateSelectedWidget();
     bool Undo();
     bool Redo();
+    int GetDocumentCount() const { return static_cast<int>(m_Documents.size()); }
+    int GetActiveDocumentIndex() const { return m_ActiveDocumentIndex; }
 
     std::shared_ptr<EditorSession> GetActiveSession() const;
 
@@ -90,7 +93,6 @@ private:
     std::shared_ptr<EditorSession> CreateSession() const;
     FSessionWidgets CreateSessionWidgets() const;
     bool AddSession(const std::shared_ptr<EditorSession>& session, bool bActivateNewTab);
-    bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool CloseDocumentAt(ImWidgetV4::ImApplication& app, int index);
     void ActivateDocumentTab(int index);
     void HandleDocumentTabCloseRequested(ImWidgetV4::ImTabView& tabView, int index, bool& bAllowClose);

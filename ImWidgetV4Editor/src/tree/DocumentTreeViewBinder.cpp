@@ -55,6 +55,14 @@ bool CanAcceptAsSingleContent(const std::shared_ptr<ImWidget>& widget)
     return true;
 }
 
+bool CanInsertIntoOrderedSiblingParent(const std::shared_ptr<ImWidget>& parent)
+{
+    return std::dynamic_pointer_cast<ImVerticalBox>(parent) != nullptr ||
+        std::dynamic_pointer_cast<ImHorizontalBox>(parent) != nullptr ||
+        std::dynamic_pointer_cast<ImScrollBox>(parent) != nullptr ||
+        std::dynamic_pointer_cast<ImTabView>(parent) != nullptr;
+}
+
 bool IsLogicalAncestorOf(
     const std::shared_ptr<EditorDocument>& document,
     const std::shared_ptr<ImWidget>& possibleAncestor,
@@ -159,7 +167,7 @@ void DocumentTreeViewBinder::Bind(
                 }
 
                 auto targetParent = document->FindLogicalParent(targetWidget);
-                bAccepted = targetParent != nullptr;
+                bAccepted = CanInsertIntoOrderedSiblingParent(targetParent);
                 return;
             }
 
@@ -170,7 +178,7 @@ void DocumentTreeViewBinder::Bind(
                 }
 
                 auto targetParent = document->FindLogicalParent(targetWidget);
-                bAccepted = targetParent != nullptr;
+                bAccepted = CanInsertIntoOrderedSiblingParent(targetParent);
                 return;
             }
 

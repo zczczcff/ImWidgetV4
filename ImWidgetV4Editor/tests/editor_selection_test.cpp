@@ -10,12 +10,16 @@
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/EditorWorkspaceController.h"
 #include "../src/editor/SelectionModel.h"
+#include "../src/palette/WidgetPaletteDragDrop.h"
+#include "../src/tree/DocumentTreeViewBinder.h"
+#include "../src/tree/WidgetTreeDragDrop.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -291,6 +295,286 @@ TEST(EditorSelectionTest, ApplyDocumentSnapshotRestoresDesignerSelection)
 
     EXPECT_TRUE(restoreCommand.Undo());
     EXPECT_EQ(designerSurface->GetSelectedWidget(), nullptr);
+}
+
+TEST(EditorSelectionTest, BindDocumentWidgetsPopulatesSchemaViewImmediately)
+{
+    auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    ASSERT_TRUE(session->GetDocument());
+    const std::vector<std::string>& items = schemaText->GetItems();
+    ASSERT_EQ(items.size(), 1u);
+    EXPECT_EQ(items.front(), session->GetDocument()->ExportDocumentJson().dump(2));
+}
+
+TEST(EditorSelectionTest, EmptyDesignerSurfaceRightClickOpensRootCreationMenu)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        return std::shared_ptr<ImWidget>();
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    AdvanceAppWithDraw(*app, {}, FVector2(320.0f, 240.0f));
+    const std::size_t beforeWindowCount = app->GetWindowManager().GetOpenWindows().size();
+
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonDown, FVector2(24.0f, 24.0f), EMouseButton::Right)},
+        FVector2(320.0f, 240.0f));
+
+    const std::size_t afterWindowCount = app->GetWindowManager().GetOpenWindows().size();
+    EXPECT_GT(afterWindowCount, beforeWindowCount);
+}
+
+TEST(EditorSelectionTest, DesignerDropUsesPointerHitTargetInsteadOfCurrentSelection)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto root = std::make_shared<ImHorizontalBox>();
+
+        auto first = std::make_shared<ImVerticalBox>();
+        first->SetName("FirstColumn");
+        auto firstLabel = std::make_shared<ImTextBlock>();
+        firstLabel->SetText("First");
+        first->AddChild(firstLabel);
+        root->AddChild(first);
+
+        auto second = std::make_shared<ImVerticalBox>();
+        second->SetName("SecondColumn");
+        auto secondLabel = std::make_shared<ImTextBlock>();
+        secondLabel->SetText("Second");
+        second->AddChild(secondLabel);
+        root->AddChild(second);
+
+        return root;
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+    AdvanceAppWithDraw(*app, {}, FVector2(420.0f, 260.0f));
+
+    auto root = std::dynamic_pointer_cast<ImHorizontalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    ASSERT_EQ(root->GetChildren().size(), 2u);
+    auto first = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[0]);
+    auto second = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[1]);
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    ASSERT_TRUE(first->GetGeometry().IsValid());
+    ASSERT_TRUE(second->GetGeometry().IsValid());
+    ASSERT_EQ(first->GetChildren().size(), 1u);
+    ASSERT_EQ(second->GetChildren().size(), 1u);
+
+    designerSurface->SetSelectedWidget(first);
+
+    auto payload = std::make_shared<WidgetPalettePayload>();
+    payload->WidgetTypeName = "ImTextBlock";
+    payload->Label = "TextBlock";
+
+    auto operation = std::make_shared<FDragDropOperation>();
+    operation->Payload = payload;
+
+    bool bHandled = false;
+    designerSurface->OnDropReceived.Broadcast(
+        *designerSurface,
+        operation,
+        second->GetGeometry().GetCenter(),
+        bHandled);
+
+    EXPECT_TRUE(bHandled);
+    ASSERT_EQ(first->GetChildren().size(), 1u);
+    ASSERT_EQ(second->GetChildren().size(), 2u);
+    EXPECT_EQ(second->GetChildren().back()->GetTypeName(), "ImTextBlock");
+}
+
+TEST(EditorSelectionTest, DesignerDropMovesExistingWidgetByPointerHitTargetAndSupportsUndoRedo)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto root = std::make_shared<ImHorizontalBox>();
+
+        auto first = std::make_shared<ImVerticalBox>();
+        first->SetName("FirstColumn");
+        auto firstHeader = std::make_shared<ImTextBlock>();
+        firstHeader->SetText("First");
+        first->AddChild(firstHeader);
+        auto movable = std::make_shared<ImTextBlock>();
+        movable->SetName("MovableText");
+        movable->SetText("Move Me");
+        first->AddChild(movable);
+        root->AddChild(first);
+
+        auto second = std::make_shared<ImVerticalBox>();
+        second->SetName("SecondColumn");
+        auto secondHeader = std::make_shared<ImTextBlock>();
+        secondHeader->SetText("Second");
+        second->AddChild(secondHeader);
+        root->AddChild(second);
+
+        return root;
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+    AdvanceAppWithDraw(*app, {}, FVector2(420.0f, 260.0f));
+
+    auto root = std::dynamic_pointer_cast<ImHorizontalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    ASSERT_EQ(root->GetChildren().size(), 2u);
+    auto first = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[0]);
+    auto second = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[1]);
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+    ASSERT_EQ(first->GetChildren().size(), 2u);
+    ASSERT_EQ(second->GetChildren().size(), 1u);
+
+    auto movable = first->GetChildren()[1];
+    ASSERT_TRUE(movable);
+    const std::string movableId = session->GetDocument()->GetWidgetId(movable);
+    ASSERT_FALSE(movableId.empty());
+
+    designerSurface->SetSelectedWidget(first);
+
+    auto payload = std::make_shared<WidgetTreeDragDropPayload>();
+    payload->WidgetId = movableId;
+    payload->Label = "MovableText";
+
+    auto operation = std::make_shared<FDragDropOperation>();
+    operation->Payload = payload;
+
+    bool bHandled = false;
+    designerSurface->OnDropReceived.Broadcast(
+        *designerSurface,
+        operation,
+        second->GetGeometry().GetCenter(),
+        bHandled);
+
+    EXPECT_TRUE(bHandled);
+    ASSERT_EQ(first->GetChildren().size(), 1u);
+    ASSERT_EQ(second->GetChildren().size(), 2u);
+    ASSERT_TRUE(designerSurface->GetSelectedWidget());
+    EXPECT_EQ(session->GetDocument()->GetWidgetId(designerSurface->GetSelectedWidget()), movableId);
+
+    ASSERT_TRUE(session->Undo());
+    auto rootAfterUndo = std::dynamic_pointer_cast<ImHorizontalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(rootAfterUndo);
+    auto firstAfterUndo = std::dynamic_pointer_cast<ImVerticalBox>(rootAfterUndo->GetChildren()[0]);
+    auto secondAfterUndo = std::dynamic_pointer_cast<ImVerticalBox>(rootAfterUndo->GetChildren()[1]);
+    ASSERT_TRUE(firstAfterUndo);
+    ASSERT_TRUE(secondAfterUndo);
+    EXPECT_EQ(firstAfterUndo->GetChildren().size(), 2u);
+    EXPECT_EQ(secondAfterUndo->GetChildren().size(), 1u);
+
+    ASSERT_TRUE(session->Redo());
+    auto rootAfterRedo = std::dynamic_pointer_cast<ImHorizontalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(rootAfterRedo);
+    auto firstAfterRedo = std::dynamic_pointer_cast<ImVerticalBox>(rootAfterRedo->GetChildren()[0]);
+    auto secondAfterRedo = std::dynamic_pointer_cast<ImVerticalBox>(rootAfterRedo->GetChildren()[1]);
+    ASSERT_TRUE(firstAfterRedo);
+    ASSERT_TRUE(secondAfterRedo);
+    EXPECT_EQ(firstAfterRedo->GetChildren().size(), 1u);
+    EXPECT_EQ(secondAfterRedo->GetChildren().size(), 2u);
+}
+
+TEST(EditorSelectionTest, TreeDropTestRejectsSiblingInsertAroundSingleContentParentChild)
+{
+    auto document = std::make_shared<EditorDocument>();
+    document->NewDocument(BuildDocumentRoot(), "Main");
+
+    auto treeView = std::make_shared<ImTextOutlineView>();
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    DocumentTreeViewBinder binder;
+    binder.Bind(treeView, designerSurface, document);
+    binder.RebuildFromRoot(document->GetRootWidget(), nullptr);
+
+    auto root = document->GetRootWidget();
+    ASSERT_TRUE(root);
+    auto button = std::dynamic_pointer_cast<ImButton>(root->GetChildren().front());
+    ASSERT_TRUE(button);
+    auto label = button->GetContent();
+    ASSERT_TRUE(label);
+
+    ImTextOutlineItem* labelItem = binder.ResolveItem(label);
+    ASSERT_TRUE(labelItem != nullptr);
+
+    auto payload = std::make_shared<WidgetPalettePayload>();
+    payload->WidgetTypeName = "ImTextBlock";
+    payload->Label = "TextBlock";
+
+    auto operation = std::make_shared<FDragDropOperation>();
+    operation->Payload = payload;
+
+    bool bAccepted = true;
+    treeView->OnItemDropTest.Broadcast(
+        *treeView,
+        *labelItem,
+        ETextOutlineDropZone::BeforeItem,
+        operation,
+        FVector2(0.0f, 0.0f),
+        bAccepted);
+    EXPECT_FALSE(bAccepted);
+
+    bAccepted = false;
+    treeView->OnItemDropTest.Broadcast(
+        *treeView,
+        *labelItem,
+        ETextOutlineDropZone::OnItem,
+        operation,
+        FVector2(0.0f, 0.0f),
+        bAccepted);
+    EXPECT_FALSE(bAccepted);
 }
 
 TEST(EditorSelectionTest, AddWidgetCommandRestoresTreeOnUndoRedo)

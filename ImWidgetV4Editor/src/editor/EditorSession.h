@@ -158,18 +158,30 @@ private:
         const std::string& propertyName,
         const json& value);
     std::filesystem::path ResolveDialogDirectory() const;
+    FDocumentSnapshot CaptureDocumentSnapshot(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection = nullptr) const;
+    void PushDocumentSnapshotCommand(
+        std::string label,
+        const FDocumentSnapshot& beforeSnapshot,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
+    std::shared_ptr<ImWidgetV4::ImWidget> ResolveDesignerInsertionTargetAt(const ImWidgetV4::FVector2& position) const;
     std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
     bool CreatePaletteWidgetAtTreeTarget(
         const std::string& widgetTypeName,
         const std::string& label,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone);
+    bool CreatePaletteWidgetAsRoot(
+        const std::string& widgetTypeName,
+        const std::string& label);
     bool PasteCopiedWidgetAtTreeTarget(
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone);
+    bool PasteCopiedWidgetAsRoot();
     bool CanInsertWidgetAtTreeTarget(
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone) const;
+    bool CanCreateRootWidget() const;
     bool CanInsertIntoParentAt(const std::shared_ptr<ImWidgetV4::ImWidget>& parent) const;
     bool InsertWidgetIntoDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
@@ -190,6 +202,10 @@ private:
     bool MoveWidgetInDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const std::shared_ptr<ImWidgetV4::ImWidget>& newParent);
+    bool MoveWidgetInDocumentAtTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& insertionTarget,
+        const ImWidgetV4::FVector2& dropPosition);
     bool InsertWidgetIntoParentAt(
         const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
         int insertIndex,

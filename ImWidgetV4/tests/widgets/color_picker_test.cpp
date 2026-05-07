@@ -49,6 +49,15 @@ protected:
         return event;
     }
 
+    FInputEvent CreateKeyEvent(EKey key, const FInputModifiers& modifiers = {})
+    {
+        FInputEvent event;
+        event.Type = EInputEventType::KeyDown;
+        event.Key = key;
+        event.Modifiers = modifiers;
+        return event;
+    }
+
     void AdvanceWithEvents(const std::vector<FInputEvent>& events)
     {
         FFrameContext frameContext;
@@ -100,4 +109,24 @@ TEST_F(ColorPickerTest, MouseInteractionChangesAndCommitsColor)
     EXPECT_EQ(committedCount, 1);
     EXPECT_EQ(lastCommitted.ToImU32(), Picker->GetColor().ToImU32());
     EXPECT_EQ(lastChanged.ToImU32(), Picker->GetColor().ToImU32());
+}
+
+TEST_F(ColorPickerTest, KeyboardAdjustmentChangesAndCommitsColor)
+{
+    App->SetKeyboardFocus(Picker);
+    Picker->SetColor(FColor::FromBytes(255, 64, 64, 255));
+    const ImU32 before = Picker->GetColor().ToImU32();
+
+    AdvanceWithEvents({CreateKeyEvent(EKey::Right)});
+    const ImU32 afterSaturationAdjust = Picker->GetColor().ToImU32();
+    EXPECT_NE(afterSaturationAdjust, before);
+
+    for (int index = 0; index < 8; ++index) {
+        AdvanceWithEvents({CreateKeyEvent(EKey::Up, FInputModifiers(true, false, false, false))});
+    }
+    const ImU32 afterHueAdjust = Picker->GetColor().ToImU32();
+    EXPECT_NE(afterHueAdjust, afterSaturationAdjust);
+
+    AdvanceWithEvents({CreateKeyEvent(EKey::PageDown)});
+    EXPECT_LT(Picker->GetColor().A, 1.0f);
 }

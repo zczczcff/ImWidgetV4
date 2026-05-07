@@ -58,6 +58,12 @@ private:
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
         const nlohmann::ordered_json& objectJson) const;
+    std::shared_ptr<ImWidgetV4::ImWidget> BuildStructPropertyEditorRow(
+        const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
+        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const std::string& propertyClassName,
+        const std::string& propertyName,
+        const nlohmann::ordered_json& propertyValueJson) const;
     std::string DescribePropertyValue(
         const ImWidgetV4::ReflectableObject::ROPProperty& property,
         const nlohmann::ordered_json& objectJson) const;

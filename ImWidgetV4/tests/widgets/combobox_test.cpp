@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <memory>
 
@@ -256,6 +257,40 @@ TEST_F(ComboBoxTest, MouseWheelCanScrollPopupListAndCommitLaterItem) {
 
     EXPECT_FALSE(ComboBox->IsPopupOpen());
     EXPECT_GE(ComboBox->GetSelectedIndex(), 3);
+}
+
+TEST_F(ComboBoxTest, SelectionCallbackCanReplaceOwningWidgetTreeSafely) {
+    std::weak_ptr<ImComboBox> oldCombo = ComboBox;
+    int callbackCount = 0;
+
+    ComboBox->OnSelectionChanged.AddLambda([&](ImComboBox&, int) {
+        ++callbackCount;
+
+        auto replacement = std::make_shared<ImTextBlock>();
+        replacement->SetText("Rebuilt");
+        Host->SetChild(replacement);
+        ComboBox.reset();
+    });
+
+    AdvanceWithEvents({
+        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(60.0f, 40.0f)),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(60.0f, 40.0f))
+    });
+    const FGeometry popupGeometry = GetPopupContentGeometry();
+    ASSERT_GT(popupGeometry.Size.Y, 0.0f);
+
+    AdvanceWithEvents({
+        CreateMouseEvent(
+            EInputEventType::MouseButtonDown,
+            FVector2(popupGeometry.Position.X + 20.0f, popupGeometry.Position.Y + 45.0f)),
+        CreateMouseEvent(
+            EInputEventType::MouseButtonUp,
+            FVector2(popupGeometry.Position.X + 20.0f, popupGeometry.Position.Y + 45.0f))
+    });
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_TRUE(oldCombo.expired());
+    EXPECT_TRUE(App->GetWindowManager().GetOpenWindows().size() >= 1);
 }
 
 int main(int argc, char** argv) {

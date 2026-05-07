@@ -99,7 +99,7 @@ public:
     using FPopupEvent = TMulticastDelegate<ImComboBox&>;
 
     ImComboBox();
-    virtual ~ImComboBox() = default;
+    virtual ~ImComboBox();
 
     void SetItems(const std::vector<std::string>& items);
     const std::vector<std::string>& GetItems() const { return m_Items; }

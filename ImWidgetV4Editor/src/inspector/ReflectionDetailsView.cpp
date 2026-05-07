@@ -259,6 +259,17 @@ std::shared_ptr<ImEditableText> CreateInspectorTextEditor(
     return editor;
 }
 
+std::shared_ptr<ImWidget> BuildCompactNumberEditors(
+    const std::vector<std::pair<std::string, std::shared_ptr<ImEditableText>>>& labeledEditors)
+{
+    std::vector<std::pair<std::string, std::shared_ptr<ImWidget>>> widgets;
+    widgets.reserve(labeledEditors.size());
+    for (const auto& entry : labeledEditors) {
+        widgets.push_back({entry.first, entry.second});
+    }
+    return MakeInspectorCompactLabeledEditors(widgets);
+}
+
 std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget>& widget)
 {
     if (!widget) {
@@ -461,10 +472,26 @@ void ReflectionDetailsView::BuildPropertyItems(
 
         auto nestedObject = ResolveNestedObject(object, property);
         if (nestedObject) {
-            ImOutlineItem* groupItem = outlineView.AddChildItem(parentItem, MakeSectionLabelWidget(property.GetNameString()));
-            if (groupItem) {
-                groupItem->Expanded = true;
-                BuildPropertyItems(outlineView, groupItem, nestedObject);
+            const std::string propertyKey = property.GetClassName() + "::" + property.GetNameString();
+            const auto propertyValueIt = propertyJson.find(propertyKey);
+            const nlohmann::ordered_json propertyValueJson =
+                propertyValueIt != propertyJson.end()
+                ? propertyValueIt.value()
+                : nlohmann::ordered_json::object();
+
+            if (auto specializedRow = BuildStructPropertyEditorRow(
+                    object,
+                    property,
+                    property.GetClassName(),
+                    property.GetNameString(),
+                    propertyValueJson)) {
+                outlineView.AddChildItem(parentItem, specializedRow);
+            } else {
+                ImOutlineItem* groupItem = outlineView.AddChildItem(parentItem, MakeSectionLabelWidget(property.GetNameString()));
+                if (groupItem) {
+                    groupItem->Expanded = true;
+                    BuildPropertyItems(outlineView, groupItem, nestedObject);
+                }
             }
             continue;
         }
@@ -768,7 +795,11 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
             [commitVec2](ImEditableText&, const std::string&) {
                 commitVec2();
             });
-        return MakeInspectorSplitValueRow(labelText, {xEditor, yEditor});
+        return MakeInspectorPropertyRow(
+            labelText,
+            BuildCompactNumberEditors({
+                {"X", xEditor},
+                {"Y", yEditor}}));
     }
 
     if (property.GetType() == PropertyType::StringArray) {
@@ -817,6 +848,136 @@ std::string ReflectionDetailsView::DescribePropertyValue(
     }
 
     return property.GetType() == PropertyType::Struct ? "{...}" : "<unavailable>";
+}
+
+std::shared_ptr<ImWidget> ReflectionDetailsView::BuildStructPropertyEditorRow(
+    const std::shared_ptr<ReflectableObject>& owner,
+    const ReflectableObject::ROPProperty& property,
+    const std::string& propertyClassName,
+    const std::string& propertyName,
+    const nlohmann::ordered_json& propertyValueJson) const
+{
+    const ReflectableObject* nested = property.GetConstPointer<ReflectableObject>();
+    if (nested == nullptr) {
+        return nullptr;
+    }
+
+    const std::string nestedTypeName = nested->GetTypeName();
+    if (nestedTypeName == "FMargin") {
+        const auto applyStructJson = [this, owner, propertyClassName, propertyName](const nlohmann::ordered_json& value) {
+            if (!owner) {
+                return false;
+            }
+
+            ReflectionDetailsView* mutableThis = const_cast<ReflectionDetailsView*>(this);
+            if (mutableThis->OnPropertyValueCommitted.IsBound()) {
+                mutableThis->OnPropertyValueCommitted.Broadcast(
+                    *mutableThis,
+                    owner,
+                    propertyClassName,
+                    propertyName,
+                    value);
+                return true;
+            }
+
+            auto serialized = owner->ToJson();
+            serialized["Properties"][propertyClassName + "::" + propertyName] = value;
+            owner->FromJson(serialized);
+            mutableThis->Rebuild();
+            mutableThis->OnPropertiesChanged.Broadcast(*mutableThis);
+            return true;
+        };
+
+        const auto& nestedProperties = propertyValueJson.contains("Properties")
+            ? propertyValueJson.at("Properties")
+            : nlohmann::ordered_json::object();
+        const auto readMarginComponent = [&nestedProperties](const char* key, float fallback) {
+            return nestedProperties.contains(key) ? nestedProperties.at(key).get<float>() : fallback;
+        };
+
+        auto leftEditor = CreateInspectorTextEditor(FormatFloat(readMarginComponent("FMargin::Left", 0.0f)), "Left");
+        auto rightEditor = CreateInspectorTextEditor(FormatFloat(readMarginComponent("FMargin::Right", 0.0f)), "Right");
+        auto topEditor = CreateInspectorTextEditor(FormatFloat(readMarginComponent("FMargin::Top", 0.0f)), "Top");
+        auto bottomEditor = CreateInspectorTextEditor(FormatFloat(readMarginComponent("FMargin::Bottom", 0.0f)), "Bottom");
+
+        const auto syncEditors = [owner, propertyClassName, propertyName, weakLeft = std::weak_ptr<ImEditableText>(leftEditor), weakRight = std::weak_ptr<ImEditableText>(rightEditor), weakTop = std::weak_ptr<ImEditableText>(topEditor), weakBottom = std::weak_ptr<ImEditableText>(bottomEditor)]() {
+            if (!owner) {
+                return;
+            }
+
+            const auto refreshed = owner->ToJson();
+            const auto& refreshedProperties = refreshed.contains("Properties")
+                ? refreshed.at("Properties")
+                : nlohmann::ordered_json::object();
+            const auto key = propertyClassName + "::" + propertyName;
+            if (!refreshedProperties.contains(key) ||
+                !refreshedProperties.at(key).contains("Properties")) {
+                return;
+            }
+
+            const auto& marginProperties = refreshedProperties.at(key).at("Properties");
+            if (auto locked = weakLeft.lock()) {
+                locked->SetText(FormatFloat(marginProperties.value("FMargin::Left", 0.0f)));
+            }
+            if (auto locked = weakRight.lock()) {
+                locked->SetText(FormatFloat(marginProperties.value("FMargin::Right", 0.0f)));
+            }
+            if (auto locked = weakTop.lock()) {
+                locked->SetText(FormatFloat(marginProperties.value("FMargin::Top", 0.0f)));
+            }
+            if (auto locked = weakBottom.lock()) {
+                locked->SetText(FormatFloat(marginProperties.value("FMargin::Bottom", 0.0f)));
+            }
+        };
+
+        const auto commitMargin = [applyStructJson, syncEditors, weakLeft = std::weak_ptr<ImEditableText>(leftEditor), weakRight = std::weak_ptr<ImEditableText>(rightEditor), weakTop = std::weak_ptr<ImEditableText>(topEditor), weakBottom = std::weak_ptr<ImEditableText>(bottomEditor)]() {
+            auto lockedLeft = weakLeft.lock();
+            auto lockedRight = weakRight.lock();
+            auto lockedTop = weakTop.lock();
+            auto lockedBottom = weakBottom.lock();
+            if (!lockedLeft || !lockedRight || !lockedTop || !lockedBottom) {
+                return;
+            }
+
+            float left = 0.0f;
+            float right = 0.0f;
+            float top = 0.0f;
+            float bottom = 0.0f;
+            if (!TryParseFloat(lockedLeft->GetText(), left) ||
+                !TryParseFloat(lockedRight->GetText(), right) ||
+                !TryParseFloat(lockedTop->GetText(), top) ||
+                !TryParseFloat(lockedBottom->GetText(), bottom)) {
+                syncEditors();
+                return;
+            }
+
+            nlohmann::ordered_json marginJson;
+            marginJson["Type"] = "FMargin";
+            marginJson["Properties"] = {
+                {"FMargin::Left", left},
+                {"FMargin::Right", right},
+                {"FMargin::Top", top},
+                {"FMargin::Bottom", bottom}
+            };
+            applyStructJson(marginJson);
+            syncEditors();
+        };
+
+        leftEditor->OnTextCommitted.AddLambda([commitMargin](ImEditableText&, const std::string&) { commitMargin(); });
+        rightEditor->OnTextCommitted.AddLambda([commitMargin](ImEditableText&, const std::string&) { commitMargin(); });
+        topEditor->OnTextCommitted.AddLambda([commitMargin](ImEditableText&, const std::string&) { commitMargin(); });
+        bottomEditor->OnTextCommitted.AddLambda([commitMargin](ImEditableText&, const std::string&) { commitMargin(); });
+
+        return MakeInspectorPropertyRow(
+            propertyName,
+            BuildCompactNumberEditors({
+                {"L", leftEditor},
+                {"R", rightEditor},
+                {"T", topEditor},
+                {"B", bottomEditor}}));
+    }
+
+    return nullptr;
 }
 
 std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(

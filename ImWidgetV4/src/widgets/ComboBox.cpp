@@ -35,7 +35,7 @@ float MeasureTextWidthWithFont(const std::string& text, float fontSize)
 
 class ImComboPopupList : public ImWidget {
 public:
-    explicit ImComboPopupList(ImComboBox* owner)
+    explicit ImComboPopupList(const std::shared_ptr<ImComboBox>& owner)
         : Owner_(owner)
     {
         SetHitTestVisible(true);
@@ -43,17 +43,18 @@ public:
 
     virtual void Paint(const FPaintContext& paintContext) override
     {
-        if (Owner_ == nullptr) {
+        const std::shared_ptr<ImComboBox> owner = Owner_.lock();
+        if (!owner) {
             return;
         }
 
-        const FComboBoxStyle& style = Owner_->m_Style;
+        const FComboBoxStyle& style = owner->m_Style;
         const float itemHeight = style.PopupItemHeight;
-        const float scrollOffset = Owner_->m_PopupScrollOffset;
+        const float scrollOffset = owner->m_PopupScrollOffset;
         const int firstVisibleIndex = std::max(0, static_cast<int>(scrollOffset / itemHeight));
         const int lastVisibleIndex = std::min(
-            static_cast<int>(Owner_->m_Items.size()),
-            firstVisibleIndex + Owner_->m_MaxVisibleItems + 1);
+            static_cast<int>(owner->m_Items.size()),
+            firstVisibleIndex + owner->m_MaxVisibleItems + 1);
 
         paintContext.DrawContext_.DrawRect(
             m_Geometry.GetMin(),
@@ -72,8 +73,8 @@ public:
                 continue;
             }
 
-            const bool bSelected = Owner_->m_SelectedIndex == index;
-            const bool bHovered = Owner_->m_HoveredPopupIndex == index || Owner_->m_HighlightedIndex == index;
+            const bool bSelected = owner->m_SelectedIndex == index;
+            const bool bHovered = owner->m_HoveredPopupIndex == index || owner->m_HighlightedIndex == index;
             FColor rowColor = FColor::Transparent;
             if (bSelected) {
                 rowColor = bHovered ? style.PopupRowSelectedHoveredColor : style.PopupRowSelectedColor;
@@ -93,7 +94,7 @@ public:
             paintContext.DrawContext_.DrawText(
                 FVector2(rowMin.X + style.Padding.Left, textY),
                 style.TextColor,
-                Owner_->m_Items[static_cast<std::size_t>(index)],
+                owner->m_Items[static_cast<std::size_t>(index)],
                 style.FontSize);
         }
         paintContext.DrawContext_.PopClipRect();
@@ -101,54 +102,56 @@ public:
 
     virtual FVector2 GetMinSize() const override
     {
-        if (Owner_ == nullptr) {
+        const std::shared_ptr<ImComboBox> owner = Owner_.lock();
+        if (!owner) {
             return FVector2(0.0f, 0.0f);
         }
 
-        const FGeometry ownerGeometry = Owner_->GetGeometry();
+        const FGeometry ownerGeometry = owner->GetGeometry();
         return FVector2(
             ownerGeometry.Size.X,
-            Owner_->ResolvePopupHeight());
+            owner->ResolvePopupHeight());
     }
 
     virtual FReply OnInputEvent(const FInputEvent& event) override
     {
-        if (Owner_ == nullptr) {
+        const std::shared_ptr<ImComboBox> owner = Owner_.lock();
+        if (!owner) {
             return FReply::Unhandled();
         }
 
         if (event.Type == EInputEventType::MouseMove) {
-            Owner_->m_HoveredPopupIndex = ResolveIndexAt(event.MousePosition);
-            if (Owner_->m_HoveredPopupIndex != InvalidComboIndex) {
-                Owner_->m_HighlightedIndex = Owner_->m_HoveredPopupIndex;
-                Owner_->EnsurePopupSelectionVisible();
+            owner->m_HoveredPopupIndex = ResolveIndexAt(event.MousePosition);
+            if (owner->m_HoveredPopupIndex != InvalidComboIndex) {
+                owner->m_HighlightedIndex = owner->m_HoveredPopupIndex;
+                owner->EnsurePopupSelectionVisible();
             }
-            Owner_->Invalidate(EInvalidateReason::Paint);
+            owner->Invalidate(EInvalidateReason::Paint);
             return FReply::Handled();
         }
 
         if (event.Type == EInputEventType::MouseLeave) {
-            Owner_->m_HoveredPopupIndex = InvalidComboIndex;
-            Owner_->m_PressedPopupIndex = InvalidComboIndex;
-            Owner_->Invalidate(EInvalidateReason::Paint);
+            owner->m_HoveredPopupIndex = InvalidComboIndex;
+            owner->m_PressedPopupIndex = InvalidComboIndex;
+            owner->Invalidate(EInvalidateReason::Paint);
             return FReply::Handled();
         }
 
         if (event.Type == EInputEventType::MouseWheel) {
-            if (Owner_->m_Items.size() > static_cast<std::size_t>(Owner_->m_MaxVisibleItems)) {
-                Owner_->m_PopupScrollOffset -= event.ScrollDelta.Y * Owner_->m_Style.PopupItemHeight;
-                Owner_->ClampPopupScrollOffset();
-                Owner_->Invalidate(EInvalidateReason::Paint);
+            if (owner->m_Items.size() > static_cast<std::size_t>(owner->m_MaxVisibleItems)) {
+                owner->m_PopupScrollOffset -= event.ScrollDelta.Y * owner->m_Style.PopupItemHeight;
+                owner->ClampPopupScrollOffset();
+                owner->Invalidate(EInvalidateReason::Paint);
             }
             return FReply::Handled();
         }
 
         if (event.Type == EInputEventType::MouseButtonDown &&
             event.MouseButton == EMouseButton::Left) {
-            Owner_->m_PressedPopupIndex = ResolveIndexAt(event.MousePosition);
-            if (Owner_->m_PressedPopupIndex != InvalidComboIndex) {
-                Owner_->m_HighlightedIndex = Owner_->m_PressedPopupIndex;
-                Owner_->Invalidate(EInvalidateReason::Paint);
+            owner->m_PressedPopupIndex = ResolveIndexAt(event.MousePosition);
+            if (owner->m_PressedPopupIndex != InvalidComboIndex) {
+                owner->m_HighlightedIndex = owner->m_PressedPopupIndex;
+                owner->Invalidate(EInvalidateReason::Paint);
                 return FReply::Handled();
             }
         }
@@ -156,14 +159,18 @@ public:
         if (event.Type == EInputEventType::MouseButtonUp &&
             event.MouseButton == EMouseButton::Left) {
             const int releasedIndex = ResolveIndexAt(event.MousePosition);
-            const int pressedIndex = Owner_->m_PressedPopupIndex;
-            Owner_->m_PressedPopupIndex = InvalidComboIndex;
+            const int pressedIndex = owner->m_PressedPopupIndex;
+            owner->m_PressedPopupIndex = InvalidComboIndex;
             if (pressedIndex != InvalidComboIndex && pressedIndex == releasedIndex) {
-                Owner_->SetSelectedIndexInternal(releasedIndex, true);
-                Owner_->ClosePopup();
+                owner->SetSelectedIndexInternal(releasedIndex, true);
+                if (Owner_.lock() == owner) {
+                    owner->ClosePopup();
+                }
                 return FReply::Handled();
             }
-            Owner_->Invalidate(EInvalidateReason::Paint);
+            if (Owner_.lock() == owner) {
+                owner->Invalidate(EInvalidateReason::Paint);
+            }
         }
 
         return FReply::Unhandled();
@@ -172,20 +179,21 @@ public:
 private:
     int ResolveIndexAt(const FVector2& position) const
     {
-        if (!m_Geometry.Contains(position) || Owner_ == nullptr || Owner_->m_Items.empty()) {
+        const std::shared_ptr<ImComboBox> owner = Owner_.lock();
+        if (!m_Geometry.Contains(position) || !owner || owner->m_Items.empty()) {
             return InvalidComboIndex;
         }
 
-        const float localY = position.Y - m_Geometry.Position.Y + Owner_->m_PopupScrollOffset;
-        const int index = static_cast<int>(localY / Owner_->m_Style.PopupItemHeight);
-        if (index < 0 || index >= static_cast<int>(Owner_->m_Items.size())) {
+        const float localY = position.Y - m_Geometry.Position.Y + owner->m_PopupScrollOffset;
+        const int index = static_cast<int>(localY / owner->m_Style.PopupItemHeight);
+        if (index < 0 || index >= static_cast<int>(owner->m_Items.size())) {
             return InvalidComboIndex;
         }
 
         return index;
     }
 
-    ImComboBox* Owner_ = nullptr;
+    std::weak_ptr<ImComboBox> Owner_;
 };
 
 ImComboBox::ImComboBox()
@@ -193,6 +201,17 @@ ImComboBox::ImComboBox()
 {
     SetSupportsKeyboardFocus(true);
     SetHitTestVisible(true);
+}
+
+ImComboBox::~ImComboBox()
+{
+    if (m_PopupWindow && m_PopupWindow->IsOpen()) {
+        m_PopupWindow->Close();
+    }
+
+    m_bPopupOpen = false;
+    m_PopupWindow.reset();
+    m_PopupList.reset();
 }
 
 void ImComboBox::SetItems(const std::vector<std::string>& items)
@@ -319,8 +338,9 @@ void ImComboBox::OpenPopup()
     popupOptions.Style.BorderThickness = m_Style.BorderThickness;
     popupOptions.Style.bDrawShadow = true;
 
+    std::shared_ptr<ImComboBox> self = std::static_pointer_cast<ImComboBox>(shared_from_this());
     if (!m_PopupList) {
-        m_PopupList = std::make_shared<ImComboPopupList>(this);
+        m_PopupList = std::make_shared<ImComboPopupList>(self);
     }
 
     popupOptions.RootWidget = m_PopupList;
@@ -345,8 +365,11 @@ void ImComboBox::ClosePopup()
         return;
     }
 
-    if (m_PopupWindow) {
-        m_PopupWindow->Close();
+    const std::shared_ptr<ImWindow> popupWindow = m_PopupWindow;
+    m_PopupWindow.reset();
+
+    if (popupWindow) {
+        popupWindow->Close();
     }
 
     m_bPopupOpen = false;
@@ -534,8 +557,10 @@ void ImComboBox::OnFocusChanged(bool bHasFocus)
 
 void ImComboBox::SyncPopupStateFromWindow()
 {
-    if (m_PopupWindow && !m_PopupWindow->IsOpen() && m_bPopupOpen) {
+    const std::shared_ptr<ImWindow> popupWindow = m_PopupWindow;
+    if (popupWindow && !popupWindow->IsOpen() && m_bPopupOpen) {
         m_bPopupOpen = false;
+        m_PopupWindow.reset();
         m_HoveredPopupIndex = InvalidComboIndex;
         m_PressedPopupIndex = InvalidComboIndex;
         OnPopupClosed.Broadcast(*this);

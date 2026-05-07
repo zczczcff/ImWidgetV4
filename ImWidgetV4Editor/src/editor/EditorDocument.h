@@ -26,6 +26,7 @@ public:
     std::shared_ptr<ImWidgetV4::ImWidget> GetRootWidget() const { return m_RootWidget; }
     std::string GetWidgetId(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     std::shared_ptr<ImWidgetV4::ImWidget> FindWidgetById(const std::string& widgetId);
+    std::shared_ptr<ImWidgetV4::ImWidget> FindLogicalParent(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
 
     void SetDirty(bool bDirty) { m_bDirty = bDirty; }
     bool IsDirty() const { return m_bDirty; }

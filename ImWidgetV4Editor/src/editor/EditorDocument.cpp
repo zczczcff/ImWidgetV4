@@ -60,6 +60,33 @@ std::shared_ptr<ImWidgetV4::ImWidget> GetLogicalChildAt(
     return children[childIndex];
 }
 
+std::shared_ptr<ImWidgetV4::ImWidget> FindLogicalParentRecursive(
+    const std::shared_ptr<ImWidgetV4::ImWidget>& current,
+    const std::shared_ptr<ImWidgetV4::ImWidget>& target)
+{
+    if (!current || !target) {
+        return nullptr;
+    }
+
+    const std::size_t childCount = GetLogicalChildCount(current);
+    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
+        std::shared_ptr<ImWidgetV4::ImWidget> child = GetLogicalChildAt(current, childIndex);
+        if (!child) {
+            continue;
+        }
+
+        if (child == target) {
+            return current;
+        }
+
+        if (std::shared_ptr<ImWidgetV4::ImWidget> recursiveParent = FindLogicalParentRecursive(child, target)) {
+            return recursiveParent;
+        }
+    }
+
+    return nullptr;
+}
+
 json* ResolveLogicalChildJson(json& widgetJson, const std::shared_ptr<ImWidgetV4::ImWidget>& widget, std::size_t childIndex)
 {
     if (!widgetJson.is_object()) {
@@ -253,6 +280,15 @@ std::shared_ptr<ImWidgetV4::ImWidget> EditorDocument::FindWidgetById(const std::
     RebuildWidgetIdIndex(true);
     it = m_WidgetsById.find(widgetId);
     return it != m_WidgetsById.end() ? it->second.lock() : nullptr;
+}
+
+std::shared_ptr<ImWidgetV4::ImWidget> EditorDocument::FindLogicalParent(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const
+{
+    if (!widget || !m_RootWidget || widget == m_RootWidget) {
+        return nullptr;
+    }
+
+    return FindLogicalParentRecursive(m_RootWidget, widget);
 }
 
 json EditorDocument::BuildDocumentJson() const

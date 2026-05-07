@@ -183,11 +183,12 @@ bool TryInsertIntoTarget(
     return false;
 }
 
-bool IsWidgetAncestorOf(
+bool IsLogicalAncestorOf(
+    const std::shared_ptr<EditorDocument>& document,
     const std::shared_ptr<ImWidget>& possibleAncestor,
     const std::shared_ptr<ImWidget>& widget)
 {
-    if (!possibleAncestor || !widget) {
+    if (!document || !possibleAncestor || !widget) {
         return false;
     }
 
@@ -196,7 +197,7 @@ bool IsWidgetAncestorOf(
         if (current == possibleAncestor) {
             return true;
         }
-        current = current->GetParent();
+        current = document->FindLogicalParent(current);
     }
 
     return false;
@@ -996,7 +997,7 @@ void EditorSession::HandleWidgetTreeItemDropped(
         return;
     }
 
-    if (sourceWidget == targetWidget || IsWidgetAncestorOf(sourceWidget, targetWidget)) {
+    if (sourceWidget == targetWidget || IsLogicalAncestorOf(m_Document, sourceWidget, targetWidget)) {
         LogStatus("Move rejected: cannot move a widget into itself or its descendants.");
         return;
     }
@@ -1020,7 +1021,7 @@ void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& sele
 {
     std::shared_ptr<ImSlot> slotTarget;
     if (selectedWidget) {
-        if (auto parent = selectedWidget->GetParent()) {
+        if (auto parent = m_Document ? m_Document->FindLogicalParent(selectedWidget) : selectedWidget->GetParent()) {
             if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
                 ImSlot* slot = panelParent->GetSlotForChild(selectedWidget);
                 if (slot) {
@@ -1209,12 +1210,14 @@ bool EditorSession::RemoveWidgetFromDocument(const std::shared_ptr<ImWidget>& wi
 
     std::shared_ptr<ImWidget> nextSelection;
     if (m_DesignerSurface && m_DesignerSurface->GetSelectedWidget() == widget) {
-        nextSelection = widget->GetParent();
+        nextSelection = m_Document ? m_Document->FindLogicalParent(widget) : widget->GetParent();
     }
 
     const bool bRemoved = (widget == root)
         ? (m_Document->SetRootWidget(nullptr), true)
-        : RemoveWidgetFromParent(widget->GetParent(), widget);
+        : RemoveWidgetFromParent(
+            m_Document ? m_Document->FindLogicalParent(widget) : widget->GetParent(),
+            widget);
 
     if (!bRemoved) {
         return false;
@@ -1260,22 +1263,24 @@ bool EditorSession::MoveWidgetInDocument(
         return false;
     }
 
-    if (widget == newParent || IsWidgetAncestorOf(widget, newParent)) {
+    if (widget == newParent || IsLogicalAncestorOf(m_Document, widget, newParent)) {
         return false;
     }
 
     const std::shared_ptr<ImWidget> oldParent = widget->GetParent();
-    if (!oldParent) {
+    const std::shared_ptr<ImWidget> oldLogicalParent =
+        m_Document ? m_Document->FindLogicalParent(widget) : oldParent;
+    if (!oldLogicalParent) {
         return false;
     }
 
-    if (!RemoveWidgetFromParent(oldParent, widget)) {
+    if (!RemoveWidgetFromParent(oldLogicalParent, widget)) {
         return false;
     }
 
     const bool bInserted = TryInsertIntoTarget(newParent, widget, newParent->GetGeometry().Position);
     if (!bInserted) {
-        TryInsertIntoTarget(oldParent, widget, oldParent->GetGeometry().Position);
+        TryInsertIntoTarget(oldLogicalParent, widget, oldLogicalParent->GetGeometry().Position);
         return false;
     }
 

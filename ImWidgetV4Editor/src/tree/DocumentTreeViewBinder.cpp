@@ -36,11 +36,12 @@ bool IsDropCandidateContainer(const std::shared_ptr<ImWidget>& widget)
         std::dynamic_pointer_cast<ImTabView>(widget) != nullptr;
 }
 
-bool IsWidgetAncestorOf(
+bool IsLogicalAncestorOf(
+    const std::shared_ptr<EditorDocument>& document,
     const std::shared_ptr<ImWidget>& possibleAncestor,
     const std::shared_ptr<ImWidget>& widget)
 {
-    if (!possibleAncestor || !widget) {
+    if (!document || !possibleAncestor || !widget) {
         return false;
     }
 
@@ -49,7 +50,7 @@ bool IsWidgetAncestorOf(
         if (current == possibleAncestor) {
             return true;
         }
-        current = current->GetParent();
+        current = document->FindLogicalParent(current);
     }
 
     return false;
@@ -147,7 +148,9 @@ void DocumentTreeViewBinder::Bind(
             }
 
             auto sourceWidget = document->FindWidgetById(payload->WidgetId);
-            if (!sourceWidget || sourceWidget == targetWidget || IsWidgetAncestorOf(sourceWidget, targetWidget)) {
+            if (!sourceWidget ||
+                sourceWidget == targetWidget ||
+                IsLogicalAncestorOf(document, sourceWidget, targetWidget)) {
                 bAccepted = false;
                 return;
             }

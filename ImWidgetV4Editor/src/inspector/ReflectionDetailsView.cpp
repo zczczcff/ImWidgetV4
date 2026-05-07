@@ -545,7 +545,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
             [applyJsonValue](ImSwitch&, bool checked) {
                 applyJsonValue(checked);
             });
-        return MakeInspectorPropertyRow(labelText, toggle);
+        return MakeInspectorRightAlignedPropertyRow(labelText, toggle);
     }
 
     if (property.GetType() == PropertyType::String) {

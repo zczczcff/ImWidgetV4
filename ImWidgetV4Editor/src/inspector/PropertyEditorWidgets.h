@@ -86,6 +86,13 @@ inline void ApplyInspectorSwitchStyle(ImSwitch& switchWidget)
     switchWidget.SetStyle(MakeInspectorSwitchStyle());
 }
 
+inline std::shared_ptr<ImWidget> MakeInspectorFlexibleSpacer()
+{
+    auto spacer = std::make_shared<ImWidget>();
+    spacer->SetHitTestVisible(false);
+    return spacer;
+}
+
 inline std::shared_ptr<ImTextBlock> MakeInspectorPropertyLabel(const std::string& text)
 {
     auto label = std::make_shared<ImTextBlock>();
@@ -114,6 +121,20 @@ inline std::shared_ptr<ImHorizontalBox> MakeInspectorPropertyRow(
         row->AddChild(MakeInspectorPropertyLabel(labelText), FMargin(2.0f));
     }
     row->AddChildFill(valueWidget, 1.0f, FMargin(2.0f));
+    return row;
+}
+
+inline std::shared_ptr<ImHorizontalBox> MakeInspectorRightAlignedPropertyRow(
+    const std::string& labelText,
+    const std::shared_ptr<ImWidget>& valueWidget)
+{
+    auto row = std::make_shared<ImHorizontalBox>();
+    row->SetSpacing(8.0f);
+    if (!labelText.empty()) {
+        row->AddChild(MakeInspectorPropertyLabel(labelText), FMargin(2.0f));
+    }
+    row->AddChildFill(MakeInspectorFlexibleSpacer(), 1.0f, FMargin(2.0f));
+    row->AddChild(valueWidget, FMargin(2.0f));
     return row;
 }
 

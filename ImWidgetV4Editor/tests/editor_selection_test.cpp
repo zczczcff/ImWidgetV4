@@ -354,6 +354,119 @@ TEST(EditorSelectionTest, EmptyDesignerSurfaceRightClickOpensRootCreationMenu)
     EXPECT_GT(afterWindowCount, beforeWindowCount);
 }
 
+TEST(EditorSelectionTest, DesignerDragOverUsesPointerHitTargetInsteadOfCurrentSelection)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto root = std::make_shared<ImHorizontalBox>();
+
+        auto first = std::make_shared<ImVerticalBox>();
+        first->SetName("FirstColumn");
+        auto firstLabel = std::make_shared<ImTextBlock>();
+        firstLabel->SetText("First");
+        first->AddChild(firstLabel);
+        root->AddChild(first);
+
+        auto second = std::make_shared<ImVerticalBox>();
+        second->SetName("SecondColumn");
+        auto secondLabel = std::make_shared<ImTextBlock>();
+        secondLabel->SetText("Second");
+        second->AddChild(secondLabel);
+        root->AddChild(second);
+
+        return root;
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+    AdvanceAppWithDraw(*app, {}, FVector2(420.0f, 260.0f));
+
+    auto root = std::dynamic_pointer_cast<ImHorizontalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    auto first = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[0]);
+    auto second = std::dynamic_pointer_cast<ImVerticalBox>(root->GetChildren()[1]);
+    ASSERT_TRUE(first);
+    ASSERT_TRUE(second);
+
+    designerSurface->SetSelectedWidget(first);
+
+    auto payload = std::make_shared<WidgetPalettePayload>();
+    payload->WidgetTypeName = "ImTextBlock";
+    payload->Label = "TextBlock";
+
+    auto operation = std::make_shared<FDragDropOperation>();
+    operation->Payload = payload;
+
+    FDragDropEvent dragOverEvent;
+    dragOverEvent.Type = EDragDropEventType::DragOver;
+    dragOverEvent.Operation = operation;
+    dragOverEvent.CurrentPosition = second->GetGeometry().GetCenter();
+
+    const FReply reply = designerSurface->OnDragEvent(dragOverEvent);
+    EXPECT_TRUE(reply.IsHandled());
+}
+
+TEST(EditorSelectionTest, DesignerDragOverRejectsOccupiedSingleContentTarget)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto button = std::make_shared<ImButton>();
+        button->SetName("RootButton");
+        auto label = std::make_shared<ImTextBlock>();
+        label->SetText("Button Label");
+        button->SetContent(label);
+        return button;
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+    AdvanceAppWithDraw(*app, {}, FVector2(420.0f, 260.0f));
+
+    auto button = std::dynamic_pointer_cast<ImButton>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(button);
+    auto label = button->GetContent();
+    ASSERT_TRUE(label);
+
+    auto payload = std::make_shared<WidgetPalettePayload>();
+    payload->WidgetTypeName = "ImTextBlock";
+    payload->Label = "TextBlock";
+
+    auto operation = std::make_shared<FDragDropOperation>();
+    operation->Payload = payload;
+
+    FDragDropEvent dragOverEvent;
+    dragOverEvent.Type = EDragDropEventType::DragOver;
+    dragOverEvent.Operation = operation;
+    dragOverEvent.CurrentPosition = label->GetGeometry().GetCenter();
+
+    const FReply reply = designerSurface->OnDragEvent(dragOverEvent);
+    EXPECT_FALSE(reply.IsHandled());
+}
+
 TEST(EditorSelectionTest, DesignerDropUsesPointerHitTargetInsteadOfCurrentSelection)
 {
     auto session = std::make_shared<EditorSession>([]() {

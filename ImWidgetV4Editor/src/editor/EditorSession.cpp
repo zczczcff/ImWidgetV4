@@ -232,6 +232,33 @@ bool TryInsertIntoTarget(
     return false;
 }
 
+bool CanInsertIntoTarget(
+    const std::shared_ptr<ImWidget>& target,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!target || !widget) {
+        return false;
+    }
+
+    if (std::dynamic_pointer_cast<ImCanvasPanel>(target) != nullptr ||
+        std::dynamic_pointer_cast<ImVerticalBox>(target) != nullptr ||
+        std::dynamic_pointer_cast<ImHorizontalBox>(target) != nullptr ||
+        std::dynamic_pointer_cast<ImScrollBox>(target) != nullptr ||
+        std::dynamic_pointer_cast<ImTabView>(target) != nullptr) {
+        return true;
+    }
+
+    if (auto button = std::dynamic_pointer_cast<ImButton>(target)) {
+        return button->GetContent() == nullptr;
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(target)) {
+        return expandableBox->GetHeader() == nullptr || expandableBox->GetBody() == nullptr;
+    }
+
+    return false;
+}
+
 bool IsLogicalAncestorOf(
     const std::shared_ptr<EditorDocument>& document,
     const std::shared_ptr<ImWidget>& possibleAncestor,
@@ -443,6 +470,15 @@ void EditorSession::BindDocumentWidgets(
         m_DesignerSurface->OnDeleteRequested.AddLambda(
             [this](ImDesignerSurface&) {
                 DeleteSelectedWidget();
+            });
+        m_DesignerSurface->OnDropTest.Clear();
+        m_DesignerSurface->OnDropTest.AddLambda(
+            [this](ImDesignerSurface& designerSurfaceRef,
+                   const std::shared_ptr<FDragDropOperation>& operation,
+                   const FVector2& position,
+                   std::shared_ptr<ImWidget>& outTargetWidget,
+                   bool& bAccepted) {
+                HandleDesignerDropTest(designerSurfaceRef, operation, position, outTargetWidget, bAccepted);
             });
         m_DesignerSurface->OnDropReceived.Clear();
         m_DesignerSurface->OnDropReceived.AddLambda(
@@ -1182,15 +1218,16 @@ void EditorSession::HandleDesignerDrop(
         return;
     }
 
-    auto insertionTarget = ResolveDesignerInsertionTargetAt(position);
-    if (!insertionTarget && m_DesignerSurface) {
-        insertionTarget = m_DesignerSurface->GetSelectedWidget();
-    }
-
     if (auto palettePayload = std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload)) {
         auto widget = CreatePaletteWidget(palettePayload->WidgetTypeName);
         if (!widget) {
             LogStatus("Create failed: unsupported widget type " + palettePayload->WidgetTypeName);
+            return;
+        }
+
+        std::shared_ptr<ImWidget> insertionTarget;
+        if (!ResolveDesignerInsertionTargetForWidget(widget, position, insertionTarget)) {
+            LogStatus("Drop rejected by current document root.");
             return;
         }
 
@@ -1227,6 +1264,12 @@ void EditorSession::HandleDesignerDrop(
         return;
     }
 
+    std::shared_ptr<ImWidget> insertionTarget;
+    if (!ResolveDesignerInsertionTargetForWidget(sourceWidget, position, insertionTarget)) {
+        LogStatus("Drop rejected by current document root.");
+        return;
+    }
+
     const FDocumentSnapshot beforeSnapshot = CaptureDocumentSnapshot();
     bHandled = MoveWidgetInDocumentAtTarget(sourceWidget, insertionTarget, position);
     if (!bHandled) {
@@ -1237,6 +1280,16 @@ void EditorSession::HandleDesignerDrop(
     RefreshDocumentViews(sourceWidget);
     PushDocumentSnapshotCommand("Move Widget", beforeSnapshot, sourceWidget);
     LogStatus("Moved " + treePayload->Label);
+}
+
+void EditorSession::HandleDesignerDropTest(
+    ImDesignerSurface&,
+    const std::shared_ptr<FDragDropOperation>& operation,
+    const FVector2& position,
+    std::shared_ptr<ImWidget>& outTargetWidget,
+    bool& bAccepted)
+{
+    bAccepted = ResolveDesignerDropTarget(operation, position, outTargetWidget);
 }
 
 void EditorSession::HandleDesignerContextMenuRequested(
@@ -1630,6 +1683,78 @@ void EditorSession::PushDocumentSnapshotCommand(
         afterSnapshot.DocumentJson,
         afterSnapshot.SelectionId,
         afterSnapshot.bDirty));
+}
+
+bool EditorSession::ResolveDesignerDropTarget(
+    const std::shared_ptr<FDragDropOperation>& operation,
+    const FVector2& position,
+    std::shared_ptr<ImWidget>& outTargetWidget) const
+{
+    outTargetWidget.reset();
+    if (!operation || !operation->Payload) {
+        return false;
+    }
+
+    if (auto palettePayload = std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload)) {
+        auto widget = CreatePaletteWidget(palettePayload->WidgetTypeName);
+        return widget && ResolveDesignerInsertionTargetForWidget(widget, position, outTargetWidget);
+    }
+
+    auto treePayload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation->Payload);
+    if (!treePayload || treePayload->WidgetId.empty() || !m_Document) {
+        return false;
+    }
+
+    auto sourceWidget = m_Document->FindWidgetById(treePayload->WidgetId);
+    return sourceWidget && ResolveDesignerInsertionTargetForWidget(sourceWidget, position, outTargetWidget);
+}
+
+bool EditorSession::ResolveDesignerInsertionTargetForWidget(
+    const std::shared_ptr<ImWidget>& widget,
+    const FVector2& position,
+    std::shared_ptr<ImWidget>& outTargetWidget) const
+{
+    outTargetWidget.reset();
+    if (!m_Document || !widget) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root) {
+        return true;
+    }
+
+    std::shared_ptr<ImWidget> target = ResolveDesignerInsertionTargetAt(position);
+    if (!target && m_DesignerSurface) {
+        target = m_DesignerSurface->GetSelectedWidget();
+    }
+    if (!target) {
+        target = root;
+    }
+
+    while (target) {
+        if (widget != target &&
+            !IsLogicalAncestorOf(m_Document, widget, target) &&
+            CanInsertIntoTarget(target, widget)) {
+            outTargetWidget = target;
+            return true;
+        }
+
+        if (target == root) {
+            break;
+        }
+
+        target = target->GetParent();
+    }
+
+    if (widget != root &&
+        !IsLogicalAncestorOf(m_Document, widget, root) &&
+        CanInsertIntoTarget(root, widget)) {
+        outTargetWidget = root;
+        return true;
+    }
+
+    return false;
 }
 
 std::shared_ptr<ImWidget> EditorSession::ResolveDesignerInsertionTargetAt(const FVector2& position) const

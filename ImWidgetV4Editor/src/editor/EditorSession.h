@@ -135,6 +135,12 @@ private:
         const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
         const ImWidgetV4::FVector2& position,
         bool& bHandled);
+    void HandleDesignerDropTest(
+        ImWidgetV4::ImDesignerSurface& designerSurface,
+        const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
+        const ImWidgetV4::FVector2& position,
+        std::shared_ptr<ImWidgetV4::ImWidget>& outTargetWidget,
+        bool& bAccepted);
     void HandleDesignerContextMenuRequested(
         ImWidgetV4::ImDesignerSurface& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
@@ -164,6 +170,14 @@ private:
         std::string label,
         const FDocumentSnapshot& beforeSnapshot,
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection);
+    bool ResolveDesignerDropTarget(
+        const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
+        const ImWidgetV4::FVector2& position,
+        std::shared_ptr<ImWidgetV4::ImWidget>& outTargetWidget) const;
+    bool ResolveDesignerInsertionTargetForWidget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const ImWidgetV4::FVector2& position,
+        std::shared_ptr<ImWidgetV4::ImWidget>& outTargetWidget) const;
     std::shared_ptr<ImWidgetV4::ImWidget> ResolveDesignerInsertionTargetAt(const ImWidgetV4::FVector2& position) const;
     std::shared_ptr<ImWidgetV4::ImWidget> CreatePaletteWidget(const std::string& typeName) const;
     bool CreatePaletteWidgetAtTreeTarget(

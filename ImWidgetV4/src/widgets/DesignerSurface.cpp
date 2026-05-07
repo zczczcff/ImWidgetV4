@@ -82,6 +82,7 @@ void ImDesignerSurface::SetSelectionBorderThickness(float thickness)
 void ImDesignerSurface::Paint(const FPaintContext& paintContext)
 {
     ImUserWidget::Paint(paintContext);
+    PaintDropPreviewOverlay(paintContext);
     PaintSelectionOverlay(paintContext);
 }
 
@@ -168,13 +169,45 @@ FReply ImDesignerSurface::OnDragEvent(const FDragDropEvent& event)
 {
     if (event.Type == EDragDropEventType::DragEnter ||
         event.Type == EDragDropEventType::DragOver) {
-        return FReply::Handled();
+        std::shared_ptr<ImWidget> previewTarget;
+        bool bAccepted = false;
+        OnDropTest.Broadcast(*this, event.Operation, event.CurrentPosition, previewTarget, bAccepted);
+
+        if (m_DropPreviewWidget != previewTarget || m_bDropPreviewAccepted != bAccepted) {
+            m_DropPreviewWidget = previewTarget;
+            m_bDropPreviewAccepted = bAccepted;
+            Invalidate(EInvalidateReason::Paint);
+        }
+
+        return bAccepted ? FReply::Handled() : FReply::Unhandled();
+    }
+
+    if (event.Type == EDragDropEventType::DragLeave) {
+        if (m_DropPreviewWidget || m_bDropPreviewAccepted) {
+            m_DropPreviewWidget.reset();
+            m_bDropPreviewAccepted = false;
+            Invalidate(EInvalidateReason::Paint);
+        }
+        return FReply::Unhandled();
     }
 
     if (event.Type == EDragDropEventType::Drop) {
         bool bHandled = false;
         OnDropReceived.Broadcast(*this, event.Operation, event.CurrentPosition, bHandled);
+        if (m_DropPreviewWidget || m_bDropPreviewAccepted) {
+            m_DropPreviewWidget.reset();
+            m_bDropPreviewAccepted = false;
+            Invalidate(EInvalidateReason::Paint);
+        }
         return bHandled ? FReply::Handled() : FReply::Unhandled();
+    }
+
+    if (event.Type == EDragDropEventType::DragEnd) {
+        if (m_DropPreviewWidget || m_bDropPreviewAccepted) {
+            m_DropPreviewWidget.reset();
+            m_bDropPreviewAccepted = false;
+            Invalidate(EInvalidateReason::Paint);
+        }
     }
 
     return FReply::Unhandled();
@@ -225,6 +258,30 @@ bool ImDesignerSurface::ContainsWidgetRecursive(
     }
 
     return false;
+}
+
+void ImDesignerSurface::PaintDropPreviewOverlay(const FPaintContext& paintContext) const
+{
+    if (!m_bDropPreviewAccepted) {
+        return;
+    }
+
+    FGeometry previewGeometry = m_DropPreviewWidget ? m_DropPreviewWidget->GetGeometry() : m_Geometry;
+    if (!previewGeometry.IsValid()) {
+        return;
+    }
+
+    paintContext.DrawContext_.DrawRectFilled(
+        previewGeometry.GetMin(),
+        previewGeometry.GetMax(),
+        m_DropPreviewFillColor,
+        0.0f);
+    paintContext.DrawContext_.DrawRect(
+        previewGeometry.GetMin(),
+        previewGeometry.GetMax(),
+        m_DropPreviewBorderColor,
+        0.0f,
+        2.0f);
 }
 
 void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext) const

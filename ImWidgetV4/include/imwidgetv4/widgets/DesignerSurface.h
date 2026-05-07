@@ -36,6 +36,12 @@ public:
         const std::shared_ptr<FDragDropOperation>&,
         const FVector2&,
         bool&>;
+    using FDropTestEvent = TMulticastDelegate<
+        ImDesignerSurface&,
+        const std::shared_ptr<FDragDropOperation>&,
+        const FVector2&,
+        std::shared_ptr<ImWidget>&,
+        bool&>;
 
     ImDesignerSurface();
     virtual ~ImDesignerSurface() = default;
@@ -61,6 +67,7 @@ public:
     FContextMenuRequestedEvent OnContextMenuRequested;
     FTransformStartedEvent OnTransformStarted;
     FTransformFinishedEvent OnTransformFinished;
+    FDropTestEvent OnDropTest;
     FDropEvent OnDropReceived;
 
     virtual void Paint(const FPaintContext& paintContext) override;
@@ -72,6 +79,7 @@ private:
     std::shared_ptr<ImWidget> ResolveSelectableWidgetAt(const FVector2& position) const;
     bool ContainsWidgetInContent(const std::shared_ptr<ImWidget>& widget) const;
     bool ContainsWidgetRecursive(const std::shared_ptr<ImWidget>& root, const std::shared_ptr<ImWidget>& target) const;
+    void PaintDropPreviewOverlay(const FPaintContext& paintContext) const;
     void PaintSelectionOverlay(const FPaintContext& paintContext) const;
     bool ResolveCanvasSelectionContext(std::shared_ptr<ImCanvasPanel>& outCanvas, ImCanvasPanelSlot*& outSlot) const;
     EDesignerTransformHandle HitTestTransformHandle(const FVector2& position) const;
@@ -86,6 +94,10 @@ private:
     FColor m_SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
     float m_SelectionBorderThickness = 2.0f;
     float m_TransformHandleSize = 10.0f;
+    std::shared_ptr<ImWidget> m_DropPreviewWidget;
+    bool m_bDropPreviewAccepted = false;
+    FColor m_DropPreviewBorderColor = FColor::FromBytes(92, 214, 141);
+    FColor m_DropPreviewFillColor = FColor::FromBytes(92, 214, 141, 34);
     EDesignerTransformHandle m_HoveredTransformHandle = EDesignerTransformHandle::None;
     EDesignerTransformHandle m_ActiveTransformHandle = EDesignerTransformHandle::None;
     bool m_bTransformChanged = false;

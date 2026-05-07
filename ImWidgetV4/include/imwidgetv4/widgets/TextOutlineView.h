@@ -101,6 +101,12 @@ public:
     using FExpandedChangedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, bool>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, FVector2>;
     using FDeleteRequestedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem*>;
+    using FDragDetectedEvent =
+        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, std::shared_ptr<FDragDropOperation>&>;
+    using FDropTestEvent =
+        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
+    using FDropEvent =
+        TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, const std::shared_ptr<FDragDropOperation>&, FVector2, bool&>;
 
     ImTextOutlineView();
     virtual ~ImTextOutlineView() = default;
@@ -129,10 +135,15 @@ public:
     FExpandedChangedEvent OnItemExpandedChanged;
     FContextMenuRequestedEvent OnItemContextMenuRequested;
     FDeleteRequestedEvent OnDeleteRequested;
+    FDragDetectedEvent OnItemDragDetected;
+    FDropTestEvent OnItemDropTest;
+    FDropEvent OnItemDropped;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
+    virtual std::shared_ptr<FDragDropOperation> OnDragDetected(const FDragDetectEvent& event) override;
+    virtual FReply OnDragEvent(const FDragDropEvent& event) override;
     virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath) override;
     virtual void OnFocusChanged(bool bHasFocus) override;
 
@@ -182,6 +193,9 @@ private:
     std::vector<FVisibleEntry> VisibleEntries_;
     ImTextOutlineItem* SelectedItem_ = nullptr;
     ImTextOutlineItem* HoveredItem_ = nullptr;
+    ImTextOutlineItem* PressedItem_ = nullptr;
+    ImTextOutlineItem* DraggedItem_ = nullptr;
+    ImTextOutlineItem* DropTargetItem_ = nullptr;
     FGeometry ViewportGeometry_;
     FGeometry VerticalScrollbarGeometry_;
     FGeometry VerticalThumbGeometry_;

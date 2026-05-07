@@ -104,6 +104,15 @@ void ImTextOutlineView::RemoveItem(ImTextOutlineItem* item)
     if (HoveredItem_ != nullptr && (HoveredItem_ == item || IsDescendantOf(HoveredItem_, item))) {
         HoveredItem_ = nullptr;
     }
+    if (PressedItem_ != nullptr && (PressedItem_ == item || IsDescendantOf(PressedItem_, item))) {
+        PressedItem_ = nullptr;
+    }
+    if (DraggedItem_ != nullptr && (DraggedItem_ == item || IsDescendantOf(DraggedItem_, item))) {
+        DraggedItem_ = nullptr;
+    }
+    if (DropTargetItem_ != nullptr && (DropTargetItem_ == item || IsDescendantOf(DropTargetItem_, item))) {
+        DropTargetItem_ = nullptr;
+    }
 
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -119,6 +128,9 @@ void ImTextOutlineView::ClearItems()
     VisibleEntries_.clear();
     SelectedItem_ = nullptr;
     HoveredItem_ = nullptr;
+    PressedItem_ = nullptr;
+    DraggedItem_ = nullptr;
+    DropTargetItem_ = nullptr;
     ContentHeight_ = 0.0f;
     ScrollOffsetY_ = 0.0f;
     MaxScrollOffsetY_ = 0.0f;
@@ -246,6 +258,8 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
         FColor rowColor = FColor::Transparent;
         if (entry.Item == SelectedItem_) {
             rowColor = HasKeyboardFocus() ? Style_.SelectedFocusedRowColor : Style_.SelectedRowColor;
+        } else if (entry.Item == DropTargetItem_) {
+            rowColor = Style_.SelectedRowColor.Lerp(Style_.SelectedFocusedRowColor, 0.35f);
         } else if (entry.Item == HoveredItem_) {
             rowColor = Style_.HoveredRowColor;
         }
@@ -328,13 +342,17 @@ FReply ImTextOutlineView::OnInputEvent(const FInputEvent& event)
             if (entry->IndicatorGeometry.IsValid() &&
                 entry->IndicatorGeometry.Contains(event.MousePosition) &&
                 !entry->Item->Children.empty()) {
+                PressedItem_ = nullptr;
                 SetExpandedState(entry->Item, !entry->Item->Expanded, true);
                 SetSelectedItemInternal(entry->Item, true, false);
                 return FReply::Handled().SetKeyboardFocus(shared_from_this());
             }
 
+            PressedItem_ = entry->Item;
             SetSelectedItemInternal(entry->Item, true, true);
-            return FReply::Handled().SetKeyboardFocus(shared_from_this());
+            return FReply::Handled()
+                .SetKeyboardFocus(shared_from_this())
+                .DetectDrag(shared_from_this(), EMouseButton::Left);
         }
 
         if (event.MouseButton == EMouseButton::Right) {
@@ -380,6 +398,9 @@ FReply ImTextOutlineView::OnInputEvent(const FInputEvent& event)
             EndScrollbarDrag();
             return FReply::Handled().ReleaseMouseCapture();
         }
+        if (event.MouseButton == EMouseButton::Left) {
+            PressedItem_ = nullptr;
+        }
         return FReply::Unhandled();
 
     case EInputEventType::MouseWheel:
@@ -399,6 +420,83 @@ FReply ImTextOutlineView::OnInputEvent(const FInputEvent& event)
         }
         HandleKeyboardNavigation(event.Key);
         return FReply::Handled();
+
+    default:
+        return FReply::Unhandled();
+    }
+}
+
+std::shared_ptr<FDragDropOperation> ImTextOutlineView::OnDragDetected(const FDragDetectEvent&)
+{
+    if (PressedItem_ == nullptr || !ContainsItem(PressedItem_)) {
+        return nullptr;
+    }
+
+    DraggedItem_ = PressedItem_;
+    DropTargetItem_ = nullptr;
+
+    std::shared_ptr<FDragDropOperation> operation;
+    OnItemDragDetected.Broadcast(*this, *PressedItem_, operation);
+    if (!operation || !operation->IsValid()) {
+        DraggedItem_ = nullptr;
+        return nullptr;
+    }
+
+    Invalidate(EInvalidateReason::Paint);
+    return operation;
+}
+
+FReply ImTextOutlineView::OnDragEvent(const FDragDropEvent& event)
+{
+    switch (event.Type) {
+    case EDragDropEventType::DragEnter:
+    case EDragDropEventType::DragOver: {
+        FVisibleEntry* entry = ResolveEntryAt(event.CurrentPosition);
+        ImTextOutlineItem* candidate = entry != nullptr ? entry->Item : nullptr;
+        bool bAccepted = false;
+        if (candidate != nullptr) {
+            OnItemDropTest.Broadcast(*this, *candidate, event.Operation, event.CurrentPosition, bAccepted);
+        }
+
+        if (DropTargetItem_ != candidate) {
+            DropTargetItem_ = candidate;
+            Invalidate(EInvalidateReason::Paint);
+        }
+
+        if (candidate != nullptr && bAccepted) {
+            return FReply::Handled();
+        }
+
+        return FReply::Unhandled();
+    }
+
+    case EDragDropEventType::DragLeave:
+        if (DropTargetItem_ != nullptr) {
+            DropTargetItem_ = nullptr;
+            Invalidate(EInvalidateReason::Paint);
+        }
+        return FReply::Unhandled();
+
+    case EDragDropEventType::Drop: {
+        FVisibleEntry* entry = ResolveEntryAt(event.CurrentPosition);
+        ImTextOutlineItem* candidate = entry != nullptr ? entry->Item : DropTargetItem_;
+        bool bHandled = false;
+        if (candidate != nullptr) {
+            DropTargetItem_ = candidate;
+            OnItemDropped.Broadcast(*this, *candidate, event.Operation, event.CurrentPosition, bHandled);
+        }
+
+        DropTargetItem_ = nullptr;
+        Invalidate(EInvalidateReason::Paint);
+        return bHandled ? FReply::Handled() : FReply::Unhandled();
+    }
+
+    case EDragDropEventType::DragEnd:
+        DraggedItem_ = nullptr;
+        DropTargetItem_ = nullptr;
+        PressedItem_ = nullptr;
+        Invalidate(EInvalidateReason::Paint);
+        return FReply::Unhandled();
 
     default:
         return FReply::Unhandled();

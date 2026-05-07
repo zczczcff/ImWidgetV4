@@ -13,13 +13,17 @@ class ImWidget;
 
 namespace ImWidgetV4Editor {
 
+class EditorDocument;
+
 class DocumentTreeViewBinder {
 public:
     DocumentTreeViewBinder() = default;
 
     void Bind(
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& treeView,
-        const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface);
+        const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
+        const std::shared_ptr<EditorDocument>& document);
+    void SetDocument(const std::shared_ptr<EditorDocument>& document);
 
     void RebuildFromRoot(
         const std::shared_ptr<ImWidgetV4::ImWidget>& rootWidget,
@@ -37,6 +41,7 @@ private:
 
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_TreeView;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
+    std::weak_ptr<EditorDocument> m_Document;
     std::unordered_map<ImWidgetV4::ImTextOutlineItem*, std::shared_ptr<ImWidgetV4::ImWidget>> m_ItemToWidget;
     std::unordered_map<const ImWidgetV4::ImWidget*, ImWidgetV4::ImTextOutlineItem*> m_WidgetToItem;
     bool m_bSyncingSelection = false;

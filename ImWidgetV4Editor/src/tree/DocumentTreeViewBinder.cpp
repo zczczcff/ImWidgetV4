@@ -1,18 +1,91 @@
 #include "DocumentTreeViewBinder.h"
+#include "../editor/EditorDocument.h"
+#include "WidgetTreeDragDrop.h"
 
+#include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/VerticalBox.h>
 
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
 
+namespace {
+
+std::shared_ptr<ImTextBlock> MakeTreeDragPreview(const std::string& text)
+{
+    auto preview = std::make_shared<ImTextBlock>();
+    preview->SetText(text);
+    preview->SetFontSize(14.0f);
+    preview->SetTextColor(FColor::White);
+    preview->SetHitTestVisible(false);
+    return preview;
+}
+
+bool IsDropCandidateContainer(const std::shared_ptr<ImWidget>& widget)
+{
+    return std::dynamic_pointer_cast<ImCanvasPanel>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImVerticalBox>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImHorizontalBox>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImScrollBox>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImTabView>(widget) != nullptr;
+}
+
+bool IsWidgetAncestorOf(
+    const std::shared_ptr<ImWidget>& possibleAncestor,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!possibleAncestor || !widget) {
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> current = widget;
+    while (current) {
+        if (current == possibleAncestor) {
+            return true;
+        }
+        current = current->GetParent();
+    }
+
+    return false;
+}
+
+std::vector<std::shared_ptr<ImWidget>> GetLogicalChildren(const std::shared_ptr<ImWidget>& widget)
+{
+    std::vector<std::shared_ptr<ImWidget>> children;
+    if (!widget) {
+        return children;
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
+        children.reserve(static_cast<std::size_t>(tabView->GetTabCount()));
+        for (int index = 0; index < tabView->GetTabCount(); ++index) {
+            const FTabViewItem* tab = tabView->GetTab(index);
+            if (tab && tab->Content) {
+                children.push_back(tab->Content);
+            }
+        }
+        return children;
+    }
+
+    return widget->GetChildren();
+}
+
+} // namespace
+
 void DocumentTreeViewBinder::Bind(
     const std::shared_ptr<ImTextOutlineView>& treeView,
-    const std::shared_ptr<ImDesignerSurface>& designerSurface)
+    const std::shared_ptr<ImDesignerSurface>& designerSurface,
+    const std::shared_ptr<EditorDocument>& document)
 {
     m_TreeView = treeView;
     m_DesignerSurface = designerSurface;
+    SetDocument(document);
 
     if (!m_TreeView) {
         return;
@@ -34,6 +107,58 @@ void DocumentTreeViewBinder::Bind(
             }
             m_bSyncingSelection = false;
         });
+    m_TreeView->OnItemDragDetected.Clear();
+    m_TreeView->OnItemDragDetected.AddLambda(
+        [this](ImTextOutlineView&, ImTextOutlineItem& item, std::shared_ptr<FDragDropOperation>& outOperation) {
+            if (outOperation || !m_TreeView) {
+                return;
+            }
+
+            auto widget = ResolveWidget(&item);
+            auto document = m_Document.lock();
+            if (!widget || !document) {
+                return;
+            }
+
+            const std::string widgetId = document->GetWidgetId(widget);
+            if (widgetId.empty()) {
+                return;
+            }
+
+            auto payload = std::make_shared<WidgetTreeDragDropPayload>();
+            payload->WidgetId = widgetId;
+            payload->Label = BuildItemLabel(widget);
+
+            auto operation = std::make_shared<FDragDropOperation>();
+            operation->Payload = payload;
+            operation->PreviewWidget = MakeTreeDragPreview(payload->Label);
+            operation->PreviewOffset = FVector2(14.0f, 16.0f);
+            outOperation = operation;
+        });
+    m_TreeView->OnItemDropTest.Clear();
+    m_TreeView->OnItemDropTest.AddLambda(
+        [this](ImTextOutlineView&, ImTextOutlineItem& item, const std::shared_ptr<FDragDropOperation>& operation, FVector2, bool& bAccepted) {
+            auto payload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation ? operation->Payload : nullptr);
+            auto document = m_Document.lock();
+            auto targetWidget = ResolveWidget(&item);
+            if (!payload || !document || !targetWidget || !IsDropCandidateContainer(targetWidget)) {
+                bAccepted = false;
+                return;
+            }
+
+            auto sourceWidget = document->FindWidgetById(payload->WidgetId);
+            if (!sourceWidget || sourceWidget == targetWidget || IsWidgetAncestorOf(sourceWidget, targetWidget)) {
+                bAccepted = false;
+                return;
+            }
+
+            bAccepted = true;
+        });
+}
+
+void DocumentTreeViewBinder::SetDocument(const std::shared_ptr<EditorDocument>& document)
+{
+    m_Document = document;
 }
 
 void DocumentTreeViewBinder::RebuildFromRoot(
@@ -117,7 +242,7 @@ void DocumentTreeViewBinder::RebuildChildren(
         return;
     }
 
-    const auto& children = parentWidget->GetChildren();
+    const auto children = GetLogicalChildren(parentWidget);
     for (const auto& child : children) {
         if (!child) {
             continue;

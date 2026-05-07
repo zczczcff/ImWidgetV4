@@ -5,6 +5,7 @@
 #include "../serialization/WidgetFactory.h"
 #include "../serialization/WidgetSerializer.h"
 #include "../tree/DocumentTreeViewBinder.h"
+#include "../tree/WidgetTreeDragDrop.h"
 
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
@@ -182,6 +183,25 @@ bool TryInsertIntoTarget(
     return false;
 }
 
+bool IsWidgetAncestorOf(
+    const std::shared_ptr<ImWidget>& possibleAncestor,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!possibleAncestor || !widget) {
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> current = widget;
+    while (current) {
+        if (current == possibleAncestor) {
+            return true;
+        }
+        current = current->GetParent();
+    }
+
+    return false;
+}
+
 bool TryDuplicateInParent(
     const std::shared_ptr<ImWidget>& parent,
     const std::shared_ptr<ImWidget>& sourceWidget,
@@ -292,7 +312,7 @@ void EditorSession::BindDocumentWidgets(
     if (!m_TreeBinder) {
         m_TreeBinder = std::make_shared<DocumentTreeViewBinder>();
     }
-    m_TreeBinder->Bind(m_WidgetTreeView, m_DesignerSurface);
+    m_TreeBinder->Bind(m_WidgetTreeView, m_DesignerSurface, m_Document);
     if (m_WidgetTreeView) {
         m_WidgetTreeView->OnItemContextMenuRequested.Clear();
         m_WidgetTreeView->OnItemContextMenuRequested.AddLambda(
@@ -317,6 +337,16 @@ void EditorSession::BindDocumentWidgets(
                     m_DesignerSurface->SetSelectedWidget(widget);
                 }
                 DeleteSelectedWidget();
+            });
+        m_WidgetTreeView->OnItemDropped.Clear();
+        m_WidgetTreeView->OnItemDropped.AddLambda(
+            [this](
+                ImTextOutlineView& treeView,
+                ImTextOutlineItem& item,
+                const std::shared_ptr<FDragDropOperation>& operation,
+                FVector2 position,
+                bool& bHandled) {
+                HandleWidgetTreeItemDropped(treeView, item, operation, position, bHandled);
             });
     }
     if (m_DesignerSurface) {
@@ -735,6 +765,10 @@ std::shared_ptr<EditorDocument> EditorSession::CreateDefaultDocument() const
 
 void EditorSession::ApplyDocumentToUi()
 {
+    if (m_TreeBinder) {
+        m_TreeBinder->SetDocument(m_Document);
+    }
+
     if (m_DesignerSurface) {
         m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
         m_DesignerSurface->ClearSelection();
@@ -939,6 +973,49 @@ void EditorSession::HandleWidgetTreeContextMenuRequested(
         m_WidgetTreeView->GetApplication()->GetWindowManager().CreatePopup(popupOptions);
 }
 
+void EditorSession::HandleWidgetTreeItemDropped(
+    ImTextOutlineView&,
+    ImTextOutlineItem& item,
+    const std::shared_ptr<FDragDropOperation>& operation,
+    FVector2,
+    bool& bHandled)
+{
+    bHandled = false;
+    if (!operation || !operation->Payload || !m_Document || !m_TreeBinder) {
+        return;
+    }
+
+    auto payload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation->Payload);
+    if (!payload || payload->WidgetId.empty()) {
+        return;
+    }
+
+    auto sourceWidget = m_Document->FindWidgetById(payload->WidgetId);
+    auto targetWidget = m_TreeBinder->ResolveWidget(&item);
+    if (!sourceWidget || !targetWidget) {
+        return;
+    }
+
+    if (sourceWidget == targetWidget || IsWidgetAncestorOf(sourceWidget, targetWidget)) {
+        LogStatus("Move rejected: cannot move a widget into itself or its descendants.");
+        return;
+    }
+
+    bHandled = ExecuteDocumentMutation(
+        "Move Widget",
+        [this, sourceWidget, targetWidget]() {
+            return MoveWidgetInDocument(sourceWidget, targetWidget);
+        },
+        sourceWidget);
+    if (!bHandled) {
+        LogStatus("Move rejected by target container.");
+        return;
+    }
+
+    RefreshDocumentViews(sourceWidget);
+    LogStatus("Moved " + payload->Label);
+}
+
 void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     std::shared_ptr<ImSlot> slotTarget;
@@ -1017,6 +1094,9 @@ bool EditorSession::ApplyDocumentSnapshot(
 
     m_Document->SetDirty(bDirty);
     std::shared_ptr<ImWidget> selectedWidget = m_Document->FindWidgetById(selectionId);
+    if (m_TreeBinder) {
+        m_TreeBinder->SetDocument(m_Document);
+    }
 
     if (m_DesignerSurface) {
         m_DesignerSurface->SetContentRoot(m_Document->GetRootWidget());
@@ -1167,6 +1247,42 @@ bool EditorSession::RemoveWidgetFromParent(
     return parent->RemoveChild(widget);
 }
 
+bool EditorSession::MoveWidgetInDocument(
+    const std::shared_ptr<ImWidget>& widget,
+    const std::shared_ptr<ImWidget>& newParent)
+{
+    if (!m_Document || !widget || !newParent) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root || widget == root) {
+        return false;
+    }
+
+    if (widget == newParent || IsWidgetAncestorOf(widget, newParent)) {
+        return false;
+    }
+
+    const std::shared_ptr<ImWidget> oldParent = widget->GetParent();
+    if (!oldParent) {
+        return false;
+    }
+
+    if (!RemoveWidgetFromParent(oldParent, widget)) {
+        return false;
+    }
+
+    const bool bInserted = TryInsertIntoTarget(newParent, widget, newParent->GetGeometry().Position);
+    if (!bInserted) {
+        TryInsertIntoTarget(oldParent, widget, oldParent->GetGeometry().Position);
+        return false;
+    }
+
+    MarkDocumentDirty();
+    return true;
+}
+
 void EditorSession::ApplySelectionToUi(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     if (!m_DesignerSurface) {
@@ -1182,6 +1298,10 @@ void EditorSession::ApplySelectionToUi(const std::shared_ptr<ImWidget>& selected
 
 void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& selectedWidget)
 {
+    if (m_TreeBinder) {
+        m_TreeBinder->SetDocument(m_Document);
+    }
+
     if (m_DesignerSurface) {
         m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
     } else if (m_DocumentHost) {

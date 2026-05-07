@@ -89,6 +89,12 @@ private:
         ImWidgetV4::ImTextOutlineView& treeView,
         ImWidgetV4::ImTextOutlineItem& item,
         ImWidgetV4::FVector2 position);
+    void HandleWidgetTreeItemDropped(
+        ImWidgetV4::ImTextOutlineView& treeView,
+        ImWidgetV4::ImTextOutlineItem& item,
+        const std::shared_ptr<ImWidgetV4::FDragDropOperation>& operation,
+        ImWidgetV4::FVector2 position,
+        bool& bHandled);
     void UpdateSelectionDetails(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void HandlePropertyValueCommitted(
         ReflectionDetailsView& detailsView,
@@ -103,6 +109,9 @@ private:
         const ImWidgetV4::FVector2& dropPosition);
     bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    bool MoveWidgetInDocument(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& newParent);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void RefreshPreview();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);

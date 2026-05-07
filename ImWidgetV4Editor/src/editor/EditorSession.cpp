@@ -2,6 +2,7 @@
 #include "LogicalWidgetTree.h"
 #include "../commands/DocumentSnapshotCommand.h"
 #include "../inspector/ReflectionDetailsView.h"
+#include "SelectionModel.h"
 #include "../palette/WidgetPaletteDragDrop.h"
 #include "../serialization/WidgetFactory.h"
 #include "../serialization/WidgetSerializer.h"
@@ -331,6 +332,7 @@ bool TryDuplicateInParent(
 EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
     : m_CreateDefaultDocumentRoot(std::move(createDefaultDocumentRoot))
     , m_Document(CreateDefaultDocument())
+    , m_SelectionModel(std::make_shared<SelectionModel>())
 {
 }
 
@@ -850,10 +852,7 @@ void EditorSession::ApplyDocumentToUi()
             nullptr);
     }
 
-    UpdateSelectionDetails(nullptr);
-    if (m_DetailsView) {
-        m_DetailsView->RebuildPreservingViewState();
-    }
+    SyncSelectionState(nullptr);
 }
 
 void EditorSession::HandleDesignerSelectionChanged(
@@ -864,7 +863,7 @@ void EditorSession::HandleDesignerSelectionChanged(
         m_TreeBinder->SyncSelectionFromDesigner(selectedWidget);
     }
 
-    UpdateSelectionDetails(selectedWidget);
+    SyncSelectionState(selectedWidget);
 
     if (!selectedWidget) {
         LogStatus("Selection cleared.");
@@ -1131,10 +1130,7 @@ void EditorSession::HandlePropertyValueCommitted(
                     m_Document ? m_Document->GetRootWidget() : nullptr,
                     selectedWidget);
             }
-            if (m_DetailsView) {
-                m_DetailsView->RebuildPreservingViewState();
-            }
-            UpdateSelectionDetails(selectedWidget);
+            SyncSelectionState(selectedWidget);
             return true;
         },
         selectedWidget);
@@ -1174,11 +1170,11 @@ bool EditorSession::ApplyDocumentSnapshot(
             selectedWidget);
     }
 
-    ApplySelectionToUi(selectedWidget);
-    if (m_DetailsView) {
-        m_DetailsView->RebuildPreservingViewState();
+    if (m_SelectionModel) {
+        m_SelectionModel->SetSelectedWidgetId(selectionId);
     }
-    UpdateSelectionDetails(selectedWidget);
+
+    SyncSelectionState(selectedWidget);
 
     if (m_DocumentTabs && m_DocumentTabIndex >= 0) {
         m_DocumentTabs->SetTabTitle(m_DocumentTabIndex, GetDocumentTabTitle());
@@ -1477,6 +1473,27 @@ void EditorSession::ApplySelectionToUi(const std::shared_ptr<ImWidget>& selected
     }
 }
 
+void EditorSession::SyncSelectionState(const std::shared_ptr<ImWidget>& selectedWidget)
+{
+    if (m_bSyncingSelectionState) {
+        return;
+    }
+
+    m_bSyncingSelectionState = true;
+    if (m_SelectionModel) {
+        m_SelectionModel->SetSelectedWidget(selectedWidget, m_Document);
+    }
+
+    ApplySelectionToUi(selectedWidget);
+
+    if (m_DetailsView) {
+        m_DetailsView->RebuildPreservingViewState();
+    }
+
+    UpdateSelectionDetails(selectedWidget);
+    m_bSyncingSelectionState = false;
+}
+
 void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     if (m_TreeBinder) {
@@ -1498,11 +1515,7 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
             selectedWidget);
     }
 
-    ApplySelectionToUi(selectedWidget);
-    if (m_DetailsView) {
-        m_DetailsView->RebuildPreservingViewState();
-    }
-    UpdateSelectionDetails(selectedWidget);
+    SyncSelectionState(selectedWidget);
 }
 
 void EditorSession::RefreshPreview()
@@ -1558,8 +1571,9 @@ EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot() const
     }
 
     snapshot.DocumentJson = m_Document->ExportDocumentJson();
-    snapshot.SelectionId = m_Document->GetWidgetId(
-        m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr);
+    snapshot.SelectionId = m_SelectionModel
+        ? m_SelectionModel->GetSelectedWidgetId()
+        : m_Document->GetWidgetId(m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr);
     snapshot.bDirty = m_Document->IsDirty();
     return snapshot;
 }
@@ -1580,6 +1594,9 @@ bool EditorSession::ExecuteDocumentMutation(
 
     if (preferredSelection) {
         ApplySelectionToUi(preferredSelection);
+        if (m_SelectionModel) {
+            m_SelectionModel->SetSelectedWidget(preferredSelection, m_Document);
+        }
     }
 
     RefreshPreview();

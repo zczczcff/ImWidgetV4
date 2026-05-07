@@ -29,6 +29,7 @@ namespace ImWidgetV4Editor {
 
 class DocumentTreeViewBinder;
 class ReflectionDetailsView;
+class SelectionModel;
 
 class EditorSession : public std::enable_shared_from_this<EditorSession> {
 public:
@@ -85,6 +86,7 @@ private:
 
     std::shared_ptr<EditorDocument> CreateDefaultDocument() const;
     void ApplyDocumentToUi();
+    void SyncSelectionState(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void HandleDesignerSelectionChanged(
         ImWidgetV4::ImDesignerSurface& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
@@ -157,6 +159,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
+    std::shared_ptr<SelectionModel> m_SelectionModel;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
@@ -167,6 +170,7 @@ private:
     std::weak_ptr<ImWidgetV4::ImWidget> m_PendingGestureSelection;
     json m_CopiedWidgetJson;
     bool m_bHasCopiedWidget = false;
+    bool m_bSyncingSelectionState = false;
 };
 
 } // namespace ImWidgetV4Editor

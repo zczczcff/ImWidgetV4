@@ -16,6 +16,7 @@ add_executable(ImWidgetV4Editor
     src/editor/EditorSession.cpp
     src/editor/EditorWorkspaceController.cpp
     src/editor/LogicalWidgetTree.cpp
+    src/editor/SelectionModel.cpp
     src/inspector/ReflectionDetailsView.cpp
     src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp
@@ -25,6 +26,39 @@ add_executable(ImWidgetV4Editor
     src/tree/DocumentTreeViewBinder.cpp
     src/tree/WidgetTreeDragDrop.h
 )
+
+if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
+    add_executable(editor_selection_test
+        src/commands/CommandStack.cpp
+        src/commands/DocumentSnapshotCommand.cpp
+        src/editor/EditorDocument.cpp
+        src/editor/EditorShellHost.cpp
+        src/editor/EditorSession.cpp
+        src/editor/EditorWorkspaceController.cpp
+        src/editor/LogicalWidgetTree.cpp
+        src/editor/SelectionModel.cpp
+        src/inspector/ReflectionDetailsView.cpp
+        src/palette/WidgetPaletteDragDrop.cpp
+        src/palette/WidgetPaletteView.cpp
+        src/serialization/WidgetFactory.cpp
+        src/serialization/WidgetSerializer.cpp
+        src/tree/DocumentTreeViewBinder.cpp
+        tests/editor_selection_test.cpp
+    )
+
+    target_link_libraries(editor_selection_test PRIVATE
+        imwidgetv4_core
+        gtest
+        gtest_main
+    )
+
+    target_include_directories(editor_selection_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    )
+
+    add_test(NAME EditorSelectionTest COMMAND editor_selection_test)
+endif()
 
 target_link_libraries(ImWidgetV4Editor PRIVATE
     imwidgetv4_core

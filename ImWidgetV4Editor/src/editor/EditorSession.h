@@ -70,6 +70,7 @@ public:
     bool CanRedo() const;
     std::string GetUndoLabel() const;
     std::string GetRedoLabel() const;
+    void UpdateDocumentFilePath(const std::filesystem::path& filePath);
 
     void LogStatus(const std::string& text);
     bool ApplyDocumentSnapshot(

@@ -604,6 +604,16 @@ void ImWin32DX11Backend::ClearPostFrameCallback() {
     PostFrameCallback_ = nullptr;
 }
 
+void ImWin32DX11Backend::SetCloseRequestedHandler(FCloseRequestedHandler callback)
+{
+    CloseRequestedHandler_ = std::move(callback);
+}
+
+void ImWin32DX11Backend::ClearCloseRequestedHandler()
+{
+    CloseRequestedHandler_ = nullptr;
+}
+
 void ImWin32DX11Backend::RequestClose() {
     bShouldClose_ = true;
     if (Hwnd_ != nullptr && ::IsWindow(Hwnd_)) {
@@ -2108,6 +2118,9 @@ LRESULT ImWin32DX11Backend::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
         break;
 
     case WM_CLOSE:
+        if (CloseRequestedHandler_ && !CloseRequestedHandler_()) {
+            return 0;
+        }
         bShouldClose_ = true;
         DestroyWindow(hWnd);
         return 0;

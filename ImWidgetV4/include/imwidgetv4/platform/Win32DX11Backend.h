@@ -44,6 +44,7 @@ class ImPopupMenu;
 class ImWin32DX11Backend : public ImApplicationBackend {
 public:
     using FPostFrameCallback = std::function<void(const FFrameInfo&)>;
+    using FCloseRequestedHandler = std::function<bool()>;
 
     /**
      * @brief 构造函数
@@ -140,6 +141,8 @@ public:
 
     void SetPostFrameCallback(FPostFrameCallback callback);
     void ClearPostFrameCallback();
+    void SetCloseRequestedHandler(FCloseRequestedHandler callback);
+    void ClearCloseRequestedHandler();
 
     /**
      * @brief 请求关闭窗口
@@ -236,6 +239,7 @@ private:
     ImApplication* Application_;
     FImGuiInputSource InputSource_;
     FPostFrameCallback PostFrameCallback_;
+    FCloseRequestedHandler CloseRequestedHandler_;
     std::shared_ptr<ImWindow> TitleBarMenuPopupWindow_;
     std::shared_ptr<ImPopupMenu> TitleBarMenuPopupWidget_;
     std::unique_ptr<FHostChromeLayoutCache> HostChromeLayoutCache_;

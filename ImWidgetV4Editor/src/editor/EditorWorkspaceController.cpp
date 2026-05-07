@@ -3,9 +3,13 @@
 #include "EditorSession.h"
 #include "EditorShellHost.h"
 #include "../inspector/ReflectionDetailsView.h"
+#include "../inspector/PropertyEditorWidgets.h"
 
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -13,12 +17,20 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <Shellapi.h>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <system_error>
 
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
+using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
 
@@ -48,6 +60,11 @@ std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const s
     panel->AddChild(MakePanelTitle(title), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
     panel->AddChild(MakePanelBody(bodyText), FMargin(14.0f, 0.0f, 14.0f, 14.0f));
     return panel;
+}
+
+FButtonStyle MakeWorkspaceDialogButtonStyle(bool bPrimary)
+{
+    return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
 }
 
 std::shared_ptr<ImScrollBox> CreateDocumentHost()
@@ -125,6 +142,71 @@ bool IsSupportedWorkspaceDocument(const std::filesystem::path& filePath)
     return extension == ".json" || extension == ".ui" || extension == ".txt";
 }
 
+bool IsPathWithinRoot(const std::filesystem::path& candidate, const std::filesystem::path& root)
+{
+    if (candidate.empty() || root.empty()) {
+        return false;
+    }
+
+    std::error_code error;
+    const std::filesystem::path normalizedCandidate = std::filesystem::weakly_canonical(candidate, error);
+    const std::filesystem::path resolvedCandidate = error ? candidate.lexically_normal() : normalizedCandidate;
+    error.clear();
+    const std::filesystem::path normalizedRoot = std::filesystem::weakly_canonical(root, error);
+    const std::filesystem::path resolvedRoot = error ? root.lexically_normal() : normalizedRoot;
+
+    auto rootIt = resolvedRoot.begin();
+    auto candidateIt = resolvedCandidate.begin();
+    for (; rootIt != resolvedRoot.end() && candidateIt != resolvedCandidate.end(); ++rootIt, ++candidateIt) {
+        if (*rootIt != *candidateIt) {
+            return false;
+        }
+    }
+
+    return rootIt == resolvedRoot.end();
+}
+
+std::filesystem::path NormalizePathForComparison(const std::filesystem::path& path)
+{
+    if (path.empty()) {
+        return {};
+    }
+
+    std::error_code error;
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, error);
+    return error ? path.lexically_normal() : canonicalPath;
+}
+
+bool AreEquivalentPaths(const std::filesystem::path& left, const std::filesystem::path& right)
+{
+    if (left.empty() || right.empty()) {
+        return false;
+    }
+
+    return NormalizePathForComparison(left) == NormalizePathForComparison(right);
+}
+
+std::filesystem::path BuildUniqueChildPath(
+    const std::filesystem::path& directoryPath,
+    const std::string& baseName)
+{
+    std::filesystem::path candidate = directoryPath / baseName;
+    if (!std::filesystem::exists(candidate)) {
+        return candidate;
+    }
+
+    for (int suffix = 2; suffix < 10000; ++suffix) {
+        std::ostringstream builder;
+        builder << baseName << suffix;
+        candidate = directoryPath / builder.str();
+        if (!std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return {};
+}
+
 } // namespace
 
 EditorWorkspaceController::EditorWorkspaceController(
@@ -136,6 +218,11 @@ EditorWorkspaceController::EditorWorkspaceController(
 void EditorWorkspaceController::SetOnProjectStateChanged(std::function<void()> callback)
 {
     m_OnProjectStateChanged = std::move(callback);
+}
+
+void EditorWorkspaceController::SetOnExitRequested(std::function<void()> callback)
+{
+    m_OnExitRequested = std::move(callback);
 }
 
 void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& projectRoot)
@@ -170,9 +257,44 @@ bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
         return false;
     }
 
-    SetProjectRoot(dialogResult.Path);
+    return RequestProjectRootChange(app, dialogResult.Path);
+}
+
+bool EditorWorkspaceController::RequestProjectRootChange(
+    ImApplication& app,
+    const std::filesystem::path& projectRoot)
+{
+    if (projectRoot.empty()) {
+        return false;
+    }
+
+    std::error_code error;
+    const std::filesystem::path canonicalTarget = std::filesystem::weakly_canonical(projectRoot, error);
+    const std::filesystem::path normalizedTarget =
+        error ? projectRoot.lexically_normal() : canonicalTarget;
+    if (!m_ProjectRoot.empty()) {
+        error.clear();
+        const std::filesystem::path currentProjectRoot =
+            std::filesystem::weakly_canonical(m_ProjectRoot, error);
+        const std::filesystem::path normalizedCurrent =
+            error ? m_ProjectRoot.lexically_normal() : currentProjectRoot;
+        if (normalizedCurrent == normalizedTarget) {
+            return true;
+        }
+    }
+
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (entry.Session &&
+            entry.Session->GetDocument() &&
+            entry.Session->GetDocument()->IsDirty()) {
+            PromptProjectRootChangeWithDirtyDocuments(app, normalizedTarget);
+            return false;
+        }
+    }
+
+    SetProjectRoot(normalizedTarget);
     if (m_OutputText) {
-        m_OutputText->SetItems({"Project root: " + dialogResult.Path.string()});
+        m_OutputText->SetItems({"Project root: " + normalizedTarget.string()});
     }
     return true;
 }
@@ -201,6 +323,23 @@ bool EditorWorkspaceController::CreateDocumentInDirectory(ImApplication& app, co
     }
 
     return CreateAndOpenDocumentAtPath(dialogResult.Path);
+}
+
+bool EditorWorkspaceController::CreateFolderInDirectory(ImApplication&, const std::filesystem::path& directoryPath)
+{
+    if (directoryPath.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path newFolderPath = BuildUniqueChildPath(directoryPath, "NewFolder");
+    if (newFolderPath.empty()) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create folder failed: unable to allocate a unique folder name."});
+        }
+        return false;
+    }
+
+    return CreateFolderAtPath(newFolderPath);
 }
 
 void EditorWorkspaceController::Bind(
@@ -403,6 +542,77 @@ bool EditorWorkspaceController::Redo()
 {
     std::shared_ptr<EditorSession> session = GetActiveSession();
     return session ? session->Redo() : false;
+}
+
+bool EditorWorkspaceController::RequestApplicationClose(ImApplication& app)
+{
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (entry.Session &&
+            entry.Session->GetDocument() &&
+            entry.Session->GetDocument()->IsDirty()) {
+            PromptExitWithDirtyDocuments(app);
+            return false;
+        }
+    }
+
+    ConfirmApplicationClose();
+    return true;
+}
+
+void EditorWorkspaceController::ConfirmApplicationClose()
+{
+    ClosePendingPrompt();
+    m_bExitRequested = false;
+    m_ExitPromptAppLock.reset();
+    if (m_OnExitRequested) {
+        m_OnExitRequested();
+    }
+}
+
+bool EditorWorkspaceController::SaveWorkspaceState(const std::filesystem::path& filePath) const
+{
+    if (filePath.empty()) {
+        return false;
+    }
+
+    try {
+        const std::filesystem::path parentPath = filePath.parent_path();
+        if (!parentPath.empty()) {
+            std::error_code error;
+            std::filesystem::create_directories(parentPath, error);
+        }
+
+        std::ofstream stream(filePath, std::ios::binary | std::ios::trunc);
+        if (!stream.is_open()) {
+            return false;
+        }
+
+        stream << BuildWorkspaceStateJson().dump(2);
+        stream.flush();
+        return stream.good();
+    } catch (...) {
+        return false;
+    }
+}
+
+bool EditorWorkspaceController::LoadWorkspaceState(const std::filesystem::path& filePath)
+{
+    if (filePath.empty() || !std::filesystem::exists(filePath)) {
+        return false;
+    }
+
+    try {
+        std::ifstream stream(filePath, std::ios::binary);
+        if (!stream.is_open()) {
+            return false;
+        }
+
+        json workspaceState;
+        stream >> workspaceState;
+        return ApplyWorkspaceStateJson(workspaceState, nullptr);
+    } catch (...) {
+        return false;
+    }
 }
 
 std::shared_ptr<EditorSession> EditorWorkspaceController::GetActiveSession() const
@@ -779,6 +989,399 @@ void EditorWorkspaceController::PromptCloseDirtyDocument(ImApplication& app, int
     m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
 }
 
+void EditorWorkspaceController::PromptExitWithDirtyDocuments(ImApplication& app)
+{
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+    m_bExitRequested = true;
+    m_ExitPromptAppLock = std::shared_ptr<ImApplication>(&app, [](ImApplication*) {});
+
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
+    popupStyle.CornerRadius = 6.0f;
+    popupMenu->SetStyle(popupStyle);
+
+    auto weakThis = weak_from_this();
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Save All and Exit",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                std::shared_ptr<ImApplication> app = self->m_ExitPromptAppLock;
+                if (!app) {
+                    self->ClosePendingPrompt();
+                    return;
+                }
+
+                for (int index = 0; index < static_cast<int>(self->m_Documents.size()); ++index) {
+                    self->ActivateDocumentAt(index);
+                    auto session = self->m_Documents[static_cast<std::size_t>(index)].Session;
+                    if (!session || !session->GetDocument() || !session->GetDocument()->IsDirty()) {
+                        continue;
+                    }
+
+                    if (!session->SaveDocument(*app)) {
+                        self->m_bExitRequested = false;
+                        self->m_ExitPromptAppLock.reset();
+                        return;
+                    }
+                }
+
+                self->ConfirmApplicationClose();
+            }
+        }
+    });
+    items.push_back(FPopupMenuItem {
+        "Discard Changes and Exit",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->ConfirmApplicationClose();
+            }
+        }
+    });
+    items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(FPopupMenuItem {
+        "Cancel",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->m_bExitRequested = false;
+                self->m_ExitPromptAppLock.reset();
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
+        if (auto self = weakThis.lock()) {
+            if (!self->m_bExitRequested) {
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+
+    FVector2 popupPosition(160.0f, 96.0f);
+    if (m_DocumentTabs) {
+        const FGeometry geometry = m_DocumentTabs->GetGeometry();
+        popupPosition = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.5f - 120.0f),
+            geometry.Position.Y + 44.0f);
+    }
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ExitDirtyDocumentsPrompt";
+    popupOptions.Position = popupPosition;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_CloseConfirmMenu = popupMenu;
+    m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
+}
+
+void EditorWorkspaceController::PromptProjectRootChangeWithDirtyDocuments(
+    ImApplication& app,
+    const std::filesystem::path& projectRoot)
+{
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+    m_PendingProjectRootChange = projectRoot;
+
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
+    popupStyle.CornerRadius = 6.0f;
+    popupMenu->SetStyle(popupStyle);
+
+    auto weakThis = weak_from_this();
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        "Save All and Switch",
+        {},
+        {},
+        true,
+        false,
+        [weakThis, application = &app]() {
+            if (auto self = weakThis.lock()) {
+                for (int index = 0; index < static_cast<int>(self->m_Documents.size()); ++index) {
+                    self->ActivateDocumentAt(index);
+                    auto session = self->m_Documents[static_cast<std::size_t>(index)].Session;
+                    if (!session || !session->GetDocument() || !session->GetDocument()->IsDirty()) {
+                        continue;
+                    }
+
+                    if (!application || !session->SaveDocument(*application)) {
+                        self->m_PendingProjectRootChange.clear();
+                        return;
+                    }
+                }
+
+                const std::filesystem::path pendingProjectRoot = self->m_PendingProjectRootChange;
+                self->m_PendingProjectRootChange.clear();
+                self->SetProjectRoot(pendingProjectRoot);
+                if (self->m_OutputText) {
+                    self->m_OutputText->SetItems({"Project root: " + pendingProjectRoot.string()});
+                }
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    items.push_back(FPopupMenuItem {
+        "Discard Changes and Switch",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                const std::filesystem::path pendingProjectRoot = self->m_PendingProjectRootChange;
+                self->m_PendingProjectRootChange.clear();
+                self->SetProjectRoot(pendingProjectRoot);
+                if (self->m_OutputText) {
+                    self->m_OutputText->SetItems({"Project root: " + pendingProjectRoot.string()});
+                }
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(FPopupMenuItem {
+        "Cancel",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->m_PendingProjectRootChange.clear();
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
+        if (auto self = weakThis.lock()) {
+            if (self->m_PendingProjectRootChange.empty()) {
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+
+    FVector2 popupPosition(160.0f, 96.0f);
+    if (m_DocumentTabs) {
+        const FGeometry geometry = m_DocumentTabs->GetGeometry();
+        popupPosition = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.5f - 120.0f),
+            geometry.Position.Y + 44.0f);
+    }
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ProjectRootChangeDirtyDocumentsPrompt";
+    popupOptions.Position = popupPosition;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_CloseConfirmMenu = popupMenu;
+    m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
+}
+
+void EditorWorkspaceController::OpenRenameProjectItemDialog(
+    ImApplication& app,
+    const std::filesystem::path& path)
+{
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return;
+    }
+
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+    m_PendingRenameProjectItemPath = path;
+
+    auto title = std::make_shared<ImTextBlock>();
+    title->SetText(std::filesystem::is_directory(path) ? "Rename Folder" : "Rename File");
+    title->SetWrapText(false);
+    title->SetFontSize(16.0f);
+    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+
+    auto editor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*editor, false);
+    editor->SetText(path.filename().string());
+
+    auto confirmButton = std::make_shared<ImButton>();
+    confirmButton->SetStyle(MakeWorkspaceDialogButtonStyle(true));
+    confirmButton->SetText("Rename");
+
+    auto cancelButton = std::make_shared<ImButton>();
+    cancelButton->SetStyle(MakeWorkspaceDialogButtonStyle(false));
+    cancelButton->SetText("Cancel");
+
+    auto buttonRow = std::make_shared<ImHorizontalBox>();
+    buttonRow->SetSpacing(8.0f);
+    buttonRow->AddChildFill(MakeInspectorFlexibleSpacer(), 1.0f, FMargin(0.0f));
+    buttonRow->AddChild(confirmButton);
+    buttonRow->AddChild(cancelButton);
+
+    auto root = std::make_shared<ImVerticalBox>();
+    root->SetSpacing(10.0f);
+    root->AddChild(title, FMargin(12.0f, 12.0f, 12.0f, 0.0f));
+    root->AddChild(editor, FMargin(12.0f, 0.0f, 12.0f, 0.0f));
+    root->AddChild(buttonRow, FMargin(12.0f, 0.0f, 12.0f, 12.0f));
+
+    auto weakThis = weak_from_this();
+    auto commitRename = [weakThis]() {
+        if (auto self = weakThis.lock()) {
+            if (!self->m_PendingInputDialogEditor) {
+                self->ClosePendingPrompt();
+                return;
+            }
+
+            const std::string newName = self->m_PendingInputDialogEditor->GetText();
+            const std::filesystem::path oldPath = self->m_PendingRenameProjectItemPath;
+            self->m_PendingRenameProjectItemPath.clear();
+            self->RenameProjectItem(oldPath, newName);
+            self->ClosePendingPrompt();
+        }
+    };
+
+    confirmButton->OnClicked.AddLambda([commitRename](ImButton&) {
+        commitRename();
+    });
+    cancelButton->OnClicked.AddLambda([weakThis](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->m_PendingRenameProjectItemPath.clear();
+            self->ClosePendingPrompt();
+        }
+    });
+    editor->OnTextCommitted.AddLambda([commitRename](ImEditableText&, const std::string&) {
+        commitRename();
+    });
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "RenameProjectItemDialog";
+    popupOptions.Position = FVector2(220.0f, 120.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        popupOptions.Position = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.30f),
+            geometry.Position.Y + 52.0f);
+    }
+    popupOptions.Size = FVector2(360.0f, 116.0f);
+    popupOptions.RootWidget = root;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_PendingInputDialogRoot = root;
+    m_PendingInputDialogEditor = editor;
+    m_PendingInputDialogConfirmButton = confirmButton;
+    m_PendingInputDialogCancelButton = cancelButton;
+    m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
+    m_CloseConfirmMenu.reset();
+
+    app.SetKeyboardFocus(editor);
+}
+
+void EditorWorkspaceController::PromptDeleteProjectItem(
+    ImApplication& app,
+    const std::filesystem::path& path)
+{
+    if (path.empty()) {
+        return;
+    }
+
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+    m_PendingDeleteProjectItemPath = path;
+
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
+    popupStyle.CornerRadius = 6.0f;
+    popupMenu->SetStyle(popupStyle);
+
+    auto weakThis = weak_from_this();
+    std::vector<FPopupMenuItem> items;
+    items.push_back(FPopupMenuItem {
+        std::filesystem::is_directory(path) ? "Delete Folder" : "Delete File",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                const std::filesystem::path pendingPath = self->m_PendingDeleteProjectItemPath;
+                self->m_PendingDeleteProjectItemPath.clear();
+                self->DeleteProjectItem(pendingPath);
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(FPopupMenuItem {
+        "Cancel",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->m_PendingDeleteProjectItemPath.clear();
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
+        if (auto self = weakThis.lock()) {
+            if (self->m_PendingDeleteProjectItemPath.empty()) {
+                self->ClosePendingPrompt();
+            }
+        }
+    });
+
+    FVector2 popupPosition(160.0f, 96.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        popupPosition = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.35f),
+            geometry.Position.Y + 48.0f);
+    }
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "DeleteProjectItemPrompt";
+    popupOptions.Position = popupPosition;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_CloseConfirmMenu = popupMenu;
+    m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
+}
+
 void EditorWorkspaceController::ClosePendingPrompt()
 {
     if (m_CloseConfirmWindow && m_ShellHost && m_ShellHost->GetApplication()) {
@@ -787,7 +1390,128 @@ void EditorWorkspaceController::ClosePendingPrompt()
 
     m_CloseConfirmMenu.reset();
     m_CloseConfirmWindow.reset();
+    m_PendingInputDialogRoot.reset();
+    m_PendingInputDialogEditor.reset();
+    m_PendingInputDialogConfirmButton.reset();
+    m_PendingInputDialogCancelButton.reset();
     m_PendingCloseDocumentIndex = -1;
+    m_PendingProjectRootChange.clear();
+    m_PendingRenameProjectItemPath.clear();
+    m_PendingDeleteProjectItemPath.clear();
+}
+
+EditorWorkspaceController::json EditorWorkspaceController::BuildWorkspaceStateJson() const
+{
+    json workspaceState;
+    workspaceState["Format"] = "ImWidgetV4EditorWorkspaceState";
+    workspaceState["Version"] = 1;
+    workspaceState["ProjectRoot"] = m_ProjectRoot.string();
+    workspaceState["ActiveDocumentIndex"] = m_ActiveDocumentIndex;
+
+    json openDocuments = json::array();
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (!entry.Session || !entry.Session->GetDocument()) {
+            continue;
+        }
+
+        const std::shared_ptr<EditorDocument>& document = entry.Session->GetDocument();
+        if (!document->HasFilePath()) {
+            continue;
+        }
+
+        json documentJson;
+        documentJson["Path"] = document->GetFilePath().string();
+        openDocuments.push_back(std::move(documentJson));
+    }
+    workspaceState["OpenDocuments"] = std::move(openDocuments);
+
+    json recentFiles = json::array();
+    for (const std::filesystem::path& path : m_RecentFiles) {
+        recentFiles.push_back(path.string());
+    }
+    workspaceState["RecentFiles"] = std::move(recentFiles);
+
+    return workspaceState;
+}
+
+bool EditorWorkspaceController::ApplyWorkspaceStateJson(const json& workspaceState, std::string* outError)
+{
+    if (!workspaceState.is_object()) {
+        if (outError) {
+            *outError = "Workspace state must be an object.";
+        }
+        return false;
+    }
+
+    if (workspaceState.value("Format", std::string()) != "ImWidgetV4EditorWorkspaceState") {
+        if (outError) {
+            *outError = "Unsupported workspace state format.";
+        }
+        return false;
+    }
+
+    const int version = workspaceState.value("Version", 0);
+    if (version != 1) {
+        if (outError) {
+            *outError = "Unsupported workspace state version.";
+        }
+        return false;
+    }
+
+    const std::string projectRoot = workspaceState.value("ProjectRoot", std::string());
+    if (!projectRoot.empty()) {
+        SetProjectRoot(projectRoot);
+    }
+
+    if (workspaceState.contains("RecentFiles") && workspaceState["RecentFiles"].is_array()) {
+        m_RecentFiles.clear();
+        for (const json& recentFile : workspaceState["RecentFiles"]) {
+            if (recentFile.is_string()) {
+                RememberRecentFile(recentFile.get<std::string>());
+            }
+        }
+    }
+
+    if (m_DocumentTabs) {
+        m_DocumentTabs->ClearTabs();
+    }
+    m_Documents.clear();
+    m_ActiveDocumentIndex = -1;
+    if (m_ShellHost) {
+        m_ShellHost->SetSession(nullptr);
+    }
+
+    bool bAddedAnyDocument = false;
+    if (workspaceState.contains("OpenDocuments") && workspaceState["OpenDocuments"].is_array()) {
+        for (const json& documentEntry : workspaceState["OpenDocuments"]) {
+            if (!documentEntry.is_object()) {
+                continue;
+            }
+
+            const std::filesystem::path filePath = documentEntry.value("Path", std::string());
+            if (filePath.empty() || !std::filesystem::exists(filePath)) {
+                continue;
+            }
+
+            std::shared_ptr<EditorSession> session = CreateSession();
+            if (!session || !session->OpenDocumentFromPath(filePath)) {
+                continue;
+            }
+
+            RememberRecentFile(filePath);
+            bAddedAnyDocument = AddSession(session, false) || bAddedAnyDocument;
+        }
+    }
+
+    if (!bAddedAnyDocument) {
+        AddSession(CreateSession(), true);
+    } else {
+        const int desiredActiveIndex = workspaceState.value("ActiveDocumentIndex", 0);
+        ActivateDocumentAt(std::clamp(desiredActiveIndex, 0, static_cast<int>(m_Documents.size()) - 1));
+    }
+
+    RebuildProjectView();
+    return true;
 }
 
 void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, int index, FVector2 position)
@@ -1049,10 +1773,13 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
             {},
             true,
             false,
-            [weakThis, path = binding.Path, kind = binding.Kind]() {
+            [weakThis, path = binding.Path, kind = binding.Kind, application = &app]() {
                 if (auto self = weakThis.lock()) {
-                    self->SetProjectRoot(
-                        kind == EProjectItemKind::WorkspaceDirectory ? path : path.parent_path());
+                    if (application) {
+                        self->RequestProjectRootChange(
+                            *application,
+                            kind == EProjectItemKind::WorkspaceDirectory ? path : path.parent_path());
+                    }
                     self->CloseProjectItemContextMenu();
                 }
             }
@@ -1077,6 +1804,22 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
         });
 
         items.push_back(FPopupMenuItem {
+            "New Folder",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    if (application) {
+                        self->CreateFolderInDirectory(*application, path);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+
+        items.push_back(FPopupMenuItem {
             "Refresh This Folder",
             {},
             {},
@@ -1086,6 +1829,52 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                 if (auto self = weakThis.lock()) {
                     self->RefreshProjectTree();
                     self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
+    if (binding.Kind == EProjectItemKind::WorkspaceDirectory ||
+        binding.Kind == EProjectItemKind::WorkspaceFile) {
+        items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+        items.push_back(FPopupMenuItem {
+            "Rename...",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    if (application) {
+                        self->OpenRenameProjectItemDialog(*application, path);
+                    }
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Reveal in Explorer",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path]() {
+                if (auto self = weakThis.lock()) {
+                    self->RevealProjectItemInExplorer(path);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Delete",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    if (application) {
+                        self->PromptDeleteProjectItem(*application, path);
+                    }
                 }
             }
         });
@@ -1178,6 +1967,184 @@ bool EditorWorkspaceController::CreateAndOpenDocumentAtPath(const std::filesyste
     return bAdded;
 }
 
+bool EditorWorkspaceController::CreateFolderAtPath(const std::filesystem::path& directoryPath)
+{
+    if (directoryPath.empty()) {
+        return false;
+    }
+
+    try {
+        if (std::filesystem::exists(directoryPath)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create folder skipped: " + directoryPath.filename().string() + " already exists."});
+            }
+            return false;
+        }
+
+        const std::filesystem::path parentPath = directoryPath.parent_path();
+        if (!parentPath.empty()) {
+            std::filesystem::create_directories(parentPath);
+        }
+
+        if (!std::filesystem::create_directory(directoryPath)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create folder failed: unable to create " + directoryPath.filename().string()});
+            }
+            return false;
+        }
+    } catch (const std::exception& exception) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create folder failed: " + std::string(exception.what())});
+        }
+        return false;
+    } catch (...) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create folder failed."});
+        }
+        return false;
+    }
+
+    RefreshProjectTree();
+    if (m_OutputText) {
+        m_OutputText->SetItems({"Created folder " + directoryPath.filename().string()});
+    }
+    NotifyProjectStateChanged();
+    return true;
+}
+
+bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& path, const std::string& newName)
+{
+    if (path.empty() || newName.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+
+    const std::filesystem::path trimmedName = std::filesystem::path(newName).filename();
+    if (trimmedName.empty() || trimmedName != newName) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Rename failed: name must not contain path separators."});
+        }
+        return false;
+    }
+
+    const std::filesystem::path targetPath = path.parent_path() / trimmedName;
+    if (AreEquivalentPaths(targetPath, path)) {
+        return true;
+    }
+
+    if (std::filesystem::exists(targetPath)) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Rename failed: target already exists."});
+        }
+        return false;
+    }
+
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (!entry.Session || !entry.Session->GetDocument() || !entry.Session->GetDocument()->HasFilePath()) {
+            continue;
+        }
+
+        const std::filesystem::path documentPath = entry.Session->GetDocument()->GetFilePath();
+        if ((AreEquivalentPaths(documentPath, path) || IsPathWithinRoot(documentPath, path)) &&
+            entry.Session->GetDocument()->IsDirty()) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Rename blocked: save or discard dirty documents under the selected path first."});
+            }
+            return false;
+        }
+    }
+
+    try {
+        std::filesystem::rename(path, targetPath);
+    } catch (const std::exception& exception) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Rename failed: " + std::string(exception.what())});
+        }
+        return false;
+    } catch (...) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Rename failed."});
+        }
+        return false;
+    }
+
+    ReplaceRecentFilePath(path, targetPath);
+    UpdateOpenDocumentPathsForRename(path, targetPath);
+    if (!m_ProjectRoot.empty() && AreEquivalentPaths(m_ProjectRoot, path)) {
+        m_ProjectRoot = targetPath;
+    }
+
+    RefreshProjectTree();
+    if (m_OutputText) {
+        m_OutputText->SetItems({"Renamed " + path.filename().string() + " to " + targetPath.filename().string()});
+    }
+    NotifyProjectStateChanged();
+    return true;
+}
+
+bool EditorWorkspaceController::DeleteProjectItem(const std::filesystem::path& path)
+{
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+
+    bool bBlockedByDirtyDocument = false;
+    if (!CloseOpenDocumentsUnderPath(path, &bBlockedByDirtyDocument)) {
+        if (bBlockedByDirtyDocument && m_OutputText) {
+            m_OutputText->SetItems({"Delete blocked: save or discard dirty documents under the selected path first."});
+        }
+        return false;
+    }
+
+    try {
+        RemoveRecentFilesUnderPath(path);
+        if (std::filesystem::is_directory(path)) {
+            std::filesystem::remove_all(path);
+        } else {
+            std::filesystem::remove(path);
+        }
+    } catch (const std::exception& exception) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Delete failed: " + std::string(exception.what())});
+        }
+        return false;
+    } catch (...) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Delete failed."});
+        }
+        return false;
+    }
+
+    RefreshProjectTree();
+    if (m_OutputText) {
+        m_OutputText->SetItems({"Deleted " + path.filename().string()});
+    }
+    NotifyProjectStateChanged();
+    return true;
+}
+
+bool EditorWorkspaceController::RevealProjectItemInExplorer(const std::filesystem::path& path) const
+{
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+
+    std::wstring commandLine;
+    if (std::filesystem::is_directory(path)) {
+        commandLine = L"/e,\"" + path.wstring() + L"\"";
+    } else {
+        commandLine = L"/select,\"" + path.wstring() + L"\"";
+    }
+
+    SHELLEXECUTEINFOW executeInfo {};
+    executeInfo.cbSize = sizeof(executeInfo);
+    executeInfo.fMask = SEE_MASK_FLAG_NO_UI;
+    executeInfo.lpVerb = L"open";
+    executeInfo.lpFile = L"explorer.exe";
+    executeInfo.lpParameters = commandLine.c_str();
+    executeInfo.nShow = SW_SHOWNORMAL;
+    return ShellExecuteExW(&executeInfo) == TRUE;
+}
+
 void EditorWorkspaceController::NotifyProjectStateChanged() const
 {
     if (m_OnProjectStateChanged) {
@@ -1242,6 +2209,137 @@ void EditorWorkspaceController::RememberRecentFile(const std::filesystem::path& 
     constexpr std::size_t kMaxRecentFiles = 10;
     if (m_RecentFiles.size() > kMaxRecentFiles) {
         m_RecentFiles.resize(kMaxRecentFiles);
+    }
+}
+
+void EditorWorkspaceController::RemoveRecentFilesUnderPath(const std::filesystem::path& path)
+{
+    if (path.empty()) {
+        return;
+    }
+
+    std::error_code error;
+    const std::filesystem::path normalizedTarget = std::filesystem::weakly_canonical(path, error);
+    const std::filesystem::path targetPath = error ? path.lexically_normal() : normalizedTarget;
+
+    m_RecentFiles.erase(
+        std::remove_if(
+            m_RecentFiles.begin(),
+            m_RecentFiles.end(),
+            [&targetPath](const std::filesystem::path& recentPath) {
+                std::error_code compareError;
+                const std::filesystem::path normalizedRecent =
+                    std::filesystem::weakly_canonical(recentPath, compareError);
+                const std::filesystem::path recentResolved =
+                    compareError ? recentPath.lexically_normal() : normalizedRecent;
+                return recentResolved == targetPath || IsPathWithinRoot(recentResolved, targetPath);
+            }),
+        m_RecentFiles.end());
+}
+
+void EditorWorkspaceController::ReplaceRecentFilePath(const std::filesystem::path& oldPath, const std::filesystem::path& newPath)
+{
+    if (oldPath.empty() || newPath.empty()) {
+        return;
+    }
+
+    for (std::filesystem::path& recentPath : m_RecentFiles) {
+        if (AreEquivalentPaths(recentPath, oldPath)) {
+            recentPath = newPath;
+            continue;
+        }
+
+        if (IsPathWithinRoot(recentPath, oldPath)) {
+            recentPath = newPath / std::filesystem::relative(recentPath, oldPath);
+        }
+    }
+}
+
+bool EditorWorkspaceController::CloseOpenDocumentsUnderPath(
+    const std::filesystem::path& path,
+    bool* outBlockedByDirtyDocument)
+{
+    if (outBlockedByDirtyDocument) {
+        *outBlockedByDirtyDocument = false;
+    }
+
+    if (path.empty()) {
+        return true;
+    }
+
+    std::error_code error;
+    const std::filesystem::path normalizedTarget = std::filesystem::weakly_canonical(path, error);
+    const std::filesystem::path targetPath = error ? path.lexically_normal() : normalizedTarget;
+
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (!entry.Session || !entry.Session->GetDocument() || !entry.Session->GetDocument()->HasFilePath()) {
+            continue;
+        }
+
+        const std::filesystem::path documentPath = entry.Session->GetDocument()->GetFilePath();
+        error.clear();
+        const std::filesystem::path normalizedDocument =
+            std::filesystem::weakly_canonical(documentPath, error);
+        const std::filesystem::path resolvedDocument =
+            error ? documentPath.lexically_normal() : normalizedDocument;
+        if (resolvedDocument != targetPath && !IsPathWithinRoot(resolvedDocument, targetPath)) {
+            continue;
+        }
+
+        if (entry.Session->GetDocument()->IsDirty()) {
+            if (outBlockedByDirtyDocument) {
+                *outBlockedByDirtyDocument = true;
+            }
+            return false;
+        }
+    }
+
+    for (int index = static_cast<int>(m_Documents.size()) - 1; index >= 0; --index) {
+        const auto& entry = m_Documents[static_cast<std::size_t>(index)];
+        if (!entry.Session || !entry.Session->GetDocument() || !entry.Session->GetDocument()->HasFilePath()) {
+            continue;
+        }
+
+        const std::filesystem::path documentPath = entry.Session->GetDocument()->GetFilePath();
+        error.clear();
+        const std::filesystem::path normalizedDocument =
+            std::filesystem::weakly_canonical(documentPath, error);
+        const std::filesystem::path resolvedDocument =
+            error ? documentPath.lexically_normal() : normalizedDocument;
+        if (resolvedDocument != targetPath && !IsPathWithinRoot(resolvedDocument, targetPath)) {
+            continue;
+        }
+
+        if (!FinalizeDocumentClose(index)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void EditorWorkspaceController::UpdateOpenDocumentPathsForRename(
+    const std::filesystem::path& oldPath,
+    const std::filesystem::path& newPath)
+{
+    if (oldPath.empty() || newPath.empty()) {
+        return;
+    }
+
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (!entry.Session || !entry.Session->GetDocument() || !entry.Session->GetDocument()->HasFilePath()) {
+            continue;
+        }
+
+        const std::filesystem::path documentPath = entry.Session->GetDocument()->GetFilePath();
+        if (AreEquivalentPaths(documentPath, oldPath)) {
+            entry.Session->UpdateDocumentFilePath(newPath);
+            continue;
+        }
+
+        if (IsPathWithinRoot(documentPath, oldPath)) {
+            entry.Session->UpdateDocumentFilePath(newPath / std::filesystem::relative(documentPath, oldPath));
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Application.h>
+#include <nlohmann/json.hpp>
 #include <unordered_map>
 #include <functional>
 #include <memory>
@@ -9,6 +10,8 @@
 
 namespace ImWidgetV4 {
 class ImDesignerSurface;
+class ImButton;
+class ImEditableText;
 class ImPopupMenu;
 class ImScrollBox;
 class ImTabView;
@@ -28,10 +31,13 @@ class ReflectionDetailsView;
 
 class EditorWorkspaceController : public std::enable_shared_from_this<EditorWorkspaceController> {
 public:
+    using json = nlohmann::ordered_json;
+
     explicit EditorWorkspaceController(
         std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
 
     void SetOnProjectStateChanged(std::function<void()> callback);
+    void SetOnExitRequested(std::function<void()> callback);
     void SetProjectRoot(const std::filesystem::path& projectRoot);
     const std::filesystem::path& GetProjectRoot() const { return m_ProjectRoot; }
     void RefreshProjectTree();
@@ -48,8 +54,14 @@ public:
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
+    bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
     bool CreateDocumentInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
+    bool CreateFolderInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
     bool CreateAndOpenDocumentAtPath(const std::filesystem::path& filePath);
+    bool CreateFolderAtPath(const std::filesystem::path& directoryPath);
+    bool RenameProjectItem(const std::filesystem::path& path, const std::string& newName);
+    bool DeleteProjectItem(const std::filesystem::path& path);
+    bool RevealProjectItemInExplorer(const std::filesystem::path& path) const;
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
@@ -61,6 +73,10 @@ public:
     bool DuplicateSelectedWidget();
     bool Undo();
     bool Redo();
+    bool RequestApplicationClose(ImWidgetV4::ImApplication& app);
+    void ConfirmApplicationClose();
+    bool SaveWorkspaceState(const std::filesystem::path& filePath) const;
+    bool LoadWorkspaceState(const std::filesystem::path& filePath);
     int GetDocumentCount() const { return static_cast<int>(m_Documents.size()); }
     int GetActiveDocumentIndex() const { return m_ActiveDocumentIndex; }
 
@@ -110,7 +126,17 @@ private:
     bool CloseOtherDocuments(ImWidgetV4::ImApplication& app, int keepIndex);
     bool CloseAllDocuments(ImWidgetV4::ImApplication& app);
     void PromptCloseDirtyDocument(ImWidgetV4::ImApplication& app, int index);
+    void PromptExitWithDirtyDocuments(ImWidgetV4::ImApplication& app);
+    void PromptProjectRootChangeWithDirtyDocuments(
+        ImWidgetV4::ImApplication& app,
+        const std::filesystem::path& projectRoot);
+    void OpenRenameProjectItemDialog(
+        ImWidgetV4::ImApplication& app,
+        const std::filesystem::path& path);
+    void PromptDeleteProjectItem(ImWidgetV4::ImApplication& app, const std::filesystem::path& path);
     void ClosePendingPrompt();
+    json BuildWorkspaceStateJson() const;
+    bool ApplyWorkspaceStateJson(const json& workspaceState, std::string* outError = nullptr);
     void OpenDocumentTabContextMenu(ImWidgetV4::ImApplication& app, int index, ImWidgetV4::FVector2 position);
     void CloseDocumentTabContextMenu();
     void OpenProjectItemContextMenu(ImWidgetV4::ImApplication& app, ImWidgetV4::ImTextOutlineItem* item, ImWidgetV4::FVector2 position);
@@ -118,11 +144,16 @@ private:
     void NotifyProjectStateChanged() const;
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;
     void RememberRecentFile(const std::filesystem::path& filePath);
+    void RemoveRecentFilesUnderPath(const std::filesystem::path& path);
+    void ReplaceRecentFilePath(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+    bool CloseOpenDocumentsUnderPath(const std::filesystem::path& path, bool* outBlockedByDirtyDocument = nullptr);
+    void UpdateOpenDocumentPathsForRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
     void RebuildProjectView();
     void HandleProjectSelectionChanged(ImWidgetV4::ImTextOutlineView& view, ImWidgetV4::ImTextOutlineItem* item);
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
     std::function<void()> m_OnProjectStateChanged;
+    std::function<void()> m_OnExitRequested;
     std::filesystem::path m_ProjectRoot;
     std::shared_ptr<EditorShellHost> m_ShellHost;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
@@ -139,10 +170,19 @@ private:
     std::shared_ptr<ImWidgetV4::ImWindow> m_DocumentTabContextMenuWindow;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_ProjectItemContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_ProjectItemContextMenuWindow;
+    std::shared_ptr<ImWidgetV4::ImWidget> m_PendingInputDialogRoot;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_PendingInputDialogEditor;
+    std::shared_ptr<ImWidgetV4::ImButton> m_PendingInputDialogConfirmButton;
+    std::shared_ptr<ImWidgetV4::ImButton> m_PendingInputDialogCancelButton;
+    std::shared_ptr<ImWidgetV4::ImApplication> m_ExitPromptAppLock;
+    std::filesystem::path m_PendingProjectRootChange;
+    std::filesystem::path m_PendingRenameProjectItemPath;
+    std::filesystem::path m_PendingDeleteProjectItemPath;
     int m_ContextMenuDocumentIndex = -1;
     ImWidgetV4::ImTextOutlineItem* m_ContextMenuProjectItem = nullptr;
     int m_PendingCloseDocumentIndex = -1;
     int m_ActiveDocumentIndex = -1;
+    bool m_bExitRequested = false;
     bool m_bIgnoringTabActivation = false;
 };
 

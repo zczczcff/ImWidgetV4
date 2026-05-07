@@ -30,6 +30,14 @@ using namespace ImWidgetV4Editor;
 
 namespace {
 
+std::filesystem::path GetEditorWorkspaceStatePath()
+{
+    const std::filesystem::path directory = std::filesystem::path(L"C:\\ImWidgetV4\\editor");
+    std::error_code errorCode;
+    std::filesystem::create_directories(directory, errorCode);
+    return directory / "workspace_state.json";
+}
+
 struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
     std::shared_ptr<EditorShellHost> ShellHost;
@@ -363,23 +371,6 @@ std::filesystem::path ResolveEditorProjectRoot()
     return error ? root.lexically_normal() : canonicalRoot;
 }
 
-std::vector<FApplicationMenuItem> BuildProjectMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
-{
-    const std::string projectRootLabel =
-        workspaceController && !workspaceController->GetProjectRoot().empty()
-            ? workspaceController->GetProjectRoot().string()
-            : std::string("Project root not configured");
-    return {
-        FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
-            if (workspaceController) {
-                workspaceController->RefreshProjectTree();
-            }
-        }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {projectRootLabel, {}, {}, false, false, {}}
-    };
-}
-
 void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     app.ClearTitleBarTabMenus();
@@ -391,9 +382,24 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
                 workspaceController->SelectProjectRoot(app);
             }
         }},
+        FApplicationMenuItem {"New UI Document...", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+            if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
+                workspaceController->CreateDocumentInDirectory(app, workspaceController->GetProjectRoot());
+            }
+        }},
+        FApplicationMenuItem {"New Folder", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+            if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
+                workspaceController->CreateFolderInDirectory(app, workspaceController->GetProjectRoot());
+            }
+        }},
         FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RefreshProjectTree();
+            }
+        }},
+        FApplicationMenuItem {"Reveal Project Root", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [workspaceController]() {
+            if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
+                workspaceController->RevealProjectItemInExplorer(workspaceController->GetProjectRoot());
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
@@ -430,6 +436,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     auto app = std::make_shared<ImApplication>();
     app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ImWidgetV4Editor.ini"));
     backend->SetApplication(app.get());
+    const std::filesystem::path workspaceStatePath = GetEditorWorkspaceStatePath();
 
     FEditorShellWidgets shell = BuildEditorShell();
     auto workspaceController = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
@@ -443,7 +450,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
         RebuildTitleBarMenus(*lockedApp, lockedWorkspace);
     });
-    workspaceController->SetProjectRoot(ResolveEditorProjectRoot());
+    workspaceController->SetOnExitRequested([weakBackend = std::weak_ptr<ImWin32DX11Backend>(backend)]() {
+        if (auto lockedBackend = weakBackend.lock()) {
+            lockedBackend->RequestClose();
+        }
+    });
     workspaceController->Bind(
         shell.ShellHost,
         shell.DocumentTabs,
@@ -451,6 +462,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.WidgetTreeView,
         shell.DetailsView,
         shell.OutputText);
+    if (!workspaceController->LoadWorkspaceState(workspaceStatePath)) {
+        workspaceController->SetProjectRoot(ResolveEditorProjectRoot());
+    }
 
     app->SetApplicationTitle("ImWidgetV4 Editor");
     app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
@@ -488,7 +502,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     RebuildTitleBarMenus(*app, workspaceController);
     app->SetRootWidget(shell.Root);
 
+    backend->SetCloseRequestedHandler([weakApp = std::weak_ptr<ImApplication>(app), weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)]() {
+        auto lockedApp = weakApp.lock();
+        auto lockedWorkspace = weakWorkspace.lock();
+        if (!lockedApp || !lockedWorkspace) {
+            return true;
+        }
+
+        return lockedWorkspace->RequestApplicationClose(*lockedApp);
+    });
+
     backend->Run();
+    workspaceController->SaveWorkspaceState(workspaceStatePath);
     backend->Shutdown();
     return 0;
 }

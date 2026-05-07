@@ -992,6 +992,17 @@ std::string EditorSession::GetRedoLabel() const
     return m_CommandStack.GetRedoLabel();
 }
 
+void EditorSession::UpdateDocumentFilePath(const std::filesystem::path& filePath)
+{
+    if (!m_Document) {
+        return;
+    }
+
+    m_Document->SetFilePath(filePath);
+    m_Document->SetDisplayTitle(filePath.stem().string());
+    ApplyDocumentToUi();
+}
+
 void EditorSession::LogStatus(const std::string& text)
 {
     if (m_OutputText) {

@@ -963,6 +963,335 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAndOpenDocumentAtPathAddsSave
     std::filesystem::remove(filePath, removeError);
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerRequestApplicationCloseBlocksWhenDirtyDocumentsExist)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto app = std::make_shared<ImApplication>();
+    bool bExitCalled = false;
+    workspaceController->SetOnExitRequested([&bExitCalled]() {
+        bExitCalled = true;
+    });
+
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(true);
+
+    EXPECT_FALSE(workspaceController->RequestApplicationClose(*app));
+    EXPECT_FALSE(bExitCalled);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerRequestProjectRootChangeBlocksWhenDirtyDocumentsExist)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto app = std::make_shared<ImApplication>();
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(true);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    std::filesystem::create_directories(tempDirectory);
+    const std::filesystem::path projectRoot = tempDirectory / "DirtyProjectRoot";
+    std::filesystem::create_directories(projectRoot);
+
+    EXPECT_FALSE(workspaceController->RequestProjectRootChange(*app, projectRoot));
+    EXPECT_NE(workspaceController->GetProjectRoot().lexically_normal(), projectRoot.lexically_normal());
+
+    std::error_code removeError;
+    std::filesystem::remove(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerWorkspaceStateRoundTripRestoresProjectAndDocuments)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    std::filesystem::create_directories(tempDirectory);
+    const std::filesystem::path projectRoot = tempDirectory / "WorkspaceRoot";
+    std::filesystem::create_directories(projectRoot);
+    const std::filesystem::path firstFile = projectRoot / "first.ui.json";
+    const std::filesystem::path secondFile = projectRoot / "second.ui.json";
+    const std::filesystem::path workspaceStateFile = tempDirectory / "workspace-state.json";
+    std::error_code removeError;
+    std::filesystem::remove(firstFile, removeError);
+    std::filesystem::remove(secondFile, removeError);
+    std::filesystem::remove(workspaceStateFile, removeError);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(firstFile));
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(secondFile));
+    ASSERT_TRUE(workspaceController->ActivateDocumentAt(2));
+    ASSERT_TRUE(workspaceController->SaveWorkspaceState(workspaceStateFile));
+
+    auto restoredShellHost = std::make_shared<EditorShellHost>();
+    auto restoredDocumentTabs = std::make_shared<ImTabView>();
+    auto restoredProjectView = std::make_shared<ImTextOutlineView>();
+    auto restoredWidgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto restoredDetailsView = std::make_shared<ReflectionDetailsView>();
+    auto restoredOutputText = std::make_shared<ImTextList>();
+    auto restoredWorkspaceController = CreateBoundWorkspaceController(
+        restoredShellHost,
+        restoredDocumentTabs,
+        restoredProjectView,
+        restoredWidgetTreeView,
+        restoredDetailsView,
+        restoredOutputText);
+
+    ASSERT_TRUE(restoredWorkspaceController->LoadWorkspaceState(workspaceStateFile));
+    std::error_code canonicalError;
+    const std::filesystem::path expectedProjectRoot =
+        std::filesystem::weakly_canonical(projectRoot, canonicalError);
+    canonicalError.clear();
+    const std::filesystem::path restoredProjectRoot =
+        std::filesystem::weakly_canonical(restoredWorkspaceController->GetProjectRoot(), canonicalError);
+    EXPECT_EQ(restoredProjectRoot, expectedProjectRoot);
+    EXPECT_EQ(restoredWorkspaceController->GetDocumentCount(), 2);
+    EXPECT_EQ(restoredWorkspaceController->GetActiveDocumentIndex(), 1);
+    ASSERT_TRUE(restoredWorkspaceController->GetActiveSession());
+    ASSERT_TRUE(restoredWorkspaceController->GetActiveSession()->GetDocument());
+    EXPECT_EQ(
+        restoredWorkspaceController->GetActiveSession()->GetDocument()->GetFilePath().lexically_normal(),
+        secondFile.lexically_normal());
+
+    std::filesystem::remove(firstFile, removeError);
+    std::filesystem::remove(secondFile, removeError);
+    std::filesystem::remove(workspaceStateFile, removeError);
+    std::filesystem::remove(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerCreateFolderAtPathCreatesDirectory)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    const std::filesystem::path projectRoot = tempDirectory / "FolderCreateRoot";
+    const std::filesystem::path folderPath = projectRoot / "NewFolder";
+    std::error_code removeError;
+    std::filesystem::remove_all(projectRoot, removeError);
+    std::filesystem::create_directories(projectRoot);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateFolderAtPath(folderPath));
+    EXPECT_TRUE(std::filesystem::is_directory(folderPath));
+
+    std::filesystem::remove_all(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerDeleteProjectItemBlocksDirtyOpenDocument)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    const std::filesystem::path projectRoot = tempDirectory / "DeleteBlockedRoot";
+    const std::filesystem::path filePath = projectRoot / "blocked.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove_all(projectRoot, removeError);
+    std::filesystem::create_directories(projectRoot);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(filePath));
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(true);
+
+    EXPECT_FALSE(workspaceController->DeleteProjectItem(filePath));
+    EXPECT_TRUE(std::filesystem::exists(filePath));
+    EXPECT_EQ(workspaceController->GetDocumentCount(), 2);
+
+    std::filesystem::remove_all(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerDeleteProjectItemClosesOpenDocumentAndDeletesFile)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    const std::filesystem::path projectRoot = tempDirectory / "DeleteSuccessRoot";
+    const std::filesystem::path filePath = projectRoot / "delete-me.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove_all(projectRoot, removeError);
+    std::filesystem::create_directories(projectRoot);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(filePath));
+    ASSERT_EQ(workspaceController->GetDocumentCount(), 2);
+
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(false);
+
+    EXPECT_TRUE(workspaceController->DeleteProjectItem(filePath));
+    EXPECT_FALSE(std::filesystem::exists(filePath));
+    EXPECT_EQ(workspaceController->GetDocumentCount(), 1);
+
+    std::filesystem::remove_all(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerRenameProjectItemRenamesFileAndUpdatesOpenDocumentPath)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    const std::filesystem::path projectRoot = tempDirectory / "RenameFileRoot";
+    const std::filesystem::path oldPath = projectRoot / "before.ui.json";
+    const std::filesystem::path newPath = projectRoot / "after.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove_all(projectRoot, removeError);
+    std::filesystem::create_directories(projectRoot);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(oldPath));
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(false);
+
+    ASSERT_TRUE(workspaceController->RenameProjectItem(oldPath, "after.ui.json"));
+    EXPECT_FALSE(std::filesystem::exists(oldPath));
+    EXPECT_TRUE(std::filesystem::exists(newPath));
+    EXPECT_EQ(activeSession->GetDocument()->GetFilePath().lexically_normal(), newPath.lexically_normal());
+
+    std::filesystem::remove_all(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerRenameProjectItemRenamesFolderAndUpdatesContainedOpenDocumentPath)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    const std::filesystem::path projectRoot = tempDirectory / "RenameFolderRoot";
+    const std::filesystem::path oldFolder = projectRoot / "FolderA";
+    const std::filesystem::path newFolder = projectRoot / "FolderB";
+    const std::filesystem::path oldFile = oldFolder / "nested.ui.json";
+    const std::filesystem::path newFile = newFolder / "nested.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove_all(projectRoot, removeError);
+    std::filesystem::create_directories(oldFolder);
+
+    workspaceController->SetProjectRoot(projectRoot);
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(oldFile));
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    activeSession->GetDocument()->SetDirty(false);
+
+    ASSERT_TRUE(workspaceController->RenameProjectItem(oldFolder, "FolderB"));
+    EXPECT_FALSE(std::filesystem::exists(oldFolder));
+    EXPECT_TRUE(std::filesystem::exists(newFolder));
+    EXPECT_TRUE(std::filesystem::exists(newFile));
+    EXPECT_EQ(activeSession->GetDocument()->GetFilePath().lexically_normal(), newFile.lexically_normal());
+
+    std::filesystem::remove_all(projectRoot, removeError);
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

@@ -33,6 +33,7 @@ public:
 
     bool HasFilePath() const { return !m_FilePath.empty(); }
     const std::filesystem::path& GetFilePath() const { return m_FilePath; }
+    void SetFilePath(const std::filesystem::path& filePath) { m_FilePath = filePath; }
 
     void SetDisplayTitle(const std::string& title) { m_DisplayTitle = title; }
     const std::string& GetDisplayTitle() const { return m_DisplayTitle; }

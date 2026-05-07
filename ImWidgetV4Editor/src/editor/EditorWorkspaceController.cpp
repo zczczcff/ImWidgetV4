@@ -152,6 +152,24 @@ void EditorWorkspaceController::RefreshProjectTree()
     RebuildProjectView();
 }
 
+bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
+{
+    FOpenFolderDialogOptions options;
+    options.Title = "Select Project Root";
+    options.InitialDirectory = m_ProjectRoot.empty() ? std::filesystem::current_path() : m_ProjectRoot;
+
+    const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
+    if (!dialogResult.IsAccepted()) {
+        return false;
+    }
+
+    SetProjectRoot(dialogResult.Path);
+    if (m_OutputText) {
+        m_OutputText->SetItems({"Project root: " + dialogResult.Path.string()});
+    }
+    return true;
+}
+
 void EditorWorkspaceController::Bind(
     const std::shared_ptr<EditorShellHost>& shellHost,
     const std::shared_ptr<ImTabView>& documentTabs,

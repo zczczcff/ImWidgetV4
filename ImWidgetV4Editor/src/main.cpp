@@ -365,6 +365,10 @@ std::filesystem::path ResolveEditorProjectRoot()
 
 std::vector<FApplicationMenuItem> BuildProjectMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
+    const std::string projectRootLabel =
+        workspaceController && !workspaceController->GetProjectRoot().empty()
+            ? workspaceController->GetProjectRoot().string()
+            : std::string("Project root not configured");
     return {
         FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
             if (workspaceController) {
@@ -372,8 +376,48 @@ std::vector<FApplicationMenuItem> BuildProjectMenuItems(const std::shared_ptr<Ed
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Project Root", {}, {}, false, false, {}}
+        FApplicationMenuItem {projectRootLabel, {}, {}, false, false, {}}
     };
+}
+
+void RebuildTitleBarMenus(
+    ImApplication& app,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    app.ClearTitleBarTabMenus();
+    app.AddTitleBarTabMenu("File", BuildFileMenuItems(app, workspaceController));
+    app.AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
+    app.AddTitleBarTabMenu(
+        "Project",
+        {
+            FApplicationMenuItem {"Open Project Root...", {}, {}, true, false, [&app, workspaceController]() {
+                if (!workspaceController) {
+                    return;
+                }
+
+                if (workspaceController->SelectProjectRoot(app)) {
+                    RebuildTitleBarMenus(app, workspaceController);
+                }
+            }},
+            FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
+                if (workspaceController) {
+                    workspaceController->RefreshProjectTree();
+                }
+            }},
+            FApplicationMenuItem {"", {}, {}, true, true, {}},
+            FApplicationMenuItem {
+                workspaceController && !workspaceController->GetProjectRoot().empty()
+                    ? workspaceController->GetProjectRoot().string()
+                    : std::string("Project root not configured"),
+                {},
+                {},
+                false,
+                false,
+                {}
+            }
+        });
+    app.AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
+    app.AddTitleBarTabMenu(app.GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
 }
 
 } // namespace
@@ -440,11 +484,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
             return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
         }
     });
-    app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, workspaceController));
-    app->AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
-    app->AddTitleBarTabMenu("Project", BuildProjectMenuItems(workspaceController));
-    app->AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
-    app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
+    RebuildTitleBarMenus(*app, workspaceController);
     app->SetRootWidget(shell.Root);
 
     backend->Run();

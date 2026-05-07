@@ -46,6 +46,7 @@ public:
     bool NewDocument();
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
+    bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);

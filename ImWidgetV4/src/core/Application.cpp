@@ -836,6 +836,35 @@ const std::vector<FApplicationTitleBarTab>& ImApplication::GetTitleBarTabMenus()
     return TitleBarTabMenus_;
 }
 
+bool ImApplication::ClearTitleBarActionButtons()
+{
+    if (!CanMutateTitleBarActions()) {
+        return false;
+    }
+
+    TitleBarActionButtons_.clear();
+    return true;
+}
+
+bool ImApplication::AddTitleBarActionButton(FApplicationTitleBarActionButton button)
+{
+    if (!CanMutateTitleBarActions()) {
+        return false;
+    }
+
+    if (button.Icon.IsValid()) {
+        PromoteBrushToBackendTexture(button.Icon);
+    }
+
+    TitleBarActionButtons_.push_back(std::move(button));
+    return true;
+}
+
+const std::vector<FApplicationTitleBarActionButton>& ImApplication::GetTitleBarActionButtons() const
+{
+    return TitleBarActionButtons_;
+}
+
 void ImApplication::SetToolTipStyle(const FToolTipStyle& style)
 {
     ToolTipStyle_ = style;
@@ -2208,6 +2237,11 @@ bool ImApplication::IsWidgetInActiveTree(const std::shared_ptr<ImWidget>& widget
 }
 
 bool ImApplication::CanMutateTitleBarTabMenus() const
+{
+    return Backend_ != nullptr && Backend_->IsUsingCustomHostChrome();
+}
+
+bool ImApplication::CanMutateTitleBarActions() const
 {
     return Backend_ != nullptr && Backend_->IsUsingCustomHostChrome();
 }

@@ -389,6 +389,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     app->SetApplicationTitle("ImWidgetV4 Editor");
     app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
+    app->ClearTitleBarActionButtons();
+    app->AddTitleBarActionButton(FApplicationTitleBarActionButton {
+        app->GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)),
+        "Undo",
+        [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->Undo();
+            }
+        },
+        [workspaceController]() {
+            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
+        },
+        [workspaceController]() {
+            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
+        }
+    });
+    app->AddTitleBarActionButton(FApplicationTitleBarActionButton {
+        app->GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)),
+        "Redo",
+        [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->Redo();
+            }
+        },
+        [workspaceController]() {
+            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
+        },
+        [workspaceController]() {
+            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
+        }
+    });
     app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, workspaceController));
     app->AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
     app->AddTitleBarTabMenu("Project", BuildProjectMenuItems(workspaceController));

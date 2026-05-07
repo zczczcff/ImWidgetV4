@@ -192,7 +192,11 @@ private:
         None,
         Minimize,
         Maximize,
-        Close
+        Close,
+        Action0,
+        Action1,
+        Action2,
+        Action3
     };
     struct FHostChromeLayoutCache;
 
@@ -222,6 +226,8 @@ private:
     EHostChromeButton PressedHostChromeButton_;
     int HoveredTitleBarTabIndex_ = -1;
     int PressedTitleBarTabIndex_ = -1;
+    int HoveredTitleBarActionIndex_ = -1;
+    int PressedTitleBarActionIndex_ = -1;
     int ActiveTitleBarTabIndex_ = -1;
     HICON SmallWindowIcon_ = nullptr;
     HICON LargeWindowIcon_ = nullptr;
@@ -269,6 +275,7 @@ private:
     RECT GetHostChromeButtonRect(EHostChromeButton button) const;
     EHostChromeButton HitTestHostChromeButton(const POINT& clientPoint) const;
     int HitTestTitleBarTab(const POINT& clientPoint);
+    int HitTestTitleBarActionButton(const POINT& clientPoint) const;
     bool IsPointInHostChromeCaption(const POINT& clientPoint) const;
     bool HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint);
     bool HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint);

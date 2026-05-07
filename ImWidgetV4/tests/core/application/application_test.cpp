@@ -681,6 +681,86 @@ TEST(ApplicationHostChromeTest, TitleBarTabMenusRequireCustomHostChrome)
     EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
 }
 
+TEST(ApplicationHostChromeTest, TitleBarActionButtonsRequireCustomHostChrome)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    application.SetBackend(&backend);
+
+    FApplicationTitleBarActionButton button;
+    button.Icon = application.GetCoreIconBrush(ECoreIcon::Undo);
+    button.ToolTip = "Undo";
+    button.OnInvoked = []() {};
+    button.IsEnabled = []() { return true; };
+    button.IsHighlighted = []() { return true; };
+
+    EXPECT_FALSE(application.AddTitleBarActionButton(button));
+    EXPECT_FALSE(application.ClearTitleBarActionButtons());
+    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
+
+    backend.bUseCustomHostChrome = true;
+    EXPECT_TRUE(application.AddTitleBarActionButton(button));
+    ASSERT_EQ(application.GetTitleBarActionButtons().size(), 1u);
+    EXPECT_EQ(application.GetTitleBarActionButtons()[0].ToolTip, "Undo");
+
+    EXPECT_TRUE(application.ClearTitleBarActionButtons());
+    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
+}
+
+TEST(ApplicationHostChromeTest, TitleBarActionButtonsCanBeAddedAndCleared)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    backend.bUseCustomHostChrome = true;
+    application.SetBackend(&backend);
+
+    bool bUndoInvoked = false;
+    bool bRedoInvoked = false;
+
+    FApplicationTitleBarActionButton undoButton;
+    undoButton.Icon = application.GetCoreIconBrush(ECoreIcon::Undo);
+    undoButton.ToolTip = "Undo";
+    undoButton.OnInvoked = [&bUndoInvoked]() { bUndoInvoked = true; };
+    undoButton.IsEnabled = []() { return true; };
+    undoButton.IsHighlighted = []() { return true; };
+
+    FApplicationTitleBarActionButton redoButton;
+    redoButton.Icon = application.GetCoreIconBrush(ECoreIcon::Redo);
+    redoButton.ToolTip = "Redo";
+    redoButton.OnInvoked = [&bRedoInvoked]() { bRedoInvoked = true; };
+    redoButton.IsEnabled = []() { return false; };
+    redoButton.IsHighlighted = []() { return false; };
+
+    EXPECT_TRUE(application.AddTitleBarActionButton(std::move(undoButton)));
+    EXPECT_TRUE(application.AddTitleBarActionButton(std::move(redoButton)));
+
+    const auto& buttons = application.GetTitleBarActionButtons();
+    ASSERT_EQ(buttons.size(), 2u);
+    EXPECT_TRUE(buttons[0].Icon.IsValid());
+    EXPECT_EQ(buttons[0].ToolTip, "Undo");
+    ASSERT_TRUE(buttons[0].IsEnabled);
+    ASSERT_TRUE(buttons[0].IsHighlighted);
+    EXPECT_TRUE(buttons[0].IsEnabled());
+    EXPECT_TRUE(buttons[0].IsHighlighted());
+
+    EXPECT_TRUE(buttons[1].Icon.IsValid());
+    EXPECT_EQ(buttons[1].ToolTip, "Redo");
+    ASSERT_TRUE(buttons[1].IsEnabled);
+    ASSERT_TRUE(buttons[1].IsHighlighted);
+    EXPECT_FALSE(buttons[1].IsEnabled());
+    EXPECT_FALSE(buttons[1].IsHighlighted());
+
+    ASSERT_TRUE(buttons[0].OnInvoked);
+    ASSERT_TRUE(buttons[1].OnInvoked);
+    buttons[0].OnInvoked();
+    buttons[1].OnInvoked();
+    EXPECT_TRUE(bUndoInvoked);
+    EXPECT_TRUE(bRedoInvoked);
+
+    EXPECT_TRUE(application.ClearTitleBarActionButtons());
+    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
+}
+
 TEST(ApplicationFileDialogTest, ReturnsUnsupportedWhenBackendIsMissing)
 {
     ImApplication application;

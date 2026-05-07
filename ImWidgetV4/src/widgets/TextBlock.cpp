@@ -11,11 +11,11 @@ ImTextBlock::ImTextBlock()
     , m_Text("")
     , m_TextColor(FColor::White)
     , m_FontSize(16.0f)
-    , m_TextAlignment(ETextAlignment::Left)
-    , m_VerticalAlignment(EVerticalAlignment::Top)
+    , m_TextAlignment(ETextAlignment::Center)
+    , m_VerticalAlignment(EVerticalAlignment::Center)
     , m_bWrapText(false)
-    , m_TextAlignmentValue(static_cast<int>(ETextAlignment::Left))
-    , m_VerticalAlignmentValue(static_cast<int>(EVerticalAlignment::Top))
+    , m_TextAlignmentValue(static_cast<int>(ETextAlignment::Center))
+    , m_VerticalAlignmentValue(static_cast<int>(EVerticalAlignment::Center))
 {
 }
 

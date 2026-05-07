@@ -41,8 +41,8 @@ TEST(WidgetReflectionTest, TextBlockRegistersInheritedAndOwnProperties)
     auto verticalAlignment = textBlock.GetPropertyAsOptional("VerticalAlignment");
     EXPECT_TRUE(textAlignment.IsValid());
     EXPECT_TRUE(verticalAlignment.IsValid());
-    EXPECT_EQ(textAlignment.GetOptionString(), "Left");
-    EXPECT_EQ(verticalAlignment.GetOptionString(), "Top");
+    EXPECT_EQ(textAlignment.GetOptionString(), "Center");
+    EXPECT_EQ(verticalAlignment.GetOptionString(), "Center");
 }
 
 TEST(WidgetReflectionTest, TextBlockJsonRoundTripPreservesProperties)

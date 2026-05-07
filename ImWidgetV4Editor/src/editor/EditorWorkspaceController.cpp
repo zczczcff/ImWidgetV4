@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
@@ -73,17 +74,24 @@ std::shared_ptr<ImScrollBox> CreatePreviewHost()
     return previewHost;
 }
 
-std::shared_ptr<ImScrollBox> CreateSchemaHost(const std::shared_ptr<ImTextBlock>& schemaText)
+std::shared_ptr<ImTextList> CreateSchemaText()
 {
-    auto schemaHost = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle style = schemaHost->GetStyle();
+    auto schemaText = std::make_shared<ImTextList>();
+    FTextListStyle style = schemaText->GetStyle();
     style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
+    style.BorderColor = FColor::Transparent;
+    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
+    style.TextColor = FColor::FromBytes(196, 205, 217);
+    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
     style.Padding = FMargin(12.0f);
-    schemaHost->SetStyle(style);
-    schemaHost->SetContent(schemaText);
-    return schemaHost;
+    style.MinDesiredSize = FVector2(0.0f, 180.0f);
+    style.CornerRadius = 0.0f;
+    style.BorderThickness = 0.0f;
+    style.FontSize = 14.0f;
+    style.LineSpacing = 1.1f;
+    schemaText->SetStyle(style);
+    schemaText->SetItems({"{}"});
+    return schemaText;
 }
 
 FTabViewStyle CreateWorkspaceTabStyle()
@@ -150,7 +158,7 @@ void EditorWorkspaceController::Bind(
     const std::shared_ptr<ImTextOutlineView>& projectView,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
-    const std::shared_ptr<ImTextBlock>& outputText)
+    const std::shared_ptr<ImTextList>& outputText)
 {
     m_ShellHost = shellHost;
     m_DocumentTabs = documentTabs;
@@ -219,7 +227,7 @@ bool EditorWorkspaceController::OpenDocument(ImApplication& app)
         if (existingIndex >= 0) {
             ActivateDocumentAt(existingIndex);
             if (m_OutputText) {
-                m_OutputText->SetText("Switched to already open document: " + openedDocument->GetFilePath().filename().string());
+                m_OutputText->SetItems({"Switched to already open document: " + openedDocument->GetFilePath().filename().string()});
             }
             RememberRecentFile(openedDocument->GetFilePath());
             RebuildProjectView();
@@ -362,12 +370,7 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
 
     widgets.DocumentHost = CreateDocumentHost();
     widgets.PreviewHost = CreatePreviewHost();
-    widgets.SchemaText = std::make_shared<ImTextBlock>();
-    widgets.SchemaText->SetText("{}");
-    widgets.SchemaText->SetWrapText(false);
-    widgets.SchemaText->SetFontSize(14.0f);
-    widgets.SchemaText->SetTextColor(FColor::FromBytes(196, 205, 217));
-    widgets.SchemaHost = CreateSchemaHost(widgets.SchemaText);
+    widgets.SchemaText = CreateSchemaText();
     widgets.DesignerSurface = std::make_shared<ImDesignerSurface>();
     widgets.DocumentHost->SetContent(widgets.DesignerSurface);
 
@@ -376,7 +379,7 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
     widgets.WorkspaceTabs->SetStyle(CreateWorkspaceTabStyle());
     widgets.WorkspaceTabs->AddTab("Designer", widgets.DocumentHost);
     widgets.WorkspaceTabs->AddTab("Preview", widgets.PreviewHost);
-    widgets.WorkspaceTabs->AddTab("Schema", widgets.SchemaHost);
+    widgets.WorkspaceTabs->AddTab("Schema", widgets.SchemaText);
 
     widgets.Root = widgets.WorkspaceTabs;
     return widgets;
@@ -432,7 +435,6 @@ void EditorWorkspaceController::ActivateDocumentTab(int index)
         index,
         entry.Widgets.DocumentHost,
         entry.Widgets.PreviewHost,
-        entry.Widgets.SchemaHost,
         entry.Widgets.SchemaText,
         entry.Widgets.DesignerSurface,
         m_WidgetTreeView,
@@ -520,7 +522,7 @@ void EditorWorkspaceController::HandleDocumentTabClosed(ImTabView&, int closedIn
             m_DetailsView->SetTargets(nullptr, nullptr);
         }
         if (m_OutputText) {
-            m_OutputText->SetText("No open documents.");
+            m_OutputText->SetItems({"No open documents."});
         }
         return;
     }

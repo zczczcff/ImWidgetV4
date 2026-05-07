@@ -19,6 +19,7 @@ class ImPopupMenu;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
+class ImTextList;
 class ImTextOutlineItem;
 class ImTextOutlineView;
 class ImWidget;
@@ -44,12 +45,11 @@ public:
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& previewHost,
-        const std::shared_ptr<ImWidgetV4::ImScrollBox>& schemaHost,
-        const std::shared_ptr<ImWidgetV4::ImTextBlock>& schemaText,
+        const std::shared_ptr<ImWidgetV4::ImTextList>& schemaText,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
-        const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
+        const std::shared_ptr<ImWidgetV4::ImTextList>& outputText);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
     std::string GetDocumentTabTitle() const;
@@ -153,14 +153,13 @@ private:
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_PreviewHost;
-    std::shared_ptr<ImWidgetV4::ImScrollBox> m_SchemaHost;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> m_SchemaText;
+    std::shared_ptr<ImWidgetV4::ImTextList> m_SchemaText;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<SelectionModel> m_SelectionModel;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
+    std::shared_ptr<ImWidgetV4::ImTextList> m_OutputText;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_WidgetTreeContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_WidgetTreeContextMenuWindow;
     CommandStack m_CommandStack;

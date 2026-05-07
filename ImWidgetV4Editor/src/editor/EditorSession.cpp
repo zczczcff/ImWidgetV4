@@ -21,6 +21,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <filesystem>
@@ -30,6 +31,22 @@ namespace ImWidgetV4Editor {
 using namespace ImWidgetV4;
 
 namespace {
+
+std::vector<std::string> SplitLinesPreserveOrder(const std::string& text)
+{
+    std::vector<std::string> lines;
+    std::stringstream stream(text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        lines.push_back(line);
+    }
+
+    if (lines.empty()) {
+        lines.push_back(text);
+    }
+
+    return lines;
+}
 
 std::string BuildDisplayName(const std::shared_ptr<EditorDocument>& document)
 {
@@ -349,17 +366,15 @@ void EditorSession::BindDocumentWidgets(
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
     const std::shared_ptr<ImScrollBox>& previewHost,
-    const std::shared_ptr<ImScrollBox>& schemaHost,
-    const std::shared_ptr<ImTextBlock>& schemaText,
+    const std::shared_ptr<ImTextList>& schemaText,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
-    const std::shared_ptr<ImTextBlock>& outputText)
+    const std::shared_ptr<ImTextList>& outputText)
 {
     SetDocumentTabBinding(documentTabs, documentTabIndex);
     m_DocumentHost = documentHost;
     m_PreviewHost = previewHost;
-    m_SchemaHost = schemaHost;
     m_SchemaText = schemaText;
     m_DesignerSurface = designerSurface;
     m_WidgetTreeView = widgetTreeView;
@@ -811,7 +826,17 @@ std::string EditorSession::GetRedoLabel() const
 void EditorSession::LogStatus(const std::string& text)
 {
     if (m_OutputText) {
-        m_OutputText->SetText(text);
+        std::vector<std::string> items = m_OutputText->GetItems();
+        const std::vector<std::string> appendedLines = SplitLinesPreserveOrder(text);
+        items.insert(items.end(), appendedLines.begin(), appendedLines.end());
+        constexpr std::size_t kMaxLogLines = 200;
+        if (items.size() > kMaxLogLines) {
+            items.erase(items.begin(), items.begin() + static_cast<std::ptrdiff_t>(items.size() - kMaxLogLines));
+        }
+        m_OutputText->SetItems(items);
+        if (!items.empty()) {
+            m_OutputText->ScrollToItem(static_cast<int>(items.size() - 1), false);
+        }
     }
 }
 
@@ -1549,17 +1574,17 @@ void EditorSession::RefreshSchemaView()
     }
 
     if (!m_Document) {
-        m_SchemaText->SetText("{}");
+        m_SchemaText->SetItems({"{}"});
         return;
     }
 
     try {
         const json documentJson = m_Document->ExportDocumentJson();
-        m_SchemaText->SetText(documentJson.dump(2));
+        m_SchemaText->SetItems({documentJson.dump(2)});
     } catch (const std::exception& error) {
-        m_SchemaText->SetText(std::string("Schema export failed: ") + error.what());
+        m_SchemaText->SetItems({std::string("Schema export failed: ") + error.what()});
     } catch (...) {
-        m_SchemaText->SetText("Schema export failed.");
+        m_SchemaText->SetItems({"Schema export failed."});
     }
 }
 

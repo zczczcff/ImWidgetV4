@@ -13,6 +13,7 @@ class ImPopupMenu;
 class ImScrollBox;
 class ImTabView;
 class ImTextBlock;
+class ImTextList;
 class ImTextOutlineItem;
 class ImTextOutlineView;
 class ImWidget;
@@ -40,7 +41,7 @@ public:
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& projectView,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
-        const std::shared_ptr<ImWidgetV4::ImTextBlock>& outputText);
+        const std::shared_ptr<ImWidgetV4::ImTextList>& outputText);
 
     bool NewDocument();
     bool OpenDocument(ImWidgetV4::ImApplication& app);
@@ -71,8 +72,7 @@ private:
         std::shared_ptr<ImWidgetV4::ImTabView> WorkspaceTabs;
         std::shared_ptr<ImWidgetV4::ImScrollBox> DocumentHost;
         std::shared_ptr<ImWidgetV4::ImScrollBox> PreviewHost;
-        std::shared_ptr<ImWidgetV4::ImScrollBox> SchemaHost;
-        std::shared_ptr<ImWidgetV4::ImTextBlock> SchemaText;
+        std::shared_ptr<ImWidgetV4::ImTextList> SchemaText;
         std::shared_ptr<ImWidgetV4::ImDesignerSurface> DesignerSurface;
     };
 
@@ -115,7 +115,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_ProjectView;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> m_OutputText;
+    std::shared_ptr<ImWidgetV4::ImTextList> m_OutputText;
     std::unordered_map<ImWidgetV4::ImTextOutlineItem*, FProjectItemBinding> m_ProjectItemBindings;
     std::vector<std::filesystem::path> m_RecentFiles;
     std::vector<FDocumentEntry> m_Documents;

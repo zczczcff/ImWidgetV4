@@ -14,6 +14,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
@@ -36,7 +37,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
-    std::shared_ptr<ImTextBlock> OutputText;
+    std::shared_ptr<ImTextList> OutputText;
 };
 
 std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
@@ -56,6 +57,26 @@ std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSi
     body->SetFontSize(fontSize);
     body->SetTextColor(FColor::FromBytes(180, 190, 204));
     return body;
+}
+
+std::shared_ptr<ImTextList> MakePanelTextList(const std::vector<std::string>& items)
+{
+    auto list = std::make_shared<ImTextList>();
+    FTextListStyle style = list->GetStyle();
+    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
+    style.BorderColor = FColor::FromBytes(0, 0, 0, 0);
+    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
+    style.TextColor = FColor::FromBytes(180, 190, 204);
+    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
+    style.Padding = FMargin(14.0f);
+    style.MinDesiredSize = FVector2(0.0f, 120.0f);
+    style.CornerRadius = 0.0f;
+    style.BorderThickness = 0.0f;
+    style.FontSize = 14.0f;
+    style.LineSpacing = 1.1f;
+    list->SetStyle(style);
+    list->SetItems(items);
+    return list;
 }
 
 std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const std::string& bodyText)
@@ -231,10 +252,9 @@ FEditorShellWidgets BuildEditorShell()
     topWorkspace->AddPart(rightDock, 0.22f, 260.0f);
 
     auto bottomDock = std::make_shared<ImVerticalBox>();
-    bottomDock->SetSpacing(8.0f);
-    bottomDock->AddChild(MakePanelTitle("Output"), FMargin(14.0f, 14.0f, 14.0f, 14.0f));
-    auto outputText = MakePanelBody("Booting editor session...");
-    bottomDock->AddChild(outputText, FMargin(14.0f, 0.0f, 14.0f, 14.0f));
+    bottomDock->SetSpacing(0.0f);
+    auto outputText = MakePanelTextList({"Booting editor session..."});
+    bottomDock->AddChildFill(outputText, 1.0f, FMargin(0.0f, 0.0f, 0.0f, 0.0f));
 
     verticalShell->AddPart(topWorkspace, 0.78f, 360.0f);
     verticalShell->AddPart(bottomDock, 0.22f, 140.0f);

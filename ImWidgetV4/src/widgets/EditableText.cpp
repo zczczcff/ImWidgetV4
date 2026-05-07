@@ -557,6 +557,7 @@ void ImEditableText::NotifyTextChanged() {
 
 void ImEditableText::CommitText() {
     m_bTextDirty = false;
+    const std::shared_ptr<ImEditableText> keepAlive = std::static_pointer_cast<ImEditableText>(shared_from_this());
     OnTextCommitted.Broadcast(*this, m_Text);
 }
 

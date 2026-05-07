@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -253,4 +254,25 @@ TEST_F(EditableTextTest, DisabledEditableTextDoesNotAcceptInput) {
     FReply reply = EditableText->OnInputEvent(
         CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(10.0f, 10.0f)));
     EXPECT_FALSE(reply.IsHandled());
+}
+
+TEST_F(EditableTextTest, CommitCallbackCanReplaceOwningWidgetTreeSafely) {
+    std::weak_ptr<ImEditableText> oldEditor = EditableText;
+    int commitCount = 0;
+
+    EditableText->OnTextCommitted.AddLambda([&](ImEditableText&, const std::string&) {
+        ++commitCount;
+
+        auto replacement = std::make_shared<ImTextBlock>();
+        replacement->SetText("Rebuilt");
+        App->SetRootWidget(replacement);
+        EditableText.reset();
+    });
+
+    EditableText->SetText("Moved");
+    App->SetKeyboardFocus(EditableText);
+    App->ClearKeyboardFocus();
+
+    EXPECT_EQ(commitCount, 1);
+    EXPECT_TRUE(oldEditor.expired());
 }

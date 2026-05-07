@@ -31,6 +31,7 @@ public:
     explicit EditorWorkspaceController(
         std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
 
+    void SetOnProjectStateChanged(std::function<void()> callback);
     void SetProjectRoot(const std::filesystem::path& projectRoot);
     const std::filesystem::path& GetProjectRoot() const { return m_ProjectRoot; }
     void RefreshProjectTree();
@@ -47,6 +48,8 @@ public:
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
+    bool CreateDocumentInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
+    bool CreateAndOpenDocumentAtPath(const std::filesystem::path& filePath);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
@@ -99,6 +102,10 @@ private:
     void HandleDocumentTabCloseRequested(ImWidgetV4::ImTabView& tabView, int index, bool& bAllowClose);
     void HandleDocumentTabClosed(ImWidgetV4::ImTabView& tabView, int closedIndex);
     void HandleDocumentTabContextMenuRequested(ImWidgetV4::ImTabView& tabView, int index, ImWidgetV4::FVector2 position);
+    void HandleProjectItemContextMenuRequested(
+        ImWidgetV4::ImTextOutlineView& view,
+        ImWidgetV4::ImTextOutlineItem& item,
+        ImWidgetV4::FVector2 position);
     bool FinalizeDocumentClose(int index);
     bool CloseOtherDocuments(ImWidgetV4::ImApplication& app, int keepIndex);
     bool CloseAllDocuments(ImWidgetV4::ImApplication& app);
@@ -106,12 +113,16 @@ private:
     void ClosePendingPrompt();
     void OpenDocumentTabContextMenu(ImWidgetV4::ImApplication& app, int index, ImWidgetV4::FVector2 position);
     void CloseDocumentTabContextMenu();
+    void OpenProjectItemContextMenu(ImWidgetV4::ImApplication& app, ImWidgetV4::ImTextOutlineItem* item, ImWidgetV4::FVector2 position);
+    void CloseProjectItemContextMenu();
+    void NotifyProjectStateChanged() const;
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;
     void RememberRecentFile(const std::filesystem::path& filePath);
     void RebuildProjectView();
     void HandleProjectSelectionChanged(ImWidgetV4::ImTextOutlineView& view, ImWidgetV4::ImTextOutlineItem* item);
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
+    std::function<void()> m_OnProjectStateChanged;
     std::filesystem::path m_ProjectRoot;
     std::shared_ptr<EditorShellHost> m_ShellHost;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
@@ -126,7 +137,10 @@ private:
     std::shared_ptr<ImWidgetV4::ImWindow> m_CloseConfirmWindow;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_DocumentTabContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_DocumentTabContextMenuWindow;
+    std::shared_ptr<ImWidgetV4::ImPopupMenu> m_ProjectItemContextMenu;
+    std::shared_ptr<ImWidgetV4::ImWindow> m_ProjectItemContextMenuWindow;
     int m_ContextMenuDocumentIndex = -1;
+    ImWidgetV4::ImTextOutlineItem* m_ContextMenuProjectItem = nullptr;
     int m_PendingCloseDocumentIndex = -1;
     int m_ActiveDocumentIndex = -1;
     bool m_bIgnoringTabActivation = false;

@@ -133,6 +133,11 @@ EditorWorkspaceController::EditorWorkspaceController(
 {
 }
 
+void EditorWorkspaceController::SetOnProjectStateChanged(std::function<void()> callback)
+{
+    m_OnProjectStateChanged = std::move(callback);
+}
+
 void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& projectRoot)
 {
     if (projectRoot.empty()) {
@@ -145,11 +150,13 @@ void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& proj
     }
 
     RebuildProjectView();
+    NotifyProjectStateChanged();
 }
 
 void EditorWorkspaceController::RefreshProjectTree()
 {
     RebuildProjectView();
+    NotifyProjectStateChanged();
 }
 
 bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
@@ -168,6 +175,32 @@ bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
         m_OutputText->SetItems({"Project root: " + dialogResult.Path.string()});
     }
     return true;
+}
+
+bool EditorWorkspaceController::CreateDocumentInDirectory(ImApplication& app, const std::filesystem::path& directoryPath)
+{
+    if (directoryPath.empty()) {
+        return false;
+    }
+
+    FSaveFileDialogOptions options;
+    options.Title = "Create UI Document";
+    options.InitialDirectory = directoryPath;
+    options.DefaultFileName = "NewWidget.ui.json";
+    options.DefaultExtension = "json";
+    options.Filters = {
+        FFileDialogFilter {"ImWidgetV4 UI", {"*.ui.json", "*.json"}},
+        FFileDialogFilter {"JSON", {"*.json"}}
+    };
+    options.DefaultFilterIndex = 0;
+    options.bPromptOverwrite = true;
+
+    const FPathDialogResult dialogResult = app.SaveFileDialog(options);
+    if (!dialogResult.IsAccepted()) {
+        return false;
+    }
+
+    return CreateAndOpenDocumentAtPath(dialogResult.Path);
 }
 
 void EditorWorkspaceController::Bind(
@@ -215,6 +248,11 @@ void EditorWorkspaceController::Bind(
         m_ProjectView->OnSelectionChanged.AddLambda(
             [this](ImTextOutlineView& view, ImTextOutlineItem* item) {
                 HandleProjectSelectionChanged(view, item);
+            });
+        m_ProjectView->OnItemContextMenuRequested.Clear();
+        m_ProjectView->OnItemContextMenuRequested.AddLambda(
+            [this](ImTextOutlineView& view, ImTextOutlineItem& item, FVector2 position) {
+                HandleProjectItemContextMenuRequested(view, item, position);
             });
     }
 
@@ -515,6 +553,7 @@ void EditorWorkspaceController::HandleDocumentTabClosed(ImTabView&, int closedIn
 {
     ClosePendingPrompt();
     CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
 
     if (closedIndex < 0 || closedIndex >= static_cast<int>(m_Documents.size())) {
         return;
@@ -564,6 +603,23 @@ void EditorWorkspaceController::HandleDocumentTabContextMenuRequested(ImTabView&
     }
 
     OpenDocumentTabContextMenu(*application, index, position);
+}
+
+void EditorWorkspaceController::HandleProjectItemContextMenuRequested(
+    ImTextOutlineView&,
+    ImTextOutlineItem& item,
+    FVector2 position)
+{
+    if (!m_ShellHost) {
+        return;
+    }
+
+    ImApplication* application = m_ShellHost->GetApplication();
+    if (application == nullptr) {
+        return;
+    }
+
+    OpenProjectItemContextMenu(*application, &item, position);
 }
 
 bool EditorWorkspaceController::FinalizeDocumentClose(int index)
@@ -875,6 +931,260 @@ void EditorWorkspaceController::CloseDocumentTabContextMenu()
     m_ContextMenuDocumentIndex = -1;
 }
 
+void EditorWorkspaceController::OpenProjectItemContextMenu(
+    ImApplication& app,
+    ImTextOutlineItem* item,
+    FVector2 position)
+{
+    if (item == nullptr) {
+        return;
+    }
+
+    const auto bindingIt = m_ProjectItemBindings.find(item);
+    if (bindingIt == m_ProjectItemBindings.end()) {
+        return;
+    }
+
+    CloseProjectItemContextMenu();
+    m_ContextMenuProjectItem = item;
+
+    const FProjectItemBinding binding = bindingIt->second;
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
+    popupStyle.CornerRadius = 6.0f;
+    popupMenu->SetStyle(popupStyle);
+
+    auto weakThis = weak_from_this();
+    std::vector<FPopupMenuItem> items;
+
+    if (binding.Kind == EProjectItemKind::OpenDocument) {
+        items.push_back(FPopupMenuItem {
+            "Activate",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, index = binding.Index]() {
+                if (auto self = weakThis.lock()) {
+                    self->ActivateDocumentAt(index);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+
+        items.push_back(FPopupMenuItem {
+            "Save",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, index = binding.Index, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    self->ActivateDocumentAt(index);
+                    if (application) {
+                        self->SaveDocument(*application);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+
+        items.push_back(FPopupMenuItem {
+            "Save As...",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, index = binding.Index, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    self->ActivateDocumentAt(index);
+                    if (application) {
+                        self->SaveDocumentAs(*application);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+
+        items.push_back(FPopupMenuItem {
+            "Close",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, index = binding.Index, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    self->ActivateDocumentAt(index);
+                    if (application) {
+                        self->CloseDocumentAt(*application, index);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
+    if (binding.Kind == EProjectItemKind::RecentFile ||
+        binding.Kind == EProjectItemKind::WorkspaceFile) {
+        items.push_back(FPopupMenuItem {
+            "Open",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path]() {
+                if (auto self = weakThis.lock()) {
+                    self->OpenDocumentFromPath(path);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
+    if (binding.Kind == EProjectItemKind::WorkspaceDirectory ||
+        binding.Kind == EProjectItemKind::WorkspaceFile) {
+        items.push_back(FPopupMenuItem {
+            "Set As Project Root",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path, kind = binding.Kind]() {
+                if (auto self = weakThis.lock()) {
+                    self->SetProjectRoot(
+                        kind == EProjectItemKind::WorkspaceDirectory ? path : path.parent_path());
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
+    if (binding.Kind == EProjectItemKind::WorkspaceDirectory) {
+        items.push_back(FPopupMenuItem {
+            "New UI Document...",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, path = binding.Path, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    if (application) {
+                        self->CreateDocumentInDirectory(*application, path);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+
+        items.push_back(FPopupMenuItem {
+            "Refresh This Folder",
+            {},
+            {},
+            true,
+            false,
+            [weakThis]() {
+                if (auto self = weakThis.lock()) {
+                    self->RefreshProjectTree();
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
+    items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(FPopupMenuItem {
+        "Refresh Project Tree",
+        {},
+        {},
+        true,
+        false,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->RefreshProjectTree();
+                self->CloseProjectItemContextMenu();
+            }
+        }
+    });
+
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
+        if (auto self = weakThis.lock()) {
+            self->CloseProjectItemContextMenu();
+        }
+    });
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ProjectItemContextMenu";
+    popupOptions.Position = position;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = true;
+    popupOptions.Style.CornerRadius = 6.0f;
+    popupOptions.Style.BorderThickness = 1.0f;
+    popupOptions.Style.bDrawShadow = false;
+
+    m_ProjectItemContextMenu = popupMenu;
+    m_ProjectItemContextMenuWindow = app.GetWindowManager().CreatePopup(popupOptions);
+}
+
+void EditorWorkspaceController::CloseProjectItemContextMenu()
+{
+    if (m_ProjectItemContextMenuWindow && m_ShellHost && m_ShellHost->GetApplication()) {
+        m_ShellHost->GetApplication()->GetWindowManager().CloseWindow(m_ProjectItemContextMenuWindow);
+    }
+
+    m_ProjectItemContextMenu.reset();
+    m_ProjectItemContextMenuWindow.reset();
+    m_ContextMenuProjectItem = nullptr;
+}
+
+bool EditorWorkspaceController::CreateAndOpenDocumentAtPath(const std::filesystem::path& filePath)
+{
+    if (filePath.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path normalizedPath = filePath.lexically_normal();
+    const int existingIndex = FindDocumentIndexByPath(normalizedPath);
+    if (existingIndex >= 0) {
+        ActivateDocumentAt(existingIndex);
+        return true;
+    }
+
+    std::shared_ptr<EditorSession> session = CreateSession();
+    if (!session) {
+        return false;
+    }
+
+    std::shared_ptr<EditorDocument> document = session->GetDocument();
+    if (!document) {
+        return false;
+    }
+
+    document->SetDisplayTitle(normalizedPath.stem().string());
+    std::string errorMessage;
+    if (!document->SaveAs(normalizedPath, &errorMessage)) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create document failed: " + errorMessage});
+        }
+        return false;
+    }
+
+    RememberRecentFile(normalizedPath);
+    const bool bAdded = AddSession(session, true);
+    if (bAdded && m_OutputText) {
+        m_OutputText->SetItems({"Created " + normalizedPath.filename().string()});
+    }
+    return bAdded;
+}
+
+void EditorWorkspaceController::NotifyProjectStateChanged() const
+{
+    if (m_OnProjectStateChanged) {
+        m_OnProjectStateChanged();
+    }
+}
+
 int EditorWorkspaceController::FindDocumentIndexByPath(const std::filesystem::path& filePath) const
 {
     if (filePath.empty()) {
@@ -941,6 +1251,7 @@ void EditorWorkspaceController::RebuildProjectView()
         return;
     }
 
+    CloseProjectItemContextMenu();
     m_ProjectItemBindings.clear();
     m_ProjectView->ClearItems();
 

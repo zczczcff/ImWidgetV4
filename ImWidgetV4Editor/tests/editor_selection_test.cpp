@@ -923,6 +923,46 @@ TEST(EditorSelectionTest, WorkspaceControllerCloseActiveDocumentPromotesRemainin
     ASSERT_TRUE(workspaceController->GetActiveSession());
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerCreateAndOpenDocumentAtPathAddsSavedSession)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "ImWidgetV4EditorTests";
+    std::filesystem::create_directories(tempDirectory);
+    const std::filesystem::path filePath = tempDirectory / "created-from-workspace.ui.json";
+    std::error_code removeError;
+    std::filesystem::remove(filePath, removeError);
+
+    ASSERT_TRUE(workspaceController->CreateAndOpenDocumentAtPath(filePath));
+    EXPECT_TRUE(std::filesystem::exists(filePath));
+    EXPECT_EQ(workspaceController->GetDocumentCount(), 2);
+    EXPECT_EQ(workspaceController->GetActiveDocumentIndex(), 1);
+    EXPECT_EQ(documentTabs->GetTabCount(), 2);
+    EXPECT_EQ(documentTabs->GetActiveTabIndex(), 1);
+
+    auto activeSession = workspaceController->GetActiveSession();
+    ASSERT_TRUE(activeSession);
+    ASSERT_TRUE(activeSession->GetDocument());
+    EXPECT_TRUE(activeSession->GetDocument()->HasFilePath());
+    EXPECT_EQ(activeSession->GetDocument()->GetFilePath().lexically_normal(), filePath.lexically_normal());
+    EXPECT_FALSE(activeSession->GetDocument()->IsDirty());
+
+    std::filesystem::remove(filePath, removeError);
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

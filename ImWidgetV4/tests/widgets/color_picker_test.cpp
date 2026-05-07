@@ -132,6 +132,22 @@ TEST_F(ColorPickerTest, KeyboardAdjustmentChangesAndCommitsColor)
     EXPECT_LT(Picker->GetColor().A, 1.0f);
 }
 
+TEST_F(ColorPickerTest, MainPaletteUsesSquareAreaAndIgnoresExtraHeight)
+{
+    Picker->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(240.0f, 220.0f)));
+    Picker->SetColor(FColor::FromBytes(255, 0, 0, 255));
+
+    const ImU32 before = Picker->GetColor().ToImU32();
+
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(40.0f, 210.0f))});
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(40.0f, 210.0f))});
+    EXPECT_EQ(Picker->GetColor().ToImU32(), before);
+
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(40.0f, 120.0f))});
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(40.0f, 120.0f))});
+    EXPECT_NE(Picker->GetColor().ToImU32(), before);
+}
+
 TEST_F(ColorPickerTest, CommitCallbackCanReplaceOwningWidgetTreeSafely)
 {
     std::weak_ptr<ImColorPicker> oldPicker = Picker;

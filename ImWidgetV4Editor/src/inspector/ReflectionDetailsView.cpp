@@ -762,7 +762,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
             {"G", gEditor},
             {"B", bEditor},
             {"A", aEditor}}));
-        return MakeInspectorPropertyRow(labelText, group);
+        return MakeInspectorVerticalPropertyRow(labelText, group);
     }
 
     if (property.GetType() == PropertyType::Vec2) {

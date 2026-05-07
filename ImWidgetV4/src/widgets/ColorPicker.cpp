@@ -330,7 +330,7 @@ ImColorPicker::FPickerLayout ImColorPicker::ResolveLayout() const
 {
     FPickerLayout layout;
 
-    const FVector2 origin(
+    const FVector2 contentOrigin(
         m_Geometry.Position.X + m_Style.Padding.Left,
         m_Geometry.Position.Y + m_Style.Padding.Top);
     const float contentWidth = std::max(
@@ -341,19 +341,23 @@ ImColorPicker::FPickerLayout ImColorPicker::ResolveLayout() const
         m_Geometry.Size.Y - (m_Style.Padding.Top + m_Style.Padding.Bottom));
 
     const float alphaWidth = m_Style.bShowAlphaBar ? m_Style.AlphaBarWidth : 0.0f;
-    const float totalBarWidth = m_Style.HueBarWidth + (m_Style.bShowAlphaBar ? (m_Style.BarSpacing + alphaWidth) : 0.0f);
-    const float svWidth = std::max(1.0f, contentWidth - totalBarWidth - m_Style.BarSpacing);
+    const float totalBarWidth =
+        m_Style.HueBarWidth +
+        (m_Style.bShowAlphaBar ? (m_Style.BarSpacing + alphaWidth) : 0.0f);
+    const float availableSvWidth = std::max(1.0f, contentWidth - totalBarWidth - m_Style.BarSpacing);
+    const float squareSize = std::max(1.0f, std::min(contentHeight, availableSvWidth));
+    const FVector2 origin = contentOrigin;
 
-    layout.SaturationValueRect = FGeometry(origin, FVector2(svWidth, contentHeight));
+    layout.SaturationValueRect = FGeometry(origin, FVector2(squareSize, squareSize));
     layout.HueRect = FGeometry(
-        FVector2(origin.X + svWidth + m_Style.BarSpacing, origin.Y),
-        FVector2(m_Style.HueBarWidth, contentHeight));
+        FVector2(origin.X + squareSize + m_Style.BarSpacing, origin.Y),
+        FVector2(m_Style.HueBarWidth, squareSize));
 
     if (m_Style.bShowAlphaBar) {
         layout.bHasAlphaRect = true;
         layout.AlphaRect = FGeometry(
             FVector2(layout.HueRect.Position.X + layout.HueRect.Size.X + m_Style.BarSpacing, origin.Y),
-            FVector2(m_Style.AlphaBarWidth, contentHeight));
+            FVector2(m_Style.AlphaBarWidth, squareSize));
     }
 
     return layout;

@@ -138,6 +138,19 @@ inline std::shared_ptr<ImHorizontalBox> MakeInspectorRightAlignedPropertyRow(
     return row;
 }
 
+inline std::shared_ptr<ImVerticalBox> MakeInspectorVerticalPropertyRow(
+    const std::string& labelText,
+    const std::shared_ptr<ImWidget>& valueWidget)
+{
+    auto row = std::make_shared<ImVerticalBox>();
+    row->SetSpacing(4.0f);
+    if (!labelText.empty()) {
+        row->AddChild(MakeInspectorPropertyLabel(labelText), FMargin(2.0f, 2.0f, 2.0f, 0.0f));
+    }
+    row->AddChildFill(valueWidget, 1.0f, FMargin(2.0f, 0.0f, 2.0f, 2.0f));
+    return row;
+}
+
 inline std::shared_ptr<ImHorizontalBox> MakeInspectorSplitValueRow(
     const std::string& labelText,
     const std::vector<std::shared_ptr<ImWidget>>& valueWidgets)

@@ -7,6 +7,7 @@
 
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include "../src/inspector/ReflectionDetailsView.h"
@@ -89,13 +90,13 @@ TEST(EditorSelectionTest, ApplyDocumentSnapshotRestoresDesignerSelection)
     auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
     auto designerSurface = std::make_shared<ImDesignerSurface>();
     auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
     session->BindDocumentWidgets(
         nullptr,
         -1,
         nullptr,
         nullptr,
-        nullptr,
-        nullptr,
+        schemaText,
         designerSurface,
         nullptr,
         detailsView,

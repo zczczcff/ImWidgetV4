@@ -118,6 +118,10 @@ private:
     bool InsertWidgetIntoDocument(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const ImWidgetV4::FVector2& dropPosition);
+    bool InsertWidgetAtTreeTarget(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
+        ImWidgetV4::ETextOutlineDropZone zone);
     bool RemoveWidgetFromDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool RemoveWidgetFromParent(const std::shared_ptr<ImWidgetV4::ImWidget>& parent, const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     bool MoveWidgetInDocument(

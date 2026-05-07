@@ -1,6 +1,7 @@
 #include "DocumentTreeViewBinder.h"
 #include "../editor/EditorDocument.h"
 #include "../editor/LogicalWidgetTree.h"
+#include "../palette/WidgetPaletteDragDrop.h"
 #include "WidgetTreeDragDrop.h"
 
 #include <imwidgetv4/widgets/Button.h>
@@ -39,6 +40,19 @@ bool IsDropCandidateContainer(const std::shared_ptr<ImWidget>& widget)
         std::dynamic_pointer_cast<ImHorizontalBox>(widget) != nullptr ||
         std::dynamic_pointer_cast<ImScrollBox>(widget) != nullptr ||
         std::dynamic_pointer_cast<ImTabView>(widget) != nullptr;
+}
+
+bool CanAcceptAsSingleContent(const std::shared_ptr<ImWidget>& widget)
+{
+    if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
+        return button->GetContent() == nullptr;
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
+        return expandableBox->GetHeader() == nullptr || expandableBox->GetBody() == nullptr;
+    }
+
+    return true;
 }
 
 bool IsLogicalAncestorOf(
@@ -123,28 +137,44 @@ void DocumentTreeViewBinder::Bind(
     m_TreeView->OnItemDropTest.Clear();
     m_TreeView->OnItemDropTest.AddLambda(
         [this](ImTextOutlineView&, ImTextOutlineItem& item, ETextOutlineDropZone zone, const std::shared_ptr<FDragDropOperation>& operation, FVector2, bool& bAccepted) {
-            auto payload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation ? operation->Payload : nullptr);
             auto document = m_Document.lock();
             auto targetWidget = ResolveWidget(&item);
-            if (!payload || !document || !targetWidget) {
+            if (!operation || !operation->Payload || !document || !targetWidget) {
                 bAccepted = false;
                 return;
             }
 
-            auto sourceWidget = document->FindWidgetById(payload->WidgetId);
-            if (!sourceWidget ||
-                sourceWidget == targetWidget ||
-                IsLogicalAncestorOf(document, sourceWidget, targetWidget)) {
-                bAccepted = false;
+            if (auto treePayload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation->Payload)) {
+                auto sourceWidget = document->FindWidgetById(treePayload->WidgetId);
+                if (!sourceWidget ||
+                    sourceWidget == targetWidget ||
+                    IsLogicalAncestorOf(document, sourceWidget, targetWidget)) {
+                    bAccepted = false;
+                    return;
+                }
+
+                if (zone == ETextOutlineDropZone::OnItem) {
+                    bAccepted = IsDropCandidateContainer(targetWidget) && CanAcceptAsSingleContent(targetWidget);
+                    return;
+                }
+
+                auto targetParent = document->FindLogicalParent(targetWidget);
+                bAccepted = targetParent != nullptr;
                 return;
             }
 
-            if (zone == ETextOutlineDropZone::OnItem && !IsDropCandidateContainer(targetWidget)) {
-                bAccepted = false;
+            if (std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload)) {
+                if (zone == ETextOutlineDropZone::OnItem) {
+                    bAccepted = IsDropCandidateContainer(targetWidget) && CanAcceptAsSingleContent(targetWidget);
+                    return;
+                }
+
+                auto targetParent = document->FindLogicalParent(targetWidget);
+                bAccepted = targetParent != nullptr;
                 return;
             }
 
-            bAccepted = true;
+            bAccepted = false;
         });
 }
 

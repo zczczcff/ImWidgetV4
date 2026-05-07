@@ -190,6 +190,9 @@ bool TryInsertIntoTarget(
     }
 
     if (auto button = std::dynamic_pointer_cast<ImButton>(target)) {
+        if (button->GetContent()) {
+            return false;
+        }
         button->SetContent(widget);
         return true;
     }
@@ -210,7 +213,7 @@ bool TryInsertIntoTarget(
             return true;
         }
 
-        return TryInsertIntoTarget(expandableBox->GetBody(), widget, dropPosition);
+        return false;
     }
 
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(target)) {
@@ -1071,6 +1074,34 @@ void EditorSession::HandleWidgetTreeItemDropped(
         return;
     }
 
+    if (auto palettePayload = std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload)) {
+        auto targetWidget = m_TreeBinder->ResolveWidget(&item);
+        if (!targetWidget) {
+            return;
+        }
+
+        auto widget = CreatePaletteWidget(palettePayload->WidgetTypeName);
+        if (!widget) {
+            LogStatus("Create failed: unsupported widget type " + palettePayload->WidgetTypeName);
+            return;
+        }
+
+        bHandled = ExecuteDocumentMutation(
+            "Add Widget",
+            [this, widget, targetWidget, zone]() {
+                return InsertWidgetAtTreeTarget(widget, targetWidget, zone);
+            },
+            widget);
+        if (!bHandled) {
+            LogStatus("Create rejected by target container.");
+            return;
+        }
+
+        RefreshDocumentViews(widget);
+        LogStatus("Created " + palettePayload->Label);
+        return;
+    }
+
     auto payload = std::dynamic_pointer_cast<WidgetTreeDragDropPayload>(operation->Payload);
     if (!payload || payload->WidgetId.empty()) {
         return;
@@ -1291,6 +1322,39 @@ bool EditorSession::InsertWidgetIntoDocument(
     }
 
     return TryInsertIntoTarget(root, widget, dropPosition);
+}
+
+bool EditorSession::InsertWidgetAtTreeTarget(
+    const std::shared_ptr<ImWidget>& widget,
+    const std::shared_ptr<ImWidget>& targetWidget,
+    ETextOutlineDropZone zone)
+{
+    if (!m_Document || !widget || !targetWidget) {
+        return false;
+    }
+
+    auto root = m_Document->GetRootWidget();
+    if (!root) {
+        m_Document->SetRootWidget(widget);
+        return true;
+    }
+
+    if (zone == ETextOutlineDropZone::OnItem) {
+        return TryInsertIntoTarget(targetWidget, widget, targetWidget->GetGeometry().Position);
+    }
+
+    const std::shared_ptr<ImWidget> targetParent = m_Document->FindLogicalParent(targetWidget);
+    if (!targetParent) {
+        return false;
+    }
+
+    const int targetIndex = LogicalWidgetTree::FindLogicalChildIndex(targetParent, targetWidget);
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    const int insertIndex = zone == ETextOutlineDropZone::BeforeItem ? targetIndex : (targetIndex + 1);
+    return InsertWidgetIntoParentAt(targetParent, insertIndex, widget);
 }
 
 bool EditorSession::RemoveWidgetFromDocument(const std::shared_ptr<ImWidget>& widget)

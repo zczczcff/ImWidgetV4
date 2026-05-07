@@ -133,6 +133,7 @@ class ImTabView : public ImWidget {
 public:
     using FTabEvent = TMulticastDelegate<ImTabView&, int>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImTabView&, int, FVector2>;
+    using FTabCloseRequestedEvent = TMulticastDelegate<ImTabView&, int, bool&>;
 
     ImTabView();
     virtual ~ImTabView() = default;
@@ -169,6 +170,7 @@ public:
     FTabEvent OnTabDoubleClicked;
     FTabEvent OnTabClosed;
     FContextMenuRequestedEvent OnTabContextMenuRequested;
+    FTabCloseRequestedEvent OnTabCloseRequested;
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
@@ -205,6 +207,7 @@ private:
     bool ContainsWidgetInSubtree(const std::shared_ptr<ImWidget>& widget, const std::shared_ptr<ImWidget>& subtreeRoot) const;
     int ResolveTabIndexAt(const FVector2& position) const;
     int ResolveCloseButtonTabIndexAt(const FVector2& position) const;
+    bool RequestCloseTab(int index);
     bool HandleKeyboardNavigation(const FInputEvent& event);
     bool IsValidIndex(int index) const;
     bool IsTabEnabled(int index) const;

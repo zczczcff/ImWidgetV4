@@ -1,9 +1,12 @@
 #include "DocumentTreeViewBinder.h"
 #include "../editor/EditorDocument.h"
+#include "../editor/LogicalWidgetTree.h"
 #include "WidgetTreeDragDrop.h"
 
+#include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -30,6 +33,8 @@ std::shared_ptr<ImTextBlock> MakeTreeDragPreview(const std::string& text)
 bool IsDropCandidateContainer(const std::shared_ptr<ImWidget>& widget)
 {
     return std::dynamic_pointer_cast<ImCanvasPanel>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImButton>(widget) != nullptr ||
+        std::dynamic_pointer_cast<ImExpandableBox>(widget) != nullptr ||
         std::dynamic_pointer_cast<ImVerticalBox>(widget) != nullptr ||
         std::dynamic_pointer_cast<ImHorizontalBox>(widget) != nullptr ||
         std::dynamic_pointer_cast<ImScrollBox>(widget) != nullptr ||
@@ -54,27 +59,6 @@ bool IsLogicalAncestorOf(
     }
 
     return false;
-}
-
-std::vector<std::shared_ptr<ImWidget>> GetLogicalChildren(const std::shared_ptr<ImWidget>& widget)
-{
-    std::vector<std::shared_ptr<ImWidget>> children;
-    if (!widget) {
-        return children;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
-        children.reserve(static_cast<std::size_t>(tabView->GetTabCount()));
-        for (int index = 0; index < tabView->GetTabCount(); ++index) {
-            const FTabViewItem* tab = tabView->GetTab(index);
-            if (tab && tab->Content) {
-                children.push_back(tab->Content);
-            }
-        }
-        return children;
-    }
-
-    return widget->GetChildren();
 }
 
 } // namespace
@@ -250,13 +234,19 @@ void DocumentTreeViewBinder::RebuildChildren(
         return;
     }
 
-    const auto children = GetLogicalChildren(parentWidget);
-    for (const auto& child : children) {
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(parentWidget);
+    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
+        const auto child = LogicalWidgetTree::GetLogicalChildAt(parentWidget, childIndex);
         if (!child) {
             continue;
         }
 
-        ImTextOutlineItem* childItem = m_TreeView->AddChildItem(parentItem, BuildItemLabel(child));
+        std::string childLabel = BuildItemLabel(child);
+        if (const char* roleName = LogicalWidgetTree::GetLogicalChildRoleName(parentWidget, childIndex)) {
+            childLabel = std::string(roleName) + ": " + childLabel;
+        }
+
+        ImTextOutlineItem* childItem = m_TreeView->AddChildItem(parentItem, childLabel);
         if (!childItem) {
             continue;
         }

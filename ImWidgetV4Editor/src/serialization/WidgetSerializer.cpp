@@ -5,6 +5,7 @@
 #include <imwidgetv4/core/Slot.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -119,6 +120,27 @@ bool TryApplySlotToParent(
         return true;
     }
 
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
+        if (slotJson.is_object()) {
+            const std::string role = slotJson.value("Role", "");
+            if (role == "Header") {
+                expandableBox->SetHeader(child);
+                return true;
+            }
+            if (role == "Body") {
+                expandableBox->SetBody(child);
+                return true;
+            }
+        }
+
+        if (!expandableBox->GetHeader()) {
+            expandableBox->SetHeader(child);
+        } else {
+            expandableBox->SetBody(child);
+        }
+        return true;
+    }
+
     if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
         button->SetContent(child);
         return true;
@@ -146,6 +168,17 @@ json WidgetSerializer::SerializeWidgetNode(const std::shared_ptr<ImWidget>& widg
 
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
         node["TabItems"] = SerializeTabItems(tabView);
+        return node;
+    }
+
+    if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
+        node["Content"] = SerializeWidgetNode(button->GetContent());
+        return node;
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
+        node["Header"] = SerializeWidgetNode(expandableBox->GetHeader());
+        node["Body"] = SerializeWidgetNode(expandableBox->GetBody());
         return node;
     }
 
@@ -250,6 +283,54 @@ FWidgetSerializationResult WidgetSerializer::DeserializeWidgetNode(const json& w
 
             if (activeTabIndex >= 0) {
                 tabView->SetActiveTab(activeTabIndex);
+            }
+
+            result.bSuccess = true;
+            result.Widget = std::move(widget);
+            return result;
+        }
+
+        if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
+            if (widgetJson.contains("Content")) {
+                FWidgetSerializationResult contentResult = DeserializeWidgetNode(widgetJson.at("Content"));
+                if (!contentResult.bSuccess) {
+                    result.ErrorMessage = contentResult.ErrorMessage.empty()
+                        ? "Failed to deserialize button content."
+                        : contentResult.ErrorMessage;
+                    return result;
+                }
+
+                if (contentResult.Widget) {
+                    button->SetContent(contentResult.Widget);
+                }
+            }
+
+            result.bSuccess = true;
+            result.Widget = std::move(widget);
+            return result;
+        }
+
+        if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
+            if (widgetJson.contains("Header")) {
+                FWidgetSerializationResult headerResult = DeserializeWidgetNode(widgetJson.at("Header"));
+                if (!headerResult.bSuccess) {
+                    result.ErrorMessage = headerResult.ErrorMessage.empty()
+                        ? "Failed to deserialize expandable header."
+                        : headerResult.ErrorMessage;
+                    return result;
+                }
+                expandableBox->SetHeader(headerResult.Widget);
+            }
+
+            if (widgetJson.contains("Body")) {
+                FWidgetSerializationResult bodyResult = DeserializeWidgetNode(widgetJson.at("Body"));
+                if (!bodyResult.bSuccess) {
+                    result.ErrorMessage = bodyResult.ErrorMessage.empty()
+                        ? "Failed to deserialize expandable body."
+                        : bodyResult.ErrorMessage;
+                    return result;
+                }
+                expandableBox->SetBody(bodyResult.Widget);
             }
 
             result.bSuccess = true;

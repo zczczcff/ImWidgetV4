@@ -34,11 +34,17 @@ class EditorSession : public std::enable_shared_from_this<EditorSession> {
 public:
     explicit EditorSession(std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
 
+    void SetDocumentTabBinding(
+        const std::shared_ptr<ImWidgetV4::ImTabView>& documentTabs,
+        int documentTabIndex);
+
     void BindDocumentWidgets(
         const std::shared_ptr<ImWidgetV4::ImTabView>& documentTabs,
         int documentTabIndex,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& documentHost,
         const std::shared_ptr<ImWidgetV4::ImScrollBox>& previewHost,
+        const std::shared_ptr<ImWidgetV4::ImScrollBox>& schemaHost,
+        const std::shared_ptr<ImWidgetV4::ImTextBlock>& schemaText,
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
@@ -49,6 +55,7 @@ public:
 
     bool NewDocument();
     bool OpenDocument(ImWidgetV4::ImApplication& app);
+    bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool DeleteSelectedWidget();
@@ -124,6 +131,7 @@ private:
         ImWidgetV4::ETextOutlineDropZone zone);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void RefreshPreview();
+    void RefreshSchemaView();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     FDocumentSnapshot CaptureDocumentSnapshot() const;
     bool ExecuteDocumentMutation(
@@ -143,6 +151,8 @@ private:
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_PreviewHost;
+    std::shared_ptr<ImWidgetV4::ImScrollBox> m_SchemaHost;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> m_SchemaText;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;

@@ -4,6 +4,7 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -34,6 +35,7 @@ void WidgetFactory::RegisterDefaults()
     Register("ImCanvasPanel", []() { return std::make_shared<ImCanvasPanel>(); });
     Register("ImCheckBox", []() { return std::make_shared<ImCheckBox>(); });
     Register("ImEditableText", []() { return std::make_shared<ImEditableText>(); });
+    Register("ImExpandableBox", []() { return std::make_shared<ImExpandableBox>(); });
     Register("ImHorizontalBox", []() { return std::make_shared<ImHorizontalBox>(); });
     Register("ImImage", []() { return std::make_shared<ImImage>(); });
     Register("ImScrollBox", []() { return std::make_shared<ImScrollBox>(); });

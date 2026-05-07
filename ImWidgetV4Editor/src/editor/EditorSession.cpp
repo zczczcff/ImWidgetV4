@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "LogicalWidgetTree.h"
 #include "../commands/DocumentSnapshotCommand.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../palette/WidgetPaletteDragDrop.h"
@@ -12,6 +13,7 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
@@ -106,20 +108,36 @@ std::shared_ptr<ImWidget> CloneWidgetTree(const std::shared_ptr<ImWidget>& widge
     return result.Widget;
 }
 
-int FindTabIndexForContent(const std::shared_ptr<ImTabView>& tabView, const std::shared_ptr<ImWidget>& content)
+bool TryInsertIntoScrollBoxAt(
+    const std::shared_ptr<ImScrollBox>& scrollBox,
+    int insertIndex,
+    const std::shared_ptr<ImWidget>& widget)
 {
-    if (!tabView || !content) {
-        return -1;
+    if (!scrollBox || !widget) {
+        return false;
     }
 
-    for (int index = 0; index < tabView->GetTabCount(); ++index) {
-        const FTabViewItem* tab = tabView->GetTab(index);
-        if (tab && tab->Content == content) {
-            return index;
-        }
+    if (!scrollBox->GetContent()) {
+        scrollBox->SetContent(widget);
+        return true;
     }
 
-    return -1;
+    if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
+        contentVerticalBox->InsertChild(insertIndex, widget);
+        return true;
+    }
+
+    auto existingContent = scrollBox->GetContent();
+    auto wrapper = std::make_shared<ImVerticalBox>();
+    if (insertIndex <= 0) {
+        wrapper->AddChild(widget);
+        wrapper->AddChild(existingContent);
+    } else {
+        wrapper->AddChild(existingContent);
+        wrapper->AddChild(widget);
+    }
+    scrollBox->SetContent(wrapper);
+    return true;
 }
 
 bool TryInsertIntoTarget(
@@ -153,22 +171,28 @@ bool TryInsertIntoTarget(
         return true;
     }
 
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(target)) {
-        if (!scrollBox->GetContent()) {
-            scrollBox->SetContent(widget);
-            return true;
-        }
-
-        if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
-            contentVerticalBox->AddChild(widget);
-            return true;
-        }
-
-        auto wrapper = std::make_shared<ImVerticalBox>();
-        wrapper->AddChild(scrollBox->GetContent());
-        wrapper->AddChild(widget);
-        scrollBox->SetContent(wrapper);
+    if (auto button = std::dynamic_pointer_cast<ImButton>(target)) {
+        button->SetContent(widget);
         return true;
+    }
+
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(target)) {
+        return TryInsertIntoScrollBoxAt(scrollBox, std::numeric_limits<int>::max(), widget);
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(target)) {
+        if (!expandableBox->GetHeader()) {
+            expandableBox->SetHeader(widget);
+            return true;
+        }
+
+        if (!expandableBox->GetBody()) {
+            expandableBox->SetBody(widget);
+            expandableBox->SetExpanded(true);
+            return true;
+        }
+
+        return TryInsertIntoTarget(expandableBox->GetBody(), widget, dropPosition);
     }
 
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(target)) {
@@ -258,8 +282,26 @@ bool TryDuplicateInParent(
         return TryInsertIntoTarget(scrollBox, cloneWidget, sourceWidget->GetGeometry().Position);
     }
 
+    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
+        button->SetContent(cloneWidget);
+        return true;
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
+        if (expandableBox->GetHeader() == sourceWidget) {
+            expandableBox->SetHeader(cloneWidget);
+            return true;
+        }
+        if (expandableBox->GetBody() == sourceWidget) {
+            expandableBox->SetBody(cloneWidget);
+            expandableBox->SetExpanded(true);
+            return true;
+        }
+        return false;
+    }
+
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int sourceTabIndex = FindTabIndexForContent(tabView, sourceWidget);
+        const int sourceTabIndex = LogicalWidgetTree::FindTabContentIndex(tabView, sourceWidget);
         if (sourceTabIndex < 0) {
             return false;
         }
@@ -284,28 +326,6 @@ bool TryDuplicateInParent(
     return false;
 }
 
-int FindLogicalChildIndex(
-    const std::shared_ptr<ImWidget>& parent,
-    const std::shared_ptr<ImWidget>& child)
-{
-    if (!parent || !child) {
-        return -1;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        return FindTabIndexForContent(tabView, child);
-    }
-
-    const auto& children = parent->GetChildren();
-    for (std::size_t index = 0; index < children.size(); ++index) {
-        if (children[index] == child) {
-            return static_cast<int>(index);
-        }
-    }
-
-    return -1;
-}
-
 } // namespace
 
 EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
@@ -314,20 +334,31 @@ EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDe
 {
 }
 
+void EditorSession::SetDocumentTabBinding(
+    const std::shared_ptr<ImTabView>& documentTabs,
+    int documentTabIndex)
+{
+    m_DocumentTabs = documentTabs;
+    m_DocumentTabIndex = documentTabIndex;
+}
+
 void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ImTabView>& documentTabs,
     int documentTabIndex,
     const std::shared_ptr<ImScrollBox>& documentHost,
     const std::shared_ptr<ImScrollBox>& previewHost,
+    const std::shared_ptr<ImScrollBox>& schemaHost,
+    const std::shared_ptr<ImTextBlock>& schemaText,
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
     const std::shared_ptr<ImTextBlock>& outputText)
 {
-    m_DocumentTabs = documentTabs;
-    m_DocumentTabIndex = documentTabIndex;
+    SetDocumentTabBinding(documentTabs, documentTabIndex);
     m_DocumentHost = documentHost;
     m_PreviewHost = previewHost;
+    m_SchemaHost = schemaHost;
+    m_SchemaText = schemaText;
     m_DesignerSurface = designerSurface;
     m_WidgetTreeView = widgetTreeView;
     m_DetailsView = detailsView;
@@ -489,9 +520,15 @@ bool EditorSession::OpenDocument(ImApplication& app)
         return false;
     }
 
+    return OpenDocumentFromPath(dialogResult.Path);
+}
+
+bool EditorSession::OpenDocumentFromPath(const std::filesystem::path& filePath)
+{
+    CancelDocumentGesture();
     auto openedDocument = std::make_shared<EditorDocument>();
     std::string errorMessage;
-    if (!openedDocument->Load(dialogResult.Path, &errorMessage)) {
+    if (!openedDocument->Load(filePath, &errorMessage)) {
         LogStatus("Open failed: " + errorMessage);
         return false;
     }
@@ -499,7 +536,7 @@ bool EditorSession::OpenDocument(ImApplication& app)
     m_Document = std::move(openedDocument);
     m_CommandStack.Clear();
     ApplyDocumentToUi();
-    LogStatus("Opened " + dialogResult.Path.filename().string());
+    LogStatus("Opened " + filePath.filename().string());
     return true;
 }
 
@@ -1177,6 +1214,18 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         textBlock->SetText("Text");
     } else if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
         button->SetText("Button");
+    } else if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
+        auto header = std::make_shared<ImTextBlock>();
+        header->SetName("Header");
+        header->SetText("Expandable Header");
+
+        auto body = std::make_shared<ImTextBlock>();
+        body->SetName("Body");
+        body->SetText("Expandable Body");
+
+        expandableBox->SetHeader(header);
+        expandableBox->SetBody(body);
+        expandableBox->SetExpanded(true);
     } else if (auto checkBox = std::dynamic_pointer_cast<ImCheckBox>(widget)) {
         checkBox->SetLabel("CheckBox");
     } else if (auto editableText = std::dynamic_pointer_cast<ImEditableText>(widget)) {
@@ -1273,6 +1322,24 @@ bool EditorSession::RemoveWidgetFromParent(
         }
     }
 
+    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
+        if (button->GetContent() == widget) {
+            button->SetContent(nullptr);
+            return true;
+        }
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
+        if (expandableBox->GetHeader() == widget) {
+            expandableBox->SetHeader(nullptr);
+            return true;
+        }
+        if (expandableBox->GetBody() == widget) {
+            expandableBox->SetBody(nullptr);
+            return true;
+        }
+    }
+
     return parent->RemoveChild(widget);
 }
 
@@ -1342,6 +1409,10 @@ bool EditorSession::InsertWidgetIntoParentAt(
         return false;
     }
 
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
+        return TryInsertIntoScrollBoxAt(scrollBox, insertIndex, widget);
+    }
+
     return false;
 }
 
@@ -1365,12 +1436,12 @@ bool EditorSession::MoveWidgetRelativeToTarget(
         return false;
     }
 
-    int targetIndex = FindLogicalChildIndex(targetParent, targetWidget);
+    int targetIndex = LogicalWidgetTree::FindLogicalChildIndex(targetParent, targetWidget);
     if (targetIndex < 0) {
         return false;
     }
 
-    const int oldIndex = FindLogicalChildIndex(oldParent, widget);
+    const int oldIndex = LogicalWidgetTree::FindLogicalChildIndex(oldParent, widget);
     if (oldIndex < 0) {
         return false;
     }
@@ -1419,6 +1490,7 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
     }
 
     RefreshPreview();
+    RefreshSchemaView();
 
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
@@ -1455,6 +1527,27 @@ void EditorSession::RefreshPreview()
     }
 
     m_PreviewHost->SetContent(previewResult.Widget);
+}
+
+void EditorSession::RefreshSchemaView()
+{
+    if (!m_SchemaText) {
+        return;
+    }
+
+    if (!m_Document) {
+        m_SchemaText->SetText("{}");
+        return;
+    }
+
+    try {
+        const json documentJson = m_Document->ExportDocumentJson();
+        m_SchemaText->SetText(documentJson.dump(2));
+    } catch (const std::exception& error) {
+        m_SchemaText->SetText(std::string("Schema export failed: ") + error.what());
+    } catch (...) {
+        m_SchemaText->SetText("Schema export failed.");
+    }
 }
 
 EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot() const

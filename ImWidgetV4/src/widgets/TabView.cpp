@@ -167,6 +167,21 @@ bool ImTabView::RemoveTab(int index)
     return true;
 }
 
+bool ImTabView::RequestCloseTab(int index)
+{
+    if (!IsValidIndex(index)) {
+        return false;
+    }
+
+    bool bAllowClose = true;
+    OnTabCloseRequested.Broadcast(*this, index, bAllowClose);
+    if (!bAllowClose) {
+        return false;
+    }
+
+    return RemoveTab(index);
+}
+
 void ImTabView::ClearTabs()
 {
     if (Tabs_.empty()) {
@@ -628,7 +643,7 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
         } else if (event.MouseButton == EMouseButton::Middle) {
             const int tabIndex = ResolveTabIndexAt(event.MousePosition);
             if (tabIndex >= 0 && IsTabClosable(tabIndex)) {
-                RemoveTab(tabIndex);
+                RequestCloseTab(tabIndex);
                 return FReply::Handled();
             }
         } else if (event.MouseButton == EMouseButton::Right) {
@@ -649,7 +664,7 @@ FReply ImTabView::OnInputEvent(const FInputEvent& event)
                 const int releasedCloseTab = ResolveCloseButtonTabIndexAt(event.MousePosition);
                 Invalidate(EInvalidateReason::Paint);
                 if (pressedCloseTab == releasedCloseTab && IsTabClosable(pressedCloseTab)) {
-                    RemoveTab(pressedCloseTab);
+                    RequestCloseTab(pressedCloseTab);
                 }
                 return FReply::Handled().ReleaseMouseCapture();
             }

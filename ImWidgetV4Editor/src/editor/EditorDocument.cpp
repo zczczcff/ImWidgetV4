@@ -1,8 +1,8 @@
 #include "EditorDocument.h"
+#include "LogicalWidgetTree.h"
 
 #include "../serialization/WidgetSerializer.h"
 
-#include <imwidgetv4/widgets/TabView.h>
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -24,106 +24,6 @@ int ParseWidgetIdSuffix(const std::string& widgetId)
     } catch (...) {
         return -1;
     }
-}
-
-std::size_t GetLogicalChildCount(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
-{
-    if (!widget) {
-        return 0;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImWidgetV4::ImTabView>(widget)) {
-        return static_cast<std::size_t>(tabView->GetTabCount());
-    }
-
-    return widget->GetChildren().size();
-}
-
-std::shared_ptr<ImWidgetV4::ImWidget> GetLogicalChildAt(
-    const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
-    std::size_t childIndex)
-{
-    if (!widget) {
-        return nullptr;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImWidgetV4::ImTabView>(widget)) {
-        const ImWidgetV4::FTabViewItem* tab = tabView->GetTab(static_cast<int>(childIndex));
-        return tab ? tab->Content : nullptr;
-    }
-
-    const auto& children = widget->GetChildren();
-    if (childIndex >= children.size()) {
-        return nullptr;
-    }
-
-    return children[childIndex];
-}
-
-std::shared_ptr<ImWidgetV4::ImWidget> FindLogicalParentRecursive(
-    const std::shared_ptr<ImWidgetV4::ImWidget>& current,
-    const std::shared_ptr<ImWidgetV4::ImWidget>& target)
-{
-    if (!current || !target) {
-        return nullptr;
-    }
-
-    const std::size_t childCount = GetLogicalChildCount(current);
-    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
-        std::shared_ptr<ImWidgetV4::ImWidget> child = GetLogicalChildAt(current, childIndex);
-        if (!child) {
-            continue;
-        }
-
-        if (child == target) {
-            return current;
-        }
-
-        if (std::shared_ptr<ImWidgetV4::ImWidget> recursiveParent = FindLogicalParentRecursive(child, target)) {
-            return recursiveParent;
-        }
-    }
-
-    return nullptr;
-}
-
-json* ResolveLogicalChildJson(json& widgetJson, const std::shared_ptr<ImWidgetV4::ImWidget>& widget, std::size_t childIndex)
-{
-    if (!widgetJson.is_object()) {
-        return nullptr;
-    }
-
-    if (std::dynamic_pointer_cast<ImWidgetV4::ImTabView>(widget)) {
-        if (!widgetJson.contains("TabItems") || !widgetJson["TabItems"].is_array()) {
-            return nullptr;
-        }
-
-        json& tabItems = widgetJson["TabItems"];
-        if (childIndex >= tabItems.size()) {
-            return nullptr;
-        }
-
-        json& tabItem = tabItems[childIndex];
-        if (!tabItem.is_object()) {
-            return nullptr;
-        }
-
-        if (!tabItem.contains("Content")) {
-            tabItem["Content"] = json();
-        }
-        return &tabItem["Content"];
-    }
-
-    if (!widgetJson.contains("Children") || !widgetJson["Children"].is_array()) {
-        return nullptr;
-    }
-
-    json& children = widgetJson["Children"];
-    if (childIndex >= children.size()) {
-        return nullptr;
-    }
-
-    return &children[childIndex];
 }
 
 } // namespace
@@ -288,7 +188,7 @@ std::shared_ptr<ImWidgetV4::ImWidget> EditorDocument::FindLogicalParent(const st
         return nullptr;
     }
 
-    return FindLogicalParentRecursive(m_RootWidget, widget);
+    return LogicalWidgetTree::FindLogicalParentRecursive(m_RootWidget, widget);
 }
 
 json EditorDocument::BuildDocumentJson() const
@@ -313,14 +213,14 @@ json EditorDocument::BuildDocumentJson() const
                 widgetJson[kEditorIdFieldName] = idIt->second;
             }
 
-            const std::size_t childCount = GetLogicalChildCount(widget);
+            const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
             for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
-                json* childJson = ResolveLogicalChildJson(widgetJson, widget, childIndex);
+                json* childJson = LogicalWidgetTree::ResolveLogicalChildJson(widgetJson, widget, childIndex);
                 if (childJson == nullptr) {
                     continue;
                 }
 
-                annotateIds(GetLogicalChildAt(widget, childIndex), *childJson);
+                annotateIds(LogicalWidgetTree::GetLogicalChildAt(widget, childIndex), *childJson);
             }
         };
     annotateIds(m_RootWidget, documentJson["RootWidget"]);
@@ -417,9 +317,12 @@ void EditorDocument::RebuildWidgetIdIndexRecursive(
         TrackExistingWidgetId(widgetId);
     }
 
-    const std::size_t childCount = GetLogicalChildCount(widget);
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
     for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
-        RebuildWidgetIdIndexRecursive(GetLogicalChildAt(widget, childIndex), bAssignMissingIds, previousIds);
+        RebuildWidgetIdIndexRecursive(
+            LogicalWidgetTree::GetLogicalChildAt(widget, childIndex),
+            bAssignMissingIds,
+            previousIds);
     }
 }
 
@@ -440,24 +343,15 @@ void EditorDocument::ApplyWidgetIdsFromJson(
     m_WidgetsById[widgetId] = widget;
     TrackExistingWidgetId(widgetId);
 
-    const std::size_t childCount = GetLogicalChildCount(widget);
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
     for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
-        std::shared_ptr<ImWidgetV4::ImWidget> childWidget = GetLogicalChildAt(widget, childIndex);
+        std::shared_ptr<ImWidgetV4::ImWidget> childWidget =
+            LogicalWidgetTree::GetLogicalChildAt(widget, childIndex);
         if (!childWidget) {
             continue;
         }
 
-        const json* childJson = nullptr;
-        if (std::dynamic_pointer_cast<ImWidgetV4::ImTabView>(widget)) {
-            if (widgetJson.contains("TabItems") && widgetJson["TabItems"].is_array() && childIndex < widgetJson["TabItems"].size()) {
-                const json& tabItem = widgetJson["TabItems"][childIndex];
-                if (tabItem.is_object() && tabItem.contains("Content")) {
-                    childJson = &tabItem["Content"];
-                }
-            }
-        } else if (widgetJson.contains("Children") && widgetJson["Children"].is_array() && childIndex < widgetJson["Children"].size()) {
-            childJson = &widgetJson["Children"][childIndex];
-        }
+        const json* childJson = LogicalWidgetTree::ResolveLogicalChildJson(widgetJson, widget, childIndex);
 
         if (childJson) {
             ApplyWidgetIdsFromJson(childWidget, *childJson);

@@ -1,11 +1,13 @@
 #include "editor/EditorSession.h"
 #include "editor/EditorShellHost.h"
+#include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "palette/WidgetPaletteView.h"
 #include "tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/platform/Win32DX11Backend.h>
+#include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
@@ -17,6 +19,7 @@
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
 #include <Windows.h>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -30,13 +33,10 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
     std::shared_ptr<EditorShellHost> ShellHost;
     std::shared_ptr<ImTabView> DocumentTabs;
-    std::shared_ptr<ImScrollBox> DocumentHost;
-    std::shared_ptr<ImScrollBox> PreviewHost;
-    std::shared_ptr<ImDesignerSurface> DesignerSurface;
+    std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextBlock> OutputText;
-    int MainDocumentTabIndex = -1;
 };
 
 std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
@@ -94,28 +94,11 @@ std::shared_ptr<ImWidget> BuildControlPalettePanel()
     return host;
 }
 
-std::shared_ptr<ImWidget> BuildProjectViewPanel()
+std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
     outline->SetStyle(MakeDockOutlineStyle());
-
-    ImTextOutlineItem* project = outline->AddRootItem("ImWidgetV4Editor");
-    project->Expanded = true;
-
-    ImTextOutlineItem* assets = outline->AddChildItem(project, "Assets");
-    assets->Expanded = true;
-    outline->AddChildItem(assets, "Main.ui.json");
-    outline->AddChildItem(assets, "Preview.ui.json");
-
-    ImTextOutlineItem* src = outline->AddChildItem(project, "Source");
-    src->Expanded = true;
-    outline->AddChildItem(src, "EditorDocument.cpp");
-    outline->AddChildItem(src, "EditorSession.cpp");
-    outline->AddChildItem(src, "WidgetSerializer.cpp");
-    outline->AddChildItem(src, "main.cpp");
-
-    outline->SetSelectedItem(project);
     return outline;
 }
 
@@ -127,16 +110,40 @@ std::shared_ptr<ImWidget> BuildWidgetTreePanel()
     return outline;
 }
 
-std::shared_ptr<ImScrollBox> BuildPreviewHost()
+std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 {
-    auto previewHost = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle style = previewHost->GetStyle();
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
-    style.Padding = FMargin(0.0f);
-    previewHost->SetStyle(style);
-    return previewHost;
+    auto canvas = std::make_shared<ImCanvasPanel>();
+    canvas->SetName("RootCanvas");
+    canvas->SetDesiredSize(FVector2(1280.0f, 720.0f));
+
+    auto title = std::make_shared<ImTextBlock>();
+    title->SetName("TitleText");
+    title->SetText("ImWidgetV4 Editor");
+    title->SetFontSize(32.0f);
+    title->SetWrapText(false);
+    title->SetTextColor(FColor::FromBytes(235, 240, 248));
+    if (ImCanvasPanelSlot* slot = canvas->AddChildAt(title, FVector2(0.08f, 0.08f))) {
+        slot->SetAutoSize(true);
+    }
+
+    auto hint = std::make_shared<ImTextBlock>();
+    hint->SetName("HintText");
+    hint->SetText("Drag widgets from the left palette into the designer surface.");
+    hint->SetFontSize(18.0f);
+    hint->SetWrapText(false);
+    hint->SetTextColor(FColor::FromBytes(162, 175, 191));
+    if (ImCanvasPanelSlot* slot = canvas->AddChildAt(hint, FVector2(0.08f, 0.16f))) {
+        slot->SetAutoSize(true);
+    }
+
+    auto button = std::make_shared<ImButton>();
+    button->SetName("PrimaryButton");
+    button->SetText("Action");
+    if (ImCanvasPanelSlot* slot = canvas->AddChildAt(button, FVector2(0.08f, 0.28f))) {
+        slot->SetAutoSize(true);
+    }
+
+    return canvas;
 }
 
 std::shared_ptr<ImTabView> BuildLeftDockTabs()
@@ -163,39 +170,11 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs()
     tabView->SetStyle(style);
 
     tabView->AddTab("Controls", BuildControlPalettePanel());
-    tabView->AddTab("Project", BuildProjectViewPanel());
+    auto projectView = BuildProjectViewPanel();
+    tabView->AddTab("Project", projectView);
     tabView->AddTab("Widget Tree", BuildWidgetTreePanel());
+    tabView->SetActiveTab(0);
     return tabView;
-}
-
-std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
-{
-    auto canvas = std::make_shared<ImCanvasPanel>();
-    canvas->SetName("DocumentRoot");
-    canvas->SetDesiredSize(FVector2(640.0f, 420.0f));
-
-    auto heading = std::make_shared<ImTextBlock>();
-    heading->SetName("Heading");
-    heading->SetText("Designer Surface");
-    heading->SetFontSize(22.0f);
-    heading->SetTextColor(FColor::White);
-    canvas->AddChildAt(heading, FVector2(0.04f, 0.06f));
-
-    auto body = std::make_shared<ImTextBlock>();
-    body->SetName("Body");
-    body->SetText("This central workspace is now owned by EditorDocument. Save and reopen will round-trip this widget tree through the editor serializer.");
-    body->SetFontSize(16.0f);
-    body->SetTextColor(FColor::FromBytes(196, 205, 218));
-    canvas->AddChildAt(body, FVector2(0.04f, 0.18f), FVector2(0.62f, 0.26f));
-
-    auto hint = std::make_shared<ImTextBlock>();
-    hint->SetName("Hint");
-    hint->SetText("Next step: replace this with a real designer surface.");
-    hint->SetFontSize(15.0f);
-    hint->SetTextColor(FColor::FromBytes(122, 188, 255));
-    canvas->AddChildAt(hint, FVector2(0.04f, 0.52f));
-
-    return canvas;
 }
 
 FEditorShellWidgets BuildEditorShell()
@@ -225,6 +204,7 @@ FEditorShellWidgets BuildEditorShell()
     verticalShell->SetSplitterStyle(verticalStyle);
 
     auto leftDock = BuildLeftDockTabs();
+    auto projectView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(1)->Content);
     auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(2)->Content);
 
     auto documentTabs = std::make_shared<ImTabView>();
@@ -240,23 +220,6 @@ FEditorShellWidgets BuildEditorShell()
     tabStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
     tabStyle.ActiveTabColor = FColor::FromBytes(63, 90, 128);
     documentTabs->SetStyle(tabStyle);
-
-    auto documentHost = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle scrollStyle = documentHost->GetStyle();
-    scrollStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    scrollStyle.BorderThickness = 0.0f;
-    scrollStyle.CornerRadius = 0.0f;
-    scrollStyle.Padding = FMargin(0.0f);
-    documentHost->SetStyle(scrollStyle);
-
-    auto designerSurface = std::make_shared<ImDesignerSurface>();
-    auto previewHost = BuildPreviewHost();
-    const int mainDocumentTabIndex = documentTabs->AddTab("Main.ui", documentHost);
-    documentHost->SetContent(designerSurface);
-    documentTabs->AddTab("Preview", previewHost);
-    documentTabs->AddTab("PropertiesSchema", MakeSimplePanel(
-        "Schema Notes",
-        "Reflection-backed metadata, property editors and drag/drop payload inspection can share this workspace during early editor development."));
 
     auto rightDock = std::make_shared<ImVerticalBox>();
     rightDock->SetSpacing(0.0f);
@@ -281,40 +244,43 @@ FEditorShellWidgets BuildEditorShell()
     shell.Root = shellHost;
     shell.ShellHost = shellHost;
     shell.DocumentTabs = documentTabs;
-    shell.DocumentHost = documentHost;
-    shell.PreviewHost = previewHost;
-    shell.DesignerSurface = designerSurface;
+    shell.ProjectView = projectView;
     shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
     shell.OutputText = outputText;
-    shell.MainDocumentTabIndex = mainDocumentTabIndex;
     return shell;
 }
 
 std::vector<FApplicationMenuItem> BuildFileMenuItems(
     ImApplication& app,
-    const std::shared_ptr<EditorSession>& session)
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     return {
-        FApplicationMenuItem {"New", {}, {}, true, false, [&app, session]() {
-            if (session) {
-                session->NewDocument();
+        FApplicationMenuItem {"New", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->NewDocument();
             }
         }},
-        FApplicationMenuItem {"Open...", {}, {}, true, false, [&app, session]() {
-            if (session) {
-                session->OpenDocument(app);
+        FApplicationMenuItem {"Open...", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->OpenDocument(app);
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Save", {}, {}, true, false, [&app, session]() {
-            if (session) {
-                session->SaveDocument(app);
+        FApplicationMenuItem {"Save", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->SaveDocument(app);
             }
         }},
-        FApplicationMenuItem {"Save As...", {}, {}, true, false, [&app, session]() {
-            if (session) {
-                session->SaveDocumentAs(app);
+        FApplicationMenuItem {"Save As...", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->SaveDocumentAs(app);
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Close", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->CloseActiveDocument(app);
             }
         }}
     };
@@ -329,43 +295,64 @@ std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuNa
     return items;
 }
 
-std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorSession>& session)
+std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     return {
-        FApplicationMenuItem {"Cut", {}, {}, true, false, [session]() {
-            if (session) {
-                session->CutSelectedWidget();
+        FApplicationMenuItem {"Cut", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->CutSelectedWidget();
             }
         }},
-        FApplicationMenuItem {"Copy", {}, {}, true, false, [session]() {
-            if (session) {
-                session->CopySelectedWidget();
+        FApplicationMenuItem {"Copy", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->CopySelectedWidget();
             }
         }},
-        FApplicationMenuItem {"Paste", {}, {}, true, false, [session]() {
-            if (session) {
-                session->PasteCopiedWidget();
-            }
-        }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Undo", {}, {}, true, false, [session]() {
-            if (session) {
-                session->Undo();
-            }
-        }},
-        FApplicationMenuItem {"Redo", {}, {}, true, false, [session]() {
-            if (session) {
-                session->Redo();
+        FApplicationMenuItem {"Paste", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->PasteCopiedWidget();
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Duplicate", {}, {}, true, false, [session]() {
-            if (session) {
-                session->DuplicateSelectedWidget();
+        FApplicationMenuItem {"Undo", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->Undo();
+            }
+        }},
+        FApplicationMenuItem {"Redo", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->Redo();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Duplicate", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->DuplicateSelectedWidget();
             }
         }},
         FApplicationMenuItem {"", {}, {}, true, true, {}},
         FApplicationMenuItem {"Coming Soon", {}, {}, false, false, {}}
+    };
+}
+
+std::filesystem::path ResolveEditorProjectRoot()
+{
+    std::filesystem::path root = LR"(E:\project\ImWidgetV4)";
+    std::error_code error;
+    const std::filesystem::path canonicalRoot = std::filesystem::weakly_canonical(root, error);
+    return error ? root.lexically_normal() : canonicalRoot;
+}
+
+std::vector<FApplicationMenuItem> BuildProjectMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    return {
+        FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->RefreshProjectTree();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Project Root", {}, {}, false, false, {}}
     };
 }
 
@@ -389,22 +376,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     backend->SetApplication(app.get());
 
     FEditorShellWidgets shell = BuildEditorShell();
-    auto session = std::make_shared<EditorSession>(&BuildInitialDocumentRoot);
-    shell.ShellHost->SetSession(session);
-    session->BindDocumentWidgets(
+    auto workspaceController = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
+    shell.ShellHost->SetWorkspaceController(workspaceController);
+    workspaceController->SetProjectRoot(ResolveEditorProjectRoot());
+    workspaceController->Bind(
+        shell.ShellHost,
         shell.DocumentTabs,
-        shell.MainDocumentTabIndex,
-        shell.DocumentHost,
-        shell.PreviewHost,
-        shell.DesignerSurface,
+        shell.ProjectView,
         shell.WidgetTreeView,
         shell.DetailsView,
         shell.OutputText);
 
     app->SetApplicationTitle("ImWidgetV4 Editor");
     app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
-    app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, session));
-    app->AddTitleBarTabMenu("Edit", BuildEditMenuItems(session));
+    app->AddTitleBarTabMenu("File", BuildFileMenuItems(*app, workspaceController));
+    app->AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
+    app->AddTitleBarTabMenu("Project", BuildProjectMenuItems(workspaceController));
     app->AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
     app->AddTitleBarTabMenu(app->GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
     app->SetRootWidget(shell.Root);

@@ -14,6 +14,8 @@ add_executable(ImWidgetV4Editor
     src/editor/EditorDocument.cpp
     src/editor/EditorShellHost.cpp
     src/editor/EditorSession.cpp
+    src/editor/EditorWorkspaceController.cpp
+    src/editor/LogicalWidgetTree.cpp
     src/inspector/ReflectionDetailsView.cpp
     src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp

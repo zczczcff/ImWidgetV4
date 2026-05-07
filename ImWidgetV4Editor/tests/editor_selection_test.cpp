@@ -9,6 +9,9 @@
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/SelectionModel.h"
 
+#include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/TextList.h>
@@ -16,12 +19,29 @@
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imgui.h>
 #include "../src/inspector/ReflectionDetailsView.h"
 
 using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor;
 
 namespace {
+
+class DesignerTestWidget : public ImWidget {
+public:
+    explicit DesignerTestWidget(const FVector2& minSize = FVector2(100.0f, 30.0f))
+        : MinSize(minSize)
+    {
+        SetHitTestVisible(true);
+    }
+
+    FVector2 GetMinSize() const override
+    {
+        return MinSize;
+    }
+
+    FVector2 MinSize;
+};
 
 std::shared_ptr<ImWidget> BuildDocumentRoot()
 {
@@ -39,6 +59,113 @@ std::shared_ptr<ImWidget> BuildDocumentRoot()
     root->AddChild(child);
 
     return root;
+}
+
+std::shared_ptr<ImWidget> BuildDesignerCanvasDocumentRoot()
+{
+    auto canvas = std::make_shared<ImCanvasPanel>();
+    canvas->SetName("CanvasRoot");
+    canvas->SetDesiredSize(FVector2(400.0f, 300.0f));
+
+    auto child = std::make_shared<DesignerTestWidget>();
+    child->SetName("CanvasChild");
+
+    canvas->AddChildAt(child, FVector2(0.10f, 0.15f));
+    return canvas;
+}
+
+FInputEvent MouseEvent(
+    EInputEventType type,
+    const FVector2& position,
+    EMouseButton button = EMouseButton::Left)
+{
+    FInputEvent event;
+    event.Type = type;
+    event.MousePosition = position;
+    event.MouseButton = button;
+    return event;
+}
+
+void AdvanceAppWithDraw(
+    ImApplication& app,
+    const std::vector<FInputEvent>& events,
+    const FVector2& viewportSize)
+{
+    if (!ImGui::GetCurrentContext()) {
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.Fonts->AddFontDefault();
+        io.Fonts->Build();
+    }
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = viewportSize.ToImVec2();
+    io.DeltaTime = 1.0f / 60.0f;
+
+    ImGui::NewFrame();
+    ImDrawList drawList(ImGui::GetDrawListSharedData());
+    drawList._ResetForNewFrame();
+    DrawContext drawContext(&drawList);
+
+    FFrameContext frameContext;
+    frameContext.InputEvents = &events;
+    frameContext.FrameInfo.ViewportSize = viewportSize;
+    frameContext.DrawContext_ = &drawContext;
+    app.AdvanceFrame(frameContext);
+
+    ImGui::EndFrame();
+}
+
+std::shared_ptr<DesignerTestWidget> GetCanvasDocumentButton(const std::shared_ptr<EditorSession>& session)
+{
+    auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+    if (!canvas || canvas->GetChildren().empty()) {
+        return nullptr;
+    }
+
+    return std::dynamic_pointer_cast<DesignerTestWidget>(canvas->GetChildren().front());
+}
+
+ImCanvasPanelSlot* GetCanvasDocumentButtonSlot(const std::shared_ptr<EditorSession>& session)
+{
+    auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+    auto button = GetCanvasDocumentButton(session);
+    if (!canvas || !button) {
+        return nullptr;
+    }
+
+    return dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(button));
+}
+
+void BindEditorSessionForTests(
+    const std::shared_ptr<EditorSession>& session,
+    const std::shared_ptr<ImDesignerSurface>& designerSurface)
+{
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+}
+
+void SyncDesignerCanvasLayout(
+    const std::shared_ptr<EditorSession>& session,
+    const std::shared_ptr<ImDesignerSurface>& designerSurface)
+{
+    auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+    if (!canvas || !designerSurface) {
+        return;
+    }
+
+    canvas->SetGeometry(designerSurface->GetGeometry());
+    canvas->Relayout();
 }
 
 } // namespace
@@ -538,6 +665,147 @@ TEST(EditorSelectionTest, SessionDuplicateSelectedWidgetSupportsUndoRedo)
 
     ASSERT_TRUE(session->Redo());
     ASSERT_EQ(root->GetChildren().size(), 2u);
+}
+
+TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)
+{
+    auto session = std::make_shared<EditorSession>(BuildDesignerCanvasDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    const FVector2 kViewportSize(400.0f, 300.0f);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+    SyncDesignerCanvasLayout(session, designerSurface);
+
+    auto button = GetCanvasDocumentButton(session);
+    auto* slot = GetCanvasDocumentButtonSlot(session);
+    ASSERT_TRUE(button);
+    ASSERT_NE(slot, nullptr);
+    ASSERT_TRUE(button->GetGeometry().IsValid());
+
+    const FVector2 selectPoint = button->GetGeometry().GetCenter();
+    AdvanceAppWithDraw(
+        *app,
+        {
+            MouseEvent(EInputEventType::MouseButtonDown, selectPoint),
+            MouseEvent(EInputEventType::MouseButtonUp, selectPoint)
+        },
+        kViewportSize);
+
+    ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+
+    const FVector2 beforePosition = slot->GetRelativePosition();
+    const FVector2 beforeSize = slot->GetRelativeSize();
+    const bool beforeAutoSize = slot->GetAutoSize();
+
+    const FVector2 dragTarget = selectPoint + FVector2(40.0f, 30.0f);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonDown, selectPoint)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseMove, dragTarget)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonUp, dragTarget)},
+        kViewportSize);
+
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + 0.10f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + 0.10f, 0.0001f);
+    EXPECT_EQ(slot->GetRelativeSize(), beforeSize);
+    EXPECT_EQ(slot->GetAutoSize(), beforeAutoSize);
+    EXPECT_TRUE(session->CanUndo());
+
+    ASSERT_TRUE(session->Undo());
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y, 0.0001f);
+    EXPECT_EQ(slot->GetRelativeSize(), beforeSize);
+    EXPECT_EQ(slot->GetAutoSize(), beforeAutoSize);
+
+    ASSERT_TRUE(session->Redo());
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + 0.10f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + 0.10f, 0.0001f);
+}
+
+TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAutoSize)
+{
+    auto session = std::make_shared<EditorSession>(BuildDesignerCanvasDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    const FVector2 kViewportSize(400.0f, 300.0f);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+    SyncDesignerCanvasLayout(session, designerSurface);
+
+    auto button = GetCanvasDocumentButton(session);
+    auto* slot = GetCanvasDocumentButtonSlot(session);
+    ASSERT_TRUE(button);
+    ASSERT_NE(slot, nullptr);
+    ASSERT_TRUE(slot->GetAutoSize());
+    ASSERT_TRUE(button->GetGeometry().IsValid());
+
+    const FVector2 selectPoint = button->GetGeometry().GetCenter();
+    AdvanceAppWithDraw(
+        *app,
+        {
+            MouseEvent(EInputEventType::MouseButtonDown, selectPoint),
+            MouseEvent(EInputEventType::MouseButtonUp, selectPoint)
+        },
+        kViewportSize);
+
+    ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+
+    const FVector2 beforePosition = slot->GetRelativePosition();
+    const FVector2 beforeRelativeSize = slot->GetRelativeSize();
+    const bool beforeAutoSize = slot->GetAutoSize();
+    const FVector2 beforePixelSize = button->GetGeometry().Size;
+    const FVector2 minRelativeSize(
+        beforePixelSize.X / kViewportSize.X,
+        beforePixelSize.Y / kViewportSize.Y);
+
+    const FVector2 resizeHandlePoint = button->GetGeometry().GetMax() - FVector2(2.0f, 2.0f);
+    const FVector2 resizeTarget = resizeHandlePoint + FVector2(40.0f, 30.0f);
+
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonDown, resizeHandlePoint)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseMove, resizeTarget)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonUp, resizeTarget)},
+        kViewportSize);
+
+    const FVector2 expectedRelativeSize(
+        std::max(minRelativeSize.X, 40.0f / kViewportSize.X),
+        std::max(minRelativeSize.Y, 30.0f / kViewportSize.Y));
+
+    EXPECT_EQ(slot->GetRelativePosition(), beforePosition);
+    EXPECT_FALSE(slot->GetAutoSize());
+    EXPECT_NEAR(slot->GetRelativeSize().X, expectedRelativeSize.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().Y, expectedRelativeSize.Y, 0.0001f);
+    EXPECT_TRUE(session->CanUndo());
+
+    ASSERT_TRUE(session->Undo());
+    EXPECT_EQ(slot->GetRelativePosition(), beforePosition);
+    EXPECT_EQ(slot->GetRelativeSize(), beforeRelativeSize);
+    EXPECT_EQ(slot->GetAutoSize(), beforeAutoSize);
+
+    ASSERT_TRUE(session->Redo());
+    EXPECT_FALSE(slot->GetAutoSize());
+    EXPECT_NEAR(slot->GetRelativeSize().X, expectedRelativeSize.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().Y, expectedRelativeSize.Y, 0.0001f);
 }
 
 int main(int argc, char** argv)

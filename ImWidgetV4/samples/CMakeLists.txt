@@ -20,5 +20,7 @@ if(TARGET imwidgetv4_platform_win32_dx11)
 endif()
 
 if(TARGET imwidgetv4_platform_android_gles3)
+    add_subdirectory(ImageDemo)
+    add_subdirectory(InputWidgetsDemo)
     add_subdirectory(AndroidDemo)
 endif()

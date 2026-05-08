@@ -2,6 +2,11 @@
 build/
 build-*/
 cmake-build-*/
+.gradle/
+**/.cxx/
+**/local.properties
+platforms/android/**/build/
+android-*.png
 
 # IDE directories
 .vs/

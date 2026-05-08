@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.imwidgetv4.androiddemo'
+    compileSdk 35
+    ndkVersion '29.0.14206865'
+
+    defaultConfig {
+        applicationId 'com.imwidgetv4.androiddemo'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared',
+                    '-DIMWIDGETV4_BUILD_TESTS=OFF',
+                    '-DIMWIDGETV4_BUILD_SAMPLES=ON',
+                    '-DIMWIDGETV4_BUILD_WIN32_DX11_BACKEND=OFF',
+                    '-DIMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND=ON'
+                cppFlags '-std=c++17'
+                abiFilters 'arm64-v8a'
+                targets 'AndroidDemo'
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('../CMakeLists.txt')
+            version '3.31.6'
+        }
+    }
+}

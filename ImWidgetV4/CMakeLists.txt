@@ -302,6 +302,13 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
         set(IMWIDGETV4_ANDROID_NDK_ROOT ${ANDROID_NDK})
     endif()
 
+    set(IMWIDGETV4_ANDROID_NATIVE_APP_GLUE_SOURCE "")
+    if(IMWIDGETV4_ANDROID_NDK_ROOT)
+        set(IMWIDGETV4_ANDROID_NATIVE_APP_GLUE_SOURCE
+            ${IMWIDGETV4_ANDROID_NDK_ROOT}/sources/android/native_app_glue/android_native_app_glue.c
+        )
+    endif()
+
     add_library(imwidgetv4_imgui_backend_android STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_android.cpp
     )

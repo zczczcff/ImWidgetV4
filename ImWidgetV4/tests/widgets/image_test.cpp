@@ -82,7 +82,7 @@ protected:
     }
 };
 
-constexpr std::array<ECoreIcon, 41> GAllCoreIcons = {
+constexpr std::array<ECoreIcon, 67> GAllCoreIcons = {
     ECoreIcon::Save,
     ECoreIcon::Folder,
     ECoreIcon::File,
@@ -123,7 +123,33 @@ constexpr std::array<ECoreIcon, 41> GAllCoreIcons = {
     ECoreIcon::ZoomIn,
     ECoreIcon::ZoomOut,
     ECoreIcon::AddToCart,
-    ECoreIcon::Bookmark
+    ECoreIcon::Bookmark,
+    ECoreIcon::ExpandableBox,
+    ECoreIcon::Button,
+    ECoreIcon::ColorPalette,
+    ECoreIcon::CheckBox,
+    ECoreIcon::ComboBox,
+    ECoreIcon::EditableText,
+    ECoreIcon::HorizontalBox,
+    ECoreIcon::Slider,
+    ECoreIcon::Image,
+    ECoreIcon::ListView,
+    ECoreIcon::PopupMenu,
+    ECoreIcon::ScrollBox,
+    ECoreIcon::HorizontalSplitter,
+    ECoreIcon::Switch,
+    ECoreIcon::TabView,
+    ECoreIcon::TextBlock,
+    ECoreIcon::OutlineView,
+    ECoreIcon::UserWidget,
+    ECoreIcon::VerticalBox,
+    ECoreIcon::VerticalSplitter,
+    ECoreIcon::CanvasPanel,
+    ECoreIcon::DesignerSurface,
+    ECoreIcon::BoxSlot,
+    ECoreIcon::Style,
+    ECoreIcon::TextList,
+    ECoreIcon::TextOutlineView
 };
 
 } // namespace
@@ -250,8 +276,8 @@ TEST_F(ImageTest, CoreIconAtlasProducesTransparentBackgroundAndOpaqueGlyphPixels
 
     ImApplication::FRuntimeTextureData textureData;
     ASSERT_TRUE(application.FindRuntimeTextureData(saveBrush.TextureId, textureData));
-    ASSERT_EQ(textureData.Width, 224);
-    ASSERT_EQ(textureData.Height, 192);
+    ASSERT_EQ(textureData.Width, 256);
+    ASSERT_EQ(textureData.Height, 288);
     ASSERT_EQ(textureData.BytesPerPixel, 4);
 
     const auto samplePixel = [&textureData](int x, int y) {

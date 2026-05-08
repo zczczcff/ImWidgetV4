@@ -68,7 +68,7 @@ std::shared_ptr<ImVerticalBox> MakeImageCard(
     return card;
 }
 
-constexpr std::array<std::pair<ECoreIcon, const char*>, 41> GCoreIcons = {{
+constexpr std::array<std::pair<ECoreIcon, const char*>, 67> GCoreIcons = {{
     {ECoreIcon::Save, "Save"},
     {ECoreIcon::Folder, "Folder"},
     {ECoreIcon::File, "File"},
@@ -109,7 +109,33 @@ constexpr std::array<std::pair<ECoreIcon, const char*>, 41> GCoreIcons = {{
     {ECoreIcon::ZoomIn, "ZoomIn"},
     {ECoreIcon::ZoomOut, "ZoomOut"},
     {ECoreIcon::AddToCart, "AddToCart"},
-    {ECoreIcon::Bookmark, "Bookmark"}
+    {ECoreIcon::Bookmark, "Bookmark"},
+    {ECoreIcon::ExpandableBox, "ExpandableBox"},
+    {ECoreIcon::Button, "Button"},
+    {ECoreIcon::ColorPalette, "ColorPalette"},
+    {ECoreIcon::CheckBox, "CheckBox"},
+    {ECoreIcon::ComboBox, "ComboBox"},
+    {ECoreIcon::EditableText, "EditableText"},
+    {ECoreIcon::HorizontalBox, "HorizontalBox"},
+    {ECoreIcon::Slider, "Slider"},
+    {ECoreIcon::Image, "Image"},
+    {ECoreIcon::ListView, "ListView"},
+    {ECoreIcon::PopupMenu, "PopupMenu"},
+    {ECoreIcon::ScrollBox, "ScrollBox"},
+    {ECoreIcon::HorizontalSplitter, "HorizontalSplitter"},
+    {ECoreIcon::Switch, "Switch"},
+    {ECoreIcon::TabView, "TabView"},
+    {ECoreIcon::TextBlock, "TextBlock"},
+    {ECoreIcon::OutlineView, "OutlineView"},
+    {ECoreIcon::UserWidget, "UserWidget"},
+    {ECoreIcon::VerticalBox, "VerticalBox"},
+    {ECoreIcon::VerticalSplitter, "VerticalSplitter"},
+    {ECoreIcon::CanvasPanel, "CanvasPanel"},
+    {ECoreIcon::DesignerSurface, "DesignerSurface"},
+    {ECoreIcon::BoxSlot, "BoxSlot"},
+    {ECoreIcon::Style, "Style"},
+    {ECoreIcon::TextList, "TextList"},
+    {ECoreIcon::TextOutlineView, "TextOutlineView"}
 }};
 
 std::shared_ptr<ImVerticalBox> MakeCoreIconCell(
@@ -122,9 +148,9 @@ std::shared_ptr<ImVerticalBox> MakeCoreIconCell(
 
     auto image = std::make_shared<ImImage>();
     image->SetBrush(brush);
-    image->SetDesiredSize(FVector2(56.0f, 56.0f));
+    image->SetDesiredSize(FVector2(32.0f, 32.0f));
     image->SetBackgroundColor(FColor::FromBytes(24, 31, 40));
-    image->SetCornerRadius(10.0f);
+    image->SetCornerRadius(6.0f);
 
     auto text = MakeLabel(label, labelColor);
     text->SetFontSize(13.0f);
@@ -267,7 +293,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     root->AddChild(
         MakeLabel(
-            "The library now embeds a 41-icon atlas. The first grid uses the default white brushes, and the second grid reuses the same atlas with per-brush tint colors.",
+            "The library now embeds a 67-icon atlas. The first grid uses the default white brushes, and the second grid reuses the same atlas with per-brush tint colors.",
             FColor::FromBytes(214, 222, 234)),
         FMargin(20.0f, 0.0f, 20.0f, 0.0f));
 

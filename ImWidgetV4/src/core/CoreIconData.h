@@ -7,8 +7,8 @@
 
 namespace ImWidgetV4::CoreIconInternal {
 
-constexpr int AtlasWidth = 224;
-constexpr int AtlasHeight = 192;
+constexpr int AtlasWidth = 256;
+constexpr int AtlasHeight = 288;
 constexpr int IconSize = 32;
 
 const std::vector<std::uint8_t>& GetAtlasPixels();

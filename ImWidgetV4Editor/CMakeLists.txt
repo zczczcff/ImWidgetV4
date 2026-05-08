@@ -26,6 +26,7 @@ add_executable(ImWidgetV4Editor
     src/editor/SelectionModel.cpp
     src/editor/WidgetTypeIcon.cpp
     src/inspector/ReflectionDetailsView.cpp
+    src/project/EditorProject.cpp
     src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp
     src/palette/WidgetPaletteView.cpp
@@ -54,6 +55,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/editor/SelectionModel.cpp
         src/editor/WidgetTypeIcon.cpp
         src/inspector/ReflectionDetailsView.cpp
+        src/project/EditorProject.cpp
         src/palette/WidgetPaletteDragDrop.cpp
         src/palette/WidgetPaletteView.cpp
         src/serialization/WidgetFactory.cpp
@@ -91,3 +93,10 @@ set_target_properties(ImWidgetV4Editor PROPERTIES
     WIN32_EXECUTABLE TRUE
     FOLDER "Editor"
 )
+
+if(MSVC)
+    target_compile_options(ImWidgetV4Editor PRIVATE /FS)
+    if(TARGET editor_selection_test)
+        target_compile_options(editor_selection_test PRIVATE /FS)
+    endif()
+endif()

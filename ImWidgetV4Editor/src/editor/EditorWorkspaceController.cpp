@@ -4,6 +4,7 @@
 #include "EditorPaths.h"
 #include "EditorShellHost.h"
 #include "InputDialog.h"
+#include "../project/EditorProject.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
@@ -151,8 +152,20 @@ bool ShouldSkipWorkspaceEntry(const std::filesystem::directory_entry& entry)
 
 bool IsSupportedWorkspaceDocument(const std::filesystem::path& filePath)
 {
+    const std::string fileName = filePath.filename().string();
+    if (fileName == "CMakeLists.txt") {
+        return true;
+    }
+
     const std::string extension = filePath.extension().string();
-    return extension == ".json" || extension == ".ui" || extension == ".txt";
+    return extension == ".json" ||
+           extension == ".ui" ||
+           extension == ".txt" ||
+           extension == ".h" ||
+           extension == ".hpp" ||
+           extension == ".cpp" ||
+           extension == ".cxx" ||
+           extension == ".cmake";
 }
 
 bool IsPathWithinRoot(const std::filesystem::path& candidate, const std::filesystem::path& root)
@@ -264,6 +277,67 @@ bool EndsWithCaseInsensitive(const std::string& value, const std::string& suffix
     return true;
 }
 
+bool IsIdentifierStartChar(char c)
+{
+    const unsigned char value = static_cast<unsigned char>(c);
+    return std::isalpha(value) != 0 || c == '_';
+}
+
+bool IsIdentifierContinueChar(char c)
+{
+    const unsigned char value = static_cast<unsigned char>(c);
+    return std::isalnum(value) != 0 || c == '_';
+}
+
+std::string TrimWhitespaceCopy(const std::string& text)
+{
+    const std::size_t begin = text.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos) {
+        return std::string();
+    }
+
+    const std::size_t end = text.find_last_not_of(" \t\r\n");
+    return text.substr(begin, end - begin + 1);
+}
+
+std::string NormalizeProjectIdentifier(const std::string& rawText, const std::string& fallback)
+{
+    const std::string source = TrimWhitespaceCopy(rawText);
+    const std::string fallbackSource = TrimWhitespaceCopy(fallback).empty()
+        ? std::string("AppProject")
+        : TrimWhitespaceCopy(fallback);
+
+    auto sanitize = [](const std::string& text) {
+        std::string result;
+        result.reserve(text.size());
+        for (char c : text) {
+            if (IsIdentifierContinueChar(c)) {
+                result.push_back(c);
+            } else if (result.empty() || result.back() != '_') {
+                result.push_back('_');
+            }
+        }
+
+        while (!result.empty() && result.back() == '_') {
+            result.pop_back();
+        }
+
+        return result;
+    };
+
+    std::string normalized = sanitize(source);
+    if (normalized.empty()) {
+        normalized = sanitize(fallbackSource);
+    }
+    if (normalized.empty()) {
+        normalized = "AppProject";
+    }
+    if (!IsIdentifierStartChar(normalized.front())) {
+        normalized.insert(normalized.begin(), '_');
+    }
+    return normalized;
+}
+
 } // namespace
 
 EditorWorkspaceController::EditorWorkspaceController(
@@ -286,11 +360,13 @@ void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& proj
 {
     if (projectRoot.empty()) {
         m_ProjectRoot.clear();
+        m_Project.reset();
     } else {
         std::error_code error;
         const std::filesystem::path canonicalPath =
             std::filesystem::weakly_canonical(projectRoot, error);
         m_ProjectRoot = error ? projectRoot.lexically_normal() : canonicalPath;
+        LoadProjectManifestAtRoot(m_ProjectRoot, false);
     }
 
     RebuildProjectView();
@@ -364,6 +440,114 @@ bool EditorWorkspaceController::CreateDocumentInDirectory(ImApplication& app, co
 
     OpenCreateDocumentDialog(app, directoryPath);
     return true;
+}
+
+bool EditorWorkspaceController::CreateAppProjectAt(
+    const std::filesystem::path& parentDirectory,
+    const std::string& projectName)
+{
+    const std::string trimmedProjectName = TrimWhitespaceCopy(projectName);
+    const std::filesystem::path folderNamePath = std::filesystem::path(trimmedProjectName).filename();
+    if (parentDirectory.empty() || trimmedProjectName.empty() || folderNamePath != trimmedProjectName) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create project failed: project name must not contain path separators."});
+        }
+        return false;
+    }
+
+    if (HasDirtyDocuments()) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create project blocked: save or discard dirty documents first."});
+        }
+        return false;
+    }
+
+    try {
+        const std::filesystem::path projectRoot = (parentDirectory / folderNamePath).lexically_normal();
+        if (std::filesystem::exists(projectRoot)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: target folder already exists."});
+            }
+            return false;
+        }
+
+        std::filesystem::create_directories(projectRoot / "src");
+        std::filesystem::create_directories(projectRoot / "include");
+        std::filesystem::create_directories(projectRoot / "ui");
+        std::filesystem::create_directories(projectRoot / "generated");
+        std::filesystem::create_directories(projectRoot / "cmake");
+
+        const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+        std::shared_ptr<EditorSession> bootstrapSession = CreateSession();
+        if (!bootstrapSession || !bootstrapSession->GetDocument()) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: could not create startup document session."});
+            }
+            return false;
+        }
+
+        bootstrapSession->GetDocument()->SetDisplayTitle("Main");
+        std::string documentError;
+        if (!bootstrapSession->GetDocument()->SaveAs(startupDocumentPath, &documentError)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: " + documentError});
+            }
+            return false;
+        }
+
+        auto project = std::make_shared<EditorProject>();
+        const std::string namespaceName = NormalizeProjectIdentifier(trimmedProjectName, "AppProject");
+        if (!project->CreateNew(
+                projectRoot,
+                trimmedProjectName,
+                namespaceName,
+                std::filesystem::path("ui") / "Main.ui.json")) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: invalid project metadata."});
+            }
+            return false;
+        }
+
+        std::string manifestError;
+        if (!project->Save(&manifestError)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: " + manifestError});
+            }
+            return false;
+        }
+
+        ClearOpenDocuments();
+        m_Project = project;
+        m_ProjectRoot = projectRoot;
+        RememberRecentFile(startupDocumentPath);
+
+        std::shared_ptr<EditorSession> session = CreateSession();
+        if (!session || !session->OpenDocumentFromPath(startupDocumentPath) || !AddSession(session, true)) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Project created, but opening the startup document failed."});
+            }
+            RebuildProjectView();
+            NotifyProjectStateChanged();
+            return false;
+        }
+
+        RebuildProjectView();
+        NotifyProjectStateChanged();
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Created app project " + trimmedProjectName});
+        }
+        return true;
+    } catch (const std::exception& error) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create project failed: " + std::string(error.what())});
+        }
+        return false;
+    } catch (...) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create project failed."});
+        }
+        return false;
+    }
 }
 
 bool EditorWorkspaceController::CreateFolderInDirectory(ImApplication& app, const std::filesystem::path& directoryPath)
@@ -488,6 +672,31 @@ bool EditorWorkspaceController::OpenDocumentFromPath(const std::filesystem::path
 
     RememberRecentFile(filePath);
     return AddSession(session, true);
+}
+
+bool EditorWorkspaceController::NewAppProject(ImApplication& app)
+{
+    if (HasDirtyDocuments()) {
+        if (m_OutputText) {
+            m_OutputText->SetItems({"Create project blocked: save or discard dirty documents first."});
+        }
+        return false;
+    }
+
+    FOpenFolderDialogOptions options;
+    options.Title = "Select New Project Parent Directory";
+    options.InitialDirectory = m_ProjectRoot.empty() ? GetDefaultEditorWorkspaceDirectory() : m_ProjectRoot;
+
+    const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
+    if (!dialogResult.IsAccepted()) {
+        if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
+            m_OutputText->SetItems({"Create project failed: " + dialogResult.ErrorMessage});
+        }
+        return false;
+    }
+
+    OpenCreateAppProjectDialog(app, dialogResult.Path);
+    return true;
 }
 
 bool EditorWorkspaceController::SaveDocument(ImApplication& app)
@@ -1355,6 +1564,56 @@ void EditorWorkspaceController::OpenCreateDocumentDialog(
     m_CloseConfirmMenu.reset();
 }
 
+void EditorWorkspaceController::OpenCreateAppProjectDialog(
+    ImApplication& app,
+    const std::filesystem::path& parentDirectory)
+{
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+    m_PendingCreateProjectParentPath = parentDirectory;
+
+    auto weakThis = weak_from_this();
+    const std::filesystem::path defaultProjectPath =
+        BuildUniqueChildPath(parentDirectory, "NewAppProject");
+    FInputDialogOptions dialogOptions;
+    dialogOptions.PopupTitle = "CreateAppProjectDialog";
+    dialogOptions.HeadingText = "Create App Project";
+    dialogOptions.InitialText = defaultProjectPath.empty()
+        ? std::string("NewAppProject")
+        : defaultProjectPath.filename().string();
+    dialogOptions.ConfirmText = "Create";
+    dialogOptions.CancelText = "Cancel";
+    dialogOptions.Size = FVector2(400.0f, 116.0f);
+    dialogOptions.bSelectAllOnOpen = true;
+    dialogOptions.OnConfirm = [weakThis, parentDirectory](const std::string& text) {
+        if (auto self = weakThis.lock()) {
+            if (self->CreateAppProjectAt(parentDirectory, text)) {
+                self->m_PendingCreateProjectParentPath.clear();
+                return true;
+            }
+        }
+        return false;
+    };
+    dialogOptions.OnCancel = [weakThis]() {
+        if (auto self = weakThis.lock()) {
+            self->m_PendingCreateProjectParentPath.clear();
+        }
+    };
+    dialogOptions.Position = FVector2(220.0f, 120.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        dialogOptions.Position = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.30f),
+            geometry.Position.Y + 52.0f);
+    }
+
+    m_PendingInputDialog = std::make_shared<InputDialog>();
+    m_PendingInputDialog->Open(app, dialogOptions);
+    m_CloseConfirmWindow = m_PendingInputDialog->GetWindow();
+    m_CloseConfirmMenu.reset();
+}
+
 void EditorWorkspaceController::OpenCreateFolderDialog(
     ImApplication& app,
     const std::filesystem::path& directoryPath)
@@ -1494,6 +1753,7 @@ void EditorWorkspaceController::ClosePendingPrompt()
     m_PendingInputDialog.reset();
     m_PendingCloseDocumentIndex = -1;
     m_PendingProjectRootChange.clear();
+    m_PendingCreateProjectParentPath.clear();
     m_PendingRenameProjectItemPath.clear();
     m_PendingDeleteProjectItemPath.clear();
 }
@@ -1504,6 +1764,9 @@ EditorWorkspaceController::json EditorWorkspaceController::BuildWorkspaceStateJs
     workspaceState["Format"] = "ImWidgetV4EditorWorkspaceState";
     workspaceState["Version"] = 1;
     workspaceState["ProjectRoot"] = m_ProjectRoot.string();
+    workspaceState["ProjectManifest"] = m_Project
+        ? m_Project->GetManifestFilePath().string()
+        : std::string();
     workspaceState["ActiveDocumentIndex"] = m_ActiveDocumentIndex;
 
     json openDocuments = json::array();
@@ -1559,6 +1822,10 @@ bool EditorWorkspaceController::ApplyWorkspaceStateJson(const json& workspaceSta
     const std::string projectRoot = workspaceState.value("ProjectRoot", std::string());
     if (!projectRoot.empty()) {
         SetProjectRoot(projectRoot);
+    }
+    const std::string projectManifestPath = workspaceState.value("ProjectManifest", std::string());
+    if (!projectManifestPath.empty()) {
+        LoadProjectManifestAtRoot(std::filesystem::path(projectManifestPath).parent_path(), false);
     }
 
     if (workspaceState.contains("RecentFiles") && workspaceState["RecentFiles"].is_array()) {
@@ -2169,6 +2436,7 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
     UpdateOpenDocumentPathsForRename(path, targetPath);
     if (!m_ProjectRoot.empty() && AreEquivalentPaths(m_ProjectRoot, path)) {
         m_ProjectRoot = targetPath;
+        LoadProjectManifestAtRoot(m_ProjectRoot, false);
     }
 
     RefreshProjectTree();
@@ -2248,6 +2516,19 @@ void EditorWorkspaceController::NotifyProjectStateChanged() const
     if (m_OnProjectStateChanged) {
         m_OnProjectStateChanged();
     }
+}
+
+bool EditorWorkspaceController::HasDirtyDocuments() const
+{
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (entry.Session &&
+            entry.Session->GetDocument() &&
+            entry.Session->GetDocument()->IsDirty()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 int EditorWorkspaceController::FindDocumentIndexByPath(const std::filesystem::path& filePath) const
@@ -2350,6 +2631,46 @@ void EditorWorkspaceController::ReplaceRecentFilePath(const std::filesystem::pat
         if (IsPathWithinRoot(recentPath, oldPath)) {
             recentPath = newPath / std::filesystem::relative(recentPath, oldPath);
         }
+    }
+}
+
+bool EditorWorkspaceController::LoadProjectManifestAtRoot(
+    const std::filesystem::path& projectRoot,
+    bool bLogErrors)
+{
+    m_Project.reset();
+    if (projectRoot.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path manifestPath = EditorProject::BuildManifestFilePath(projectRoot);
+    if (!std::filesystem::exists(manifestPath)) {
+        return false;
+    }
+
+    auto project = std::make_shared<EditorProject>();
+    std::string errorMessage;
+    if (!project->Load(manifestPath, &errorMessage)) {
+        if (bLogErrors && m_OutputText) {
+            m_OutputText->SetItems({"Project manifest load failed: " + errorMessage});
+        }
+        return false;
+    }
+
+    m_Project = project;
+    return true;
+}
+
+void EditorWorkspaceController::ClearOpenDocuments()
+{
+    if (m_DocumentTabs) {
+        m_DocumentTabs->ClearTabs();
+    }
+
+    m_Documents.clear();
+    m_ActiveDocumentIndex = -1;
+    if (m_ShellHost) {
+        m_ShellHost->SetSession(nullptr);
     }
 }
 
@@ -2504,7 +2825,10 @@ void EditorWorkspaceController::RebuildProjectView()
         }
     }
 
-    ImTextOutlineItem* workspaceRootItem = m_ProjectView->AddRootItem("Workspace");
+    const std::string workspaceRootLabel = m_Project
+        ? "Project: " + m_Project->GetProjectName()
+        : std::string("Workspace");
+    ImTextOutlineItem* workspaceRootItem = m_ProjectView->AddRootItem(workspaceRootLabel);
     if (!workspaceRootItem) {
         return;
     }
@@ -2513,6 +2837,22 @@ void EditorWorkspaceController::RebuildProjectView()
     if (m_ProjectRoot.empty() || !std::filesystem::exists(m_ProjectRoot)) {
         m_ProjectView->AddChildItem(workspaceRootItem, "Workspace root not configured");
         return;
+    }
+
+    if (m_Project) {
+        m_ProjectView->AddChildItem(
+            workspaceRootItem,
+            "Manifest: " + EditorProject::GetManifestFileName());
+        if (!m_Project->GetNamespaceName().empty()) {
+            m_ProjectView->AddChildItem(
+                workspaceRootItem,
+                "Namespace: " + m_Project->GetNamespaceName());
+        }
+        if (!m_Project->GetStartupDocumentRelativePath().empty()) {
+            m_ProjectView->AddChildItem(
+                workspaceRootItem,
+                "Startup UI: " + m_Project->GetStartupDocumentRelativePath().generic_string());
+        }
     }
 
     bool bAddedWorkspaceChild = false;

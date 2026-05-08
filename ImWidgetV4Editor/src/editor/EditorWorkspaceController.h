@@ -26,6 +26,7 @@ class ImWindow;
 
 namespace ImWidgetV4Editor {
 
+class EditorProject;
 class EditorSession;
 class EditorShellHost;
 class InputDialog;
@@ -55,8 +56,10 @@ public:
     bool NewDocument();
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
+    bool NewAppProject(ImWidgetV4::ImApplication& app);
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
+    bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const std::string& projectName);
     bool CreateDocumentInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
     bool CreateFolderInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
     bool CreateAndOpenDocumentAtPath(const std::filesystem::path& filePath);
@@ -84,6 +87,7 @@ public:
     int GetActiveDocumentIndex() const { return m_ActiveDocumentIndex; }
 
     std::shared_ptr<EditorSession> GetActiveSession() const;
+    std::shared_ptr<EditorProject> GetProject() const { return m_Project; }
 
 private:
     enum class EProjectItemKind {
@@ -141,6 +145,9 @@ private:
     void OpenCreateDocumentDialog(
         ImWidgetV4::ImApplication& app,
         const std::filesystem::path& directoryPath);
+    void OpenCreateAppProjectDialog(
+        ImWidgetV4::ImApplication& app,
+        const std::filesystem::path& parentDirectory);
     void OpenCreateFolderDialog(
         ImWidgetV4::ImApplication& app,
         const std::filesystem::path& directoryPath);
@@ -159,6 +166,9 @@ private:
     void ReplaceRecentFilePath(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
     bool CloseOpenDocumentsUnderPath(const std::filesystem::path& path, bool* outBlockedByDirtyDocument = nullptr);
     void UpdateOpenDocumentPathsForRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+    bool HasDirtyDocuments() const;
+    bool LoadProjectManifestAtRoot(const std::filesystem::path& projectRoot, bool bLogErrors = true);
+    void ClearOpenDocuments();
     void RebuildProjectView();
     void HandleProjectSelectionChanged(ImWidgetV4::ImTextOutlineView& view, ImWidgetV4::ImTextOutlineItem* item);
 
@@ -166,6 +176,7 @@ private:
     std::function<void()> m_OnProjectStateChanged;
     std::function<void()> m_OnExitRequested;
     std::filesystem::path m_ProjectRoot;
+    std::shared_ptr<EditorProject> m_Project;
     std::shared_ptr<EditorShellHost> m_ShellHost;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_ProjectView;
@@ -184,6 +195,7 @@ private:
     std::shared_ptr<InputDialog> m_PendingInputDialog;
     std::shared_ptr<ImWidgetV4::ImApplication> m_ExitPromptAppLock;
     std::filesystem::path m_PendingProjectRootChange;
+    std::filesystem::path m_PendingCreateProjectParentPath;
     std::filesystem::path m_PendingRenameProjectItemPath;
     std::filesystem::path m_PendingDeleteProjectItemPath;
     int m_ContextMenuDocumentIndex = -1;

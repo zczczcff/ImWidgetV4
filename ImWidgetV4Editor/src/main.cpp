@@ -370,6 +370,12 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
     app.AddTitleBarTabMenu("File", BuildFileMenuItems(app, workspaceController));
     app.AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
     app.AddTitleBarTabMenu("Project", {
+        FApplicationMenuItem {"New App Project...", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->NewAppProject(app);
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
         FApplicationMenuItem {"Open Project Root...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->SelectProjectRoot(app);

@@ -1590,13 +1590,16 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
         const FImageBrush& applicationIcon = Application_->GetApplicationIcon();
         if (applicationIcon.IsValid() && HostChromeLayoutCache_->IconGeometry.Size.X > 0.0f) {
             const FGeometry& geometry = HostChromeLayoutCache_->IconGeometry;
-            drawList->AddImage(
-                applicationIcon.TextureId,
-                geometry.GetMin().ToImVec2(),
-                geometry.GetMax().ToImVec2(),
-                applicationIcon.Uv0.ToImVec2(),
-                applicationIcon.Uv1.ToImVec2(),
-                applicationIcon.TintColor.ToImU32());
+            if (const ImTextureID textureId = Application_->ResolveTextureForPaint(applicationIcon.TextureId);
+                textureId != nullptr) {
+                drawList->AddImage(
+                    textureId,
+                    geometry.GetMin().ToImVec2(),
+                    geometry.GetMax().ToImVec2(),
+                    applicationIcon.Uv0.ToImVec2(),
+                    applicationIcon.Uv1.ToImVec2(),
+                    applicationIcon.TintColor.ToImU32());
+            }
         }
 
         const std::string& titleText = Application_->GetApplicationTitle();
@@ -1640,13 +1643,16 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
                 const FVector2 iconMin(
                     tabLayout.Geometry.Position.X + (tabLayout.Geometry.Size.X - iconSize) * 0.5f,
                     (chromeHeight - iconSize) * 0.5f);
-                drawList->AddImage(
-                    tab.Icon.TextureId,
-                    iconMin.ToImVec2(),
-                    FVector2(iconMin.X + iconSize, iconMin.Y + iconSize).ToImVec2(),
-                    tab.Icon.Uv0.ToImVec2(),
-                    tab.Icon.Uv1.ToImVec2(),
-                    tab.Icon.TintColor.ToImU32());
+                if (const ImTextureID textureId = Application_->ResolveTextureForPaint(tab.Icon.TextureId);
+                    textureId != nullptr) {
+                    drawList->AddImage(
+                        textureId,
+                        iconMin.ToImVec2(),
+                        FVector2(iconMin.X + iconSize, iconMin.Y + iconSize).ToImVec2(),
+                        tab.Icon.Uv0.ToImVec2(),
+                        tab.Icon.Uv1.ToImVec2(),
+                        tab.Icon.TintColor.ToImU32());
+                }
             } else {
                 drawList->AddText(
                     nullptr,
@@ -1703,13 +1709,16 @@ void ImWin32DX11Backend::DrawCustomHostChrome()
             }
 
             if (action.Icon.IsValid()) {
-                drawList->AddImage(
-                    action.Icon.TextureId,
-                    actionLayout.Geometry.GetMin().ToImVec2(),
-                    actionLayout.Geometry.GetMax().ToImVec2(),
-                    action.Icon.Uv0.ToImVec2(),
-                    action.Icon.Uv1.ToImVec2(),
-                    (bEnabled ? action.Icon.TintColor : FColor::FromBytes(140, 146, 156)).ToImU32());
+                if (const ImTextureID textureId = Application_->ResolveTextureForPaint(action.Icon.TextureId);
+                    textureId != nullptr) {
+                    drawList->AddImage(
+                        textureId,
+                        actionLayout.Geometry.GetMin().ToImVec2(),
+                        actionLayout.Geometry.GetMax().ToImVec2(),
+                        action.Icon.Uv0.ToImVec2(),
+                        action.Icon.Uv1.ToImVec2(),
+                        (bEnabled ? action.Icon.TintColor : FColor::FromBytes(140, 146, 156)).ToImU32());
+                }
             }
         }
     }

@@ -9,6 +9,7 @@
 #include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/EditorWorkspaceController.h"
+#include "../src/project/EditorProject.h"
 #include "../src/editor/SelectionModel.h"
 #include "../src/palette/WidgetPaletteDragDrop.h"
 #include "../src/palette/WidgetPaletteView.h"
@@ -1899,6 +1900,88 @@ TEST(EditorSelectionTest, WorkspaceControllerWorkspaceStateRoundTripRestoresProj
     std::filesystem::remove(secondFile, removeError);
     std::filesystem::remove(workspaceStateFile, removeError);
     std::filesystem::remove(projectRoot, removeError);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAndStartupDocument)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_create";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "SampleApp"));
+    const std::filesystem::path projectRoot = tempRoot / "SampleApp";
+    const std::filesystem::path manifestPath = EditorProject::BuildManifestFilePath(projectRoot);
+    const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+
+    EXPECT_EQ(workspaceController->GetProjectRoot().lexically_normal(), projectRoot.lexically_normal());
+    EXPECT_TRUE(std::filesystem::exists(projectRoot / "src"));
+    EXPECT_TRUE(std::filesystem::exists(projectRoot / "include"));
+    EXPECT_TRUE(std::filesystem::exists(projectRoot / "ui"));
+    EXPECT_TRUE(std::filesystem::exists(projectRoot / "generated"));
+    EXPECT_TRUE(std::filesystem::exists(projectRoot / "cmake"));
+    EXPECT_TRUE(std::filesystem::exists(manifestPath));
+    EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
+    ASSERT_TRUE(workspaceController->GetProject());
+    EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
+    EXPECT_EQ(workspaceController->GetProject()->GetNamespaceName(), "SampleApp");
+    EXPECT_EQ(
+        workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
+        std::string("ui/Main.ui.json"));
+    ASSERT_TRUE(workspaceController->GetActiveSession());
+    ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
+    EXPECT_EQ(
+        workspaceController->GetActiveSession()->GetDocument()->GetFilePath().lexically_normal(),
+        startupDocumentPath.lexically_normal());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, EditorProjectLoadRestoresSavedManifestData)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_manifest";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "ManifestProject",
+        "ManifestProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+    std::string saveError;
+    ASSERT_TRUE(project.Save(&saveError)) << saveError;
+
+    EditorProject restoredProject;
+    std::string loadError;
+    ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
+    EXPECT_EQ(restoredProject.GetProjectName(), "ManifestProject");
+    EXPECT_EQ(restoredProject.GetNamespaceName(), "ManifestProject");
+    EXPECT_EQ(restoredProject.GetProjectRoot().lexically_normal(), tempRoot.lexically_normal());
+    EXPECT_EQ(
+        restoredProject.GetStartupDocumentRelativePath().generic_string(),
+        std::string("ui/Main.ui.json"));
+
+    std::filesystem::remove_all(tempRoot, errorCode);
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerCreateFolderAtPathCreatesDirectory)

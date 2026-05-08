@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <locale>
 #include <string>
@@ -380,6 +381,15 @@ std::filesystem::path GetWindowsFontDirectory()
 
 std::vector<std::filesystem::path> GetPreferredSystemFontCandidates()
 {
+#if defined(__ANDROID__)
+    return {
+        "/system/fonts/NotoSansCJK-Regular.ttc",
+        "/system/fonts/NotoSansSC-Regular.otf",
+        "/system/fonts/SourceHanSansSC-Regular.otf",
+        "/system/fonts/DroidSansFallback.ttf",
+        "/system/fonts/Roboto-Regular.ttf"
+    };
+#elif defined(_WIN32)
     const std::filesystem::path fontDirectory = GetWindowsFontDirectory();
     if (fontDirectory.empty()) {
         return {};
@@ -394,6 +404,9 @@ std::vector<std::filesystem::path> GetPreferredSystemFontCandidates()
         fontDirectory / L"segoeui.ttf",
         fontDirectory / L"arial.ttf"
     };
+#else
+    return {};
+#endif
 }
 
 void DrawWindowChrome(
@@ -761,22 +774,6 @@ void ImApplication::SetBackend(ImApplicationBackend* backend)
         }
     }
 
-    if (Backend_ != nullptr && DefaultImagePlaceholderBrush_.IsValid()) {
-        FRuntimeTextureData placeholderData;
-        if (FindRuntimeTextureData(DefaultImagePlaceholderBrush_.TextureId, placeholderData) &&
-            !placeholderData.bUsesBackendTexture) {
-            ReleaseRuntimeTexture(DefaultImagePlaceholderBrush_.TextureId);
-        }
-    }
-
-    if (Backend_ != nullptr && CoreIconAtlasTexture_ != nullptr) {
-        FRuntimeTextureData iconAtlasData;
-        if (FindRuntimeTextureData(CoreIconAtlasTexture_, iconAtlasData) &&
-            !iconAtlasData.bUsesBackendTexture) {
-            ReleaseRuntimeTexture(CoreIconAtlasTexture_);
-        }
-    }
-
     SyncApplicationTitle();
     SyncApplicationIcon();
 }
@@ -897,6 +894,18 @@ const std::filesystem::path& ImApplication::GetIniSettingsPath() const
     return IniSettingsPath_;
 }
 
+void ImApplication::SetPreferredDefaultFontData(std::vector<std::uint8_t> fontData)
+{
+    PreferredDefaultFontData_ = std::move(fontData);
+    bDefaultFontConfigured_ = false;
+}
+
+void ImApplication::SetPreferredDefaultFontCandidates(std::vector<std::filesystem::path> fontCandidates)
+{
+    PreferredDefaultFontCandidates_ = std::move(fontCandidates);
+    bDefaultFontConfigured_ = false;
+}
+
 void ImApplication::EnsureDefaultFontConfigured()
 {
     if (bDefaultFontConfigured_) {
@@ -931,7 +940,25 @@ void ImApplication::EnsureDefaultFontConfigured()
     fontConfig.PixelSnapH = false;
 
     ImFont* loadedFont = nullptr;
-    for (const std::filesystem::path& candidate : GetPreferredSystemFontCandidates()) {
+    if (!PreferredDefaultFontData_.empty()) {
+        void* fontMemory = IM_ALLOC(PreferredDefaultFontData_.size());
+        if (fontMemory != nullptr) {
+            std::memcpy(fontMemory, PreferredDefaultFontData_.data(), PreferredDefaultFontData_.size());
+            loadedFont = io.Fonts->AddFontFromMemoryTTF(
+                fontMemory,
+                static_cast<int>(PreferredDefaultFontData_.size()),
+                18.0f,
+                &fontConfig,
+                io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        }
+    }
+
+    const std::vector<std::filesystem::path>& fontCandidates =
+        PreferredDefaultFontCandidates_.empty() ? GetPreferredSystemFontCandidates() : PreferredDefaultFontCandidates_;
+    for (const std::filesystem::path& candidate : fontCandidates) {
+        if (loadedFont != nullptr) {
+            break;
+        }
         std::error_code errorCode;
         if (!std::filesystem::exists(candidate, errorCode) || errorCode) {
             continue;
@@ -969,23 +996,17 @@ ImTextureID ImApplication::CreateRuntimeTextureFromRgba(
         return nullptr;
     }
 
-    ImTextureID textureId = nullptr;
-    bool bUsesBackendTexture = false;
-    if (Backend_ != nullptr) {
-        textureId = Backend_->CreateTextureFromRGBA(pixels.data(), width, height);
-        bUsesBackendTexture = textureId != nullptr;
-    }
-
-    if (textureId == nullptr) {
-        textureId = new FSoftwareTextureToken {GNextSoftwareTextureTokenId++};
-    }
+    ImTextureID textureId = new FSoftwareTextureToken {GNextSoftwareTextureTokenId++};
 
     FRuntimeTextureData textureData;
     textureData.Pixels = pixels;
     textureData.Width = width;
     textureData.Height = height;
     textureData.BytesPerPixel = 4;
-    textureData.bUsesBackendTexture = bUsesBackendTexture;
+    if (Backend_ != nullptr) {
+        textureData.PromotedTextureId = Backend_->CreateTextureFromRGBA(pixels.data(), width, height);
+        textureData.bUsesBackendTexture = textureData.PromotedTextureId != nullptr;
+    }
 
     RuntimeTextures_[textureId] = textureData;
 
@@ -1005,13 +1026,10 @@ void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
         return;
     }
 
-    if (it->second.bUsesBackendTexture) {
-        if (Backend_ != nullptr) {
-            Backend_->ReleaseTexture(textureId);
-        }
-    } else {
-        delete static_cast<FSoftwareTextureToken*>(textureId);
+    if (it->second.PromotedTextureId != nullptr && Backend_ != nullptr) {
+        Backend_->ReleaseTexture(it->second.PromotedTextureId);
     }
+    delete static_cast<FSoftwareTextureToken*>(textureId);
 
     SnapshotInternal::UnregisterTexture(textureId);
     RuntimeTextures_.erase(it);
@@ -1054,6 +1072,46 @@ bool ImApplication::FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextur
 
     outData = it->second;
     return true;
+}
+
+ImTextureID ImApplication::ResolveTextureForPaint(ImTextureID textureId)
+{
+    if (textureId == nullptr) {
+        return nullptr;
+    }
+
+    const auto it = RuntimeTextures_.find(textureId);
+    if (it == RuntimeTextures_.end()) {
+        return textureId;
+    }
+
+    FRuntimeTextureData& textureData = it->second;
+    if (Backend_ == nullptr) {
+        return textureId;
+    }
+
+    if (textureData.PromotedTextureId != nullptr) {
+        return textureData.PromotedTextureId;
+    }
+
+    textureData.PromotedTextureId = Backend_->CreateTextureFromRGBA(
+        textureData.Pixels.data(),
+        textureData.Width,
+        textureData.Height);
+    if (textureData.PromotedTextureId == nullptr) {
+        return nullptr;
+    }
+    textureData.bUsesBackendTexture = true;
+
+    return textureData.PromotedTextureId;
+}
+
+void ImApplication::NotifyBackendTextureResourcesLost()
+{
+    for (auto& entry : RuntimeTextures_) {
+        entry.second.PromotedTextureId = nullptr;
+        entry.second.bUsesBackendTexture = false;
+    }
 }
 
 const FImageBrush& ImApplication::GetDefaultImagePlaceholderBrush() const
@@ -2352,22 +2410,7 @@ void ImApplication::PromoteBrushToBackendTexture(FImageBrush& brush)
         return;
     }
 
-    FRuntimeTextureData textureData;
-    if (!FindRuntimeTextureData(brush.TextureId, textureData) || textureData.bUsesBackendTexture) {
-        return;
-    }
-
-    const std::vector<std::uint8_t> pixels = textureData.Pixels;
-    const int width = textureData.Width;
-    const int height = textureData.Height;
-    const ImTextureID oldTextureId = brush.TextureId;
-    ImTextureID newTextureId = CreateRuntimeTextureFromRgba(pixels, width, height);
-    if (newTextureId == nullptr || newTextureId == oldTextureId) {
-        return;
-    }
-
-    brush.TextureId = newTextureId;
-    ReleaseRuntimeTexture(oldTextureId);
+    (void)ResolveTextureForPaint(brush.TextureId);
 }
 
 void ImApplication::EnsureDefaultImagePlaceholderInitialized() const

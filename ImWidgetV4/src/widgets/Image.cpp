@@ -128,8 +128,16 @@ void ImImage::Paint(const FPaintContext& paintContext)
         return;
     }
 
+    ImTextureID textureId = brush.TextureId;
+    if (m_Application != nullptr) {
+        textureId = m_Application->ResolveTextureForPaint(textureId);
+    }
+    if (textureId == nullptr) {
+        return;
+    }
+
     drawList->AddImageRounded(
-        brush.TextureId,
+        textureId,
         imageGeometry.GetMin().ToImVec2(),
         imageGeometry.GetMax().ToImVec2(),
         brush.Uv0.ToImVec2(),

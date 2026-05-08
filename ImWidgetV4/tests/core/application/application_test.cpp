@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imgui.h>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -46,8 +47,15 @@ public:
     ImApplication* GetApplication() const override { return Application; }
     void RequestClose() override { bShouldClose = true; }
     std::string GetBackendName() const override { return "Mock"; }
-    ImTextureID CreateTextureFromRGBA(const std::uint8_t*, int, int) override { return nullptr; }
-    void ReleaseTexture(ImTextureID) override {}
+    ImTextureID CreateTextureFromRGBA(const std::uint8_t*, int, int) override
+    {
+        ++CreateTextureCallCount;
+        return reinterpret_cast<ImTextureID>(NextTextureIdValue++);
+    }
+    void ReleaseTexture(ImTextureID textureId) override
+    {
+        ReleasedTextures.push_back(textureId);
+    }
     bool SetWindowIconFromRGBA(const std::uint8_t* rgbaPixels, int width, int height) override
     {
         IconWidth = width;
@@ -95,9 +103,11 @@ public:
     int OpenFileDialogCallCount = 0;
     int OpenFolderDialogCallCount = 0;
     int SaveFileDialogCallCount = 0;
+    int CreateTextureCallCount = 0;
     int IconWidth = 0;
     int IconHeight = 0;
     std::vector<std::uint8_t> IconPixels;
+    std::vector<ImTextureID> ReleasedTextures;
     FOpenFileDialogOptions LastOpenFileDialogOptions;
     FOpenFolderDialogOptions LastOpenFolderDialogOptions;
     FSaveFileDialogOptions LastSaveFileDialogOptions;
@@ -106,6 +116,7 @@ public:
     FPathDialogResult NextSaveFileDialogResult;
     bool bUseCustomHostChrome = false;
     bool bShouldClose = false;
+    std::uintptr_t NextTextureIdValue = 1;
 };
 
 class TestWidget : public ImWidget {
@@ -844,4 +855,30 @@ TEST(ApplicationFileDialogTest, ForwardsOptionsAndReturnsBackendResults)
     EXPECT_EQ(openFolderResult.Code, EPathDialogResultCode::Cancelled);
     EXPECT_EQ(saveFileResult.Code, EPathDialogResultCode::Error);
     EXPECT_EQ(saveFileResult.ErrorMessage, "save failed");
+}
+
+TEST(ApplicationRuntimeTextureTest, RecreatesBackendTexturesAfterBackendResourcesAreLost)
+{
+    ImApplication application;
+    MockApplicationBackend backend;
+    backend.SetApplication(&application);
+
+    const ImTextureID runtimeTextureId = application.CreateRuntimeTextureFromRgba(
+        std::vector<std::uint8_t>(4U * 4U * 4U, 255U),
+        4,
+        4);
+    ASSERT_NE(runtimeTextureId, nullptr);
+
+    const ImTextureID firstResolvedTextureId = application.ResolveTextureForPaint(runtimeTextureId);
+    ASSERT_NE(firstResolvedTextureId, nullptr);
+    EXPECT_NE(firstResolvedTextureId, runtimeTextureId);
+    EXPECT_EQ(backend.CreateTextureCallCount, 1);
+
+    application.NotifyBackendTextureResourcesLost();
+
+    const ImTextureID secondResolvedTextureId = application.ResolveTextureForPaint(runtimeTextureId);
+    ASSERT_NE(secondResolvedTextureId, nullptr);
+    EXPECT_NE(secondResolvedTextureId, runtimeTextureId);
+    EXPECT_NE(secondResolvedTextureId, firstResolvedTextureId);
+    EXPECT_EQ(backend.CreateTextureCallCount, 2);
 }

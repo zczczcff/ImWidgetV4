@@ -15,6 +15,14 @@ if(NOT DEFINED IMWIDGETV4_BUILD_SAMPLES)
     option(IMWIDGETV4_BUILD_SAMPLES "Build ImWidgetV4 samples" ON)
 endif()
 
+if(NOT DEFINED IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
+    option(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND "Build the Win32 + DirectX 11 backend" ${WIN32})
+endif()
+
+if(NOT DEFINED IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
+    option(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND "Build the Android + OpenGL ES 3 backend" ${ANDROID})
+endif()
+
 if(MSVC)
     add_compile_options(/utf-8)
 endif()
@@ -56,25 +64,18 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(imgui json stb)
 
-add_library(imgui_lib STATIC
+add_library(imwidgetv4_imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
 )
-target_include_directories(imgui_lib PUBLIC
+target_include_directories(imwidgetv4_imgui PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
 )
-target_link_libraries(imgui_lib PUBLIC
-    d3d11.lib
-    dxgi.lib
-    d3dcompiler.lib
-)
-imwidgetv4_set_target_folder(imgui_lib "ThirdParty")
+imwidgetv4_set_target_folder(imwidgetv4_imgui "ThirdParty")
 
 add_library(stb_lib INTERFACE)
 target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
@@ -202,7 +203,7 @@ target_include_directories(imwidgetv4_core PUBLIC
 )
 target_link_libraries(imwidgetv4_core PUBLIC
     nlohmann_json::nlohmann_json
-    imgui_lib
+    imwidgetv4_imgui
     uectti
     stb_lib
 )
@@ -213,31 +214,168 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${
 
 set(IMWIDGETV4_PLATFORM_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/ImGuiInputSource.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/Win32DX11Backend.h
 )
 
 set(IMWIDGETV4_PLATFORM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/ImGuiInputSource.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
 )
 
-add_library(imwidgetv4_platform_win32_dx11 STATIC
+add_library(imwidgetv4_platform_imgui STATIC
     ${IMWIDGETV4_PLATFORM_HEADERS}
     ${IMWIDGETV4_PLATFORM_SOURCES}
 )
-target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
+target_include_directories(imwidgetv4_platform_imgui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
+target_link_libraries(imwidgetv4_platform_imgui PUBLIC
     imwidgetv4_core
-    imgui_lib
-    Ole32.lib
-    Shell32.lib
+    imwidgetv4_imgui
 )
-imwidgetv4_set_target_folder(imwidgetv4_platform_win32_dx11 "Platforms")
+imwidgetv4_set_target_folder(imwidgetv4_platform_imgui "Platforms")
 
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_PLATFORM_HEADERS})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_PLATFORM_SOURCES})
+set(IMWIDGETV4_PLATFORM_WIN32_DX11_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/Win32DX11Backend.h
+)
+
+set(IMWIDGETV4_PLATFORM_WIN32_DX11_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/Win32DX11Backend.cpp
+)
+
+set(IMWIDGETV4_PLATFORM_ANDROID_GLES3_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/AndroidGLES3Backend.h
+)
+
+set(IMWIDGETV4_PLATFORM_ANDROID_GLES3_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/AndroidGLES3Backend.cpp
+)
+
+if(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
+    add_library(imwidgetv4_imgui_backend_win32 STATIC
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+    )
+    target_include_directories(imwidgetv4_imgui_backend_win32 PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imwidgetv4_imgui_backend_win32 PUBLIC
+        imwidgetv4_imgui
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_imgui_backend_win32 "ThirdParty")
+
+    add_library(imwidgetv4_imgui_renderer_dx11 STATIC
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+    )
+    target_include_directories(imwidgetv4_imgui_renderer_dx11 PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imwidgetv4_imgui_renderer_dx11 PUBLIC
+        imwidgetv4_imgui
+        d3d11.lib
+        dxgi.lib
+        d3dcompiler.lib
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_imgui_renderer_dx11 "ThirdParty")
+
+    add_library(imwidgetv4_platform_win32_dx11 STATIC
+        ${IMWIDGETV4_PLATFORM_WIN32_DX11_HEADERS}
+        ${IMWIDGETV4_PLATFORM_WIN32_DX11_SOURCES}
+    )
+    target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
+        imwidgetv4_platform_imgui
+        imwidgetv4_imgui_backend_win32
+        imwidgetv4_imgui_renderer_dx11
+        Ole32.lib
+        Shell32.lib
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_platform_win32_dx11 "Platforms")
+endif()
+
+if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
+    set(IMWIDGETV4_ANDROID_NDK_ROOT "")
+    if(DEFINED CMAKE_ANDROID_NDK)
+        set(IMWIDGETV4_ANDROID_NDK_ROOT ${CMAKE_ANDROID_NDK})
+    elseif(DEFINED ANDROID_NDK)
+        set(IMWIDGETV4_ANDROID_NDK_ROOT ${ANDROID_NDK})
+    endif()
+
+    set(IMWIDGETV4_ANDROID_NATIVE_APP_GLUE_SOURCE "")
+    if(IMWIDGETV4_ANDROID_NDK_ROOT)
+        set(IMWIDGETV4_ANDROID_NATIVE_APP_GLUE_SOURCE
+            ${IMWIDGETV4_ANDROID_NDK_ROOT}/sources/android/native_app_glue/android_native_app_glue.c
+        )
+    endif()
+
+    add_library(imwidgetv4_imgui_backend_android STATIC
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_android.cpp
+    )
+    target_include_directories(imwidgetv4_imgui_backend_android PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imwidgetv4_imgui_backend_android PUBLIC
+        imwidgetv4_imgui
+        android
+        log
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_imgui_backend_android "ThirdParty")
+
+    add_library(imwidgetv4_imgui_renderer_opengl3 STATIC
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_include_directories(imwidgetv4_imgui_renderer_opengl3 PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_compile_definitions(imwidgetv4_imgui_renderer_opengl3 PUBLIC IMGUI_IMPL_OPENGL_ES3=1)
+    target_link_libraries(imwidgetv4_imgui_renderer_opengl3 PUBLIC
+        imwidgetv4_imgui
+        EGL
+        GLESv3
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_imgui_renderer_opengl3 "ThirdParty")
+
+    add_library(imwidgetv4_platform_android_gles3 STATIC
+        ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_HEADERS}
+        ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_SOURCES}
+    )
+    target_include_directories(imwidgetv4_platform_android_gles3 PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    if(IMWIDGETV4_ANDROID_NDK_ROOT)
+        target_include_directories(imwidgetv4_platform_android_gles3 PRIVATE
+            ${IMWIDGETV4_ANDROID_NDK_ROOT}/sources/android/native_app_glue
+        )
+    endif()
+    target_link_libraries(imwidgetv4_platform_android_gles3 PUBLIC
+        imwidgetv4_platform_imgui
+        imwidgetv4_imgui_backend_android
+        imwidgetv4_imgui_renderer_opengl3
+        android
+        log
+        EGL
+        GLESv3
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_platform_android_gles3 "Platforms")
+endif()
+
+source_group(
+    TREE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PREFIX "Header Files"
+    FILES
+        ${IMWIDGETV4_PLATFORM_HEADERS}
+        ${IMWIDGETV4_PLATFORM_WIN32_DX11_HEADERS}
+        ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_HEADERS})
+source_group(
+    TREE ${CMAKE_CURRENT_SOURCE_DIR}/src
+    PREFIX "Source Files"
+    FILES
+        ${IMWIDGETV4_PLATFORM_SOURCES}
+        ${IMWIDGETV4_PLATFORM_WIN32_DX11_SOURCES}
+        ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_SOURCES})
 
 if(IMWIDGETV4_BUILD_TESTS)
     enable_testing()
@@ -296,7 +434,7 @@ if(IMWIDGETV4_BUILD_TESTS)
     imwidgetv4_set_target_folder(user_widget_test "Tests/Widgets")
 endif()
 
-if(IMWIDGETV4_BUILD_SAMPLES)
+if(IMWIDGETV4_BUILD_SAMPLES AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET imwidgetv4_platform_android_gles3))
     add_subdirectory(samples)
 
     imwidgetv4_set_target_folder(ButtonDemo "Samples")
@@ -315,4 +453,5 @@ if(IMWIDGETV4_BUILD_SAMPLES)
     imwidgetv4_set_target_folder(OutlineViewDemo "Samples")
     imwidgetv4_set_target_folder(UserWidgetDemo "Samples")
     imwidgetv4_set_target_folder(WindowDemo "Samples")
+    imwidgetv4_set_target_folder(AndroidDemo "Samples")
 endif()

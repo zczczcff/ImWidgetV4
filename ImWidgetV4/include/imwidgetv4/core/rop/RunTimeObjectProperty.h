@@ -449,7 +449,7 @@ namespace ROP
                 if (classOptions[i] == optionStr)
                 {
                     // �ҵ���Ӧ������ͨ��setter��������ֵ
-                    this->SetValue<int>(static_cast<int>(i));
+                    this->template SetValue<int>(static_cast<int>(i));
                     return true;
                 }
             }
@@ -460,7 +460,7 @@ namespace ROP
                 if (m_optionList[i] == optionStr)
                 {
                     // �ҵ���Ӧ������ͨ��setter��������ֵ
-                    this->SetValue<int>(static_cast<int>(i));
+                    this->template SetValue<int>(static_cast<int>(i));
                     return true;
                 }
             }
@@ -477,13 +477,13 @@ namespace ROP
             auto classOptions = GetOptionListForThisClass();
             if (index >= 0 && index < static_cast<int>(classOptions.size()))
             {
-                this->SetValue<int>(index);
+                this->template SetValue<int>(index);
                 return true;
             }
 
             if (index >= 0 && index < static_cast<int>(m_optionList.size()))
             {
-                this->SetValue<int>(index);
+                this->template SetValue<int>(index);
                 return true;
             }
 

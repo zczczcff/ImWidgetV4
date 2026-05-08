@@ -3,8 +3,7 @@ add_executable(input_source_test
 )
 
 target_link_libraries(input_source_test PRIVATE
-    imwidgetv4_core
-    imwidgetv4_platform_win32_dx11
+    imwidgetv4_platform_imgui
     gtest
     gtest_main
 )

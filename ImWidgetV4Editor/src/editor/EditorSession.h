@@ -49,7 +49,9 @@ public:
         const std::shared_ptr<ImWidgetV4::ImDesignerSurface>& designerSurface,
         const std::shared_ptr<ImWidgetV4::ImTextOutlineView>& widgetTreeView,
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
-        const std::shared_ptr<ImWidgetV4::ImTextList>& outputText);
+        const std::shared_ptr<ImWidgetV4::ImTextList>& outputText,
+        const std::shared_ptr<ImWidgetV4::ImTextList>& headerPreviewText = nullptr,
+        const std::shared_ptr<ImWidgetV4::ImTextList>& sourcePreviewText = nullptr);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
     std::string GetDocumentTabTitle() const;
@@ -236,6 +238,7 @@ private:
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void RefreshPreview();
     void RefreshSchemaView();
+    void RefreshGeneratedCodePreview();
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void BeginReflectableGesture(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
@@ -256,6 +259,8 @@ private:
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_PreviewHost;
     std::shared_ptr<ImWidgetV4::ImTextList> m_SchemaText;
+    std::shared_ptr<ImWidgetV4::ImTextList> m_HeaderPreviewText;
+    std::shared_ptr<ImWidgetV4::ImTextList> m_SourcePreviewText;
     std::shared_ptr<ImWidgetV4::ImDesignerSurface> m_DesignerSurface;
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<DocumentTreeViewBinder> m_TreeBinder;

@@ -97,6 +97,8 @@ private:
         std::shared_ptr<ImWidgetV4::ImScrollBox> DocumentHost;
         std::shared_ptr<ImWidgetV4::ImScrollBox> PreviewHost;
         std::shared_ptr<ImWidgetV4::ImTextList> SchemaText;
+        std::shared_ptr<ImWidgetV4::ImTextList> HeaderPreviewText;
+        std::shared_ptr<ImWidgetV4::ImTextList> SourcePreviewText;
         std::shared_ptr<ImWidgetV4::ImDesignerSurface> DesignerSurface;
     };
 

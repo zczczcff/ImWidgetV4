@@ -9,6 +9,7 @@ if(MSVC)
 endif()
 
 add_executable(ImWidgetV4Editor
+    src/codegen/WidgetTreeToCppGenerator.cpp
     src/commands/AddWidgetCommand.cpp
     src/commands/CommandStack.cpp
     src/commands/DocumentSnapshotCommand.cpp
@@ -35,6 +36,7 @@ add_executable(ImWidgetV4Editor
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_executable(editor_selection_test
+        src/codegen/WidgetTreeToCppGenerator.cpp
         src/commands/AddWidgetCommand.cpp
         src/commands/CommandStack.cpp
         src/commands/DocumentSnapshotCommand.cpp
@@ -55,6 +57,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/serialization/WidgetFactory.cpp
         src/serialization/WidgetSerializer.cpp
         src/tree/DocumentTreeViewBinder.cpp
+        tests/codegen_test.cpp
         tests/editor_selection_test.cpp
     )
 

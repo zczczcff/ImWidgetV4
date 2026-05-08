@@ -103,6 +103,26 @@ std::shared_ptr<ImTextList> CreateSchemaText()
     return schemaText;
 }
 
+std::shared_ptr<ImTextList> CreateCodePreviewText()
+{
+    auto previewText = std::make_shared<ImTextList>();
+    FTextListStyle style = previewText->GetStyle();
+    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
+    style.BorderColor = FColor::Transparent;
+    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
+    style.TextColor = FColor::FromBytes(196, 205, 217);
+    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
+    style.Padding = FMargin(12.0f);
+    style.MinDesiredSize = FVector2(0.0f, 180.0f);
+    style.CornerRadius = 0.0f;
+    style.BorderThickness = 0.0f;
+    style.FontSize = 14.0f;
+    style.LineSpacing = 1.1f;
+    previewText->SetStyle(style);
+    previewText->SetItems({"// Code preview unavailable."});
+    return previewText;
+}
+
 FTabViewStyle CreateWorkspaceTabStyle()
 {
     FTabViewStyle tabStyle;
@@ -650,6 +670,8 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
     widgets.DocumentHost = CreateDocumentHost();
     widgets.PreviewHost = CreatePreviewHost();
     widgets.SchemaText = CreateSchemaText();
+    widgets.HeaderPreviewText = CreateCodePreviewText();
+    widgets.SourcePreviewText = CreateCodePreviewText();
     widgets.DesignerSurface = std::make_shared<ImDesignerSurface>();
     widgets.DocumentHost->SetContent(widgets.DesignerSurface);
 
@@ -659,6 +681,8 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
     widgets.WorkspaceTabs->AddTab("Designer", widgets.DocumentHost);
     widgets.WorkspaceTabs->AddTab("Preview", widgets.PreviewHost);
     widgets.WorkspaceTabs->AddTab("Schema", widgets.SchemaText);
+    widgets.WorkspaceTabs->AddTab(".h", widgets.HeaderPreviewText);
+    widgets.WorkspaceTabs->AddTab(".cpp", widgets.SourcePreviewText);
 
     widgets.Root = widgets.WorkspaceTabs;
     return widgets;
@@ -718,7 +742,9 @@ void EditorWorkspaceController::ActivateDocumentTab(int index)
         entry.Widgets.DesignerSurface,
         m_WidgetTreeView,
         m_DetailsView,
-        m_OutputText);
+        m_OutputText,
+        entry.Widgets.HeaderPreviewText,
+        entry.Widgets.SourcePreviewText);
 
     RebuildProjectView();
 }

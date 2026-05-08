@@ -1,5 +1,6 @@
 #include "EditorSession.h"
 #include "LogicalWidgetTree.h"
+#include "../codegen/WidgetTreeToCppGenerator.h"
 #include "../commands/AddWidgetCommand.h"
 #include "../commands/DocumentSnapshotCommand.h"
 #include "../commands/MoveWidgetCommand.h"
@@ -58,6 +59,10 @@ std::vector<std::string> SplitLinesPreserveOrder(const std::string& text)
     return lines;
 }
 
+std::string NormalizeWidgetIdentifierBase(
+    const std::string& rawName,
+    const std::string& fallbackBase);
+
 std::string BuildDisplayName(const std::shared_ptr<EditorDocument>& document)
 {
     if (!document) {
@@ -80,6 +85,32 @@ std::string BuildDisplayName(const std::shared_ptr<EditorDocument>& document)
     }
 
     return baseName;
+}
+
+std::string BuildGeneratedClassName(const std::shared_ptr<EditorDocument>& document)
+{
+    std::string baseName;
+    if (document) {
+        if (document->HasFilePath()) {
+            baseName = document->GetFilePath().stem().string();
+        } else {
+            baseName = document->GetDisplayTitle();
+        }
+    }
+
+    if (baseName.empty()) {
+        baseName = "GeneratedWidget";
+    }
+
+    if (baseName.size() > 3 && baseName.substr(baseName.size() - 3) == ".ui") {
+        baseName.resize(baseName.size() - 3);
+    }
+
+    std::string className = NormalizeWidgetIdentifierBase(baseName, "GeneratedWidget");
+    if (!className.empty()) {
+        className.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(className.front())));
+    }
+    return className;
 }
 
 std::vector<FFileDialogFilter> BuildDocumentFilters()
@@ -649,12 +680,16 @@ void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ImDesignerSurface>& designerSurface,
     const std::shared_ptr<ImTextOutlineView>& widgetTreeView,
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
-    const std::shared_ptr<ImTextList>& outputText)
+    const std::shared_ptr<ImTextList>& outputText,
+    const std::shared_ptr<ImTextList>& headerPreviewText,
+    const std::shared_ptr<ImTextList>& sourcePreviewText)
 {
     SetDocumentTabBinding(documentTabs, documentTabIndex);
     m_DocumentHost = documentHost;
     m_PreviewHost = previewHost;
     m_SchemaText = schemaText;
+    m_HeaderPreviewText = headerPreviewText;
+    m_SourcePreviewText = sourcePreviewText;
     m_DesignerSurface = designerSurface;
     m_WidgetTreeView = widgetTreeView;
     m_DetailsView = detailsView;
@@ -1429,6 +1464,7 @@ void EditorSession::ApplyDocumentToUi()
 
     RefreshPreview();
     RefreshSchemaView();
+    RefreshGeneratedCodePreview();
 
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
@@ -2584,6 +2620,47 @@ void EditorSession::RefreshSchemaView()
         m_SchemaText->SetItems({std::string("Schema export failed: ") + error.what()});
     } catch (...) {
         m_SchemaText->SetItems({"Schema export failed."});
+    }
+}
+
+void EditorSession::RefreshGeneratedCodePreview()
+{
+    if (!m_HeaderPreviewText && !m_SourcePreviewText) {
+        return;
+    }
+
+    if (!m_Document || !m_Document->GetRootWidget()) {
+        if (m_HeaderPreviewText) {
+            m_HeaderPreviewText->SetItems({"// No document loaded."});
+        }
+        if (m_SourcePreviewText) {
+            m_SourcePreviewText->SetItems({"// No document loaded."});
+        }
+        return;
+    }
+
+    FCodeGenOptions options;
+    options.ClassName = BuildGeneratedClassName(m_Document);
+
+    const FCodeGenResult result = WidgetTreeToCppGenerator::Generate(*m_Document, options);
+    if (!result.bSuccess) {
+        const std::string errorText = result.ErrorMessage.empty()
+            ? std::string("Code generation preview failed.")
+            : std::string("Code generation preview failed: ") + result.ErrorMessage;
+        if (m_HeaderPreviewText) {
+            m_HeaderPreviewText->SetItems({errorText});
+        }
+        if (m_SourcePreviewText) {
+            m_SourcePreviewText->SetItems({errorText});
+        }
+        return;
+    }
+
+    if (m_HeaderPreviewText) {
+        m_HeaderPreviewText->SetItems({result.Files.HeaderText});
+    }
+    if (m_SourcePreviewText) {
+        m_SourcePreviewText->SetItems({result.Files.SourceText});
     }
 }
 

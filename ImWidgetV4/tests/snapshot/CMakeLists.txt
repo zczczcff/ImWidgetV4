@@ -4,7 +4,7 @@ add_executable(snapshot_test
 
 target_link_libraries(snapshot_test PRIVATE
     imwidgetv4_core
-    imgui_lib
+    imwidgetv4_imgui
     gtest_main
 )
 

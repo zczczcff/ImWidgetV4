@@ -6,7 +6,7 @@ add_executable(draw_context_test
 # 链接库
 target_link_libraries(draw_context_test
     imwidgetv4_core
-    imgui_lib
+    imwidgetv4_imgui
     gtest_main
 )
 

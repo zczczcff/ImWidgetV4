@@ -7,6 +7,7 @@ This directory contains the editor application built on top of the ImWidgetV4 li
 The project currently provides a minimal shell executable linked against:
 
 - `imwidgetv4_core`
+- `imwidgetv4_platform_imgui`
 - `imwidgetv4_platform_win32_dx11`
 
 ## Planned responsibility

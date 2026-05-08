@@ -9,6 +9,6 @@ option(IMWIDGETV4_BUILD_EDITOR "Build ImWidgetV4 editor" ON)
 
 add_subdirectory(ImWidgetV4)
 
-if(IMWIDGETV4_BUILD_EDITOR)
+if(IMWIDGETV4_BUILD_EDITOR AND TARGET imwidgetv4_platform_win32_dx11)
     add_subdirectory(ImWidgetV4Editor)
 endif()

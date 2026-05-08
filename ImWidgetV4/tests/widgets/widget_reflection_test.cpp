@@ -136,7 +136,7 @@ TEST(WidgetReflectionTest, ButtonJsonRoundTripIncludesNestedStyle)
     json serialized = button->ToJson();
 
     EXPECT_EQ(serialized["Type"], "ImButton");
-    EXPECT_EQ(serialized["Properties"]["ImButton::Text"], "Confirm");
+    EXPECT_FALSE(serialized["Properties"].contains("ImButton::Text"));
     EXPECT_EQ(serialized["Properties"]["ImButton::Disabled"], true);
     ASSERT_TRUE(serialized["Properties"]["ImButton::Style"].is_object());
 
@@ -148,7 +148,7 @@ TEST(WidgetReflectionTest, ButtonJsonRoundTripIncludesNestedStyle)
     restored->FromJson(serialized);
 
     EXPECT_EQ(restored->GetName(), "ConfirmButton");
-    EXPECT_EQ(restored->GetText(), "Confirm");
+    EXPECT_TRUE(restored->GetText().empty());
     EXPECT_TRUE(restored->IsDisabled());
     EXPECT_FLOAT_EQ(restored->GetStyle().Normal.CornerRadius, 11.0f);
     EXPECT_TRUE(restored->GetStyle().Hovered.bHasBorder);
@@ -162,6 +162,9 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     FMargin margin(1.0f, 2.0f, 3.0f, 4.0f);
     EXPECT_TRUE(margin.HasProperty("Left", "FMargin"));
     EXPECT_TRUE(margin.HasProperty("Bottom", "FMargin"));
+
+    ImButton button;
+    EXPECT_FALSE(button.HasProperty("Text", "ImButton"));
 
     ImBoxSlot boxSlot;
     EXPECT_TRUE(boxSlot.HasProperty("FillCoefficient", "ImBoxSlot"));

@@ -22,6 +22,7 @@
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -1020,12 +1021,12 @@ TEST(EditorSelectionTest, ReflectablePropertyCommandRestoresPropertyOnUndoRedo)
 
     json beforeJson = button->ToJson();
     json afterJson = beforeJson;
-    afterJson["Properties"]["ImButton::Text"] = "Updated";
+    afterJson["Properties"]["ImButton::Disabled"] = true;
 
     ReflectablePropertyCommand command(
         session,
         button,
-        "Edit Text",
+        "Edit Disabled",
         beforeJson,
         afterJson,
         button,
@@ -1033,13 +1034,13 @@ TEST(EditorSelectionTest, ReflectablePropertyCommandRestoresPropertyOnUndoRedo)
         true);
 
     ASSERT_TRUE(command.Execute());
-    EXPECT_EQ(button->GetText(), "Updated");
+    EXPECT_TRUE(button->IsDisabled());
 
     ASSERT_TRUE(command.Undo());
-    EXPECT_EQ(button->GetText(), "Child");
+    EXPECT_FALSE(button->IsDisabled());
 
     ASSERT_TRUE(command.Execute());
-    EXPECT_EQ(button->GetText(), "Updated");
+    EXPECT_TRUE(button->IsDisabled());
 }
 
 TEST(EditorSelectionTest, DetailsRenameKeepsWidgetNamesUnique)
@@ -1073,6 +1074,59 @@ TEST(EditorSelectionTest, DetailsRenameKeepsWidgetNamesUnique)
         json("Root"));
 
     EXPECT_EQ(button->GetName(), "Root1");
+}
+
+TEST(EditorSelectionTest, DetailsViewRestoresExpansionStateAndScrollPerWidget)
+{
+    auto firstParent = std::make_shared<ImVerticalBox>();
+    auto firstButton = std::make_shared<ImButton>();
+    firstButton->SetName("FirstButton");
+    firstButton->SetText("First");
+    firstParent->AddChild(firstButton);
+    auto firstSlot = std::shared_ptr<ImSlot>(firstParent, firstParent->GetSlotForChild(firstButton));
+
+    auto secondParent = std::make_shared<ImVerticalBox>();
+    auto secondButton = std::make_shared<ImButton>();
+    secondButton->SetName("SecondButton");
+    secondButton->SetText("Second");
+    secondParent->AddChild(secondButton);
+    auto secondSlot = std::shared_ptr<ImSlot>(secondParent, secondParent->GetSlotForChild(secondButton));
+
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(detailsView);
+
+    const FVector2 kViewportSize(320.0f, 80.0f);
+
+    detailsView->SetTargets(firstButton, firstSlot);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+    ASSERT_TRUE(detailsView->IsSectionExpanded("Common"));
+    ASSERT_TRUE(detailsView->IsSectionExpanded("Properties"));
+    ASSERT_TRUE(detailsView->IsSectionExpanded("Slot"));
+    EXPECT_FALSE(detailsView->IsSectionExpanded("Properties/Style"));
+
+    ASSERT_TRUE(detailsView->SetSectionExpanded("Properties/Style", true));
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+    auto firstOutline = std::dynamic_pointer_cast<ImOutlineView>(detailsView->GetRootWidget());
+    ASSERT_TRUE(firstOutline);
+    ASSERT_GT(firstOutline->GetMaxScrollOffset(), 0.0f);
+
+    const float savedScrollOffset = std::min(40.0f, firstOutline->GetMaxScrollOffset());
+    firstOutline->SetScrollOffset(savedScrollOffset);
+
+    detailsView->SetTargets(secondButton, secondSlot);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+    EXPECT_FALSE(detailsView->IsSectionExpanded("Properties/Style"));
+
+    detailsView->SetTargets(firstButton, firstSlot);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+    auto restoredOutline = std::dynamic_pointer_cast<ImOutlineView>(detailsView->GetRootWidget());
+    ASSERT_TRUE(restoredOutline);
+    EXPECT_TRUE(detailsView->IsSectionExpanded("Properties/Style"));
+    EXPECT_NEAR(restoredOutline->GetScrollOffset(), savedScrollOffset, 0.001f);
 }
 
 TEST(EditorSelectionTest, SessionPasteSelectedWidgetSupportsUndoRedo)

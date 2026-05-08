@@ -107,6 +107,9 @@ public:
     ImOutlineItem* GetSelectedItem() const { return SelectedItem_; }
     void ClearSelection();
 
+    void SetItemExpanded(ImOutlineItem* item, bool expanded, bool bBroadcast = true);
+    bool IsItemExpanded(const ImOutlineItem* item) const;
+
     bool ScrollToItem(ImOutlineItem* item, bool bCenterIfLarger = false);
     void ExpandAll();
     void CollapseAll();

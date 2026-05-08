@@ -158,6 +158,20 @@ void ImOutlineView::ClearSelection()
     SetSelectedItemInternal(nullptr, true, false);
 }
 
+void ImOutlineView::SetItemExpanded(ImOutlineItem* item, bool expanded, bool bBroadcast)
+{
+    if (item == nullptr || !ContainsItem(item)) {
+        return;
+    }
+
+    SetExpandedState(item, expanded, bBroadcast);
+}
+
+bool ImOutlineView::IsItemExpanded(const ImOutlineItem* item) const
+{
+    return item != nullptr && ContainsItem(item) && item->Expanded;
+}
+
 bool ImOutlineView::ScrollToItem(ImOutlineItem* item, bool bCenterIfLarger)
 {
     if (item == nullptr || !ContainsItem(item)) {

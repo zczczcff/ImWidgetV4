@@ -11,6 +11,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -324,9 +325,11 @@ void ReflectionDetailsView::SetTargets(
         return;
     }
 
+    CaptureCurrentViewState();
     m_Target = target;
     m_SlotTarget = slotTarget;
     Rebuild();
+    RestoreCurrentViewState();
 }
 
 void ReflectionDetailsView::SetTarget(const std::shared_ptr<ReflectableObject>& target)
@@ -341,20 +344,44 @@ void ReflectionDetailsView::SetSlotTarget(const std::shared_ptr<ImSlot>& slotTar
 
 void ReflectionDetailsView::RebuildPreservingViewState()
 {
-    float scrollOffset = 0.0f;
-    if (auto outlineView = GetCurrentOutlineView()) {
-        scrollOffset = outlineView->GetScrollOffset();
-    }
-
+    CaptureCurrentViewState();
     Rebuild();
+    RestoreCurrentViewState();
+}
 
-    if (auto outlineView = GetCurrentOutlineView()) {
-        outlineView->SetScrollOffset(scrollOffset);
+bool ReflectionDetailsView::SetSectionExpanded(const std::string& path, bool expanded)
+{
+    auto outlineView = GetCurrentOutlineView();
+    if (!outlineView) {
+        return false;
     }
+
+    const auto itemIt = m_CurrentPathItems.find(path);
+    if (itemIt == m_CurrentPathItems.end() || itemIt->second == nullptr) {
+        return false;
+    }
+
+    outlineView->SetItemExpanded(itemIt->second, expanded, false);
+    if (!m_CurrentStateKey.empty()) {
+        m_ViewStatesByKey[m_CurrentStateKey].ExpandedByPath[path] = expanded;
+    }
+    return true;
+}
+
+bool ReflectionDetailsView::IsSectionExpanded(const std::string& path) const
+{
+    const auto itemIt = m_CurrentPathItems.find(path);
+    return itemIt != m_CurrentPathItems.end() &&
+        itemIt->second != nullptr &&
+        itemIt->second->Expanded;
 }
 
 ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 {
+    m_CurrentItemPaths.clear();
+    m_CurrentPathItems.clear();
+    m_CurrentStateKey = BuildCurrentStateKey();
+
     if (!m_Target && !m_SlotTarget) {
         return BuildEmptyState();
     }
@@ -414,18 +441,16 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
 
 void ReflectionDetailsView::BuildCommonSection(
     ImOutlineView& outlineView,
-    const std::shared_ptr<ImWidget>& widget) const
+    const std::shared_ptr<ImWidget>& widget)
 {
     if (!widget) {
         return;
     }
 
-    ImOutlineItem* sectionItem = outlineView.AddRootItem(MakeSectionLabelWidget("Common"));
+    ImOutlineItem* sectionItem = AddTrackedGroupItem(outlineView, nullptr, "Common", "Common", true);
     if (!sectionItem) {
         return;
     }
-
-    sectionItem->Expanded = true;
 
     const FGeometry geometry = widget->GetGeometry();
     std::string parentLabel = "<root>";
@@ -445,25 +470,25 @@ void ReflectionDetailsView::BuildCommonSection(
 void ReflectionDetailsView::BuildObjectSection(
     ImOutlineView& outlineView,
     const std::shared_ptr<ReflectableObject>& object,
-    const std::string& title) const
+    const std::string& title)
 {
     if (!object) {
         return;
     }
 
-    ImOutlineItem* sectionItem = outlineView.AddRootItem(MakeSectionLabelWidget(title));
+    ImOutlineItem* sectionItem = AddTrackedGroupItem(outlineView, nullptr, title, title, true);
     if (!sectionItem) {
         return;
     }
 
-    sectionItem->Expanded = true;
-    BuildPropertyItems(outlineView, sectionItem, object);
+    BuildPropertyItems(outlineView, sectionItem, object, title);
 }
 
 void ReflectionDetailsView::BuildPropertyItems(
     ImOutlineView& outlineView,
     ImOutlineItem* parentItem,
-    const std::shared_ptr<ReflectableObject>& object) const
+    const std::shared_ptr<ReflectableObject>& object,
+    const std::string& parentPath)
 {
     if (!parentItem || !object) {
         return;
@@ -492,10 +517,17 @@ void ReflectionDetailsView::BuildPropertyItems(
                     propertyValueJson)) {
                 outlineView.AddChildItem(parentItem, specializedRow);
             } else {
-                ImOutlineItem* groupItem = outlineView.AddChildItem(parentItem, MakeSectionLabelWidget(property.GetNameString()));
+                const std::string groupPath = parentPath.empty()
+                    ? property.GetNameString()
+                    : parentPath + "/" + property.GetNameString();
+                ImOutlineItem* groupItem = AddTrackedGroupItem(
+                    outlineView,
+                    parentItem,
+                    groupPath,
+                    property.GetNameString(),
+                    false);
                 if (groupItem) {
-                    groupItem->Expanded = true;
-                    BuildPropertyItems(outlineView, groupItem, nestedObject);
+                    BuildPropertyItems(outlineView, groupItem, nestedObject, groupPath);
                 }
             }
             continue;
@@ -1006,6 +1038,83 @@ std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(
 std::shared_ptr<ImOutlineView> ReflectionDetailsView::GetCurrentOutlineView() const
 {
     return std::dynamic_pointer_cast<ImOutlineView>(GetRootWidget());
+}
+
+std::string ReflectionDetailsView::BuildCurrentStateKey() const
+{
+    if (!m_Target && !m_SlotTarget) {
+        return "";
+    }
+
+    std::ostringstream stream;
+    stream << reinterpret_cast<std::uintptr_t>(m_Target.get()) << ":"
+           << reinterpret_cast<std::uintptr_t>(m_SlotTarget.get());
+    return stream.str();
+}
+
+void ReflectionDetailsView::CaptureCurrentViewState()
+{
+    auto outlineView = GetCurrentOutlineView();
+    if (!outlineView || m_CurrentStateKey.empty()) {
+        return;
+    }
+
+    FInspectorViewState& state = m_ViewStatesByKey[m_CurrentStateKey];
+    state.ScrollOffset = outlineView->GetScrollOffset();
+    state.ExpandedByPath.clear();
+    for (const auto& entry : m_CurrentItemPaths) {
+        if (entry.first != nullptr) {
+            state.ExpandedByPath[entry.second] = entry.first->Expanded;
+        }
+    }
+}
+
+void ReflectionDetailsView::RestoreCurrentViewState()
+{
+    auto outlineView = GetCurrentOutlineView();
+    if (!outlineView || m_CurrentStateKey.empty()) {
+        return;
+    }
+
+    const auto stateIt = m_ViewStatesByKey.find(m_CurrentStateKey);
+    if (stateIt == m_ViewStatesByKey.end()) {
+        return;
+    }
+
+    outlineView->SetScrollOffset(stateIt->second.ScrollOffset);
+}
+
+bool ReflectionDetailsView::ResolveInitialExpandedState(const std::string& path, bool bDefaultExpanded) const
+{
+    const auto stateIt = m_ViewStatesByKey.find(m_CurrentStateKey);
+    if (stateIt == m_ViewStatesByKey.end()) {
+        return bDefaultExpanded;
+    }
+
+    const auto expandedIt = stateIt->second.ExpandedByPath.find(path);
+    return expandedIt != stateIt->second.ExpandedByPath.end()
+        ? expandedIt->second
+        : bDefaultExpanded;
+}
+
+ImOutlineItem* ReflectionDetailsView::AddTrackedGroupItem(
+    ImOutlineView& outlineView,
+    ImOutlineItem* parentItem,
+    const std::string& path,
+    const std::string& title,
+    bool bDefaultExpanded)
+{
+    ImOutlineItem* item = parentItem != nullptr
+        ? outlineView.AddChildItem(parentItem, MakeSectionLabelWidget(title))
+        : outlineView.AddRootItem(MakeSectionLabelWidget(title));
+    if (!item) {
+        return nullptr;
+    }
+
+    item->Expanded = ResolveInitialExpandedState(path, bDefaultExpanded);
+    m_CurrentItemPaths[item] = path;
+    m_CurrentPathItems[path] = item;
+    return item;
 }
 
 } // namespace ImWidgetV4Editor

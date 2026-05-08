@@ -318,13 +318,12 @@ void CollectGeneratedNodesRecursive(
     const std::string normalizedBase =
         NormalizeIdentifierBase(preferredName, BuildWidgetTypeNameBase(typeName));
     int& existingCount = usedVarNameCounts[normalizedBase];
-    ++existingCount;
 
     std::string varName = normalizedBase;
-    if (existingCount > 1) {
-        varName += std::to_string(existingCount);
+    if (existingCount > 0) {
+        varName += std::to_string(existingCount + 1);
     }
-    varName += "_";
+    ++existingCount;
 
     FGeneratedNode node;
     node.Index = static_cast<int>(outNodes.size());
@@ -423,7 +422,9 @@ void CollectGeneratedNodesRecursive(
     }
 }
 
-std::vector<FGeneratedNode> BuildGeneratedNodes(const std::shared_ptr<ImWidget>& rootWidget)
+std::vector<FGeneratedNode> BuildGeneratedNodes(
+    const std::shared_ptr<ImWidget>& rootWidget,
+    const std::unordered_set<std::string>& reservedNames)
 {
     std::vector<FGeneratedNode> nodes;
     if (!rootWidget) {
@@ -431,6 +432,12 @@ std::vector<FGeneratedNode> BuildGeneratedNodes(const std::shared_ptr<ImWidget>&
     }
 
     std::unordered_map<std::string, int> usedVarNameCounts;
+    for (const std::string& reservedName : reservedNames) {
+        if (!reservedName.empty()) {
+            usedVarNameCounts[reservedName] = 1;
+        }
+    }
+
     const json rootJson = WidgetSerializer::SerializeWidgetTree(rootWidget);
     CollectGeneratedNodesRecursive(
         rootJson,
@@ -760,7 +767,9 @@ FCodeGenResult WidgetTreeToCppGenerator::Generate(
     result.Files.HeaderFileName = options.ClassName + ".h";
     result.Files.SourceFileName = options.ClassName + ".cpp";
 
-    const std::vector<FGeneratedNode> nodes = BuildGeneratedNodes(rootWidget);
+    const std::vector<FGeneratedNode> nodes = BuildGeneratedNodes(
+        rootWidget,
+        {options.ClassName});
     if (nodes.empty()) {
         return BuildInvalidResult("Serialized widget tree did not contain a valid root widget.");
     }

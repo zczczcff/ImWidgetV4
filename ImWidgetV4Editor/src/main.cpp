@@ -1,5 +1,6 @@
 #include "editor/EditorSession.h"
 #include "editor/EditorShellHost.h"
+#include "editor/EditorPaths.h"
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "palette/WidgetPaletteView.h"
@@ -363,14 +364,6 @@ std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<Edito
     };
 }
 
-std::filesystem::path ResolveEditorProjectRoot()
-{
-    std::filesystem::path root = LR"(E:\project\ImWidgetV4)";
-    std::error_code error;
-    const std::filesystem::path canonicalRoot = std::filesystem::weakly_canonical(root, error);
-    return error ? root.lexically_normal() : canonicalRoot;
-}
-
 void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     app.ClearTitleBarTabMenus();
@@ -422,6 +415,10 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
+    const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
+    std::error_code currentPathError;
+    std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
+
     auto backend = std::make_shared<ImWin32DX11Backend>(
         L"ImWidgetV4 Editor",
         1440,
@@ -463,7 +460,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         shell.DetailsView,
         shell.OutputText);
     if (!workspaceController->LoadWorkspaceState(workspaceStatePath)) {
-        workspaceController->SetProjectRoot(ResolveEditorProjectRoot());
+        workspaceController->SetProjectRoot(defaultWorkspaceDirectory);
     }
 
     app->SetApplicationTitle("ImWidgetV4 Editor");

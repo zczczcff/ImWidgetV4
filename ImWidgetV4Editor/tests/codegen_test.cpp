@@ -97,15 +97,15 @@ TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
         std::string::npos);
     EXPECT_NE(
         result.Files.HeaderText.find(
-            "std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel_;"),
+            "std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel;"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("ActionButton_->SetContent(ButtonLabel_);"),
+        result.Files.SourceText.find("ActionButton->SetContent(ButtonLabel);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("RootPanel_->AddChild(ActionButton_);"),
+        result.Files.SourceText.find("RootPanel->AddChild(ActionButton);"),
         std::string::npos);
-    EXPECT_NE(result.Files.SourceText.find("return RootPanel_;"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("return RootPanel;"), std::string::npos);
 }
 
 TEST(EditorCodeGenTest, GeneratesTabSpecificRebuildLogic)
@@ -118,22 +118,22 @@ TEST(EditorCodeGenTest, GeneratesTabSpecificRebuildLogic)
 
     ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
     EXPECT_NE(
-        result.Files.SourceText.find("DocumentTabs_->AddTab(\"First\", FirstDocument_);"),
+        result.Files.SourceText.find("DocumentTabs->AddTab(\"First\", FirstDocument);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("DocumentTabs_->SetTabClosable(FirstDocument_TabIndex, true);"),
+        result.Files.SourceText.find("DocumentTabs->SetTabClosable(FirstDocumentTabIndex, true);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("DocumentTabs_->SetTabDirty(FirstDocument_TabIndex, true);"),
+        result.Files.SourceText.find("DocumentTabs->SetTabDirty(FirstDocumentTabIndex, true);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("DocumentTabs_->SetTabEnabled(ArchiveDocument_TabIndex, false);"),
+        result.Files.SourceText.find("DocumentTabs->SetTabEnabled(ArchiveDocumentTabIndex, false);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("SecondHost_->SetContent(SecondLabel_);"),
+        result.Files.SourceText.find("SecondHost->SetContent(SecondLabel);"),
         std::string::npos);
     EXPECT_NE(
-        result.Files.SourceText.find("DocumentTabs_->SetActiveTab(1);"),
+        result.Files.SourceText.find("DocumentTabs->SetActiveTab(1);"),
         std::string::npos);
 }
 
@@ -147,7 +147,7 @@ TEST(EditorCodeGenTest, GeneratesSlotRestorationForPanelChildren)
 
     ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
     EXPECT_NE(
-        result.Files.SourceText.find("CanvasRoot_->AddChild(FloatingLabel_);"),
+        result.Files.SourceText.find("CanvasRoot->AddChild(FloatingLabel);"),
         std::string::npos);
     EXPECT_NE(
         result.Files.SourceText.find("slot->FromJson(ParseGeneratedJson("),

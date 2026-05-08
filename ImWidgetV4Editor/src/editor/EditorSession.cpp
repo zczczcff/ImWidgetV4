@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "EditorPaths.h"
 #include "LogicalWidgetTree.h"
 #include "../codegen/WidgetTreeToCppGenerator.h"
 #include "../commands/AddWidgetCommand.h"
@@ -1953,7 +1954,7 @@ std::filesystem::path EditorSession::ResolveDialogDirectory() const
         return m_Document->GetFilePath().parent_path();
     }
 
-    return std::filesystem::current_path();
+    return GetDefaultEditorWorkspaceDirectory();
 }
 
 EditorSession::FDocumentSnapshot EditorSession::CaptureDocumentSnapshot(

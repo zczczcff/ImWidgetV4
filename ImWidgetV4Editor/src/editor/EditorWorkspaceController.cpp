@@ -1,6 +1,7 @@
 #include "EditorWorkspaceController.h"
 
 #include "EditorSession.h"
+#include "EditorPaths.h"
 #include "EditorShellHost.h"
 #include "InputDialog.h"
 #include "../inspector/ReflectionDetailsView.h"
@@ -306,7 +307,7 @@ bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
 {
     FOpenFolderDialogOptions options;
     options.Title = "Select Project Root";
-    options.InitialDirectory = m_ProjectRoot.empty() ? std::filesystem::current_path() : m_ProjectRoot;
+    options.InitialDirectory = m_ProjectRoot.empty() ? GetDefaultEditorWorkspaceDirectory() : m_ProjectRoot;
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {

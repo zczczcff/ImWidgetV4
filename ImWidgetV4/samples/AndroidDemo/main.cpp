@@ -23,8 +23,6 @@ void LogInfo(const char* message)
 
 void android_main(struct android_app* app)
 {
-    app_dummy();
-
     LogInfo("Starting ImWidgetV4 Android demo.");
 
     auto backend = std::make_shared<ImAndroidGLES3Backend>(app, "ImWidgetV4 Android Demo");

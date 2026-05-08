@@ -295,6 +295,13 @@ if(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
 endif()
 
 if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
+    set(IMWIDGETV4_ANDROID_NDK_ROOT "")
+    if(DEFINED CMAKE_ANDROID_NDK)
+        set(IMWIDGETV4_ANDROID_NDK_ROOT ${CMAKE_ANDROID_NDK})
+    elseif(DEFINED ANDROID_NDK)
+        set(IMWIDGETV4_ANDROID_NDK_ROOT ${ANDROID_NDK})
+    endif()
+
     add_library(imwidgetv4_imgui_backend_android STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_android.cpp
     )
@@ -331,9 +338,9 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
     target_include_directories(imwidgetv4_platform_android_gles3 PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
-    if(DEFINED ANDROID_NDK)
+    if(IMWIDGETV4_ANDROID_NDK_ROOT)
         target_include_directories(imwidgetv4_platform_android_gles3 PRIVATE
-            ${ANDROID_NDK}/sources/android/native_app_glue
+            ${IMWIDGETV4_ANDROID_NDK_ROOT}/sources/android/native_app_glue
         )
     endif()
     target_link_libraries(imwidgetv4_platform_android_gles3 PUBLIC

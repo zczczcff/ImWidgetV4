@@ -54,6 +54,10 @@ public:
         int width,
         int height) override;
     void ClearWindowIcon() override;
+    void SetTouchScrollWheelEnabled(bool bEnabled);
+    bool IsTouchScrollWheelEnabled() const;
+    void SetTouchScrollWheelInverted(bool bInverted);
+    bool IsTouchScrollWheelInverted() const;
     static void NativeOnTextInput(JNIEnv* env, jclass clazz, jlong backendHandle, jint codepoint);
     static void NativeOnSpecialKey(JNIEnv* env, jclass clazz, jlong backendHandle, jint keyCode, jboolean bDown);
 
@@ -82,6 +86,8 @@ private:
     void SetNativeBackendHandle(std::intptr_t backendHandle);
     void EnqueueJavaTextInput(unsigned int codepoint);
     void EnqueueJavaSpecialKey(int32_t keyCode, bool bDown);
+    bool TryHandleTouchScrollWheelGesture(AInputEvent* inputEvent);
+    void ResetTouchScrollWheelGesture();
 
     void HandleAppCommand(int32_t command);
     int32_t HandleInputEvent(AInputEvent* inputEvent);
@@ -121,6 +127,15 @@ private:
     std::mutex PendingJavaInputMutex_;
     std::vector<unsigned int> PendingJavaTextInput_;
     std::vector<std::pair<int32_t, bool>> PendingJavaSpecialKeys_;
+    bool bTouchScrollWheelEnabled_ = true;
+    bool bTouchScrollWheelInverted_ = false;
+    bool bTouchScrollWheelGestureActive_ = false;
+    bool bTouchScrollWheelPointerDown_ = false;
+    int32_t TouchScrollWheelPointerId_ = -1;
+    FVector2 TouchScrollWheelDownPosition_ {0.0f, 0.0f};
+    FVector2 TouchScrollWheelLastPosition_ {0.0f, 0.0f};
+    float TouchScrollWheelActivationThreshold_ = 16.0f;
+    float TouchScrollWheelPixelsPerWheelStep_ = 48.0f;
 };
 
 #endif

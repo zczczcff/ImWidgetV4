@@ -12,6 +12,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <jni.h>
@@ -456,6 +457,33 @@ void ImAndroidGLES3Backend::RequestClose()
 std::string ImAndroidGLES3Backend::GetBackendName() const
 {
     return "Android + OpenGL ES 3";
+}
+
+void ImAndroidGLES3Backend::SetTouchScrollWheelEnabled(bool bEnabled)
+{
+    if (bTouchScrollWheelEnabled_ == bEnabled) {
+        return;
+    }
+
+    bTouchScrollWheelEnabled_ = bEnabled;
+    if (!bTouchScrollWheelEnabled_) {
+        ResetTouchScrollWheelGesture();
+    }
+}
+
+bool ImAndroidGLES3Backend::IsTouchScrollWheelEnabled() const
+{
+    return bTouchScrollWheelEnabled_;
+}
+
+void ImAndroidGLES3Backend::SetTouchScrollWheelInverted(bool bInverted)
+{
+    bTouchScrollWheelInverted_ = bInverted;
+}
+
+bool ImAndroidGLES3Backend::IsTouchScrollWheelInverted() const
+{
+    return bTouchScrollWheelInverted_;
 }
 
 ImTextureID ImAndroidGLES3Backend::CreateTextureFromRGBA(
@@ -1063,6 +1091,133 @@ void ImAndroidGLES3Backend::EnqueueJavaSpecialKey(int32_t keyCode, bool bDown)
     PendingJavaSpecialKeys_.push_back({keyCode, bDown});
 }
 
+bool ImAndroidGLES3Backend::TryHandleTouchScrollWheelGesture(AInputEvent* inputEvent)
+{
+    if (!bTouchScrollWheelEnabled_ ||
+        inputEvent == nullptr ||
+        AInputEvent_getType(inputEvent) != AINPUT_EVENT_TYPE_MOTION) {
+        return false;
+    }
+
+    const int32_t action = AMotionEvent_getAction(inputEvent);
+    const int32_t actionMasked = action & AMOTION_EVENT_ACTION_MASK;
+    const int32_t pointerCount = AMotionEvent_getPointerCount(inputEvent);
+
+    switch (actionMasked) {
+    case AMOTION_EVENT_ACTION_DOWN: {
+        if (pointerCount <= 0) {
+            ResetTouchScrollWheelGesture();
+            return false;
+        }
+
+        bTouchScrollWheelPointerDown_ = true;
+        bTouchScrollWheelGestureActive_ = false;
+        TouchScrollWheelPointerId_ = AMotionEvent_getPointerId(inputEvent, 0);
+        TouchScrollWheelDownPosition_ = FVector2(
+            AMotionEvent_getX(inputEvent, 0),
+            AMotionEvent_getY(inputEvent, 0));
+        TouchScrollWheelLastPosition_ = TouchScrollWheelDownPosition_;
+        return false;
+    }
+
+    case AMOTION_EVENT_ACTION_POINTER_DOWN:
+        ResetTouchScrollWheelGesture();
+        return false;
+
+    case AMOTION_EVENT_ACTION_MOVE: {
+        if (!bTouchScrollWheelPointerDown_ || TouchScrollWheelPointerId_ < 0 || pointerCount != 1) {
+            return false;
+        }
+
+        int32_t pointerIndex = -1;
+        for (int32_t index = 0; index < pointerCount; ++index) {
+            if (AMotionEvent_getPointerId(inputEvent, index) == TouchScrollWheelPointerId_) {
+                pointerIndex = index;
+                break;
+            }
+        }
+
+        if (pointerIndex < 0) {
+            ResetTouchScrollWheelGesture();
+            return false;
+        }
+
+        const FVector2 currentPosition(
+            AMotionEvent_getX(inputEvent, pointerIndex),
+            AMotionEvent_getY(inputEvent, pointerIndex));
+        const FVector2 totalDelta = currentPosition - TouchScrollWheelDownPosition_;
+        const FVector2 frameDelta = currentPosition - TouchScrollWheelLastPosition_;
+
+        if (!bTouchScrollWheelGestureActive_) {
+            if (Application_ != nullptr && Application_->GetMouseCapture() != nullptr) {
+                TouchScrollWheelLastPosition_ = currentPosition;
+                return false;
+            }
+
+            const bool bVerticalDragDominant =
+                std::fabs(totalDelta.Y) >= TouchScrollWheelActivationThreshold_ &&
+                std::fabs(totalDelta.Y) >= std::fabs(totalDelta.X) * 1.25f;
+            if (!bVerticalDragDominant) {
+                TouchScrollWheelLastPosition_ = currentPosition;
+                return false;
+            }
+
+            ImGuiIO& io = ImGui::GetIO();
+            io.AddMousePosEvent(currentPosition.X, currentPosition.Y);
+            io.AddMouseButtonEvent(0, false);
+            bTouchScrollWheelGestureActive_ = true;
+            TouchScrollWheelLastPosition_ = currentPosition;
+            return true;
+        }
+
+        const float wheelDeltaY =
+            (bTouchScrollWheelInverted_ ? -1.0f : 1.0f) *
+            (frameDelta.Y / TouchScrollWheelPixelsPerWheelStep_);
+        TouchScrollWheelLastPosition_ = currentPosition;
+
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMousePosEvent(currentPosition.X, currentPosition.Y);
+        if (wheelDeltaY != 0.0f) {
+            io.AddMouseWheelEvent(0.0f, wheelDeltaY);
+        }
+        return true;
+    }
+
+    case AMOTION_EVENT_ACTION_UP:
+    case AMOTION_EVENT_ACTION_CANCEL: {
+        const bool bConsumed = bTouchScrollWheelGestureActive_;
+        ResetTouchScrollWheelGesture();
+        return bConsumed;
+    }
+
+    case AMOTION_EVENT_ACTION_POINTER_UP: {
+        const int32_t pointerIndex =
+            (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+        const bool bTrackedPointerReleased =
+            pointerIndex >= 0 &&
+            pointerIndex < pointerCount &&
+            AMotionEvent_getPointerId(inputEvent, pointerIndex) == TouchScrollWheelPointerId_;
+        const bool bConsumed = bTouchScrollWheelGestureActive_ && bTrackedPointerReleased;
+        if (bTrackedPointerReleased) {
+            ResetTouchScrollWheelGesture();
+        }
+        return bConsumed;
+    }
+
+    default:
+        return false;
+    }
+}
+
+void ImAndroidGLES3Backend::ResetTouchScrollWheelGesture()
+{
+    bTouchScrollWheelGestureActive_ = false;
+    bTouchScrollWheelPointerDown_ = false;
+    TouchScrollWheelPointerId_ = -1;
+    TouchScrollWheelDownPosition_ = FVector2(0.0f, 0.0f);
+    TouchScrollWheelLastPosition_ = FVector2(0.0f, 0.0f);
+}
+
 void ImAndroidGLES3Backend::HandleAppCommand(int32_t command)
 {
     switch (command) {
@@ -1085,6 +1240,7 @@ void ImAndroidGLES3Backend::HandleAppCommand(int32_t command)
         bHasFocus_ = false;
         HideSoftKeyboard();
         bSoftKeyboardVisible_ = false;
+        ResetTouchScrollWheelGesture();
         break;
 
     case APP_CMD_RESUME:
@@ -1095,6 +1251,7 @@ void ImAndroidGLES3Backend::HandleAppCommand(int32_t command)
         bAppResumed_ = false;
         HideSoftKeyboard();
         bSoftKeyboardVisible_ = false;
+        ResetTouchScrollWheelGesture();
         break;
 
     case APP_CMD_DESTROY:
@@ -1110,6 +1267,10 @@ int32_t ImAndroidGLES3Backend::HandleInputEvent(AInputEvent* inputEvent)
 {
     if (inputEvent == nullptr) {
         return 0;
+    }
+
+    if (TryHandleTouchScrollWheelGesture(inputEvent)) {
+        return 1;
     }
 
     if (AInputEvent_getType(inputEvent) == AINPUT_EVENT_TYPE_KEY) {

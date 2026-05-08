@@ -1,5 +1,8 @@
 #include "DemoContent.h"
 
+#include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/ApplicationBackend.h>
+#include <imwidgetv4/platform/AndroidGLES3Backend.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
@@ -8,6 +11,7 @@
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <cstdio>
 #include <functional>
@@ -195,6 +199,32 @@ std::string FormatCodepoint(unsigned int codepoint)
     return buffer;
 }
 
+bool ApplyAndroidTouchWheelInvert(const std::shared_ptr<ImWidget>& widget, bool bInverted)
+{
+#if defined(__ANDROID__)
+    if (!widget) {
+        return false;
+    }
+
+    ImApplication* application = widget->GetApplication();
+    if (application == nullptr) {
+        return false;
+    }
+
+    auto* backend = dynamic_cast<ImAndroidGLES3Backend*>(application->GetBackend());
+    if (backend == nullptr) {
+        return false;
+    }
+
+    backend->SetTouchScrollWheelInverted(bInverted);
+    return true;
+#else
+    (void)widget;
+    (void)bInverted;
+    return false;
+#endif
+}
+
 } // namespace
 
 std::shared_ptr<ImWidget> CreateInputWidgetsDemoRoot()
@@ -288,6 +318,60 @@ std::shared_ptr<ImWidget> CreateInputWidgetsDemoRoot()
     traceModifiers->SetText("Modifiers: (none)");
     traceModifiers->SetTextColor(FColor::FromBytes(160, 214, 190));
     root->AddChild(traceModifiers, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto touchWheelLabel = std::make_shared<ImTextBlock>();
+    touchWheelLabel->SetText("Android Touch Wheel");
+    touchWheelLabel->SetTextColor(FColor::FromBytes(255, 214, 102));
+    root->AddChild(touchWheelLabel, FMargin(16.0f, 8.0f, 16.0f, 0.0f));
+
+    auto touchWheelRow = std::make_shared<ImHorizontalBox>();
+    touchWheelRow->SetSpacing(12.0f);
+
+    auto touchWheelInvertSwitch = std::make_shared<ImSwitch>();
+    touchWheelRow->AddChild(touchWheelInvertSwitch);
+
+    auto touchWheelHint = std::make_shared<ImTextBlock>();
+    touchWheelHint->SetText("Invert swipe-to-wheel direction on Android.");
+    touchWheelHint->SetTextColor(FColor::FromBytes(214, 222, 234));
+    touchWheelRow->AddChild(touchWheelHint);
+
+    root->AddChild(touchWheelRow, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto touchWheelState = std::make_shared<ImTextBlock>();
+    touchWheelState->SetText("Touch Wheel Invert: Off");
+    touchWheelState->SetTextColor(FColor::FromBytes(160, 214, 190));
+    root->AddChild(touchWheelState, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto scrollWheelDemoLabel = std::make_shared<ImTextBlock>();
+    scrollWheelDemoLabel->SetText("TextList Wheel Mapping Demo");
+    scrollWheelDemoLabel->SetTextColor(FColor::FromBytes(255, 214, 102));
+    root->AddChild(scrollWheelDemoLabel, FMargin(16.0f, 8.0f, 16.0f, 0.0f));
+
+    auto scrollWheelDemoHint = std::make_shared<ImTextBlock>();
+    scrollWheelDemoHint->SetText("Swipe vertically inside the panel below. The Android backend now translates vertical touch swipes into wheel scroll events.");
+    scrollWheelDemoHint->SetWrapText(true);
+    scrollWheelDemoHint->SetTextColor(FColor::FromBytes(214, 222, 234));
+    root->AddChild(scrollWheelDemoHint, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
+
+    auto scrollWheelDemoList = std::make_shared<ImTextList>();
+    FTextListStyle scrollWheelDemoStyle = scrollWheelDemoList->GetStyle();
+    scrollWheelDemoStyle.MinDesiredSize = FVector2(220.0f, 180.0f);
+    scrollWheelDemoStyle.WheelScrollStep = 44.0f;
+    scrollWheelDemoList->SetStyle(scrollWheelDemoStyle);
+
+    std::vector<std::string> scrollWheelDemoItems;
+    scrollWheelDemoItems.reserve(18);
+    for (int rowIndex = 0; rowIndex < 18; ++rowIndex) {
+        char rowBuffer[128] = {};
+        std::snprintf(
+            rowBuffer,
+            sizeof(rowBuffer),
+            "Scrollable row %02d  Swipe to test Android touch-wheel mapping.",
+            rowIndex + 1);
+        scrollWheelDemoItems.emplace_back(rowBuffer);
+    }
+    scrollWheelDemoList->SetItems(scrollWheelDemoItems);
+    root->AddChild(scrollWheelDemoList, FMargin(16.0f, 0.0f, 16.0f, 0.0f));
 
     auto sliderLabel = std::make_shared<ImTextBlock>();
     sliderLabel->SetText("Horizontal Slider");
@@ -389,6 +473,14 @@ std::shared_ptr<ImWidget> CreateInputWidgetsDemoRoot()
         switchState->SetText(FormatSwitchState(checked));
     });
 
+    touchWheelInvertSwitch->OnCheckStateChanged.AddLambda([=](ImSwitch&, bool checked) {
+        ApplyAndroidTouchWheelInvert(touchWheelInvertSwitch, checked);
+        touchWheelState->SetText(
+            std::string("Touch Wheel Invert: ") + (checked ? "On" : "Off"));
+    });
+
+    touchWheelInvertSwitch->SetChecked(false);
+
     resetButton->OnClicked.AddLambda([=](ImButton&) {
         disableControls->SetChecked(false);
         comboBox->SetDisabled(false);
@@ -404,6 +496,9 @@ std::shared_ptr<ImWidget> CreateInputWidgetsDemoRoot()
         committedText->SetText("Committed Text: (not committed yet)");
         sliderValue->SetText(FormatSliderValue(slider->GetValue()));
         switchState->SetText(FormatSwitchState(switchWidget->IsChecked()));
+        touchWheelInvertSwitch->SetChecked(false);
+        ApplyAndroidTouchWheelInvert(touchWheelInvertSwitch, false);
+        touchWheelState->SetText("Touch Wheel Invert: Off");
     });
 
     fillSampleButton->OnClicked.AddLambda([=](ImButton&) {

@@ -78,6 +78,8 @@ public:
     void SetIniSettingsPath(const std::filesystem::path& path);
     const std::filesystem::path& GetIniSettingsPath() const;
     void EnsureDefaultFontConfigured();
+    void SetPreferredDefaultFontData(std::vector<std::uint8_t> fontData);
+    void SetPreferredDefaultFontCandidates(std::vector<std::filesystem::path> fontCandidates);
     void SetApplicationTitle(const std::string& title);
     const std::string& GetApplicationTitle() const;
     void SetApplicationIcon(const FImageBrush& brush);
@@ -138,6 +140,7 @@ public:
 
     bool FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const;
     ImTextureID ResolveTextureForPaint(ImTextureID textureId);
+    void NotifyBackendTextureResourcesLost();
 
     const FImageBrush& GetDefaultImagePlaceholderBrush() const;
     FImageBrush GetCoreIconBrush(ECoreIcon icon, const FColor& tint = FColor::White) const;
@@ -172,6 +175,8 @@ private:
     std::uint64_t FrameNumber_ = 0;
     std::filesystem::path IniSettingsPath_;
     std::string IniSettingsPathUtf8Cache_;
+    std::vector<std::uint8_t> PreferredDefaultFontData_;
+    std::vector<std::filesystem::path> PreferredDefaultFontCandidates_;
     std::string ApplicationTitle_;
     FImageBrush ApplicationIcon_;
     std::vector<FApplicationTitleBarTab> TitleBarTabMenus_;

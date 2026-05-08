@@ -26,6 +26,7 @@ void android_main(struct android_app* app)
     auto application = std::make_shared<ImApplication>();
     backend->SetApplication(application.get());
     application->SetApplicationTitle("ImWidgetV4 Input Widgets Demo");
+    application->SetApplicationIcon(application->GetCoreIconBrush(ECoreIcon::EditableText));
     application->SetRootWidget(ImWidgetV4::Samples::CreateInputWidgetsDemoRoot());
 
     backend->Run();

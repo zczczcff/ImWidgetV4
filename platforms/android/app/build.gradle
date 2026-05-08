@@ -7,6 +7,13 @@ android {
     compileSdk 35
     ndkVersion '29.0.14206865'
 
+    sourceSets {
+        main {
+            assets.srcDirs = ['../shared-assets']
+            java.srcDirs = ['../shared-java']
+        }
+    }
+
     defaultConfig {
         applicationId 'com.imwidgetv4.androiddemo'
         minSdk 29

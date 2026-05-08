@@ -29,6 +29,7 @@ void android_main(struct android_app* app)
     auto application = std::make_shared<ImApplication>();
     backend->SetApplication(application.get());
     application->SetApplicationTitle("ImWidgetV4 Android Demo");
+    application->SetApplicationIcon(application->GetCoreIconBrush(ECoreIcon::Settings));
 
     auto root = std::make_shared<ImVerticalBox>();
     root->SetSpacing(16.0f);

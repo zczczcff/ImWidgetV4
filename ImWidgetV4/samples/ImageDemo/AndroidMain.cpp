@@ -26,6 +26,7 @@ void android_main(struct android_app* app)
     auto application = std::make_shared<ImApplication>();
     backend->SetApplication(application.get());
     application->SetApplicationTitle("ImWidgetV4 Image Demo");
+    application->SetApplicationIcon(application->GetCoreIconBrush(ECoreIcon::Image));
     application->SetRootWidget(ImWidgetV4::Samples::CreateImageDemoRoot(*application));
 
     backend->Run();

@@ -16,3 +16,7 @@ add_subdirectory(TabViewDemo)
 add_subdirectory(TextListDemo)
 add_subdirectory(UserWidgetDemo)
 add_subdirectory(WindowDemo)
+
+if(TARGET imwidgetv4_platform_android_gles3)
+    add_subdirectory(AndroidDemo)
+endif()

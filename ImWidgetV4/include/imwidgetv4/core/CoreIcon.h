@@ -22,7 +22,28 @@ enum class ECoreIcon {
     Upload,
     Lock,
     Unlock,
-    View
+    View,
+    Check,
+    Close,
+    Favorite,
+    Heart,
+    Home,
+    Refresh,
+    Print,
+    Info,
+    Warning,
+    Play,
+    Pause,
+    Stop,
+    FastForward,
+    Rewind,
+    User,
+    Mail,
+    Cart,
+    ZoomIn,
+    ZoomOut,
+    AddToCart,
+    Bookmark
 };
 
 } // namespace ImWidgetV4

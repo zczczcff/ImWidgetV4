@@ -82,7 +82,7 @@ protected:
     }
 };
 
-constexpr std::array<ECoreIcon, 20> GAllCoreIcons = {
+constexpr std::array<ECoreIcon, 41> GAllCoreIcons = {
     ECoreIcon::Save,
     ECoreIcon::Folder,
     ECoreIcon::File,
@@ -102,7 +102,28 @@ constexpr std::array<ECoreIcon, 20> GAllCoreIcons = {
     ECoreIcon::Upload,
     ECoreIcon::Lock,
     ECoreIcon::Unlock,
-    ECoreIcon::View
+    ECoreIcon::View,
+    ECoreIcon::Check,
+    ECoreIcon::Close,
+    ECoreIcon::Favorite,
+    ECoreIcon::Heart,
+    ECoreIcon::Home,
+    ECoreIcon::Refresh,
+    ECoreIcon::Print,
+    ECoreIcon::Info,
+    ECoreIcon::Warning,
+    ECoreIcon::Play,
+    ECoreIcon::Pause,
+    ECoreIcon::Stop,
+    ECoreIcon::FastForward,
+    ECoreIcon::Rewind,
+    ECoreIcon::User,
+    ECoreIcon::Mail,
+    ECoreIcon::Cart,
+    ECoreIcon::ZoomIn,
+    ECoreIcon::ZoomOut,
+    ECoreIcon::AddToCart,
+    ECoreIcon::Bookmark
 };
 
 } // namespace
@@ -229,8 +250,8 @@ TEST_F(ImageTest, CoreIconAtlasProducesTransparentBackgroundAndOpaqueGlyphPixels
 
     ImApplication::FRuntimeTextureData textureData;
     ASSERT_TRUE(application.FindRuntimeTextureData(saveBrush.TextureId, textureData));
-    ASSERT_EQ(textureData.Width, 160);
-    ASSERT_EQ(textureData.Height, 128);
+    ASSERT_EQ(textureData.Width, 224);
+    ASSERT_EQ(textureData.Height, 192);
     ASSERT_EQ(textureData.BytesPerPixel, 4);
 
     const auto samplePixel = [&textureData](int x, int y) {

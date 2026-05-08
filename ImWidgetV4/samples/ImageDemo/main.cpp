@@ -68,7 +68,7 @@ std::shared_ptr<ImVerticalBox> MakeImageCard(
     return card;
 }
 
-constexpr std::array<std::pair<ECoreIcon, const char*>, 20> GCoreIcons = {{
+constexpr std::array<std::pair<ECoreIcon, const char*>, 41> GCoreIcons = {{
     {ECoreIcon::Save, "Save"},
     {ECoreIcon::Folder, "Folder"},
     {ECoreIcon::File, "File"},
@@ -88,7 +88,28 @@ constexpr std::array<std::pair<ECoreIcon, const char*>, 20> GCoreIcons = {{
     {ECoreIcon::Upload, "Upload"},
     {ECoreIcon::Lock, "Lock"},
     {ECoreIcon::Unlock, "Unlock"},
-    {ECoreIcon::View, "View"}
+    {ECoreIcon::View, "View"},
+    {ECoreIcon::Check, "Check"},
+    {ECoreIcon::Close, "Close"},
+    {ECoreIcon::Favorite, "Favorite"},
+    {ECoreIcon::Heart, "Heart"},
+    {ECoreIcon::Home, "Home"},
+    {ECoreIcon::Refresh, "Refresh"},
+    {ECoreIcon::Print, "Print"},
+    {ECoreIcon::Info, "Info"},
+    {ECoreIcon::Warning, "Warning"},
+    {ECoreIcon::Play, "Play"},
+    {ECoreIcon::Pause, "Pause"},
+    {ECoreIcon::Stop, "Stop"},
+    {ECoreIcon::FastForward, "FastForward"},
+    {ECoreIcon::Rewind, "Rewind"},
+    {ECoreIcon::User, "User"},
+    {ECoreIcon::Mail, "Mail"},
+    {ECoreIcon::Cart, "Cart"},
+    {ECoreIcon::ZoomIn, "ZoomIn"},
+    {ECoreIcon::ZoomOut, "ZoomOut"},
+    {ECoreIcon::AddToCart, "AddToCart"},
+    {ECoreIcon::Bookmark, "Bookmark"}
 }};
 
 std::shared_ptr<ImVerticalBox> MakeCoreIconCell(
@@ -128,12 +149,18 @@ std::shared_ptr<ImVerticalBox> MakeCoreIconGrid(
     auto grid = std::make_shared<ImVerticalBox>();
     grid->SetSpacing(12.0f);
 
-    for (int rowIndex = 0; rowIndex < 4; ++rowIndex) {
+    constexpr int GridColumnCount = 6;
+    const int rowCount = static_cast<int>((GCoreIcons.size() + GridColumnCount - 1) / GridColumnCount);
+
+    for (int rowIndex = 0; rowIndex < rowCount; ++rowIndex) {
         auto row = std::make_shared<ImHorizontalBox>();
         row->SetSpacing(12.0f);
 
-        for (int columnIndex = 0; columnIndex < 5; ++columnIndex) {
-            const int iconIndex = rowIndex * 5 + columnIndex;
+        for (int columnIndex = 0; columnIndex < GridColumnCount; ++columnIndex) {
+            const int iconIndex = rowIndex * GridColumnCount + columnIndex;
+            if (iconIndex >= static_cast<int>(GCoreIcons.size())) {
+                break;
+            }
             const FColor tint = bTinted ? AccentColors[static_cast<std::size_t>(iconIndex % AccentColors.size())]
                                         : FColor::White;
             const FColor labelColor = bTinted ? tint : FColor::FromBytes(214, 222, 234);
@@ -240,7 +267,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     root->AddChild(
         MakeLabel(
-            "The library now embeds a 20-icon atlas. The first grid uses the default white brushes, and the second grid reuses the same atlas with per-brush tint colors.",
+            "The library now embeds a 41-icon atlas. The first grid uses the default white brushes, and the second grid reuses the same atlas with per-brush tint colors.",
             FColor::FromBytes(214, 222, 234)),
         FMargin(20.0f, 0.0f, 20.0f, 0.0f));
 

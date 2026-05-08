@@ -1,7 +1,10 @@
 #include "../src/codegen/WidgetTreeToCppGenerator.h"
+#include "../src/editor/EditorSession.h"
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -164,4 +167,42 @@ TEST(EditorCodeGenTest, RejectsInvalidClassName)
 
     EXPECT_FALSE(result.bSuccess);
     EXPECT_FALSE(result.ErrorMessage.empty());
+}
+
+TEST(EditorCodeGenTest, SessionCanWriteGeneratedHeaderAndSourceFiles)
+{
+    EditorSession session([]() { return BuildSimpleGeneratedRoot(); });
+
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_codegen_test";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path headerPath = tempDirectory / "GeneratedPreview.h";
+    const std::filesystem::path sourcePath = tempDirectory / "GeneratedPreview.cpp";
+
+    ASSERT_TRUE(session.GenerateCppFilesAt(headerPath));
+    ASSERT_TRUE(std::filesystem::exists(headerPath));
+    ASSERT_TRUE(std::filesystem::exists(sourcePath));
+
+    std::ifstream headerStream(headerPath, std::ios::binary);
+    std::ifstream sourceStream(sourcePath, std::ios::binary);
+    ASSERT_TRUE(headerStream.is_open());
+    ASSERT_TRUE(sourceStream.is_open());
+
+    const std::string headerText(
+        (std::istreambuf_iterator<char>(headerStream)),
+        std::istreambuf_iterator<char>());
+    const std::string sourceText(
+        (std::istreambuf_iterator<char>(sourceStream)),
+        std::istreambuf_iterator<char>());
+
+    EXPECT_NE(headerText.find("class GeneratedPreview"), std::string::npos);
+    EXPECT_NE(headerText.find("std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel;"), std::string::npos);
+    EXPECT_NE(sourceText.find("ActionButton->SetContent(ButtonLabel);"), std::string::npos);
+    EXPECT_NE(sourceText.find("return RootPanel;"), std::string::npos);
+
+    std::filesystem::remove_all(tempDirectory, errorCode);
 }

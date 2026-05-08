@@ -375,6 +375,12 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
                 workspaceController->SelectProjectRoot(app);
             }
         }},
+        FApplicationMenuItem {"Generate C++...", {}, {}, true, false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->GenerateActiveDocumentCpp(app);
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
         FApplicationMenuItem {"New UI Document...", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->CreateDocumentInDirectory(app, workspaceController->GetProjectRoot());

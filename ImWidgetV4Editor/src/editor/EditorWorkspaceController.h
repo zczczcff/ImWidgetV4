@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Application.h>
+#include <filesystem>
 #include <nlohmann/json.hpp>
 #include <unordered_map>
 #include <functional>
@@ -65,6 +66,7 @@ public:
     bool RevealProjectItemInExplorer(const std::filesystem::path& path) const;
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
+    bool GenerateActiveDocumentCpp(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
     bool ActivateDocumentAt(int index);
     bool ActivateAdjacentDocument(int direction);

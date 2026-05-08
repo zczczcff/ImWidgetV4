@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
 #include <unordered_set>
 
 namespace ImWidgetV4Editor {
@@ -950,6 +951,91 @@ bool EditorSession::SaveDocumentAs(ImApplication& app)
 
     ApplyDocumentToUi();
     LogStatus("Saved " + dialogResult.Path.filename().string());
+    return true;
+}
+
+bool EditorSession::GenerateCppFiles(ImApplication& app)
+{
+    if (!m_Document || !m_Document->GetRootWidget()) {
+        LogStatus("Generate C++ failed: no active document.");
+        return false;
+    }
+
+    FSaveFileDialogOptions options;
+    options.Title = "Generate C++ Header";
+    options.InitialDirectory = ResolveDialogDirectory();
+    options.DefaultFileName = BuildGeneratedClassName(m_Document) + ".h";
+    options.DefaultExtension = "h";
+    options.Filters = {
+        FFileDialogFilter {"C++ Header", {"*.h", "*.hpp"}},
+        FFileDialogFilter {"All Files", {"*.*"}}
+    };
+    options.DefaultFilterIndex = 0;
+    options.bPromptOverwrite = true;
+
+    const FPathDialogResult dialogResult = app.SaveFileDialog(options);
+    if (!dialogResult.IsAccepted()) {
+        if (dialogResult.Code == EPathDialogResultCode::Error) {
+            LogStatus("Generate C++ failed: " + dialogResult.ErrorMessage);
+        }
+        return false;
+    }
+
+    return GenerateCppFilesAt(dialogResult.Path);
+}
+
+bool EditorSession::GenerateCppFilesAt(
+    const std::filesystem::path& headerFilePath,
+    const std::string& namespaceName)
+{
+    if (!m_Document || !m_Document->GetRootWidget()) {
+        LogStatus("Generate C++ failed: no active document.");
+        return false;
+    }
+
+    if (headerFilePath.empty()) {
+        LogStatus("Generate C++ failed: header output path is empty.");
+        return false;
+    }
+
+    std::filesystem::path resolvedHeaderPath = headerFilePath;
+    if (resolvedHeaderPath.extension().empty()) {
+        resolvedHeaderPath.replace_extension(".h");
+    }
+
+    std::string className = NormalizeWidgetIdentifierBase(
+        resolvedHeaderPath.stem().string(),
+        BuildGeneratedClassName(m_Document));
+    if (!className.empty()) {
+        className.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(className.front())));
+    }
+
+    FCodeGenResult generatedCode;
+    if (!BuildGeneratedCode(className, namespaceName, generatedCode)) {
+        const std::string errorMessage = generatedCode.ErrorMessage.empty()
+            ? std::string("code generation failed.")
+            : generatedCode.ErrorMessage;
+        LogStatus("Generate C++ failed: " + errorMessage);
+        return false;
+    }
+
+    std::filesystem::path sourceFilePath = resolvedHeaderPath;
+    sourceFilePath.replace_extension(".cpp");
+
+    std::string errorMessage;
+    if (!WriteGeneratedTextFile(resolvedHeaderPath, generatedCode.Files.HeaderText, errorMessage)) {
+        LogStatus("Generate C++ failed: " + errorMessage);
+        return false;
+    }
+
+    if (!WriteGeneratedTextFile(sourceFilePath, generatedCode.Files.SourceText, errorMessage)) {
+        LogStatus("Generate C++ failed: " + errorMessage);
+        return false;
+    }
+
+    LogStatus(
+        "Generated " + resolvedHeaderPath.filename().string() +
+        " and " + sourceFilePath.filename().string());
     return true;
 }
 
@@ -2640,11 +2726,8 @@ void EditorSession::RefreshGeneratedCodePreview()
         return;
     }
 
-    FCodeGenOptions options;
-    options.ClassName = BuildGeneratedClassName(m_Document);
-
-    const FCodeGenResult result = WidgetTreeToCppGenerator::Generate(*m_Document, options);
-    if (!result.bSuccess) {
+    FCodeGenResult result;
+    if (!BuildGeneratedCode(BuildGeneratedClassName(m_Document), std::string(), result)) {
         const std::string errorText = result.ErrorMessage.empty()
             ? std::string("Code generation preview failed.")
             : std::string("Code generation preview failed: ") + result.ErrorMessage;
@@ -2662,6 +2745,70 @@ void EditorSession::RefreshGeneratedCodePreview()
     }
     if (m_SourcePreviewText) {
         m_SourcePreviewText->SetItems({result.Files.SourceText});
+    }
+}
+
+bool EditorSession::BuildGeneratedCode(
+    const std::string& className,
+    const std::string& namespaceName,
+    FCodeGenResult& outResult) const
+{
+    if (!m_Document || !m_Document->GetRootWidget()) {
+        outResult = FCodeGenResult();
+        outResult.ErrorMessage = "No active document.";
+        return false;
+    }
+
+    FCodeGenOptions options;
+    options.ClassName = className;
+    options.Namespace = namespaceName;
+    outResult = WidgetTreeToCppGenerator::Generate(*m_Document, options);
+    return outResult.bSuccess;
+}
+
+bool EditorSession::WriteGeneratedTextFile(
+    const std::filesystem::path& filePath,
+    const std::string& text,
+    std::string& outError) const
+{
+    outError.clear();
+
+    try {
+        if (filePath.empty()) {
+            outError = "output path is empty.";
+            return false;
+        }
+
+        const std::filesystem::path parentPath = filePath.parent_path();
+        if (!parentPath.empty()) {
+            std::error_code error;
+            std::filesystem::create_directories(parentPath, error);
+            if (error) {
+                outError = "could not create output directory.";
+                return false;
+            }
+        }
+
+        std::ofstream stream(filePath, std::ios::binary | std::ios::trunc);
+        if (!stream.is_open()) {
+            outError = "could not open " + filePath.filename().string() + " for writing.";
+            return false;
+        }
+
+        stream << text;
+        stream.flush();
+        if (!stream.good()) {
+            outError = "failed while writing " + filePath.filename().string() + ".";
+            return false;
+        }
+
+        return true;
+    } catch (const std::exception& error) {
+        outError = error.what();
+        return false;
+    } catch (...) {
+        outError = "unknown write error.";
+        return false;
     }
 }
 

@@ -502,6 +502,12 @@ bool EditorWorkspaceController::SaveDocumentAs(ImApplication& app)
     return session ? session->SaveDocumentAs(app) : false;
 }
 
+bool EditorWorkspaceController::GenerateActiveDocumentCpp(ImApplication& app)
+{
+    std::shared_ptr<EditorSession> session = GetActiveSession();
+    return session ? session->GenerateCppFiles(app) : false;
+}
+
 bool EditorWorkspaceController::CloseActiveDocument(ImApplication& app)
 {
     return CloseDocumentAt(app, m_ActiveDocumentIndex);

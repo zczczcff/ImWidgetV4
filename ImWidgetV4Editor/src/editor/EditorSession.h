@@ -4,6 +4,7 @@
 #include "EditorDocument.h"
 
 #include <imwidgetv4/core/Application.h>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -27,6 +28,8 @@ class ImWindow;
 }
 
 namespace ImWidgetV4Editor {
+
+struct FCodeGenResult;
 
 class DocumentTreeViewBinder;
 class ReflectionDetailsView;
@@ -61,6 +64,10 @@ public:
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
+    bool GenerateCppFiles(ImWidgetV4::ImApplication& app);
+    bool GenerateCppFilesAt(
+        const std::filesystem::path& headerFilePath,
+        const std::string& namespaceName = std::string());
     bool DeleteSelectedWidget();
     bool CutSelectedWidget();
     bool CopySelectedWidget();
@@ -239,6 +246,14 @@ private:
     void RefreshPreview();
     void RefreshSchemaView();
     void RefreshGeneratedCodePreview();
+    bool BuildGeneratedCode(
+        const std::string& className,
+        const std::string& namespaceName,
+        FCodeGenResult& outResult) const;
+    bool WriteGeneratedTextFile(
+        const std::filesystem::path& filePath,
+        const std::string& text,
+        std::string& outError) const;
     void ApplySelectionToUi(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
     void BeginReflectableGesture(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,

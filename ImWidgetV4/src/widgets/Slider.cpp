@@ -14,6 +14,13 @@ float Clamp01(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
+}
+
 } // namespace
 
 ImSlider::ImSlider()
@@ -154,6 +161,10 @@ void ImSlider::Paint(const FPaintContext& paintContext) {
                 m_Style.ValueFontSize
             );
         }
+    }
+
+    if (!m_bDisabled && (m_bDragging || m_bHovered)) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeEW);
     }
 }
 

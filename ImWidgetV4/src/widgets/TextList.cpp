@@ -10,6 +10,13 @@ namespace {
 
 std::string GFallbackClipboardText;
 
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
+}
+
 FGeometry InsetGeometry(const FGeometry& geometry, float insetLeft, float insetTop, float insetRight, float insetBottom)
 {
     const FVector2 min(
@@ -514,6 +521,10 @@ void ImTextList::Paint(const FPaintContext& paintContext)
                 ? m_Style.ScrollbarThumbHoveredColor
                 : m_Style.ScrollbarThumbColor,
             m_Style.ScrollbarThickness * 0.5f);
+    }
+
+    if (m_bDraggingScrollbar || m_bHoveredScrollbar) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeNS);
     }
 }
 

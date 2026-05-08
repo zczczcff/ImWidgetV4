@@ -1,5 +1,6 @@
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 
@@ -11,6 +12,13 @@ constexpr float LayoutEpsilon = 0.001f;
 
 float SanitizeThickness(float thickness) {
     return std::max(0.0f, thickness);
+}
+
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
 }
 
 void DistributeSizes(
@@ -165,6 +173,10 @@ void ImHorizontalSplitter::Paint(const FPaintContext& paintContext) {
     Relayout();
     RenderChildren(paintContext);
     RenderBars(paintContext);
+
+    if (m_DraggingBarIndex >= 0 || m_HoveredBarIndex >= 0) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeEW);
+    }
 }
 
 FVector2 ImHorizontalSplitter::GetMinSize() const {

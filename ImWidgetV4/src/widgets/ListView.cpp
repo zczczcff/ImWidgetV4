@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
@@ -9,6 +10,13 @@
 namespace ImWidgetV4 {
 
 namespace {
+
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
+}
 
 FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& margin, float borderThickness)
 {
@@ -281,6 +289,10 @@ void ImListView::Paint(const FPaintContext& paintContext)
             VerticalThumbGeometry_.GetMax(),
             (bDraggingScrollbar_ || bHoveredScrollbar_) ? Style_.ScrollbarThumbHoveredColor : Style_.ScrollbarThumbColor,
             Style_.ScrollbarThickness * 0.5f);
+    }
+
+    if (bDraggingScrollbar_ || bHoveredScrollbar_) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeNS);
     }
 }
 

@@ -1,11 +1,19 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 
 namespace ImWidgetV4 {
 
 namespace {
+
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
+}
 
 FGeometry InsetGeometry(const FGeometry& geometry, float insetLeft, float insetTop, float insetRight, float insetBottom)
 {
@@ -250,6 +258,15 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
                 ? m_Style.ScrollbarThumbHoveredColor
                 : m_Style.ScrollbarThumbColor,
             m_Style.ScrollbarThickness * 0.5f);
+    }
+
+    if (m_ActiveScrollbar == EActiveScrollbar::Horizontal ||
+        m_HoveredScrollbar == EHoveredScrollbar::Horizontal) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeEW);
+    } else if (
+        m_ActiveScrollbar == EActiveScrollbar::Vertical ||
+        m_HoveredScrollbar == EHoveredScrollbar::Vertical) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeNS);
     }
 }
 

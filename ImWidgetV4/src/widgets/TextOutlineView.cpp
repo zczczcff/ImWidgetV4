@@ -10,6 +10,13 @@ namespace {
 
 constexpr int GInvalidVisibleIndex = -1;
 
+void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
+{
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::SetMouseCursor(cursor);
+    }
+}
+
 FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& margin, float borderThickness)
 {
     const float left = borderThickness + margin.Left;
@@ -317,6 +324,10 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
             VerticalThumbGeometry_.GetMax(),
             (bDraggingScrollbar_ || bHoveredScrollbar_) ? Style_.ScrollbarThumbHoveredColor : Style_.ScrollbarThumbColor,
             Style_.ScrollbarThickness * 0.5f);
+    }
+
+    if (bDraggingScrollbar_ || bHoveredScrollbar_) {
+        SetImGuiMouseCursor(ImGuiMouseCursor_ResizeNS);
     }
 }
 

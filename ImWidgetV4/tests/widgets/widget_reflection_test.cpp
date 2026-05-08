@@ -318,6 +318,34 @@ TEST(WidgetReflectionTest, RemainingWidgetsSerializeExpectedEditableProperties)
     EXPECT_EQ(restoredImage.GetStretchMode(), EImageStretchMode::Fill);
 }
 
+TEST(WidgetReflectionTest, StackAllocatedWidgetsBroadcastWithoutSharedOwnership)
+{
+    ImSlider slider;
+    slider.SetRange(0.0f, 10.0f);
+    float sliderValue = -1.0f;
+    slider.OnValueChanged.AddLambda([&sliderValue](ImSlider&, float value) {
+        sliderValue = value;
+    });
+    EXPECT_NO_THROW(slider.SetValue(4.0f));
+    EXPECT_FLOAT_EQ(sliderValue, 4.0f);
+
+    ImCheckBox checkBox;
+    bool checkBoxState = false;
+    checkBox.OnCheckStateChanged.AddLambda([&checkBoxState](ImCheckBox&, bool checked) {
+        checkBoxState = checked;
+    });
+    EXPECT_NO_THROW(checkBox.SetChecked(true));
+    EXPECT_TRUE(checkBoxState);
+
+    ImSwitch switchWidget;
+    bool switchState = false;
+    switchWidget.OnCheckStateChanged.AddLambda([&switchState](ImSwitch&, bool checked) {
+        switchState = checked;
+    });
+    EXPECT_NO_THROW(switchWidget.SetChecked(true));
+    EXPECT_TRUE(switchState);
+}
+
 TEST(WidgetReflectionTest, DragDropPayloadIsReflectable)
 {
     FDragDropPayload payload;

@@ -1076,6 +1076,72 @@ TEST(EditorSelectionTest, DetailsRenameKeepsWidgetNamesUnique)
     EXPECT_EQ(button->GetName(), "Root1");
 }
 
+TEST(EditorSelectionTest, DetailsRenameSanitizesNameToValidCppIdentifier)
+{
+    auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto root = std::dynamic_pointer_cast<ImVerticalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    auto button = std::dynamic_pointer_cast<ImButton>(root->GetChildren().front());
+    ASSERT_TRUE(button);
+
+    designerSurface->SetSelectedWidget(button);
+    detailsView->OnPropertyValueCommitted.Broadcast(
+        *detailsView,
+        button,
+        "ImWidget",
+        "Name",
+        json("123 bad-name!"));
+
+    EXPECT_EQ(button->GetName(), "Button123_bad_name");
+}
+
+TEST(EditorSelectionTest, DetailsRenameAvoidsCppKeywords)
+{
+    auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto root = std::dynamic_pointer_cast<ImVerticalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    auto button = std::dynamic_pointer_cast<ImButton>(root->GetChildren().front());
+    ASSERT_TRUE(button);
+
+    designerSurface->SetSelectedWidget(button);
+    detailsView->OnPropertyValueCommitted.Broadcast(
+        *detailsView,
+        button,
+        "ImWidget",
+        "Name",
+        json("class"));
+
+    EXPECT_EQ(button->GetName(), "class_");
+}
+
 TEST(EditorSelectionTest, DetailsViewRestoresExpansionStateAndScrollPerWidget)
 {
     auto firstParent = std::make_shared<ImVerticalBox>();

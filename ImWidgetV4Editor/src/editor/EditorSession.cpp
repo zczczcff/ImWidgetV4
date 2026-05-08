@@ -116,6 +116,96 @@ std::string BuildWidgetTypeNameBase(const std::string& typeName)
     return base.empty() ? std::string("Widget") : base;
 }
 
+bool IsCppIdentifierStartChar(char c)
+{
+    const unsigned char value = static_cast<unsigned char>(c);
+    return std::isalpha(value) != 0 || c == '_';
+}
+
+bool IsCppIdentifierContinueChar(char c)
+{
+    const unsigned char value = static_cast<unsigned char>(c);
+    return std::isalnum(value) != 0 || c == '_';
+}
+
+const std::unordered_set<std::string>& GetCppKeywords()
+{
+    static const std::unordered_set<std::string> keywords = {
+        "alignas", "alignof", "and", "and_eq", "asm", "auto",
+        "bitand", "bitor", "bool", "break", "case", "catch",
+        "char", "char8_t", "char16_t", "char32_t", "class", "compl",
+        "concept", "const", "consteval", "constexpr", "constinit", "const_cast",
+        "continue", "co_await", "co_return", "co_yield", "decltype", "default",
+        "delete", "do", "double", "dynamic_cast", "else", "enum",
+        "explicit", "export", "extern", "false", "float", "for",
+        "friend", "goto", "if", "inline", "int", "long",
+        "mutable", "namespace", "new", "noexcept", "not", "not_eq",
+        "nullptr", "operator", "or", "or_eq", "private", "protected",
+        "public", "register", "reinterpret_cast", "requires", "return", "short",
+        "signed", "sizeof", "static", "static_assert", "static_cast", "struct",
+        "switch", "template", "this", "thread_local", "throw", "true",
+        "try", "typedef", "typeid", "typename", "union", "unsigned",
+        "using", "virtual", "void", "volatile", "wchar_t", "while",
+        "xor", "xor_eq"
+    };
+    return keywords;
+}
+
+std::string NormalizeWidgetIdentifierBase(
+    const std::string& rawName,
+    const std::string& fallbackBase)
+{
+    const std::string trimmed = TrimCopy(rawName);
+    const std::string safeFallback = TrimCopy(fallbackBase).empty()
+        ? std::string("Widget")
+        : TrimCopy(fallbackBase);
+
+    auto buildSanitized = [](const std::string& text) {
+        std::string result;
+        result.reserve(text.size());
+
+        for (char c : text) {
+            if (IsCppIdentifierContinueChar(c)) {
+                result.push_back(c);
+            } else if (result.empty() || result.back() != '_') {
+                result.push_back('_');
+            }
+        }
+
+        while (!result.empty() && result.back() == '_') {
+            result.pop_back();
+        }
+
+        return result;
+    };
+
+    std::string normalizedFallback = buildSanitized(safeFallback);
+    if (normalizedFallback.empty()) {
+        normalizedFallback = "Widget";
+    }
+    if (!normalizedFallback.empty() && !IsCppIdentifierStartChar(normalizedFallback.front())) {
+        normalizedFallback.insert(normalizedFallback.begin(), 'W');
+    }
+    if (GetCppKeywords().find(normalizedFallback) != GetCppKeywords().end()) {
+        normalizedFallback.push_back('_');
+    }
+
+    std::string sanitized = buildSanitized(trimmed);
+    if (sanitized.empty()) {
+        return normalizedFallback;
+    }
+
+    if (!IsCppIdentifierStartChar(sanitized.front())) {
+        sanitized = normalizedFallback + sanitized;
+    }
+
+    if (GetCppKeywords().find(sanitized) != GetCppKeywords().end()) {
+        sanitized.push_back('_');
+    }
+
+    return sanitized;
+}
+
 void VisitLogicalWidgetTree(
     const std::shared_ptr<ImWidget>& root,
     const std::function<void(const std::shared_ptr<ImWidget>&)>& visitor)
@@ -184,7 +274,7 @@ std::string MakeUniqueNameFromBase(
     std::unordered_set<std::string>& usedNames,
     int startingIndex = 1)
 {
-    const std::string safeBase = baseName.empty() ? std::string("Widget") : baseName;
+    const std::string safeBase = NormalizeWidgetIdentifierBase(baseName, "Widget");
     int index = std::max(1, startingIndex);
     while (true) {
         const std::string candidate = safeBase + std::to_string(index);
@@ -211,17 +301,19 @@ std::string ResolveUniqueWidgetName(
         return MakeUniqueNameFromBase(BuildWidgetTypeNameBase(typeName), usedNames, 1);
     }
 
-    const std::string trimmedName = TrimCopy(desiredName);
-    if (trimmedName.empty()) {
+    const std::string normalizedName = NormalizeWidgetIdentifierBase(
+        desiredName,
+        BuildWidgetTypeNameBase(typeName));
+    if (normalizedName.empty()) {
         return MakeUniqueNameFromBase(BuildWidgetTypeNameBase(typeName), usedNames, 1);
     }
 
-    if (usedNames.find(trimmedName) == usedNames.end()) {
-        return trimmedName;
+    if (usedNames.find(normalizedName) == usedNames.end()) {
+        return normalizedName;
     }
 
-    const auto [prefix, startingIndex] = SplitNumericSuffix(trimmedName);
-    return MakeUniqueNameFromBase(prefix.empty() ? trimmedName : prefix, usedNames, startingIndex);
+    const auto [prefix, startingIndex] = SplitNumericSuffix(normalizedName);
+    return MakeUniqueNameFromBase(prefix.empty() ? normalizedName : prefix, usedNames, startingIndex);
 }
 
 void AssignGeneratedUniqueNamesToSubtree(

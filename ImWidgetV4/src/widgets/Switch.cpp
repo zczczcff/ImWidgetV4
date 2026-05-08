@@ -20,7 +20,8 @@ void ImSwitch::SetChecked(bool bChecked)
 
     m_bChecked = bChecked;
     Invalidate(EInvalidateReason::Paint);
-    const std::shared_ptr<ImSwitch> keepAlive = std::static_pointer_cast<ImSwitch>(shared_from_this());
+    const std::shared_ptr<ImWidget> keepAlive = weak_from_this().lock();
+    (void)keepAlive;
     OnCheckStateChanged.Broadcast(*this, m_bChecked);
 }
 

@@ -11,6 +11,8 @@
 #include "../src/editor/EditorWorkspaceController.h"
 #include "../src/editor/SelectionModel.h"
 #include "../src/palette/WidgetPaletteDragDrop.h"
+#include "../src/palette/WidgetPaletteView.h"
+#include "../src/serialization/WidgetFactory.h"
 #include "../src/tree/DocumentTreeViewBinder.h"
 #include "../src/tree/WidgetTreeDragDrop.h"
 
@@ -26,6 +28,7 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include "../src/inspector/ReflectionDetailsView.h"
@@ -1213,6 +1216,67 @@ TEST(EditorSelectionTest, DesignerMoveHandleTakesPriorityOverButtonTextChild)
         kViewportSize);
 
     ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+}
+
+TEST(EditorSelectionTest, WidgetPaletteItemButtonClearsPressedStateWhenGlobalDragStartsAndEnds)
+{
+    FWidgetPaletteEntry entry {
+        "Button",
+        "ImButton",
+        ECoreIcon::Button
+    };
+
+    auto paletteButton = std::make_shared<WidgetPaletteItemButton>(entry);
+    paletteButton->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(160.0f, 40.0f)));
+
+    const FReply downReply = paletteButton->OnInputEvent(
+        MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f)));
+    EXPECT_TRUE(downReply.IsHandled());
+    EXPECT_TRUE(paletteButton->IsPressed());
+
+    FDragDropEvent dragStartEvent;
+    dragStartEvent.Type = EDragDropEventType::DragStart;
+    dragStartEvent.SourceWidget = paletteButton;
+    paletteButton->OnDragEvent(dragStartEvent);
+    EXPECT_FALSE(paletteButton->IsPressed());
+
+    const FReply secondDownReply = paletteButton->OnInputEvent(
+        MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f)));
+    EXPECT_TRUE(secondDownReply.IsHandled());
+    EXPECT_TRUE(paletteButton->IsPressed());
+
+    FDragDropEvent dragEndEvent;
+    dragEndEvent.Type = EDragDropEventType::DragEnd;
+    dragEndEvent.SourceWidget = paletteButton;
+    paletteButton->OnDragEvent(dragEndEvent);
+    EXPECT_FALSE(paletteButton->IsPressed());
+}
+
+TEST(EditorSelectionTest, WidgetPaletteEntriesStayInSyncWithWidgetFactory)
+{
+    const std::vector<FWidgetPaletteEntry> entries = BuildDefaultWidgetPaletteEntries();
+    const WidgetFactory& widgetFactory = WidgetFactory::Get();
+
+    EXPECT_GE(entries.size(), 20u);
+
+    const auto hasEntry = [&](const std::string& typeName) {
+        return std::any_of(entries.begin(), entries.end(), [&](const FWidgetPaletteEntry& entry) {
+            return entry.TypeName == typeName;
+        });
+    };
+
+    EXPECT_TRUE(hasEntry("ImHorizontalSplitter"));
+    EXPECT_TRUE(hasEntry("ImVerticalSplitter"));
+    EXPECT_TRUE(hasEntry("ImTextList"));
+    EXPECT_TRUE(hasEntry("ImTextOutlineView"));
+    EXPECT_TRUE(hasEntry("ImOutlineView"));
+    EXPECT_TRUE(hasEntry("ImListView"));
+    EXPECT_TRUE(hasEntry("ImComboBox"));
+    EXPECT_TRUE(hasEntry("ImColorPicker"));
+
+    for (const FWidgetPaletteEntry& entry : entries) {
+        EXPECT_TRUE(widgetFactory.SupportsWidgetType(entry.TypeName)) << entry.TypeName;
+    }
 }
 
 TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAutoSize)

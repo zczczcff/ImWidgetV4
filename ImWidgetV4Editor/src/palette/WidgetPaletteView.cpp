@@ -99,6 +99,20 @@ FReply WidgetPaletteItemButton::OnInputEvent(const FInputEvent& event)
     return reply;
 }
 
+FReply WidgetPaletteItemButton::OnDragEvent(const FDragDropEvent& event)
+{
+    if (event.SourceWidget.get() == this &&
+        (event.Type == EDragDropEventType::DragStart || event.Type == EDragDropEventType::DragEnd)) {
+        SetPressed(false);
+
+        if (GetApplication() != nullptr && GetApplication()->GetMouseCapture().get() == this) {
+            GetApplication()->ReleaseMouseCapture();
+        }
+    }
+
+    return ImButton::OnDragEvent(event);
+}
+
 std::shared_ptr<FDragDropOperation> WidgetPaletteItemButton::OnDragDetected(const FDragDetectEvent&)
 {
     EnsureVisualContent();

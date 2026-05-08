@@ -19,6 +19,7 @@ public:
 
     virtual void Paint(const ImWidgetV4::FPaintContext& paintContext) override;
     virtual ImWidgetV4::FReply OnInputEvent(const ImWidgetV4::FInputEvent& event) override;
+    virtual ImWidgetV4::FReply OnDragEvent(const ImWidgetV4::FDragDropEvent& event) override;
     virtual std::shared_ptr<ImWidgetV4::FDragDropOperation> OnDragDetected(
         const ImWidgetV4::FDragDetectEvent& event) override;
 

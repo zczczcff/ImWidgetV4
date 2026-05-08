@@ -16,10 +16,13 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/ColorPicker.h>
+#include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -1797,6 +1800,11 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         textBlock->SetText("Text");
     } else if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
         button->SetText("Button");
+    } else if (auto comboBox = std::dynamic_pointer_cast<ImComboBox>(widget)) {
+        comboBox->SetItems({"Option A", "Option B", "Option C"});
+        comboBox->SetSelectedIndex(0);
+    } else if (auto colorPicker = std::dynamic_pointer_cast<ImColorPicker>(widget)) {
+        colorPicker->SetColor(FColor::FromBytes(66, 135, 245, 255));
     } else if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
         auto header = std::make_shared<ImTextBlock>();
         header->SetName("Header");
@@ -1818,6 +1826,23 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         defaultContent->SetName("TabContent");
         defaultContent->SetText("Tab Content");
         tabView->AddTab("Tab", defaultContent);
+    } else if (auto textList = std::dynamic_pointer_cast<ImTextList>(widget)) {
+        textList->SetItems({"Item 1", "Item 2", "Item 3"});
+    } else if (auto textOutlineView = std::dynamic_pointer_cast<ImTextOutlineView>(widget)) {
+        ImTextOutlineItem* rootItem = textOutlineView->AddRootItem("Root");
+        textOutlineView->AddChildItem(rootItem, "Child");
+        textOutlineView->ExpandAll();
+        textOutlineView->SetSelectedItem(rootItem);
+    } else if (auto outlineView = std::dynamic_pointer_cast<ImOutlineView>(widget)) {
+        auto rootLabel = std::make_shared<ImTextBlock>();
+        rootLabel->SetText("Root");
+        ImOutlineItem* rootItem = outlineView->AddRootItem(rootLabel);
+
+        auto childLabel = std::make_shared<ImTextBlock>();
+        childLabel->SetText("Child");
+        outlineView->AddChildItem(rootItem, childLabel);
+        outlineView->ExpandAll();
+        outlineView->SetSelectedItem(rootItem);
     }
 
     return widget;

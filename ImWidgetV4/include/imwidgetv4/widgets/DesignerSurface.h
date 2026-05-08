@@ -10,7 +10,14 @@ class ImCanvasPanelSlot;
 
 enum class EDesignerTransformHandle : std::uint8_t {
     None,
+    ResizeTopLeft,
+    ResizeTopCenter,
+    ResizeTopRight,
+    ResizeMiddleLeft,
     Move,
+    ResizeMiddleRight,
+    ResizeBottomLeft,
+    ResizeBottomCenter,
     ResizeBottomRight
 };
 
@@ -79,6 +86,8 @@ private:
     std::shared_ptr<ImWidget> ResolveSelectableWidgetAt(const FVector2& position) const;
     bool ContainsWidgetInContent(const std::shared_ptr<ImWidget>& widget) const;
     bool ContainsWidgetRecursive(const std::shared_ptr<ImWidget>& root, const std::shared_ptr<ImWidget>& target) const;
+    FGeometry GetTransformHandleGeometry(EDesignerTransformHandle handle) const;
+    void UpdateCursorForTransformHandle(EDesignerTransformHandle handle) const;
     void PaintDropPreviewOverlay(const FPaintContext& paintContext) const;
     void PaintSelectionOverlay(const FPaintContext& paintContext) const;
     bool ResolveCanvasSelectionContext(std::shared_ptr<ImCanvasPanel>& outCanvas, ImCanvasPanelSlot*& outSlot) const;
@@ -93,7 +102,7 @@ private:
     FColor m_SelectionBorderColor = FColor::FromBytes(103, 177, 255);
     FColor m_SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
     float m_SelectionBorderThickness = 2.0f;
-    float m_TransformHandleSize = 10.0f;
+    float m_TransformHandleSize = 5.0f;
     std::shared_ptr<ImWidget> m_DropPreviewWidget;
     bool m_bDropPreviewAccepted = false;
     FColor m_DropPreviewBorderColor = FColor::FromBytes(92, 214, 141);
@@ -104,6 +113,7 @@ private:
     FVector2 m_TransformStartMousePosition {0.0f, 0.0f};
     FVector2 m_TransformStartRelativePosition {0.0f, 0.0f};
     FVector2 m_TransformStartRelativeSize {0.0f, 0.0f};
+    FVector2 m_TransformStartEffectiveRelativeSize {0.0f, 0.0f};
     bool m_bTransformStartAutoSize = true;
 };
 

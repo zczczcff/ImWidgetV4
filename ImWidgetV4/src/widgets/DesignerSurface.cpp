@@ -4,8 +4,19 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 
 #include <algorithm>
+#include <imgui.h>
 
 namespace ImWidgetV4 {
+
+namespace {
+
+bool IsResizeHandle(EDesignerTransformHandle handle)
+{
+    return handle != EDesignerTransformHandle::None &&
+        handle != EDesignerTransformHandle::Move;
+}
+
+} // namespace
 
 ImDesignerSurface::ImDesignerSurface()
     : ImUserWidget()
@@ -84,6 +95,14 @@ void ImDesignerSurface::Paint(const FPaintContext& paintContext)
     ImUserWidget::Paint(paintContext);
     PaintDropPreviewOverlay(paintContext);
     PaintSelectionOverlay(paintContext);
+
+    const EDesignerTransformHandle effectiveHandle =
+        m_ActiveTransformHandle != EDesignerTransformHandle::None
+            ? m_ActiveTransformHandle
+            : m_HoveredTransformHandle;
+    if (effectiveHandle != EDesignerTransformHandle::None) {
+        UpdateCursorForTransformHandle(effectiveHandle);
+    }
 }
 
 FReply ImDesignerSurface::OnPreviewInputEvent(const FInputEvent& event)
@@ -101,6 +120,7 @@ FReply ImDesignerSurface::OnPreviewInputEvent(const FInputEvent& event)
     if (event.Type == EInputEventType::MouseLeave) {
         if (m_ActiveTransformHandle == EDesignerTransformHandle::None) {
             m_HoveredTransformHandle = EDesignerTransformHandle::None;
+            UpdateCursorForTransformHandle(EDesignerTransformHandle::None);
             Invalidate(EInvalidateReason::Paint);
         }
         return FReply::Unhandled();
@@ -123,16 +143,11 @@ FReply ImDesignerSurface::OnPreviewInputEvent(const FInputEvent& event)
 
     const std::shared_ptr<ImWidget> selectedBefore = m_SelectedWidget;
     const std::shared_ptr<ImWidget> hitWidget = ResolveSelectableWidgetAt(event.MousePosition);
+    const EDesignerTransformHandle transformHandleAtCursor = HitTestTransformHandle(event.MousePosition);
 
     if (selectedBefore && hitWidget == selectedBefore) {
-        EDesignerTransformHandle transformHandle = HitTestTransformHandle(event.MousePosition);
-        if (transformHandle == EDesignerTransformHandle::None &&
-            selectedBefore->GetGeometry().Contains(event.MousePosition)) {
-            transformHandle = EDesignerTransformHandle::Move;
-        }
-
-        if (transformHandle != EDesignerTransformHandle::None &&
-            BeginTransform(transformHandle, event.MousePosition)) {
+        if (transformHandleAtCursor != EDesignerTransformHandle::None &&
+            BeginTransform(transformHandleAtCursor, event.MousePosition)) {
             return FReply::Handled()
                 .SetKeyboardFocus(shared_from_this())
                 .CaptureMouse(shared_from_this(), EMouseButton::Left);
@@ -215,6 +230,10 @@ FReply ImDesignerSurface::OnDragEvent(const FDragDropEvent& event)
 
 std::shared_ptr<ImWidget> ImDesignerSurface::ResolveSelectableWidgetAt(const FVector2& position) const
 {
+    if (m_SelectedWidget && HitTestTransformHandle(position) != EDesignerTransformHandle::None) {
+        return m_SelectedWidget;
+    }
+
     std::shared_ptr<ImWidget> contentRoot = GetContentRoot();
     if (!contentRoot) {
         return nullptr;
@@ -258,6 +277,103 @@ bool ImDesignerSurface::ContainsWidgetRecursive(
     }
 
     return false;
+}
+
+FGeometry ImDesignerSurface::GetTransformHandleGeometry(EDesignerTransformHandle handle) const
+{
+    if (handle == EDesignerTransformHandle::None ||
+        !m_SelectedWidget ||
+        !m_SelectedWidget->GetGeometry().IsValid()) {
+        return FGeometry();
+    }
+
+    std::shared_ptr<ImCanvasPanel> canvas;
+    ImCanvasPanelSlot* slot = nullptr;
+    if (!ResolveCanvasSelectionContext(canvas, slot) || !canvas || !slot) {
+        return FGeometry();
+    }
+
+    const FGeometry selectionGeometry = m_SelectedWidget->GetGeometry();
+    const float handleSize = m_TransformHandleSize;
+    const float halfHandleSize = handleSize * 0.5f;
+    const FVector2 min = selectionGeometry.GetMin();
+    const FVector2 max = selectionGeometry.GetMax();
+    const FVector2 center = selectionGeometry.GetCenter();
+
+    FVector2 anchor = center;
+    switch (handle) {
+    case EDesignerTransformHandle::ResizeTopLeft:
+        anchor = min;
+        break;
+    case EDesignerTransformHandle::ResizeTopCenter:
+        anchor = FVector2(center.X, min.Y);
+        break;
+    case EDesignerTransformHandle::ResizeTopRight:
+        anchor = FVector2(max.X, min.Y);
+        break;
+    case EDesignerTransformHandle::ResizeMiddleLeft:
+        anchor = FVector2(min.X, center.Y);
+        break;
+    case EDesignerTransformHandle::Move:
+        anchor = center;
+        break;
+    case EDesignerTransformHandle::ResizeMiddleRight:
+        anchor = FVector2(max.X, center.Y);
+        break;
+    case EDesignerTransformHandle::ResizeBottomLeft:
+        anchor = FVector2(min.X, max.Y);
+        break;
+    case EDesignerTransformHandle::ResizeBottomCenter:
+        anchor = FVector2(center.X, max.Y);
+        break;
+    case EDesignerTransformHandle::ResizeBottomRight:
+        anchor = max;
+        break;
+    default:
+        break;
+    }
+
+    return FGeometry(
+        anchor.X - halfHandleSize,
+        anchor.Y - halfHandleSize,
+        handleSize,
+        handleSize);
+}
+
+void ImDesignerSurface::UpdateCursorForTransformHandle(EDesignerTransformHandle handle) const
+{
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return;
+    }
+
+    ImGuiMouseCursor cursorShape = ImGuiMouseCursor_Arrow;
+    switch (handle) {
+    case EDesignerTransformHandle::ResizeTopLeft:
+    case EDesignerTransformHandle::ResizeBottomRight:
+        cursorShape = ImGuiMouseCursor_ResizeNWSE;
+        break;
+    case EDesignerTransformHandle::ResizeTopRight:
+    case EDesignerTransformHandle::ResizeBottomLeft:
+        cursorShape = ImGuiMouseCursor_ResizeNESW;
+        break;
+    case EDesignerTransformHandle::ResizeTopCenter:
+    case EDesignerTransformHandle::ResizeBottomCenter:
+        cursorShape = ImGuiMouseCursor_ResizeNS;
+        break;
+    case EDesignerTransformHandle::ResizeMiddleLeft:
+    case EDesignerTransformHandle::ResizeMiddleRight:
+        cursorShape = ImGuiMouseCursor_ResizeEW;
+        break;
+    case EDesignerTransformHandle::Move:
+        cursorShape = ImGuiMouseCursor_ResizeAll;
+        break;
+    case EDesignerTransformHandle::None:
+    default:
+        cursorShape = ImGuiMouseCursor_Arrow;
+        break;
+    }
+
+    ImGui::SetMouseCursor(cursorShape);
 }
 
 void ImDesignerSurface::PaintDropPreviewOverlay(const FPaintContext& paintContext) const
@@ -313,30 +429,43 @@ void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext)
         return;
     }
 
-    const float handleSize = std::max(6.0f, m_TransformHandleSize);
-    const FVector2 handleMin(
-        selectionGeometry.GetMax().X - handleSize,
-        selectionGeometry.GetMax().Y - handleSize);
-    const FVector2 handleMax = selectionGeometry.GetMax();
+    const EDesignerTransformHandle kHandles[] = {
+        EDesignerTransformHandle::ResizeTopLeft,
+        EDesignerTransformHandle::ResizeTopCenter,
+        EDesignerTransformHandle::ResizeTopRight,
+        EDesignerTransformHandle::ResizeMiddleLeft,
+        EDesignerTransformHandle::Move,
+        EDesignerTransformHandle::ResizeMiddleRight,
+        EDesignerTransformHandle::ResizeBottomLeft,
+        EDesignerTransformHandle::ResizeBottomCenter,
+        EDesignerTransformHandle::ResizeBottomRight
+    };
 
-    const FColor handleFillColor =
-        m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomRight
-            ? m_SelectionBorderColor
-            : (m_HoveredTransformHandle == EDesignerTransformHandle::ResizeBottomRight
-                   ? m_SelectionBorderColor.Lerp(FColor::White, 0.18f)
-                   : m_SelectionBorderColor.Lerp(FColor::Black, 0.12f));
+    for (EDesignerTransformHandle handle : kHandles) {
+        const FGeometry handleGeometry = GetTransformHandleGeometry(handle);
+        if (!handleGeometry.IsValid()) {
+            continue;
+        }
 
-    paintContext.DrawContext_.DrawRectFilled(
-        handleMin,
-        handleMax,
-        handleFillColor,
-        0.0f);
-    paintContext.DrawContext_.DrawRect(
-        handleMin,
-        handleMax,
-        FColor::White,
-        0.0f,
-        1.0f);
+        const FColor handleFillColor =
+            m_ActiveTransformHandle == handle
+                ? m_SelectionBorderColor
+                : (m_HoveredTransformHandle == handle
+                       ? m_SelectionBorderColor.Lerp(FColor::White, 0.18f)
+                       : m_SelectionBorderColor.Lerp(FColor::Black, 0.12f));
+
+        paintContext.DrawContext_.DrawRectFilled(
+            handleGeometry.GetMin(),
+            handleGeometry.GetMax(),
+            handleFillColor,
+            0.0f);
+        paintContext.DrawContext_.DrawRect(
+            handleGeometry.GetMin(),
+            handleGeometry.GetMax(),
+            FColor::White,
+            0.0f,
+            1.0f);
+    }
 }
 
 bool ImDesignerSurface::ResolveCanvasSelectionContext(
@@ -376,16 +505,22 @@ EDesignerTransformHandle ImDesignerSurface::HitTestTransformHandle(const FVector
         return EDesignerTransformHandle::None;
     }
 
-    const FGeometry selectionGeometry = m_SelectedWidget->GetGeometry();
-    const float handleSize = std::max(6.0f, m_TransformHandleSize);
-    const FGeometry handleGeometry(
-        selectionGeometry.GetMax().X - handleSize,
-        selectionGeometry.GetMax().Y - handleSize,
-        handleSize,
-        handleSize);
+    const EDesignerTransformHandle kHandles[] = {
+        EDesignerTransformHandle::ResizeTopLeft,
+        EDesignerTransformHandle::ResizeTopCenter,
+        EDesignerTransformHandle::ResizeTopRight,
+        EDesignerTransformHandle::ResizeMiddleLeft,
+        EDesignerTransformHandle::Move,
+        EDesignerTransformHandle::ResizeMiddleRight,
+        EDesignerTransformHandle::ResizeBottomLeft,
+        EDesignerTransformHandle::ResizeBottomCenter,
+        EDesignerTransformHandle::ResizeBottomRight
+    };
 
-    if (handleGeometry.Contains(position)) {
-        return EDesignerTransformHandle::ResizeBottomRight;
+    for (EDesignerTransformHandle handle : kHandles) {
+        if (GetTransformHandleGeometry(handle).Contains(position)) {
+            return handle;
+        }
     }
 
     return EDesignerTransformHandle::None;
@@ -401,6 +536,7 @@ void ImDesignerSurface::UpdateHoveredTransformHandle(const FVector2& position)
     }
 
     m_HoveredTransformHandle = newHandle;
+    UpdateCursorForTransformHandle(m_HoveredTransformHandle);
     Invalidate(EInvalidateReason::Paint);
 }
 
@@ -422,8 +558,14 @@ bool ImDesignerSurface::BeginTransform(
     m_TransformStartMousePosition = mousePosition;
     m_TransformStartRelativePosition = slot->GetRelativePosition();
     m_TransformStartRelativeSize = slot->GetRelativeSize();
+    m_TransformStartEffectiveRelativeSize = slot->GetAutoSize()
+        ? FVector2(
+              std::max(0.0f, m_SelectedWidget->GetGeometry().Size.X / canvas->GetGeometry().Size.X),
+              std::max(0.0f, m_SelectedWidget->GetGeometry().Size.Y / canvas->GetGeometry().Size.Y))
+        : slot->GetRelativeSize();
     m_bTransformStartAutoSize = slot->GetAutoSize();
     m_bTransformChanged = false;
+    UpdateCursorForTransformHandle(m_ActiveTransformHandle);
     Invalidate(EInvalidateReason::Paint);
     OnTransformStarted.Broadcast(*this, m_SelectedWidget, handle);
     return true;
@@ -451,33 +593,86 @@ bool ImDesignerSurface::UpdateTransform(const FVector2& mousePosition)
         mouseDelta.X / canvasGeometry.Size.X,
         mouseDelta.Y / canvasGeometry.Size.Y);
 
+    const FVector2 minSize = m_SelectedWidget->GetMinSize();
+    const FVector2 minRelativeSize(
+        canvasGeometry.Size.X > 0.0f ? minSize.X / canvasGeometry.Size.X : 0.0f,
+        canvasGeometry.Size.Y > 0.0f ? minSize.Y / canvasGeometry.Size.Y : 0.0f);
+
+    const float startLeft = m_TransformStartRelativePosition.X;
+    const float startTop = m_TransformStartRelativePosition.Y;
+    const float startRight = startLeft + m_TransformStartEffectiveRelativeSize.X;
+    const float startBottom = startTop + m_TransformStartEffectiveRelativeSize.Y;
+
+    float newLeft = startLeft;
+    float newTop = startTop;
+    float newRight = startRight;
+    float newBottom = startBottom;
+
+    if (m_ActiveTransformHandle == EDesignerTransformHandle::Move) {
+        newLeft = std::clamp(
+            startLeft + relativeDelta.X,
+            0.0f,
+            std::max(0.0f, 1.0f - m_TransformStartEffectiveRelativeSize.X));
+        newTop = std::clamp(
+            startTop + relativeDelta.Y,
+            0.0f,
+            std::max(0.0f, 1.0f - m_TransformStartEffectiveRelativeSize.Y));
+        newRight = newLeft + m_TransformStartEffectiveRelativeSize.X;
+        newBottom = newTop + m_TransformStartEffectiveRelativeSize.Y;
+    } else {
+        if (m_ActiveTransformHandle == EDesignerTransformHandle::ResizeTopLeft ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeTopCenter ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeTopRight) {
+            newTop = std::clamp(
+                startTop + relativeDelta.Y,
+                0.0f,
+                startBottom - std::max(0.0f, minRelativeSize.Y));
+        }
+
+        if (m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomLeft ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomCenter ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomRight) {
+            newBottom = std::clamp(
+                startBottom + relativeDelta.Y,
+                startTop + std::max(0.0f, minRelativeSize.Y),
+                1.0f);
+        }
+
+        if (m_ActiveTransformHandle == EDesignerTransformHandle::ResizeTopLeft ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeMiddleLeft ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomLeft) {
+            newLeft = std::clamp(
+                startLeft + relativeDelta.X,
+                0.0f,
+                startRight - std::max(0.0f, minRelativeSize.X));
+        }
+
+        if (m_ActiveTransformHandle == EDesignerTransformHandle::ResizeTopRight ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeMiddleRight ||
+            m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomRight) {
+            newRight = std::clamp(
+                startRight + relativeDelta.X,
+                startLeft + std::max(0.0f, minRelativeSize.X),
+                1.0f);
+        }
+    }
+
+    const FVector2 newPosition(newLeft, newTop);
+    const FVector2 newRelativeSize(
+        std::max(0.0f, newRight - newLeft),
+        std::max(0.0f, newBottom - newTop));
+
     bool bChanged = false;
     if (m_ActiveTransformHandle == EDesignerTransformHandle::Move) {
-        const FVector2 currentSize = slot->GetAutoSize()
-            ? FVector2(
-                  std::max(0.0f, m_SelectedWidget->GetGeometry().Size.X / canvasGeometry.Size.X),
-                  std::max(0.0f, m_SelectedWidget->GetGeometry().Size.Y / canvasGeometry.Size.Y))
-            : m_TransformStartRelativeSize;
-        const FVector2 newPosition(
-            std::clamp(m_TransformStartRelativePosition.X + relativeDelta.X, 0.0f, std::max(0.0f, 1.0f - currentSize.X)),
-            std::clamp(m_TransformStartRelativePosition.Y + relativeDelta.Y, 0.0f, std::max(0.0f, 1.0f - currentSize.Y)));
         bChanged = newPosition != slot->GetRelativePosition();
         slot->SetRelativePosition(newPosition);
-    } else if (m_ActiveTransformHandle == EDesignerTransformHandle::ResizeBottomRight) {
-        const FVector2 minSize = m_SelectedWidget->GetMinSize();
-        const FVector2 minRelativeSize(
-            canvasGeometry.Size.X > 0.0f ? minSize.X / canvasGeometry.Size.X : 0.0f,
-            canvasGeometry.Size.Y > 0.0f ? minSize.Y / canvasGeometry.Size.Y : 0.0f);
-        const FVector2 maxRelativeSize(
-            std::max(0.0f, 1.0f - m_TransformStartRelativePosition.X),
-            std::max(0.0f, 1.0f - m_TransformStartRelativePosition.Y));
-        const FVector2 newRelativeSize(
-            std::clamp(m_TransformStartRelativeSize.X + relativeDelta.X, std::max(0.0f, minRelativeSize.X), maxRelativeSize.X),
-            std::clamp(m_TransformStartRelativeSize.Y + relativeDelta.Y, std::max(0.0f, minRelativeSize.Y), maxRelativeSize.Y));
+    } else if (IsResizeHandle(m_ActiveTransformHandle)) {
         bChanged =
             slot->GetAutoSize() ||
+            newPosition != slot->GetRelativePosition() ||
             newRelativeSize != slot->GetRelativeSize();
         slot->SetAutoSize(false);
+        slot->SetRelativePosition(newPosition);
         slot->SetRelativeSize(newRelativeSize);
     }
 
@@ -495,6 +690,7 @@ void ImDesignerSurface::EndTransform()
 
     const EDesignerTransformHandle completedHandle = m_ActiveTransformHandle;
     m_ActiveTransformHandle = EDesignerTransformHandle::None;
+    UpdateCursorForTransformHandle(m_HoveredTransformHandle);
     Invalidate(EInvalidateReason::Paint);
     OnTransformFinished.Broadcast(*this, m_SelectedWidget, completedHandle, m_bTransformChanged);
     m_bTransformChanged = false;
@@ -518,6 +714,7 @@ void ImDesignerSurface::CancelTransform()
 
     m_ActiveTransformHandle = EDesignerTransformHandle::None;
     m_bTransformChanged = false;
+    UpdateCursorForTransformHandle(m_HoveredTransformHandle);
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 

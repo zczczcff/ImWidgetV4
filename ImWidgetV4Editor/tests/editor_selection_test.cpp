@@ -82,6 +82,25 @@ std::shared_ptr<ImWidget> BuildDesignerCanvasDocumentRoot()
     return canvas;
 }
 
+std::shared_ptr<ImWidget> BuildDesignerCanvasButtonDocumentRoot()
+{
+    auto canvas = std::make_shared<ImCanvasPanel>();
+    canvas->SetName("CanvasRoot");
+    canvas->SetDesiredSize(FVector2(400.0f, 300.0f));
+
+    auto button = std::make_shared<ImButton>();
+    button->SetName("CanvasButton");
+    button->SetText("Button");
+
+    auto label = std::make_shared<ImTextBlock>();
+    label->SetName("ButtonLabel");
+    label->SetText("Button");
+    button->SetContent(label);
+
+    canvas->AddChildAt(button, FVector2(0.10f, 0.15f));
+    return canvas;
+}
+
 FInputEvent MouseEvent(
     EInputEventType type,
     const FVector2& position,
@@ -1154,6 +1173,48 @@ TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)
     EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + 0.10f, 0.0001f);
 }
 
+TEST(EditorSelectionTest, DesignerMoveHandleTakesPriorityOverButtonTextChild)
+{
+    auto session = std::make_shared<EditorSession>(BuildDesignerCanvasButtonDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    const FVector2 kViewportSize(400.0f, 300.0f);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+    SyncDesignerCanvasLayout(session, designerSurface);
+
+    auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(canvas);
+    ASSERT_EQ(canvas->GetChildren().size(), 1u);
+    auto button = std::dynamic_pointer_cast<ImButton>(canvas->GetChildren().front());
+    ASSERT_TRUE(button);
+    ASSERT_TRUE(button->GetGeometry().IsValid());
+
+    designerSurface->SetSelectedWidget(button);
+    ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+
+    const FVector2 selectPoint = button->GetGeometry().GetCenter();
+
+    const FVector2 dragTarget = selectPoint + FVector2(20.0f, 10.0f);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonDown, selectPoint)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseMove, dragTarget)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonUp, dragTarget)},
+        kViewportSize);
+
+    ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+}
+
 TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAutoSize)
 {
     auto session = std::make_shared<EditorSession>(BuildDesignerCanvasDocumentRoot);
@@ -1189,7 +1250,7 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
     const FVector2 beforeRelativeSize = slot->GetRelativeSize();
     const bool beforeAutoSize = slot->GetAutoSize();
     const FVector2 beforePixelSize = button->GetGeometry().Size;
-    const FVector2 minRelativeSize(
+    const FVector2 beforeEffectiveRelativeSize(
         beforePixelSize.X / kViewportSize.X,
         beforePixelSize.Y / kViewportSize.Y);
 
@@ -1210,8 +1271,8 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
         kViewportSize);
 
     const FVector2 expectedRelativeSize(
-        std::max(minRelativeSize.X, 40.0f / kViewportSize.X),
-        std::max(minRelativeSize.Y, 30.0f / kViewportSize.Y));
+        beforeEffectiveRelativeSize.X + (40.0f / kViewportSize.X),
+        beforeEffectiveRelativeSize.Y + (30.0f / kViewportSize.Y));
 
     EXPECT_EQ(slot->GetRelativePosition(), beforePosition);
     EXPECT_FALSE(slot->GetAutoSize());
@@ -1228,6 +1289,70 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
     EXPECT_FALSE(slot->GetAutoSize());
     EXPECT_NEAR(slot->GetRelativeSize().X, expectedRelativeSize.X, 0.0001f);
     EXPECT_NEAR(slot->GetRelativeSize().Y, expectedRelativeSize.Y, 0.0001f);
+}
+
+TEST(EditorSelectionTest, DesignerTopLeftResizeUpdatesPositionAndSize)
+{
+    auto session = std::make_shared<EditorSession>(BuildDesignerCanvasDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    const FVector2 kViewportSize(400.0f, 300.0f);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+    SyncDesignerCanvasLayout(session, designerSurface);
+
+    auto button = GetCanvasDocumentButton(session);
+    auto* slot = GetCanvasDocumentButtonSlot(session);
+    ASSERT_TRUE(button);
+    ASSERT_NE(slot, nullptr);
+    ASSERT_TRUE(button->GetGeometry().IsValid());
+
+    const FVector2 selectPoint = button->GetGeometry().GetCenter();
+    AdvanceAppWithDraw(
+        *app,
+        {
+            MouseEvent(EInputEventType::MouseButtonDown, selectPoint),
+            MouseEvent(EInputEventType::MouseButtonUp, selectPoint)
+        },
+        kViewportSize);
+
+    ASSERT_EQ(designerSurface->GetSelectedWidget(), button);
+
+    const FVector2 beforePosition = slot->GetRelativePosition();
+    const FVector2 beforePixelSize = button->GetGeometry().Size;
+    const FVector2 beforeRelativeSize = slot->GetAutoSize()
+        ? FVector2(beforePixelSize.X / kViewportSize.X, beforePixelSize.Y / kViewportSize.Y)
+        : slot->GetRelativeSize();
+
+    const FVector2 resizeHandlePoint = button->GetGeometry().GetMin() + FVector2(1.0f, 1.0f);
+    const FVector2 resizeTarget = resizeHandlePoint - FVector2(20.0f, 10.0f);
+
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonDown, resizeHandlePoint)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseMove, resizeTarget)},
+        kViewportSize);
+    AdvanceAppWithDraw(
+        *app,
+        {MouseEvent(EInputEventType::MouseButtonUp, resizeTarget)},
+        kViewportSize);
+
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X - 0.05f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y - (10.0f / kViewportSize.Y), 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().X, beforeRelativeSize.X + 0.05f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().Y, beforeRelativeSize.Y + (10.0f / kViewportSize.Y), 0.0001f);
+    EXPECT_FALSE(slot->GetAutoSize());
+    EXPECT_TRUE(session->CanUndo());
+
+    ASSERT_TRUE(session->Undo());
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y, 0.0001f);
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerOpenDocumentFromPathDeduplicatesAndActivatesExistingTab)

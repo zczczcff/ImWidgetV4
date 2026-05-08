@@ -7,6 +7,10 @@ option(IMWIDGETV4_BUILD_TESTS "Build ImWidgetV4 tests" ON)
 option(IMWIDGETV4_BUILD_SAMPLES "Build ImWidgetV4 samples" ON)
 option(IMWIDGETV4_BUILD_EDITOR "Build ImWidgetV4 editor" ON)
 
+if(IMWIDGETV4_BUILD_TESTS)
+    enable_testing()
+endif()
+
 add_subdirectory(ImWidgetV4)
 
 if(IMWIDGETV4_BUILD_EDITOR AND TARGET imwidgetv4_platform_win32_dx11)

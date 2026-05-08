@@ -1,14 +1,17 @@
 #include "DocumentTreeViewBinder.h"
 #include "../editor/EditorDocument.h"
 #include "../editor/LogicalWidgetTree.h"
+#include "../editor/WidgetTypeIcon.h"
 #include "../palette/WidgetPaletteDragDrop.h"
 #include "WidgetTreeDragDrop.h"
 
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -21,14 +24,27 @@ using namespace ImWidgetV4;
 
 namespace {
 
-std::shared_ptr<ImTextBlock> MakeTreeDragPreview(const std::string& text)
+std::shared_ptr<ImWidget> MakeTreeDragPreview(const FImageBrush& iconBrush, const std::string& text)
 {
+    auto row = std::make_shared<ImHorizontalBox>();
+    row->SetSpacing(8.0f);
+    row->SetHitTestVisible(false);
+
+    if (iconBrush.IsValid()) {
+        auto image = std::make_shared<ImImage>();
+        image->SetBrush(iconBrush);
+        image->SetDesiredSize(FVector2(16.0f, 16.0f));
+        image->SetHitTestVisible(false);
+        row->AddChild(image);
+    }
+
     auto preview = std::make_shared<ImTextBlock>();
     preview->SetText(text);
     preview->SetFontSize(14.0f);
     preview->SetTextColor(FColor::White);
     preview->SetHitTestVisible(false);
-    return preview;
+    row->AddChild(preview);
+    return row;
 }
 
 bool IsDropCandidateContainer(const std::shared_ptr<ImWidget>& widget)
@@ -138,7 +154,13 @@ void DocumentTreeViewBinder::Bind(
 
             auto operation = std::make_shared<FDragDropOperation>();
             operation->Payload = payload;
-            operation->PreviewWidget = MakeTreeDragPreview(payload->Label);
+            FImageBrush iconBrush;
+            if (m_TreeView->GetApplication() != nullptr) {
+                if (const auto icon = TryGetWidgetTypeIcon(widget->GetTypeName())) {
+                    iconBrush = m_TreeView->GetApplication()->GetCoreIconBrush(*icon, FColor::FromBytes(228, 233, 241));
+                }
+            }
+            operation->PreviewWidget = MakeTreeDragPreview(iconBrush, payload->Label);
             operation->PreviewOffset = FVector2(14.0f, 16.0f);
             outOperation = operation;
         });
@@ -212,6 +234,14 @@ void DocumentTreeViewBinder::RebuildFromRoot(
         return;
     }
 
+    if (const auto icon = TryGetWidgetTypeIcon(rootWidget->GetTypeName())) {
+        rootItem->IconType = static_cast<int>(*icon);
+    }
+    if (ImApplication* application = m_TreeView->GetApplication()) {
+        if (const auto icon = TryGetWidgetTypeIcon(rootWidget->GetTypeName())) {
+            rootItem->IconBrush = application->GetCoreIconBrush(*icon, FColor::FromBytes(214, 222, 234));
+        }
+    }
     rootItem->Expanded = true;
     m_ItemToWidget[rootItem] = rootWidget;
     m_WidgetToItem[rootWidget.get()] = rootItem;
@@ -289,6 +319,14 @@ void DocumentTreeViewBinder::RebuildChildren(
             continue;
         }
 
+        if (const auto icon = TryGetWidgetTypeIcon(child->GetTypeName())) {
+            childItem->IconType = static_cast<int>(*icon);
+        }
+        if (ImApplication* application = m_TreeView->GetApplication()) {
+            if (const auto icon = TryGetWidgetTypeIcon(child->GetTypeName())) {
+                childItem->IconBrush = application->GetCoreIconBrush(*icon, FColor::FromBytes(214, 222, 234));
+            }
+        }
         childItem->Expanded = true;
         m_ItemToWidget[childItem] = child;
         m_WidgetToItem[child.get()] = childItem;

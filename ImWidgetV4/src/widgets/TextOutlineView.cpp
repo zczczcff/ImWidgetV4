@@ -1,4 +1,5 @@
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imgui.h>
 #include <algorithm>
@@ -279,6 +280,13 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
                 4.0f);
         }
 
+        if (!entry.Item->IconBrush.IsValid() &&
+            entry.Item->IconType >= 0 &&
+            GetApplication() != nullptr) {
+            entry.Item->IconBrush =
+                GetApplication()->GetCoreIconBrush(static_cast<ECoreIcon>(entry.Item->IconType), Style_.TextColor);
+        }
+
         if (!entry.Item->Children.empty()) {
             const FVector2 center = entry.IndicatorGeometry.GetCenter();
             const float halfSize = Style_.IndicatorSize * 0.5f;
@@ -295,8 +303,26 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
         }
 
         paintContext.DrawContext_.PushClipRect(entry.ContentGeometry.GetMin(), entry.ContentGeometry.GetMax(), true);
+        FVector2 textPosition = entry.ContentGeometry.Position;
+        if (entry.Item->IconBrush.IsValid()) {
+            const float iconSize = std::min(
+                Style_.IconSize,
+                std::max(0.0f, entry.ContentGeometry.Size.Y));
+            const FVector2 iconMin(
+                entry.ContentGeometry.Position.X,
+                entry.ContentGeometry.Position.Y + (entry.ContentGeometry.Size.Y - iconSize) * 0.5f);
+            const FVector2 iconMax(iconMin.X + iconSize, iconMin.Y + iconSize);
+            paintContext.DrawContext_.DrawImage(
+                entry.Item->IconBrush.TextureId,
+                iconMin,
+                iconMax,
+                entry.Item->IconBrush.Uv0,
+                entry.Item->IconBrush.Uv1,
+                entry.Item->IconBrush.TintColor);
+            textPosition.X += iconSize + Style_.IconSpacing;
+        }
         paintContext.DrawContext_.DrawText(
-            entry.ContentGeometry.Position,
+            textPosition,
             Style_.TextColor,
             entry.Item->Text,
             Style_.FontSize);
@@ -948,7 +974,8 @@ void ImTextOutlineView::FlattenVisibleChildren(ImTextOutlineItem& item, int dept
     FVisibleEntry entry;
     entry.Item = &item;
     entry.Depth = depth;
-    entry.TextWidth = MeasureTextWidth(item.Text);
+    entry.TextWidth = MeasureTextWidth(item.Text) +
+        (item.IconBrush.IsValid() ? (Style_.IconSize + Style_.IconSpacing) : 0.0f);
     entry.ContentY = cursorY;
     entry.RowHeight = rowHeight;
     VisibleEntries_.push_back(entry);

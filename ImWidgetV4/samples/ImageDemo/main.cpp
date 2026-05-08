@@ -3,6 +3,7 @@
 #include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include "../DemoPaths.h"
@@ -148,9 +149,9 @@ std::shared_ptr<ImVerticalBox> MakeCoreIconCell(
 
     auto image = std::make_shared<ImImage>();
     image->SetBrush(brush);
-    image->SetDesiredSize(FVector2(32.0f, 32.0f));
+    image->SetDesiredSize(FVector2(96.0f, 96.0f));
     image->SetBackgroundColor(FColor::FromBytes(24, 31, 40));
-    image->SetCornerRadius(6.0f);
+    image->SetCornerRadius(10.0f);
 
     auto text = MakeLabel(label, labelColor);
     text->SetFontSize(13.0f);
@@ -307,7 +308,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     root->AddChild(tintedIconsTitle, FMargin(20.0f, 12.0f, 20.0f, 0.0f));
     root->AddChild(MakeCoreIconGrid(*app, true), FMargin(20.0f, 0.0f, 20.0f, 20.0f));
 
-    app->SetRootWidget(root);
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    scrollBox->SetContent(root);
+
+    app->SetRootWidget(scrollBox);
     backend->Run();
     backend->Shutdown();
 

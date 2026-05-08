@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/Widget.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,6 +24,8 @@ class ImTextOutlineItem : public ReflectableObject {
 
 public:
     std::string Text;
+    FImageBrush IconBrush;
+    int IconType = -1;
     bool Expanded = false;
 
 private:
@@ -53,6 +56,8 @@ struct FTextOutlineViewStyle : public ReflectableObject {
         .RegisterProperty(PropertyType::Float, "IndentWidth", &FTextOutlineViewStyle::IndentWidth, "Indent width")
         .RegisterProperty(PropertyType::Float, "IndicatorSize", &FTextOutlineViewStyle::IndicatorSize, "Indicator size")
         .RegisterProperty(PropertyType::Float, "IndicatorSpacing", &FTextOutlineViewStyle::IndicatorSpacing, "Indicator spacing")
+        .RegisterProperty(PropertyType::Float, "IconSize", &FTextOutlineViewStyle::IconSize, "Optional row icon size")
+        .RegisterProperty(PropertyType::Float, "IconSpacing", &FTextOutlineViewStyle::IconSpacing, "Spacing between an optional row icon and text")
         .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FTextOutlineViewStyle::ScrollbarThickness, "Scrollbar thickness")
         .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FTextOutlineViewStyle::ScrollbarPadding, "Scrollbar padding")
         .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FTextOutlineViewStyle::ScrollbarTrackColor, "Scrollbar track color")
@@ -81,6 +86,8 @@ public:
     float IndentWidth = 18.0f;
     float IndicatorSize = 10.0f;
     float IndicatorSpacing = 6.0f;
+    float IconSize = 14.0f;
+    float IconSpacing = 6.0f;
     float ScrollbarThickness = 10.0f;
     float ScrollbarPadding = 2.0f;
     FColor ScrollbarTrackColor = FColor::FromBytes(38, 45, 56);

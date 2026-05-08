@@ -3,6 +3,7 @@
 #include "../serialization/WidgetFactory.h"
 
 #include <imwidgetv4/core/DragDrop.h>
+#include <imwidgetv4/core/CoreIcon.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,6 +13,7 @@ namespace ImWidgetV4Editor {
 struct FWidgetPaletteEntry {
     std::string Label;
     std::string TypeName;
+    ImWidgetV4::ECoreIcon Icon = ImWidgetV4::ECoreIcon::View;
 };
 
 class WidgetPalettePayload : public ImWidgetV4::FDragDropPayload {

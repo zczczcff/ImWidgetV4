@@ -133,9 +133,11 @@ public:
         int Height = 0;
         int BytesPerPixel = 4;
         bool bUsesBackendTexture = false;
+        ImTextureID PromotedTextureId = nullptr;
     };
 
     bool FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextureData& outData) const;
+    ImTextureID ResolveTextureForPaint(ImTextureID textureId);
 
     const FImageBrush& GetDefaultImagePlaceholderBrush() const;
     FImageBrush GetCoreIconBrush(ECoreIcon icon, const FColor& tint = FColor::White) const;

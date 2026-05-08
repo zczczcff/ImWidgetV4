@@ -1010,6 +1010,9 @@ void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
             Backend_->ReleaseTexture(textureId);
         }
     } else {
+        if (it->second.PromotedTextureId != nullptr && Backend_ != nullptr) {
+            Backend_->ReleaseTexture(it->second.PromotedTextureId);
+        }
         delete static_cast<FSoftwareTextureToken*>(textureId);
     }
 
@@ -1054,6 +1057,41 @@ bool ImApplication::FindRuntimeTextureData(ImTextureID textureId, FRuntimeTextur
 
     outData = it->second;
     return true;
+}
+
+ImTextureID ImApplication::ResolveTextureForPaint(ImTextureID textureId)
+{
+    if (textureId == nullptr) {
+        return nullptr;
+    }
+
+    const auto it = RuntimeTextures_.find(textureId);
+    if (it == RuntimeTextures_.end()) {
+        return textureId;
+    }
+
+    FRuntimeTextureData& textureData = it->second;
+    if (textureData.bUsesBackendTexture) {
+        return textureId;
+    }
+
+    if (textureData.PromotedTextureId != nullptr) {
+        return textureData.PromotedTextureId;
+    }
+
+    if (Backend_ == nullptr) {
+        return textureId;
+    }
+
+    textureData.PromotedTextureId = Backend_->CreateTextureFromRGBA(
+        textureData.Pixels.data(),
+        textureData.Width,
+        textureData.Height);
+    if (textureData.PromotedTextureId == nullptr) {
+        return textureId;
+    }
+
+    return textureData.PromotedTextureId;
 }
 
 const FImageBrush& ImApplication::GetDefaultImagePlaceholderBrush() const

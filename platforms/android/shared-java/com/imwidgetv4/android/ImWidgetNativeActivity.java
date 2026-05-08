@@ -126,6 +126,67 @@ public class ImWidgetNativeActivity extends NativeActivity {
         nativeBackendHandle = backendHandle;
     }
 
+    private static boolean isModifierKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_CTRL_LEFT ||
+            keyCode == KeyEvent.KEYCODE_CTRL_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_SHIFT_LEFT ||
+            keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_ALT_LEFT ||
+            keyCode == KeyEvent.KEYCODE_ALT_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_META_LEFT ||
+            keyCode == KeyEvent.KEYCODE_META_RIGHT;
+    }
+
+    private static boolean isNavigationKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DEL ||
+            keyCode == KeyEvent.KEYCODE_FORWARD_DEL ||
+            keyCode == KeyEvent.KEYCODE_ENTER ||
+            keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER ||
+            keyCode == KeyEvent.KEYCODE_TAB ||
+            keyCode == KeyEvent.KEYCODE_SPACE ||
+            keyCode == KeyEvent.KEYCODE_ESCAPE ||
+            keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+            keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_DPAD_UP ||
+            keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+            keyCode == KeyEvent.KEYCODE_MOVE_HOME ||
+            keyCode == KeyEvent.KEYCODE_MOVE_END ||
+            keyCode == KeyEvent.KEYCODE_PAGE_UP ||
+            keyCode == KeyEvent.KEYCODE_PAGE_DOWN ||
+            keyCode == KeyEvent.KEYCODE_F1 ||
+            keyCode == KeyEvent.KEYCODE_F2 ||
+            keyCode == KeyEvent.KEYCODE_F3 ||
+            keyCode == KeyEvent.KEYCODE_F4 ||
+            keyCode == KeyEvent.KEYCODE_F5 ||
+            keyCode == KeyEvent.KEYCODE_F6 ||
+            keyCode == KeyEvent.KEYCODE_F7 ||
+            keyCode == KeyEvent.KEYCODE_F8 ||
+            keyCode == KeyEvent.KEYCODE_F9 ||
+            keyCode == KeyEvent.KEYCODE_F10 ||
+            keyCode == KeyEvent.KEYCODE_F11 ||
+            keyCode == KeyEvent.KEYCODE_F12;
+    }
+
+    private static boolean isShortcutChordKeyCode(int keyCode) {
+        return (keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) ||
+            (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) ||
+            (keyCode >= KeyEvent.KEYCODE_NUMPAD_0 && keyCode <= KeyEvent.KEYCODE_NUMPAD_9);
+    }
+
+    private static boolean shouldForwardSpecialKey(KeyEvent event) {
+        if (event == null) {
+            return false;
+        }
+
+        int keyCode = event.getKeyCode();
+        if (isModifierKeyCode(keyCode) || isNavigationKeyCode(keyCode)) {
+            return true;
+        }
+
+        return (event.isCtrlPressed() || event.isAltPressed() || event.isMetaPressed()) &&
+            isShortcutChordKeyCode(keyCode);
+    }
+
     private void ensureKeyboardProxyView() {
         if (keyboardProxyView != null) {
             return;
@@ -151,6 +212,24 @@ public class ImWidgetNativeActivity extends NativeActivity {
             InputType.TYPE_CLASS_TEXT |
             InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS |
             InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+        proxyView.setOnEditorActionListener((view, actionId, keyEvent) -> {
+            if (nativeBackendHandle == 0L || keyEvent != null) {
+                return false;
+            }
+
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
+                actionId == EditorInfo.IME_ACTION_GO ||
+                actionId == EditorInfo.IME_ACTION_NEXT ||
+                actionId == EditorInfo.IME_ACTION_SEARCH ||
+                actionId == EditorInfo.IME_ACTION_SEND ||
+                actionId == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                nativeOnSpecialKey(nativeBackendHandle, KeyEvent.KEYCODE_ENTER, true);
+                nativeOnSpecialKey(nativeBackendHandle, KeyEvent.KEYCODE_ENTER, false);
+                return true;
+            }
+
+            return false;
+        });
         proxyView.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -186,11 +265,7 @@ public class ImWidgetNativeActivity extends NativeActivity {
                 return false;
             }
 
-            if (keyCode != KeyEvent.KEYCODE_DEL &&
-                keyCode != KeyEvent.KEYCODE_FORWARD_DEL &&
-                keyCode != KeyEvent.KEYCODE_ENTER &&
-                keyCode != KeyEvent.KEYCODE_NUMPAD_ENTER &&
-                keyCode != KeyEvent.KEYCODE_TAB) {
+            if (!shouldForwardSpecialKey(event)) {
                 return false;
             }
 

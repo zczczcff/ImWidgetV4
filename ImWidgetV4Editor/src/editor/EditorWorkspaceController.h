@@ -26,10 +26,13 @@ class ImWindow;
 
 namespace ImWidgetV4Editor {
 
+struct FCreateAppProjectOptions;
+
 class EditorProject;
 class EditorSession;
 class EditorShellHost;
 class InputDialog;
+class NewAppProjectDialog;
 class ReflectionDetailsView;
 
 class EditorWorkspaceController : public std::enable_shared_from_this<EditorWorkspaceController> {
@@ -57,9 +60,12 @@ public:
     bool OpenDocument(ImWidgetV4::ImApplication& app);
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool NewAppProject(ImWidgetV4::ImApplication& app);
+    bool OpenAppProject(ImWidgetV4::ImApplication& app);
+    bool OpenAppProjectAt(const std::filesystem::path& projectRoot);
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
     bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const std::string& projectName);
+    bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const FCreateAppProjectOptions& options);
     bool CreateDocumentInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
     bool CreateFolderInDirectory(ImWidgetV4::ImApplication& app, const std::filesystem::path& directoryPath);
     bool CreateAndOpenDocumentAtPath(const std::filesystem::path& filePath);
@@ -193,6 +199,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_ProjectItemContextMenu;
     std::shared_ptr<ImWidgetV4::ImWindow> m_ProjectItemContextMenuWindow;
     std::shared_ptr<InputDialog> m_PendingInputDialog;
+    std::shared_ptr<NewAppProjectDialog> m_PendingNewAppProjectDialog;
     std::shared_ptr<ImWidgetV4::ImApplication> m_ExitPromptAppLock;
     std::filesystem::path m_PendingProjectRootChange;
     std::filesystem::path m_PendingCreateProjectParentPath;

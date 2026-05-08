@@ -9,7 +9,7 @@ namespace ImWidgetV4Editor {
 
 class EditorProject {
 public:
-    static constexpr int FormatVersion = 1;
+    static constexpr int FormatVersion = 2;
 
     static std::string GetManifestFileName();
     static std::filesystem::path BuildManifestFilePath(const std::filesystem::path& projectRoot);
@@ -20,7 +20,8 @@ public:
         const std::filesystem::path& projectRoot,
         const std::string& projectName,
         const std::string& namespaceName,
-        const std::filesystem::path& startupDocumentRelativePath);
+        const std::filesystem::path& startupDocumentRelativePath,
+        const std::string& templateName = "Blank App");
     bool Load(const std::filesystem::path& manifestFilePath, std::string* outError = nullptr);
     bool Save(std::string* outError = nullptr) const;
 
@@ -38,6 +39,9 @@ public:
     const std::string& GetNamespaceName() const { return m_NamespaceName; }
     void SetNamespaceName(const std::string& namespaceName) { m_NamespaceName = namespaceName; }
 
+    const std::string& GetTemplateName() const { return m_TemplateName; }
+    void SetTemplateName(const std::string& templateName) { m_TemplateName = templateName; }
+
     const std::filesystem::path& GetProjectRoot() const { return m_ProjectRoot; }
     void SetProjectRoot(const std::filesystem::path& projectRoot) { m_ProjectRoot = projectRoot; }
 
@@ -53,6 +57,7 @@ public:
 private:
     std::string m_ProjectName;
     std::string m_NamespaceName;
+    std::string m_TemplateName = "Blank App";
     std::filesystem::path m_ProjectRoot;
     std::filesystem::path m_StartupDocumentRelativePath;
 };

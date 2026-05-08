@@ -31,6 +31,7 @@ void EditorProject::Reset()
 {
     m_ProjectName.clear();
     m_NamespaceName.clear();
+    m_TemplateName = "Blank App";
     m_ProjectRoot.clear();
     m_StartupDocumentRelativePath.clear();
 }
@@ -39,12 +40,14 @@ bool EditorProject::CreateNew(
     const std::filesystem::path& projectRoot,
     const std::string& projectName,
     const std::string& namespaceName,
-    const std::filesystem::path& startupDocumentRelativePath)
+    const std::filesystem::path& startupDocumentRelativePath,
+    const std::string& templateName)
 {
     Reset();
     m_ProjectRoot = projectRoot.lexically_normal();
     m_ProjectName = projectName;
     m_NamespaceName = namespaceName;
+    m_TemplateName = templateName.empty() ? std::string("Blank App") : templateName;
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(startupDocumentRelativePath);
     return IsValid();
 }
@@ -139,6 +142,7 @@ json EditorProject::ToJson() const
     json projectSection;
     projectSection["Name"] = m_ProjectName;
     projectSection["Namespace"] = m_NamespaceName;
+    projectSection["Template"] = m_TemplateName;
     projectSection["StartupDocument"] = m_StartupDocumentRelativePath.generic_string();
     projectJson["Project"] = std::move(projectSection);
     return projectJson;
@@ -163,7 +167,8 @@ bool EditorProject::FromJson(
         return false;
     }
 
-    if (projectJson.value("Version", 0) != FormatVersion) {
+    const int version = projectJson.value("Version", 0);
+    if (version != 1 && version != FormatVersion) {
         if (outError) {
             *outError = "Unsupported project manifest version.";
         }
@@ -182,6 +187,7 @@ bool EditorProject::FromJson(
     m_ProjectRoot = manifestFilePath.parent_path().lexically_normal();
     m_ProjectName = projectSection.value("Name", std::string());
     m_NamespaceName = projectSection.value("Namespace", std::string());
+    m_TemplateName = projectSection.value("Template", std::string("Blank App"));
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(
         std::filesystem::path(projectSection.value("StartupDocument", std::string())));
 
@@ -200,6 +206,7 @@ bool EditorProject::IsValid() const
 {
     return !m_ProjectName.empty() &&
            !m_NamespaceName.empty() &&
+           !m_TemplateName.empty() &&
            !m_ProjectRoot.empty() &&
            !m_StartupDocumentRelativePath.empty() &&
            !m_StartupDocumentRelativePath.is_absolute();

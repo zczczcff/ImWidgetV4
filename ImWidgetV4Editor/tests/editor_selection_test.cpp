@@ -9,6 +9,7 @@
 #include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/EditorWorkspaceController.h"
+#include "../src/editor/NewAppProjectDialog.h"
 #include "../src/project/EditorProject.h"
 #include "../src/editor/SelectionModel.h"
 #include "../src/palette/WidgetPaletteDragDrop.h"
@@ -1941,6 +1942,7 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
     EXPECT_EQ(workspaceController->GetProject()->GetNamespaceName(), "SampleApp");
+    EXPECT_EQ(workspaceController->GetProject()->GetTemplateName(), "Blank App");
     EXPECT_EQ(
         workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
         std::string("ui/Main.ui.json"));
@@ -1976,10 +1978,133 @@ TEST(EditorSelectionTest, EditorProjectLoadRestoresSavedManifestData)
     ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
     EXPECT_EQ(restoredProject.GetProjectName(), "ManifestProject");
     EXPECT_EQ(restoredProject.GetNamespaceName(), "ManifestProject");
+    EXPECT_EQ(restoredProject.GetTemplateName(), "Blank App");
     EXPECT_EQ(restoredProject.GetProjectRoot().lexically_normal(), tempRoot.lexically_normal());
     EXPECT_EQ(
         restoredProject.GetStartupDocumentRelativePath().generic_string(),
         std::string("ui/Main.ui.json"));
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_open";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path projectRoot = tempRoot / "OpenableApp";
+    std::filesystem::create_directories(projectRoot / "src");
+    std::filesystem::create_directories(projectRoot / "include");
+    std::filesystem::create_directories(projectRoot / "ui");
+    std::filesystem::create_directories(projectRoot / "generated");
+    std::filesystem::create_directories(projectRoot / "cmake");
+
+    const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+    EditorDocument document;
+    document.NewDocument(BuildDocumentRoot(), "Main");
+    std::string documentError;
+    ASSERT_TRUE(document.SaveAs(startupDocumentPath, &documentError)) << documentError;
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        projectRoot,
+        "OpenableApp",
+        "OpenableApp",
+        std::filesystem::path("ui") / "Main.ui.json"));
+    std::string projectError;
+    ASSERT_TRUE(project.Save(&projectError)) << projectError;
+
+    ASSERT_TRUE(workspaceController->OpenAppProjectAt(projectRoot));
+    ASSERT_TRUE(workspaceController->GetProject());
+    EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "OpenableApp");
+    EXPECT_EQ(workspaceController->GetProject()->GetTemplateName(), "Blank App");
+    std::error_code canonicalError;
+    const std::filesystem::path expectedProjectRoot =
+        std::filesystem::weakly_canonical(projectRoot, canonicalError);
+    canonicalError.clear();
+    const std::filesystem::path restoredProjectRoot =
+        std::filesystem::weakly_canonical(workspaceController->GetProjectRoot(), canonicalError);
+    EXPECT_EQ(restoredProjectRoot, expectedProjectRoot);
+    EXPECT_EQ(workspaceController->GetDocumentCount(), 1);
+    ASSERT_TRUE(workspaceController->GetActiveSession());
+    ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
+    canonicalError.clear();
+    const std::filesystem::path expectedStartupDocument =
+        std::filesystem::weakly_canonical(startupDocumentPath, canonicalError);
+    canonicalError.clear();
+    const std::filesystem::path restoredStartupDocument =
+        std::filesystem::weakly_canonical(
+            workspaceController->GetActiveSession()->GetDocument()->GetFilePath(),
+            canonicalError);
+    EXPECT_EQ(restoredStartupDocument, expectedStartupDocument);
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtUsesExplicitOptions)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_create_options";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    FCreateAppProjectOptions options;
+    options.ProjectName = "ToolSuite";
+    options.NamespaceName = "ToolSuiteApp";
+    options.StartupDocumentName = "WorkspaceHome";
+    options.TemplateName = "Blank App";
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, options));
+    const std::filesystem::path projectRoot = tempRoot / "ToolSuite";
+    const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "WorkspaceHome.ui.json";
+
+    ASSERT_TRUE(workspaceController->GetProject());
+    EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "ToolSuite");
+    EXPECT_EQ(workspaceController->GetProject()->GetNamespaceName(), "ToolSuiteApp");
+    EXPECT_EQ(workspaceController->GetProject()->GetTemplateName(), "Blank App");
+    EXPECT_EQ(
+        workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
+        std::string("ui/WorkspaceHome.ui.json"));
+    EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
+    ASSERT_TRUE(workspaceController->GetActiveSession());
+    ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
+    EXPECT_EQ(
+        workspaceController->GetActiveSession()->GetDocument()->GetFilePath().lexically_normal(),
+        startupDocumentPath.lexically_normal());
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }

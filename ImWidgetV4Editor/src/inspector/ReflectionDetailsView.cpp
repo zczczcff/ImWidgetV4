@@ -437,9 +437,6 @@ void ReflectionDetailsView::BuildCommonSection(
     }
 
     outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(widget->GetTypeName())));
-    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(
-        "Name",
-        MakeInspectorReadOnlyField(widget->GetName().empty() ? "<unnamed>" : widget->GetName())));
     outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
     outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
     outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
@@ -478,12 +475,6 @@ void ReflectionDetailsView::BuildPropertyItems(
         : nlohmann::ordered_json::object();
     const auto properties = object->GetAllPropertiesOrdered();
     for (const auto& property : properties) {
-        if (std::dynamic_pointer_cast<ImWidget>(object) &&
-            property.GetClassName() == "ImWidget" &&
-            property.GetNameString() == "Name") {
-            continue;
-        }
-
         auto nestedObject = ResolveNestedObject(object, property);
         if (nestedObject) {
             const std::string propertyKey = property.GetClassName() + "::" + property.GetNameString();

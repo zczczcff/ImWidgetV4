@@ -1042,6 +1042,39 @@ TEST(EditorSelectionTest, ReflectablePropertyCommandRestoresPropertyOnUndoRedo)
     EXPECT_EQ(button->GetText(), "Updated");
 }
 
+TEST(EditorSelectionTest, DetailsRenameKeepsWidgetNamesUnique)
+{
+    auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto root = std::dynamic_pointer_cast<ImVerticalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    auto button = std::dynamic_pointer_cast<ImButton>(root->GetChildren().front());
+    ASSERT_TRUE(button);
+
+    designerSurface->SetSelectedWidget(button);
+    detailsView->OnPropertyValueCommitted.Broadcast(
+        *detailsView,
+        button,
+        "ImWidget",
+        "Name",
+        json("Root"));
+
+    EXPECT_EQ(button->GetName(), "Root1");
+}
+
 TEST(EditorSelectionTest, SessionPasteSelectedWidgetSupportsUndoRedo)
 {
     auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
@@ -1069,6 +1102,8 @@ TEST(EditorSelectionTest, SessionPasteSelectedWidgetSupportsUndoRedo)
     ASSERT_TRUE(session->CopySelectedWidget());
     ASSERT_TRUE(session->PasteCopiedWidget());
     ASSERT_EQ(root->GetChildren().size(), 2u);
+    EXPECT_EQ(root->GetChildren()[0]->GetName(), "Child");
+    EXPECT_EQ(root->GetChildren()[1]->GetName(), "Button1");
 
     ASSERT_TRUE(session->Undo());
     ASSERT_EQ(root->GetChildren().size(), 1u);
@@ -1103,12 +1138,72 @@ TEST(EditorSelectionTest, SessionDuplicateSelectedWidgetSupportsUndoRedo)
 
     ASSERT_TRUE(session->DuplicateSelectedWidget());
     ASSERT_EQ(root->GetChildren().size(), 2u);
+    EXPECT_EQ(root->GetChildren()[0]->GetName(), "Child");
+    EXPECT_EQ(root->GetChildren()[1]->GetName(), "Button1");
 
     ASSERT_TRUE(session->Undo());
     ASSERT_EQ(root->GetChildren().size(), 1u);
 
     ASSERT_TRUE(session->Redo());
     ASSERT_EQ(root->GetChildren().size(), 2u);
+}
+
+TEST(EditorSelectionTest, PaletteCreatedWidgetsReceiveUniqueTypeNumberNames)
+{
+    auto session = std::make_shared<EditorSession>(BuildDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto schemaText = std::make_shared<ImTextList>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        schemaText,
+        designerSurface,
+        nullptr,
+        detailsView,
+        nullptr);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerSurface);
+
+    const FVector2 kViewportSize(400.0f, 300.0f);
+    AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+    auto root = std::dynamic_pointer_cast<ImVerticalBox>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(root);
+    ASSERT_TRUE(root->GetGeometry().IsValid());
+
+    auto makePaletteOperation = []() {
+        auto payload = std::make_shared<WidgetPalettePayload>();
+        payload->WidgetTypeName = "ImButton";
+        payload->Label = "Button";
+
+        auto operation = std::make_shared<FDragDropOperation>();
+        operation->Payload = payload;
+        return operation;
+    };
+
+    bool firstHandled = false;
+    designerSurface->OnDropReceived.Broadcast(
+        *designerSurface,
+        makePaletteOperation(),
+        root->GetGeometry().GetCenter(),
+        firstHandled);
+    EXPECT_TRUE(firstHandled);
+
+    bool secondHandled = false;
+    designerSurface->OnDropReceived.Broadcast(
+        *designerSurface,
+        makePaletteOperation(),
+        root->GetGeometry().GetCenter(),
+        secondHandled);
+    EXPECT_TRUE(secondHandled);
+
+    ASSERT_EQ(root->GetChildren().size(), 3u);
+    EXPECT_EQ(root->GetChildren()[1]->GetName(), "Button1");
+    EXPECT_EQ(root->GetChildren()[2]->GetName(), "Button2");
 }
 
 TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)

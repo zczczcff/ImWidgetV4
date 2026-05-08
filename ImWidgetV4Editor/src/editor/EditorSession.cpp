@@ -31,7 +31,10 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
+#include <unordered_set>
 
 namespace ImWidgetV4Editor {
 
@@ -94,6 +97,153 @@ std::string StripImPrefix(const std::string& typeName)
     }
 
     return typeName;
+}
+
+std::string TrimCopy(const std::string& text)
+{
+    const auto begin = text.find_first_not_of(" \t\r\n");
+    if (begin == std::string::npos) {
+        return "";
+    }
+
+    const auto end = text.find_last_not_of(" \t\r\n");
+    return text.substr(begin, end - begin + 1);
+}
+
+std::string BuildWidgetTypeNameBase(const std::string& typeName)
+{
+    const std::string base = StripImPrefix(typeName);
+    return base.empty() ? std::string("Widget") : base;
+}
+
+void VisitLogicalWidgetTree(
+    const std::shared_ptr<ImWidget>& root,
+    const std::function<void(const std::shared_ptr<ImWidget>&)>& visitor)
+{
+    if (!root || !visitor) {
+        return;
+    }
+
+    visitor(root);
+
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(root);
+    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
+        VisitLogicalWidgetTree(LogicalWidgetTree::GetLogicalChildAt(root, childIndex), visitor);
+    }
+}
+
+void CollectUsedWidgetNames(
+    const std::shared_ptr<ImWidget>& root,
+    std::unordered_set<std::string>& outNames,
+    const ImWidget* ignoredWidget = nullptr)
+{
+    VisitLogicalWidgetTree(root, [&outNames, ignoredWidget](const std::shared_ptr<ImWidget>& widget) {
+        if (!widget || widget.get() == ignoredWidget) {
+            return;
+        }
+
+        const std::string trimmedName = TrimCopy(widget->GetName());
+        if (!trimmedName.empty()) {
+            outNames.insert(trimmedName);
+        }
+    });
+}
+
+std::pair<std::string, int> SplitNumericSuffix(const std::string& text)
+{
+    if (text.empty()) {
+        return {text, 1};
+    }
+
+    std::size_t suffixStart = text.size();
+    while (suffixStart > 0 && std::isdigit(static_cast<unsigned char>(text[suffixStart - 1])) != 0) {
+        --suffixStart;
+    }
+
+    if (suffixStart == text.size()) {
+        return {text, 1};
+    }
+
+    const std::string prefix = text.substr(0, suffixStart);
+    if (prefix.empty()) {
+        return {text, 1};
+    }
+
+    int suffixValue = 1;
+    try {
+        suffixValue = std::max(1, std::stoi(text.substr(suffixStart)));
+    } catch (...) {
+        suffixValue = 1;
+    }
+
+    return {prefix, suffixValue};
+}
+
+std::string MakeUniqueNameFromBase(
+    const std::string& baseName,
+    std::unordered_set<std::string>& usedNames,
+    int startingIndex = 1)
+{
+    const std::string safeBase = baseName.empty() ? std::string("Widget") : baseName;
+    int index = std::max(1, startingIndex);
+    while (true) {
+        const std::string candidate = safeBase + std::to_string(index);
+        if (usedNames.insert(candidate).second) {
+            return candidate;
+        }
+        ++index;
+    }
+}
+
+std::string ResolveUniqueWidgetName(
+    const std::shared_ptr<EditorDocument>& document,
+    const std::string& desiredName,
+    const std::string& typeName,
+    const ImWidget* ignoredWidget,
+    bool bForceTypeGeneratedPattern)
+{
+    std::unordered_set<std::string> usedNames;
+    if (document) {
+        CollectUsedWidgetNames(document->GetRootWidget(), usedNames, ignoredWidget);
+    }
+
+    if (bForceTypeGeneratedPattern) {
+        return MakeUniqueNameFromBase(BuildWidgetTypeNameBase(typeName), usedNames, 1);
+    }
+
+    const std::string trimmedName = TrimCopy(desiredName);
+    if (trimmedName.empty()) {
+        return MakeUniqueNameFromBase(BuildWidgetTypeNameBase(typeName), usedNames, 1);
+    }
+
+    if (usedNames.find(trimmedName) == usedNames.end()) {
+        return trimmedName;
+    }
+
+    const auto [prefix, startingIndex] = SplitNumericSuffix(trimmedName);
+    return MakeUniqueNameFromBase(prefix.empty() ? trimmedName : prefix, usedNames, startingIndex);
+}
+
+void AssignGeneratedUniqueNamesToSubtree(
+    const std::shared_ptr<EditorDocument>& document,
+    const std::shared_ptr<ImWidget>& subtreeRoot)
+{
+    if (!subtreeRoot) {
+        return;
+    }
+
+    std::unordered_set<std::string> usedNames;
+    if (document) {
+        CollectUsedWidgetNames(document->GetRootWidget(), usedNames);
+    }
+
+    VisitLogicalWidgetTree(subtreeRoot, [&usedNames](const std::shared_ptr<ImWidget>& widget) {
+        if (!widget) {
+            return;
+        }
+
+        widget->SetName(MakeUniqueNameFromBase(BuildWidgetTypeNameBase(widget->GetTypeName()), usedNames, 1));
+    });
 }
 
 std::string BuildTabTitleForWidget(const std::shared_ptr<ImWidget>& widget)
@@ -764,6 +914,8 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
         return false;
     }
 
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
+
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool pasted = ApplyWidgetInsertionAtTreeTarget(
         cloneResult.Widget,
@@ -810,6 +962,8 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
             : cloneResult.ErrorMessage));
         return false;
     }
+
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool pasted = ApplyWidgetInsertion(
@@ -978,6 +1132,8 @@ bool EditorSession::PasteCopiedWidget()
         return false;
     }
 
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
+
     std::shared_ptr<ImWidget> selectedWidget = m_DesignerSurface
         ? m_DesignerSurface->GetSelectedWidget()
         : nullptr;
@@ -1035,6 +1191,8 @@ bool EditorSession::DuplicateSelectedWidget()
         LogStatus("Duplicate failed: " + cloneError);
         return false;
     }
+
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneWidget);
 
     const std::string sourceLabel = selectedWidget->GetName().empty()
         ? selectedWidget->GetTypeName()
@@ -1412,7 +1570,26 @@ void EditorSession::HandlePropertyValueCommitted(
 
     json beforeJson = owner->ToJson();
     json afterJson = beforeJson;
-    afterJson["Properties"][propertyClassName + "::" + propertyName] = value;
+    json committedValue = value;
+    if (propertyClassName == "ImWidget" && propertyName == "Name") {
+        if (auto widget = std::dynamic_pointer_cast<ImWidget>(owner)) {
+            const std::string desiredName = committedValue.is_string()
+                ? committedValue.get<std::string>()
+                : std::string();
+            const std::string resolvedName = ResolveUniqueWidgetName(
+                m_Document,
+                desiredName,
+                widget->GetTypeName(),
+                widget.get(),
+                false);
+            committedValue = resolvedName;
+
+            if (resolvedName != TrimCopy(desiredName)) {
+                LogStatus("Widget name adjusted to " + resolvedName + ".");
+            }
+        }
+    }
+    afterJson["Properties"][propertyClassName + "::" + propertyName] = committedValue;
 
     if (!ApplyReflectablePropertyChange(owner, afterJson, selectedWidget, true)) {
         return;
@@ -1792,10 +1969,6 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         return nullptr;
     }
 
-    if (widget->GetName().empty()) {
-        widget->SetName(StripImPrefix(typeName));
-    }
-
     if (auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(widget)) {
         textBlock->SetText("Text");
     } else if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
@@ -1845,6 +2018,7 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         outlineView->SetSelectedItem(rootItem);
     }
 
+    AssignGeneratedUniqueNamesToSubtree(m_Document, widget);
     return widget;
 }
 

@@ -452,14 +452,20 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                     std::max(0.0f, tabGeometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
                 const float iconY = tabGeometry.Geometry.Position.Y +
                     std::max(0.0f, (tabGeometry.Geometry.Size.Y - iconSize) * 0.5f);
-                paintContext.DrawContext_.DrawImage(
-                    item.Icon.TextureId,
-                    FVector2(contentX, iconY),
-                    FVector2(contentX + iconSize, iconY + iconSize),
-                    item.Icon.Uv0,
-                    item.Icon.Uv1,
-                    contentColor);
-                contentX += iconSize + 6.0f;
+                ImTextureID textureId = item.Icon.TextureId;
+                if (GetApplication() != nullptr) {
+                    textureId = GetApplication()->ResolveTextureForPaint(textureId);
+                }
+                if (textureId != nullptr) {
+                    paintContext.DrawContext_.DrawImage(
+                        textureId,
+                        FVector2(contentX, iconY),
+                        FVector2(contentX + iconSize, iconY + iconSize),
+                        item.Icon.Uv0,
+                        item.Icon.Uv1,
+                        contentColor);
+                    contentX += iconSize + 6.0f;
+                }
             }
 
             if (item.bDirty) {

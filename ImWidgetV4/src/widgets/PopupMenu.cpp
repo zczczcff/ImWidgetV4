@@ -113,14 +113,20 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
 
         float contentX = rowGeometry.Position.X + Style_.HorizontalPadding;
         if (item.Icon.IsValid()) {
-            paintContext.DrawContext_.DrawImage(
-                item.Icon.TextureId,
-                FVector2(contentX, rowGeometry.Position.Y + (Style_.RowHeight - Style_.IconSize) * 0.5f),
-                FVector2(contentX + Style_.IconSize, rowGeometry.Position.Y + (Style_.RowHeight + Style_.IconSize) * 0.5f),
-                item.Icon.Uv0,
-                item.Icon.Uv1,
-                item.bEnabled ? item.Icon.TintColor : Style_.DisabledTextColor);
-            contentX += Style_.IconSize + Style_.IconTextSpacing;
+            ImTextureID textureId = item.Icon.TextureId;
+            if (GetApplication() != nullptr) {
+                textureId = GetApplication()->ResolveTextureForPaint(textureId);
+            }
+            if (textureId != nullptr) {
+                paintContext.DrawContext_.DrawImage(
+                    textureId,
+                    FVector2(contentX, rowGeometry.Position.Y + (Style_.RowHeight - Style_.IconSize) * 0.5f),
+                    FVector2(contentX + Style_.IconSize, rowGeometry.Position.Y + (Style_.RowHeight + Style_.IconSize) * 0.5f),
+                    item.Icon.Uv0,
+                    item.Icon.Uv1,
+                    item.bEnabled ? item.Icon.TintColor : Style_.DisabledTextColor);
+                contentX += Style_.IconSize + Style_.IconTextSpacing;
+            }
         }
 
         const float rightReserve = item.HasSubMenu() ? (submenuIndicatorWidth + Style_.SubmenuIndicatorSpacing) : 0.0f;

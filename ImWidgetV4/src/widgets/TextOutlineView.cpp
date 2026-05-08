@@ -312,14 +312,20 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
                 entry.ContentGeometry.Position.X,
                 entry.ContentGeometry.Position.Y + (entry.ContentGeometry.Size.Y - iconSize) * 0.5f);
             const FVector2 iconMax(iconMin.X + iconSize, iconMin.Y + iconSize);
-            paintContext.DrawContext_.DrawImage(
-                entry.Item->IconBrush.TextureId,
-                iconMin,
-                iconMax,
-                entry.Item->IconBrush.Uv0,
-                entry.Item->IconBrush.Uv1,
-                entry.Item->IconBrush.TintColor);
-            textPosition.X += iconSize + Style_.IconSpacing;
+            ImTextureID textureId = entry.Item->IconBrush.TextureId;
+            if (GetApplication() != nullptr) {
+                textureId = GetApplication()->ResolveTextureForPaint(textureId);
+            }
+            if (textureId != nullptr) {
+                paintContext.DrawContext_.DrawImage(
+                    textureId,
+                    iconMin,
+                    iconMax,
+                    entry.Item->IconBrush.Uv0,
+                    entry.Item->IconBrush.Uv1,
+                    entry.Item->IconBrush.TintColor);
+                textPosition.X += iconSize + Style_.IconSpacing;
+            }
         }
         paintContext.DrawContext_.DrawText(
             textPosition,

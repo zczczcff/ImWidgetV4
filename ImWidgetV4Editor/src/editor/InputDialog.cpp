@@ -20,6 +20,13 @@ FButtonStyle MakeDialogButtonStyle(bool bPrimary)
     return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
 }
 
+FVector2 MaxSize(const FVector2& left, const FVector2& right)
+{
+    return FVector2(
+        std::max(left.X, right.X),
+        std::max(left.Y, right.Y));
+}
+
 } // namespace
 
 bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
@@ -56,6 +63,7 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     root->AddChild(title, FMargin(12.0f, 12.0f, 12.0f, 0.0f));
     root->AddChild(editor, FMargin(12.0f, 0.0f, 12.0f, 0.0f));
     root->AddChild(buttonRow, FMargin(12.0f, 0.0f, 12.0f, 12.0f));
+    const FVector2 popupContentMinSize = root->GetMinSize();
 
     const std::weak_ptr<InputDialog> weakThis = weak_from_this();
     auto requestConfirm = [weakThis, &app]() {
@@ -86,14 +94,18 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     cancelButton->OnClicked.AddLambda([requestCancel](ImButton&) {
         requestCancel();
     });
-    editor->OnTextCommitted.AddLambda([requestConfirm](ImEditableText&, const std::string&) {
+    editor->OnTextCommitted.AddLambda([requestConfirm](ImEditableText& sender, const std::string&) {
+        if (!sender.HasKeyboardFocus()) {
+            return;
+        }
+
         requestConfirm();
     });
 
     FPopupOptions popupOptions;
     popupOptions.Title = m_Options.PopupTitle;
     popupOptions.Position = m_Options.Position;
-    popupOptions.Size = m_Options.Size;
+    popupOptions.Size = MaxSize(m_Options.Size, popupContentMinSize);
     popupOptions.RootWidget = root;
     popupOptions.bCloseOnClickOutside = true;
     popupOptions.Style.CornerRadius = 6.0f;

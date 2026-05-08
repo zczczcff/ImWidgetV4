@@ -412,6 +412,10 @@ void ImAndroidGLES3Backend::GetWindowSize(int& width, int& height) const
 
 void ImAndroidGLES3Backend::BeginFrame()
 {
+    // Android may resize the EGL window surface after device rotation without
+    // recreating the backend object. Refresh the cached surface size each frame
+    // so layout and viewport use the current orientation dimensions.
+    UpdateSurfaceSize();
     FlushPendingJavaInputToImGui();
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplAndroid_NewFrame();

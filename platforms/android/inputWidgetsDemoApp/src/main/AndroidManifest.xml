@@ -16,7 +16,7 @@
             android:exported="true"
             android:label="ImWidgetV4 Input Widgets Demo"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+            android:screenOrientation="fullUser"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
             <meta-data
                 android:name="android.app.lib_name"

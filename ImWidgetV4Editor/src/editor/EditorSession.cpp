@@ -495,9 +495,9 @@ void EditorSession::BindDocumentWidgets(
                 std::shared_ptr<ImWidget> widget,
                 EDesignerTransformHandle handle) {
                 const std::string commandLabel =
-                    handle == EDesignerTransformHandle::ResizeBottomRight
-                        ? "Resize Widget"
-                        : "Move Widget";
+                    handle == EDesignerTransformHandle::Move
+                        ? "Move Widget"
+                        : "Resize Widget";
                 std::shared_ptr<ReflectableObject> gestureOwner = widget;
                 if (m_Document) {
                     if (auto parent = m_Document->FindLogicalParent(widget)) {

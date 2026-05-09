@@ -98,16 +98,15 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
 
     Relayout();
 
-    ImDrawList* drawList = paintContext.DrawContext_.GetImDrawList();
     const FVector2 containerMin = m_Geometry.GetMin();
     const FVector2 containerMax = containerMin + FVector2(m_Geometry.Size.X, ComputeVisibleHeight());
     const float cornerRadius = std::max(0.0f, m_Style.CornerRadius);
 
     if (m_bExpanded && m_BodyWidget) {
-        drawList->AddRectFilled(
-            containerMin.ToImVec2(),
-            containerMax.ToImVec2(),
-            m_Style.BodyBackgroundColor.ToImU32(),
+        paintContext.DrawContext_.DrawRectFilled(
+            containerMin,
+            containerMax,
+            m_Style.BodyBackgroundColor,
             cornerRadius);
     }
 
@@ -116,17 +115,16 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
         : (m_bHovered ? m_Style.HeaderHoveredBackgroundColor : m_Style.HeaderBackgroundColor);
 
     if (m_bExpanded && m_BodyWidget) {
-        drawList->AddRectFilled(
-            m_HeaderGeometry.GetMin().ToImVec2(),
-            m_HeaderGeometry.GetMax().ToImVec2(),
-            headerColor.ToImU32(),
-            cornerRadius,
-            ImDrawFlags_RoundCornersTop);
+        paintContext.DrawContext_.DrawRectFilled(
+            m_HeaderGeometry.GetMin(),
+            m_HeaderGeometry.GetMax(),
+            headerColor,
+            cornerRadius);
     } else {
-        drawList->AddRectFilled(
-            m_HeaderGeometry.GetMin().ToImVec2(),
-            m_HeaderGeometry.GetMax().ToImVec2(),
-            headerColor.ToImU32(),
+        paintContext.DrawContext_.DrawRectFilled(
+            m_HeaderGeometry.GetMin(),
+            m_HeaderGeometry.GetMax(),
+            headerColor,
             cornerRadius);
     }
 
@@ -147,22 +145,20 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.PathFill(indicatorColor);
     }
 
-    drawList->AddRect(
-        containerMin.ToImVec2(),
-        containerMax.ToImVec2(),
-        m_Style.BorderColor.ToImU32(),
+    paintContext.DrawContext_.DrawRect(
+        containerMin,
+        containerMax,
+        m_Style.BorderColor,
         cornerRadius,
-        0,
         std::max(1.0f, m_Style.BorderThickness));
 
     if (HasKeyboardFocus()) {
         const FVector2 outlineInset(1.0f, 1.0f);
-        drawList->AddRect(
-            (containerMin + outlineInset).ToImVec2(),
-            (containerMax - outlineInset).ToImVec2(),
-            m_Style.FocusedOutlineColor.ToImU32(),
+        paintContext.DrawContext_.DrawRect(
+            containerMin + outlineInset,
+            containerMax - outlineInset,
+            m_Style.FocusedOutlineColor,
             cornerRadius,
-            0,
             2.0f);
     }
 

@@ -176,6 +176,51 @@ public:
     {
         return false;
     }
+
+    virtual bool SupportsHostWindowDrag() const
+    {
+        return false;
+    }
+
+    virtual bool SupportsHostWindowMinimize() const
+    {
+        return false;
+    }
+
+    virtual bool SupportsHostWindowMaximize() const
+    {
+        return false;
+    }
+
+    virtual bool SupportsHostWindowClose() const
+    {
+        return false;
+    }
+
+    virtual bool IsHostWindowMaximized() const
+    {
+        return false;
+    }
+
+    virtual bool BeginHostWindowDrag()
+    {
+        return false;
+    }
+
+    virtual bool MinimizeHostWindow()
+    {
+        return false;
+    }
+
+    virtual bool ToggleHostWindowMaximize()
+    {
+        return false;
+    }
+
+    virtual bool CloseHostWindow()
+    {
+        return false;
+    }
 };
 
 } // namespace ImWidgetV4

@@ -92,6 +92,34 @@ public:
         return NextSaveFileDialogResult;
     }
     bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome; }
+    bool SupportsHostWindowDrag() const override { return bSupportsHostWindowDrag; }
+    bool SupportsHostWindowMinimize() const override { return bSupportsHostWindowMinimize; }
+    bool SupportsHostWindowMaximize() const override { return bSupportsHostWindowMaximize; }
+    bool SupportsHostWindowClose() const override { return bSupportsHostWindowClose; }
+    bool IsHostWindowMaximized() const override { return bHostWindowMaximized; }
+    bool BeginHostWindowDrag() override
+    {
+        ++BeginHostWindowDragCallCount;
+        return bSupportsHostWindowDrag;
+    }
+    bool MinimizeHostWindow() override
+    {
+        ++MinimizeHostWindowCallCount;
+        return bSupportsHostWindowMinimize;
+    }
+    bool ToggleHostWindowMaximize() override
+    {
+        ++ToggleHostWindowMaximizeCallCount;
+        if (bSupportsHostWindowMaximize) {
+            bHostWindowMaximized = !bHostWindowMaximized;
+        }
+        return bSupportsHostWindowMaximize;
+    }
+    bool CloseHostWindow() override
+    {
+        ++CloseHostWindowCallCount;
+        return bSupportsHostWindowClose;
+    }
 
     ImApplication* Application = nullptr;
     std::string WindowTitle;
@@ -104,6 +132,10 @@ public:
     int OpenFolderDialogCallCount = 0;
     int SaveFileDialogCallCount = 0;
     int CreateTextureCallCount = 0;
+    int BeginHostWindowDragCallCount = 0;
+    int MinimizeHostWindowCallCount = 0;
+    int ToggleHostWindowMaximizeCallCount = 0;
+    int CloseHostWindowCallCount = 0;
     int IconWidth = 0;
     int IconHeight = 0;
     std::vector<std::uint8_t> IconPixels;
@@ -115,6 +147,11 @@ public:
     FPathDialogResult NextOpenFolderDialogResult;
     FPathDialogResult NextSaveFileDialogResult;
     bool bUseCustomHostChrome = false;
+    bool bSupportsHostWindowDrag = false;
+    bool bSupportsHostWindowMinimize = false;
+    bool bSupportsHostWindowMaximize = false;
+    bool bSupportsHostWindowClose = false;
+    bool bHostWindowMaximized = false;
     bool bShouldClose = false;
     std::uintptr_t NextTextureIdValue = 1;
 };
@@ -664,112 +701,6 @@ TEST(ApplicationHostChromeTest, ApplicationIconSynchronizesAndCanBeCleared)
     EXPECT_TRUE(application.GetApplicationIcon().TextureId == nullptr);
     EXPECT_TRUE(backend.IconPixels.empty());
     EXPECT_GT(backend.ClearWindowIconCallCount, 0);
-}
-
-TEST(ApplicationHostChromeTest, TitleBarTabMenusRequireCustomHostChrome)
-{
-    ImApplication application;
-    MockApplicationBackend backend;
-    application.SetBackend(&backend);
-
-    std::vector<FApplicationMenuItem> items;
-    items.push_back(FApplicationMenuItem {"Open", FImageBrush(), {}, true, false, []() {}});
-
-    EXPECT_FALSE(application.AddTitleBarTabMenu("File", items));
-    EXPECT_FALSE(application.ClearTitleBarTabMenus());
-    EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
-
-    backend.bUseCustomHostChrome = true;
-    EXPECT_TRUE(application.AddTitleBarTabMenu("File", items));
-
-    FImageBrush iconTabBrush = application.GetCoreIconBrush(ECoreIcon::Search);
-    EXPECT_TRUE(application.AddTitleBarTabMenu(iconTabBrush, std::vector<FApplicationMenuItem> {items[0]}));
-    ASSERT_EQ(application.GetTitleBarTabMenus().size(), 2u);
-    EXPECT_EQ(application.GetTitleBarTabMenus()[0].LabelKind, EApplicationTitleBarTabLabelKind::Text);
-    EXPECT_EQ(application.GetTitleBarTabMenus()[1].LabelKind, EApplicationTitleBarTabLabelKind::Icon);
-
-    EXPECT_TRUE(application.ClearTitleBarTabMenus());
-    EXPECT_TRUE(application.GetTitleBarTabMenus().empty());
-}
-
-TEST(ApplicationHostChromeTest, TitleBarActionButtonsRequireCustomHostChrome)
-{
-    ImApplication application;
-    MockApplicationBackend backend;
-    application.SetBackend(&backend);
-
-    FApplicationTitleBarActionButton button;
-    button.Icon = application.GetCoreIconBrush(ECoreIcon::Undo);
-    button.ToolTip = "Undo";
-    button.OnInvoked = []() {};
-    button.IsEnabled = []() { return true; };
-    button.IsHighlighted = []() { return true; };
-
-    EXPECT_FALSE(application.AddTitleBarActionButton(button));
-    EXPECT_FALSE(application.ClearTitleBarActionButtons());
-    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
-
-    backend.bUseCustomHostChrome = true;
-    EXPECT_TRUE(application.AddTitleBarActionButton(button));
-    ASSERT_EQ(application.GetTitleBarActionButtons().size(), 1u);
-    EXPECT_EQ(application.GetTitleBarActionButtons()[0].ToolTip, "Undo");
-
-    EXPECT_TRUE(application.ClearTitleBarActionButtons());
-    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
-}
-
-TEST(ApplicationHostChromeTest, TitleBarActionButtonsCanBeAddedAndCleared)
-{
-    ImApplication application;
-    MockApplicationBackend backend;
-    backend.bUseCustomHostChrome = true;
-    application.SetBackend(&backend);
-
-    bool bUndoInvoked = false;
-    bool bRedoInvoked = false;
-
-    FApplicationTitleBarActionButton undoButton;
-    undoButton.Icon = application.GetCoreIconBrush(ECoreIcon::Undo);
-    undoButton.ToolTip = "Undo";
-    undoButton.OnInvoked = [&bUndoInvoked]() { bUndoInvoked = true; };
-    undoButton.IsEnabled = []() { return true; };
-    undoButton.IsHighlighted = []() { return true; };
-
-    FApplicationTitleBarActionButton redoButton;
-    redoButton.Icon = application.GetCoreIconBrush(ECoreIcon::Redo);
-    redoButton.ToolTip = "Redo";
-    redoButton.OnInvoked = [&bRedoInvoked]() { bRedoInvoked = true; };
-    redoButton.IsEnabled = []() { return false; };
-    redoButton.IsHighlighted = []() { return false; };
-
-    EXPECT_TRUE(application.AddTitleBarActionButton(std::move(undoButton)));
-    EXPECT_TRUE(application.AddTitleBarActionButton(std::move(redoButton)));
-
-    const auto& buttons = application.GetTitleBarActionButtons();
-    ASSERT_EQ(buttons.size(), 2u);
-    EXPECT_TRUE(buttons[0].Icon.IsValid());
-    EXPECT_EQ(buttons[0].ToolTip, "Undo");
-    ASSERT_TRUE(buttons[0].IsEnabled);
-    ASSERT_TRUE(buttons[0].IsHighlighted);
-    EXPECT_TRUE(buttons[0].IsEnabled());
-    EXPECT_TRUE(buttons[0].IsHighlighted());
-
-    EXPECT_TRUE(buttons[1].Icon.IsValid());
-    EXPECT_EQ(buttons[1].ToolTip, "Redo");
-    ASSERT_TRUE(buttons[1].IsEnabled);
-    ASSERT_TRUE(buttons[1].IsHighlighted);
-    EXPECT_FALSE(buttons[1].IsEnabled());
-    EXPECT_FALSE(buttons[1].IsHighlighted());
-
-    ASSERT_TRUE(buttons[0].OnInvoked);
-    ASSERT_TRUE(buttons[1].OnInvoked);
-    buttons[0].OnInvoked();
-    buttons[1].OnInvoked();
-    EXPECT_TRUE(bUndoInvoked);
-    EXPECT_TRUE(bRedoInvoked);
-
-    EXPECT_TRUE(application.ClearTitleBarActionButtons());
-    EXPECT_TRUE(application.GetTitleBarActionButtons().empty());
 }
 
 TEST(ApplicationFileDialogTest, ReturnsUnsupportedWhenBackendIsMissing)

@@ -204,6 +204,18 @@ target_link_libraries(tab_view_test PRIVATE
 
 add_test(NAME TabViewTest COMMAND tab_view_test)
 
+add_executable(title_bar_test
+    title_bar_test.cpp
+)
+
+target_link_libraries(title_bar_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME TitleBarTest COMMAND title_bar_test)
+
 add_executable(text_outline_view_test
     text_outline_view_test.cpp
 )

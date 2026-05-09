@@ -18,6 +18,7 @@
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
@@ -197,6 +198,12 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(switchStyle.HasProperty("ThumbInset", "FSwitchStyle"));
     EXPECT_TRUE(switchWidget.HasProperty("Checked", "ImSwitch"));
     EXPECT_TRUE(switchWidget.HasProperty("Style", "ImSwitch"));
+
+    FTitleBarStyle titleBarStyle;
+    ImTitleBar titleBar;
+    EXPECT_TRUE(titleBarStyle.HasProperty("DragRegionMinWidth", "FTitleBarStyle"));
+    EXPECT_TRUE(titleBar.HasProperty("ShowSystemButtons", "ImTitleBar"));
+    EXPECT_TRUE(titleBar.HasProperty("Style", "ImTitleBar"));
 
     FComboBoxStyle comboStyle;
     ImComboBox comboBox;

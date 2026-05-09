@@ -5,8 +5,11 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include "../DemoPaths.h"
 #include <filesystem>
@@ -16,6 +19,133 @@
 using namespace ImWidgetV4;
 
 namespace {
+
+class FCompactTitleBarButton : public ImButton {
+public:
+    FCompactTitleBarButton()
+        : ImButton()
+    {
+    }
+
+    void SetCompactMinSize(const FVector2& size)
+    {
+        MinSize_ = size;
+        Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    }
+
+    FVector2 GetMinSize() const override
+    {
+        const auto& children = GetChildren();
+        const ImPaddingSlot* slot = const_cast<FCompactTitleBarButton*>(this)->GetContentSlot();
+        if (!children.empty() && slot != nullptr) {
+            FVector2 contentMinSize = children[0]->GetMinSize();
+            contentMinSize.X += slot->PaddingLeft + slot->PaddingRight;
+            contentMinSize.Y += slot->PaddingTop + slot->PaddingBottom;
+            return FVector2(
+                std::max(contentMinSize.X, MinSize_.X),
+                std::max(contentMinSize.Y, MinSize_.Y));
+        }
+
+        return MinSize_;
+    }
+
+private:
+    FVector2 MinSize_ {0.0f, 28.0f};
+};
+
+struct FTitleBarPopupState {
+    std::shared_ptr<ImPopupMenu> Menu;
+    std::shared_ptr<ImWindow> Window;
+};
+
+FButtonStyle MakeTitleBarButtonStyle()
+{
+    FButtonStyle style = FButtonStyle::CreatePrimary();
+    const FColor textColor = FColor::FromBytes(232, 238, 246);
+    style.Normal = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Focused = style.Hovered;
+    style.Disabled = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor::FromBytes(132, 140, 150), 0.0f, 4.0f, false);
+    return style;
+}
+
+std::shared_ptr<ImImage> MakeTitleBarIcon(const FImageBrush& brush, float size = 16.0f)
+{
+    auto image = std::make_shared<ImImage>();
+    image->SetBrush(brush);
+    image->SetDesiredSize(FVector2(size, size));
+    return image;
+}
+
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const std::string& text)
+{
+    auto button = std::make_shared<FCompactTitleBarButton>();
+    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetText(text);
+    button->SetCompactMinSize(FVector2(0.0f, 28.0f));
+    if (ImPaddingSlot* slot = button->GetContentSlot()) {
+        slot->PaddingLeft = 12.0f;
+        slot->PaddingRight = 12.0f;
+        slot->PaddingTop = 5.0f;
+        slot->PaddingBottom = 5.0f;
+    }
+    return button;
+}
+
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const std::string& tooltip)
+{
+    auto button = std::make_shared<FCompactTitleBarButton>();
+    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetContent(MakeTitleBarIcon(brush, 16.0f));
+    button->SetCompactMinSize(FVector2(28.0f, 28.0f));
+    if (ImPaddingSlot* slot = button->GetContentSlot()) {
+        slot->PaddingLeft = 6.0f;
+        slot->PaddingRight = 6.0f;
+        slot->PaddingTop = 6.0f;
+        slot->PaddingBottom = 6.0f;
+    }
+    button->SetToolTipText(tooltip);
+    return button;
+}
+
+void BindPopupMenuButton(
+    ImApplication& application,
+    const std::shared_ptr<FCompactTitleBarButton>& button,
+    const std::vector<FPopupMenuItem>& items)
+{
+    auto popupState = std::make_shared<FTitleBarPopupState>();
+    popupState->Menu = std::make_shared<ImPopupMenu>();
+    popupState->Menu->SetItems(items);
+    popupState->Menu->OnItemInvoked.AddLambda([popupState](ImPopupMenu&, int) {
+        if (popupState->Window && popupState->Window->IsOpen()) {
+            popupState->Window->Close();
+        }
+    });
+
+    button->OnClicked.AddLambda([&application, button, popupState](ImButton&) {
+        if (popupState->Window && popupState->Window->IsOpen()) {
+            popupState->Window->Close();
+            return;
+        }
+
+        popupState->Menu->SetItems(popupState->Menu->GetItems());
+
+        if (!popupState->Window) {
+            FPopupOptions popupOptions;
+            popupOptions.Title = "TitleBarMenu";
+            popupOptions.Position = button->GetGeometry().Position + FVector2(0.0f, button->GetGeometry().Size.Y);
+            popupOptions.Size = popupState->Menu->GetMinSize();
+            popupOptions.RootWidget = popupState->Menu;
+            popupOptions.ParentWindow = application.GetWindowManager().GetMainWindow();
+            popupState->Window = application.GetWindowManager().CreatePopup(popupOptions);
+        } else {
+            popupState->Window->SetPosition(button->GetGeometry().Position + FVector2(0.0f, button->GetGeometry().Size.Y));
+            popupState->Window->SetSize(popupState->Menu->GetMinSize());
+            popupState->Window->Open();
+        }
+    });
+}
 
 std::shared_ptr<ImVerticalBox> MakeWindowStack(const std::string& titleText, const std::string& bodyText)
 {
@@ -80,7 +210,7 @@ public:
         application.SetApplicationIcon(application.GetCoreIconBrush(ECoreIcon::Settings));
 
         auto mainRoot = std::make_shared<ImVerticalBox>();
-        mainRoot->SetSpacing(12.0f);
+        mainRoot->SetSpacing(0.0f);
 
         auto title = std::make_shared<ImTextBlock>();
         title->SetText("Window Management Demo");
@@ -120,8 +250,6 @@ public:
         Status_->SetTextColor(FColor::FromBytes(160, 214, 190));
         Status_->SetWrapText(true);
         mainRoot->AddChild(Status_, FMargin(24.0f, 0.0f, 24.0f, 0.0f));
-
-        application.SetRootWidget(mainRoot);
 
         FWindowOptions toolsOptions;
         toolsOptions.Title = "Tools";
@@ -204,8 +332,26 @@ public:
             Status_->SetText(checked ? "Status: inspector text box disabled." : "Status: inspector text box enabled.");
         });
 
-        std::vector<FApplicationMenuItem> fileMenuItems;
-        fileMenuItems.push_back(FApplicationMenuItem {
+        auto titleBar = std::make_shared<ImTitleBar>();
+        FTitleBarStyle titleBarStyle = titleBar->GetStyle();
+        titleBarStyle.Height = 38.0f;
+        titleBarStyle.Padding = FMargin(10.0f, 6.0f, 10.0f, 6.0f);
+        titleBarStyle.ItemSpacing = 4.0f;
+        titleBarStyle.SystemButtonSize = 34.0f;
+        titleBarStyle.MinDesiredSize = FVector2(0.0f, 38.0f);
+        titleBar->SetStyle(titleBarStyle);
+
+        auto appIcon = MakeTitleBarIcon(application.GetApplicationIcon(), 18.0f);
+        auto appTitle = std::make_shared<ImTextBlock>();
+        appTitle->SetText("Window Demo");
+        appTitle->SetFontSize(16.0f);
+        appTitle->SetWrapText(false);
+        appTitle->SetTextColor(FColor::FromBytes(238, 242, 247));
+        titleBar->AddLeadingItem(appIcon);
+        titleBar->AddLeadingItem(appTitle);
+
+        std::vector<FPopupMenuItem> fileMenuItems;
+        fileMenuItems.push_back(FPopupMenuItem {
             "Toggle Popup",
             application.GetCoreIconBrush(ECoreIcon::Folder),
             {},
@@ -213,7 +359,7 @@ public:
             false,
             [togglePopup]() { togglePopup(); }
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             "Open Modal",
             application.GetCoreIconBrush(ECoreIcon::View),
             {},
@@ -221,7 +367,7 @@ public:
             false,
             [openModal]() { openModal(); }
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             "Open File Dialog",
             application.GetCoreIconBrush(ECoreIcon::File),
             {},
@@ -229,7 +375,7 @@ public:
             false,
             [openFileDialog]() { openFileDialog(); }
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             "Open Folder Dialog",
             application.GetCoreIconBrush(ECoreIcon::Folder),
             {},
@@ -237,7 +383,7 @@ public:
             false,
             [openFolderDialog]() { openFolderDialog(); }
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             "Save File Dialog",
             application.GetCoreIconBrush(ECoreIcon::Save),
             {},
@@ -245,7 +391,7 @@ public:
             false,
             [saveFileDialog]() { saveFileDialog(); }
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             std::string(),
             FImageBrush(),
             {},
@@ -253,7 +399,7 @@ public:
             true,
             {}
         });
-        fileMenuItems.push_back(FApplicationMenuItem {
+        fileMenuItems.push_back(FPopupMenuItem {
             "Exit Demo",
             application.GetCoreIconBrush(ECoreIcon::Trash),
             {},
@@ -265,10 +411,12 @@ public:
                 }
             }
         });
-        application.AddTitleBarTabMenu("File", std::move(fileMenuItems));
+        auto fileMenuButton = MakeTitleBarTextButton("File");
+        BindPopupMenuButton(application, fileMenuButton, fileMenuItems);
+        titleBar->AddLeadingItem(fileMenuButton);
 
-        std::vector<FApplicationMenuItem> toolsMenuItems;
-        toolsMenuItems.push_back(FApplicationMenuItem {
+        std::vector<FPopupMenuItem> toolsMenuItems;
+        toolsMenuItems.push_back(FPopupMenuItem {
             "Enable Inspector Input",
             application.GetCoreIconBrush(ECoreIcon::Unlock),
             {},
@@ -280,8 +428,8 @@ public:
                 Status_->SetText("Status: inspector text box enabled.");
             }
         });
-        std::vector<FApplicationMenuItem> inspectorSubMenuItems;
-        inspectorSubMenuItems.push_back(FApplicationMenuItem {
+        std::vector<FPopupMenuItem> inspectorSubMenuItems;
+        inspectorSubMenuItems.push_back(FPopupMenuItem {
             "Disable Inspector Input",
             application.GetCoreIconBrush(ECoreIcon::Lock),
             {},
@@ -293,7 +441,7 @@ public:
                 Status_->SetText("Status: inspector text box disabled.");
             }
         });
-        inspectorSubMenuItems.push_back(FApplicationMenuItem {
+        inspectorSubMenuItems.push_back(FPopupMenuItem {
             "Show Status Hint",
             application.GetCoreIconBrush(ECoreIcon::Search),
             {},
@@ -303,7 +451,7 @@ public:
                 Status_->SetText("Status: inspector submenu invoked.");
             }
         });
-        toolsMenuItems.push_back(FApplicationMenuItem {
+        toolsMenuItems.push_back(FPopupMenuItem {
             "Inspector",
             application.GetCoreIconBrush(ECoreIcon::Settings),
             inspectorSubMenuItems,
@@ -311,10 +459,12 @@ public:
             false,
             {}
         });
-        application.AddTitleBarTabMenu("Tools", std::move(toolsMenuItems));
+        auto toolsMenuButton = MakeTitleBarTextButton("Tools");
+        BindPopupMenuButton(application, toolsMenuButton, toolsMenuItems);
+        titleBar->AddLeadingItem(toolsMenuButton);
 
-        std::vector<FApplicationMenuItem> infoMenuItems;
-        infoMenuItems.push_back(FApplicationMenuItem {
+        std::vector<FPopupMenuItem> infoMenuItems;
+        infoMenuItems.push_back(FPopupMenuItem {
             "Host chrome tabs are active",
             FImageBrush(),
             {},
@@ -322,7 +472,7 @@ public:
             false,
             {}
         });
-        infoMenuItems.push_back(FApplicationMenuItem {
+        infoMenuItems.push_back(FPopupMenuItem {
             "Show status hint",
             application.GetCoreIconBrush(ECoreIcon::Search),
             {},
@@ -332,7 +482,20 @@ public:
                 Status_->SetText("Status: title-bar menu invoked.");
             }
         });
-        application.AddTitleBarTabMenu(application.GetCoreIconBrush(ECoreIcon::View), std::move(infoMenuItems));
+        auto infoMenuButton = MakeTitleBarIconButton(application.GetCoreIconBrush(ECoreIcon::View), "Info");
+        BindPopupMenuButton(application, infoMenuButton, infoMenuItems);
+        titleBar->AddLeadingItem(infoMenuButton);
+
+        auto popupActionButton = MakeTitleBarTextButton("Popup");
+        popupActionButton->OnClicked.AddLambda([togglePopup](ImButton&) { togglePopup(); });
+        titleBar->AddTrailingItem(popupActionButton);
+
+        auto modalActionButton = MakeTitleBarTextButton("Modal");
+        modalActionButton->OnClicked.AddLambda([openModal](ImButton&) { openModal(); });
+        titleBar->AddTrailingItem(modalActionButton);
+
+        mainRoot->InsertChildAt(0, titleBar);
+        application.SetRootWidget(mainRoot);
     }
 
 private:

@@ -1,0 +1,134 @@
+#pragma once
+
+#include <imwidgetv4/core/Widget.h>
+#include <memory>
+#include <vector>
+
+namespace ImWidgetV4 {
+
+class ImApplicationBackend;
+
+struct FTitleBarStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FTitleBarStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTitleBarStyle::BackgroundColor, "Title bar background color")
+        .RegisterProperty(PropertyType::Color, "BorderColor", &FTitleBarStyle::BorderColor, "Title bar border color")
+        .RegisterProperty(PropertyType::Struct, "Padding", &FTitleBarStyle::Padding, "Title bar padding")
+        .RegisterProperty(PropertyType::Float, "ItemSpacing", &FTitleBarStyle::ItemSpacing, "Spacing between title bar items")
+        .RegisterProperty(PropertyType::Float, "Height", &FTitleBarStyle::Height, "Preferred title bar height")
+        .RegisterProperty(PropertyType::Float, "DragRegionMinWidth", &FTitleBarStyle::DragRegionMinWidth, "Minimum drag region width")
+        .RegisterProperty(PropertyType::Float, "SystemButtonSize", &FTitleBarStyle::SystemButtonSize, "System button size")
+        .RegisterProperty(PropertyType::Float, "SystemButtonSpacing", &FTitleBarStyle::SystemButtonSpacing, "Spacing between system buttons")
+        .RegisterProperty(PropertyType::Color, "HoveredSystemButtonColor", &FTitleBarStyle::HoveredSystemButtonColor, "Hovered system button color")
+        .RegisterProperty(PropertyType::Color, "PressedSystemButtonColor", &FTitleBarStyle::PressedSystemButtonColor, "Pressed system button color")
+        .RegisterProperty(PropertyType::Color, "CloseButtonHoveredColor", &FTitleBarStyle::CloseButtonHoveredColor, "Hovered close button color")
+        .RegisterProperty(PropertyType::Color, "CloseButtonPressedColor", &FTitleBarStyle::CloseButtonPressedColor, "Pressed close button color")
+        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FTitleBarStyle::MinDesiredSize, "Minimum desired size");
+    END_DECLARE_OBJECT()
+
+public:
+    FColor BackgroundColor = FColor::FromBytes(28, 33, 41);
+    FColor BorderColor = FColor::FromBytes(16, 19, 24);
+    FMargin Padding = FMargin(8.0f, 6.0f, 8.0f, 6.0f);
+    float ItemSpacing = 6.0f;
+    float Height = 34.0f;
+    float DragRegionMinWidth = 34.0f;
+    float SystemButtonSize = 34.0f;
+    float SystemButtonSpacing = 0.0f;
+    FColor HoveredSystemButtonColor = FColor::FromBytes(255, 255, 255, 24);
+    FColor PressedSystemButtonColor = FColor::FromBytes(255, 255, 255, 40);
+    FColor CloseButtonHoveredColor = FColor::FromBytes(212, 58, 76, 224);
+    FColor CloseButtonPressedColor = FColor::FromBytes(188, 46, 66, 240);
+    FVector2 MinDesiredSize {240.0f, 34.0f};
+};
+
+class ImTitleBar : public ImWidget {
+    DECLARE_OBJECT_WITH_PARENT(ImTitleBar, ImWidget)
+    registrar
+        .RegisterProperty(PropertyType::Bool, "ShowSystemButtons", &ImTitleBar::bShowSystemButtons_, "Whether the system button group is visible")
+        .RegisterProperty(PropertyType::Bool, "ShowMinimizeButton", &ImTitleBar::bShowMinimizeButton_, "Whether the minimize button is visible")
+        .RegisterProperty(PropertyType::Bool, "ShowMaximizeButton", &ImTitleBar::bShowMaximizeButton_, "Whether the maximize button is visible")
+        .RegisterProperty(PropertyType::Bool, "ShowCloseButton", &ImTitleBar::bShowCloseButton_, "Whether the close button is visible")
+        .RegisterProperty(PropertyType::Float, "DragRegionMinWidth", &ImTitleBar::ReflectedDragRegionMinWidth_, "Minimum drag region width override")
+        .RegisterProperty(PropertyType::Struct, "Style", &ImTitleBar::Style_, "Title bar style");
+    END_DECLARE_OBJECT()
+
+public:
+    ImTitleBar();
+    virtual ~ImTitleBar() = default;
+
+    void AddLeadingItem(const std::shared_ptr<ImWidget>& widget);
+    void AddTrailingItem(const std::shared_ptr<ImWidget>& widget);
+    void ClearLeadingItems();
+    void ClearTrailingItems();
+
+    void SetShowSystemButtons(bool value);
+    void SetShowMinimizeButton(bool value);
+    void SetShowMaximizeButton(bool value);
+    void SetShowCloseButton(bool value);
+    void SetDragRegionMinWidth(float width);
+    void SetStyle(const FTitleBarStyle& style);
+    const FTitleBarStyle& GetStyle() const { return Style_; }
+
+    virtual void Paint(const FPaintContext& paintContext) override;
+    virtual FVector2 GetMinSize() const override;
+    virtual FReply OnPreviewInputEvent(const FInputEvent& event) override;
+    virtual FReply OnInputEvent(const FInputEvent& event) override;
+    virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath) override;
+
+private:
+    enum class ESystemButton : std::uint8_t {
+        None,
+        Minimize,
+        Maximize,
+        Close
+    };
+
+    struct FChildLayout {
+        Ptr Widget;
+        FGeometry Geometry;
+    };
+
+    void Relayout() const;
+    void DetachItems(std::vector<Ptr>& items);
+    void AttachItem(std::vector<Ptr>& destination, const Ptr& widget);
+    void SyncChildGeometries() const;
+    void ClearHoveredState();
+    void UpdateHoveredState(const FVector2& mousePosition);
+    void UpdateToolTipForHoveredState();
+    void PaintChildren(const FPaintContext& paintContext) const;
+    void PaintSystemButtons(const FPaintContext& paintContext) const;
+    void PaintSystemButton(const FPaintContext& paintContext, ESystemButton button, const FGeometry& geometry) const;
+    void DrawSystemButtonGlyph(const FPaintContext& paintContext, ESystemButton button, const FGeometry& geometry) const;
+    bool HasSystemButtons() const;
+    bool IsSystemButtonVisible(ESystemButton button) const;
+    float GetResolvedDragRegionMinWidth() const;
+    ESystemButton HitTestSystemButton(const FVector2& position) const;
+    bool HitTestsChildWidgets(const FVector2& position, std::vector<Ptr>* outPath = nullptr) const;
+    bool IsPointInDragRegion(const FVector2& position) const;
+    ImApplicationBackend* GetBackend() const;
+    bool HandleSystemButtonClick(ESystemButton button);
+    void MarkLayoutDirty();
+
+    FTitleBarStyle Style_;
+    std::vector<Ptr> LeadingItems_;
+    std::vector<Ptr> TrailingItems_;
+    mutable std::vector<FChildLayout> LeadingLayouts_;
+    mutable std::vector<FChildLayout> TrailingLayouts_;
+    mutable FGeometry DragRegionGeometry_;
+    mutable FGeometry MinimizeButtonGeometry_;
+    mutable FGeometry MaximizeButtonGeometry_;
+    mutable FGeometry CloseButtonGeometry_;
+    mutable bool bLayoutDirty_ = true;
+    bool bShowSystemButtons_ = true;
+    bool bShowMinimizeButton_ = true;
+    bool bShowMaximizeButton_ = true;
+    bool bShowCloseButton_ = true;
+    float ReflectedDragRegionMinWidth_ = -1.0f;
+    ESystemButton HoveredSystemButton_ = ESystemButton::None;
+    ESystemButton PressedSystemButton_ = ESystemButton::None;
+    double LastDragRegionClickTimestamp_ = -1.0;
+    FVector2 LastDragRegionClickPosition_ {0.0f, 0.0f};
+};
+
+} // namespace ImWidgetV4

@@ -13,11 +13,14 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
+#include <imwidgetv4/widgets/Image.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
@@ -41,13 +44,148 @@ std::filesystem::path GetEditorWorkspaceStatePath()
 
 struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
+    std::shared_ptr<ImTitleBar> TitleBar;
     std::shared_ptr<EditorShellHost> ShellHost;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextList> OutputText;
+    std::shared_ptr<ImImage> TitleBarIcon;
+    std::shared_ptr<ImTextBlock> TitleBarText;
+    std::shared_ptr<ImButton> UndoButton;
+    std::shared_ptr<ImButton> RedoButton;
 };
+
+class FCompactTitleBarButton : public ImButton {
+public:
+    FCompactTitleBarButton()
+        : ImButton()
+    {
+    }
+
+    void SetCompactMinSize(const FVector2& size)
+    {
+        MinSize_ = size;
+        Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    }
+
+    FVector2 GetMinSize() const override
+    {
+        const auto& children = GetChildren();
+        const ImPaddingSlot* slot = const_cast<FCompactTitleBarButton*>(this)->GetContentSlot();
+        if (!children.empty() && slot != nullptr) {
+            FVector2 contentMinSize = children[0]->GetMinSize();
+            contentMinSize.X += slot->PaddingLeft + slot->PaddingRight;
+            contentMinSize.Y += slot->PaddingTop + slot->PaddingBottom;
+            return FVector2(
+                std::max(contentMinSize.X, MinSize_.X),
+                std::max(contentMinSize.Y, MinSize_.Y));
+        }
+
+        return MinSize_;
+    }
+
+private:
+    FVector2 MinSize_ {0.0f, 28.0f};
+};
+
+struct FTitleBarPopupState {
+    std::shared_ptr<ImPopupMenu> Menu;
+    std::shared_ptr<ImWindow> Window;
+};
+
+FButtonStyle MakeTitleBarButtonStyle(bool bHighlighted = false)
+{
+    FButtonStyle style = FButtonStyle::CreatePrimary();
+    const FColor textColor = FColor::FromBytes(232, 238, 246);
+    const FColor baseColor = bHighlighted ? FColor::FromBytes(72, 104, 146, 116) : FColor(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Normal = FButtonStateStyle(baseColor, FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Focused = style.Hovered;
+    style.Disabled = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor::FromBytes(132, 140, 150), 0.0f, 4.0f, false);
+    return style;
+}
+
+std::shared_ptr<ImImage> MakeTitleBarIcon(const FImageBrush& brush, float size = 16.0f)
+{
+    auto image = std::make_shared<ImImage>();
+    image->SetBrush(brush);
+    image->SetDesiredSize(FVector2(size, size));
+    return image;
+}
+
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const std::string& text)
+{
+    auto button = std::make_shared<FCompactTitleBarButton>();
+    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetText(text);
+    button->SetCompactMinSize(FVector2(0.0f, 28.0f));
+    if (ImPaddingSlot* slot = button->GetContentSlot()) {
+        slot->PaddingLeft = 12.0f;
+        slot->PaddingRight = 12.0f;
+        slot->PaddingTop = 5.0f;
+        slot->PaddingBottom = 5.0f;
+    }
+    return button;
+}
+
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const std::string& tooltip)
+{
+    auto button = std::make_shared<FCompactTitleBarButton>();
+    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetContent(MakeTitleBarIcon(brush, 16.0f));
+    button->SetCompactMinSize(FVector2(30.0f, 28.0f));
+    if (ImPaddingSlot* slot = button->GetContentSlot()) {
+        slot->PaddingLeft = 7.0f;
+        slot->PaddingRight = 7.0f;
+        slot->PaddingTop = 6.0f;
+        slot->PaddingBottom = 6.0f;
+    }
+    button->SetToolTipText(tooltip);
+    return button;
+}
+
+void BindPopupMenuButton(
+    ImApplication& application,
+    const std::shared_ptr<FCompactTitleBarButton>& button,
+    const std::function<std::vector<FPopupMenuItem>()>& itemBuilder)
+{
+    auto popupState = std::make_shared<FTitleBarPopupState>();
+    popupState->Menu = std::make_shared<ImPopupMenu>();
+    popupState->Menu->OnItemInvoked.AddLambda([popupState](ImPopupMenu&, int) {
+        if (popupState->Window && popupState->Window->IsOpen()) {
+            popupState->Window->Close();
+        }
+    });
+
+    button->OnClicked.AddLambda([&application, button, popupState, itemBuilder](ImButton&) {
+        if (popupState->Window && popupState->Window->IsOpen()) {
+            popupState->Window->Close();
+            return;
+        }
+
+        popupState->Menu->SetItems(itemBuilder());
+
+        const FVector2 popupPosition = button->GetGeometry().Position + FVector2(0.0f, button->GetGeometry().Size.Y);
+        const FVector2 popupSize = popupState->Menu->GetMinSize();
+
+        if (!popupState->Window) {
+            FPopupOptions popupOptions;
+            popupOptions.Title = "TitleBarMenu";
+            popupOptions.Position = popupPosition;
+            popupOptions.Size = popupSize;
+            popupOptions.RootWidget = popupState->Menu;
+            popupOptions.ParentWindow = application.GetWindowManager().GetMainWindow();
+            popupState->Window = application.GetWindowManager().CreatePopup(popupOptions);
+        } else {
+            popupState->Window->SetPosition(popupPosition);
+            popupState->Window->SetSize(popupSize);
+            popupState->Window->Open();
+        }
+    });
+}
 
 std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
 {
@@ -212,6 +350,29 @@ FEditorShellWidgets BuildEditorShell()
     FEditorShellWidgets shell;
 
     auto shellHost = std::make_shared<EditorShellHost>();
+    auto rootLayout = std::make_shared<ImVerticalBox>();
+    rootLayout->SetSpacing(0.0f);
+    auto titleBar = std::make_shared<ImTitleBar>();
+    FTitleBarStyle titleBarStyle = titleBar->GetStyle();
+    titleBarStyle.Height = 38.0f;
+    titleBarStyle.Padding = FMargin(10.0f, 6.0f, 10.0f, 6.0f);
+    titleBarStyle.ItemSpacing = 4.0f;
+    titleBarStyle.SystemButtonSize = 34.0f;
+    titleBarStyle.MinDesiredSize = FVector2(0.0f, 38.0f);
+    titleBar->SetStyle(titleBarStyle);
+
+    auto titleIcon = MakeTitleBarIcon(FImageBrush(), 18.0f);
+    auto titleText = std::make_shared<ImTextBlock>();
+    titleText->SetText("ImWidgetV4 Editor");
+    titleText->SetFontSize(16.0f);
+    titleText->SetWrapText(false);
+    titleText->SetTextColor(FColor::FromBytes(238, 242, 247));
+    titleBar->AddLeadingItem(titleIcon);
+    titleBar->AddLeadingItem(titleText);
+
+    auto undoButton = MakeTitleBarIconButton(FImageBrush(), "Undo");
+    auto redoButton = MakeTitleBarIconButton(FImageBrush(), "Redo");
+
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
     verticalShell->SetPartMinSize(0, 300.0f);
@@ -269,14 +430,21 @@ FEditorShellWidgets BuildEditorShell()
     verticalShell->AddPart(bottomDock, 0.22f, 140.0f);
 
     shellHost->SetRootWidget(verticalShell);
+    rootLayout->AddChild(titleBar, FMargin(0.0f));
+    rootLayout->AddChildFill(shellHost, 1.0f, FMargin(0.0f));
 
-    shell.Root = shellHost;
+    shell.Root = rootLayout;
+    shell.TitleBar = titleBar;
     shell.ShellHost = shellHost;
     shell.DocumentTabs = documentTabs;
     shell.ProjectView = projectView;
     shell.WidgetTreeView = widgetTreeView;
     shell.DetailsView = detailsView;
     shell.OutputText = outputText;
+    shell.TitleBarIcon = titleIcon;
+    shell.TitleBarText = titleText;
+    shell.UndoButton = undoButton;
+    shell.RedoButton = redoButton;
     return shell;
 }
 
@@ -411,56 +579,55 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
     };
 }
 
-void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+std::vector<FPopupMenuItem> BuildProjectMenuItems(
+    ImApplication& app,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
-    app.ClearTitleBarTabMenus();
-    app.AddTitleBarTabMenu("File", BuildFileMenuItems(app, workspaceController));
-    app.AddTitleBarTabMenu("Edit", BuildEditMenuItems(workspaceController));
-    app.AddTitleBarTabMenu("Project", {
-        FApplicationMenuItem {"New App Project...", {}, {}, true, false, [&app, workspaceController]() {
+    return {
+        FPopupMenuItem {"New App Project...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->NewAppProject(app);
             }
         }},
-        FApplicationMenuItem {"Open App Project...", {}, {}, true, false, [&app, workspaceController]() {
+        FPopupMenuItem {"Open App Project...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->OpenAppProject(app);
             }
         }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Open Project Root...", {}, {}, true, false, [&app, workspaceController]() {
+        FPopupMenuItem {"", {}, {}, true, true, {}},
+        FPopupMenuItem {"Open Project Root...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->SelectProjectRoot(app);
             }
         }},
-        FApplicationMenuItem {"Generate C++...", {}, {}, true, false, [&app, workspaceController]() {
+        FPopupMenuItem {"Generate C++...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->GenerateActiveDocumentCpp(app);
             }
         }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"New UI Document...", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+        FPopupMenuItem {"", {}, {}, true, true, {}},
+        FPopupMenuItem {"New UI Document...", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->CreateDocumentInDirectory(app, workspaceController->GetProjectRoot());
             }
         }},
-        FApplicationMenuItem {"New Folder", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+        FPopupMenuItem {"New Folder", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->CreateFolderInDirectory(app, workspaceController->GetProjectRoot());
             }
         }},
-        FApplicationMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
+        FPopupMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RefreshProjectTree();
             }
         }},
-        FApplicationMenuItem {"Reveal Project Root", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [workspaceController]() {
+        FPopupMenuItem {"Reveal Project Root", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->RevealProjectItemInExplorer(workspaceController->GetProjectRoot());
             }
         }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {
+        FPopupMenuItem {"", {}, {}, true, true, {}},
+        FPopupMenuItem {
             workspaceController && !workspaceController->GetProjectRoot().empty()
                 ? workspaceController->GetProjectRoot().string()
                 : std::string("Project root not configured"),
@@ -470,10 +637,103 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
             false,
             {}
         }
+    };
+}
+
+void RebuildEditorTitleBar(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    if (!shell.TitleBar) {
+        return;
+    }
+
+    shell.TitleBar->ClearLeadingItems();
+    shell.TitleBar->ClearTrailingItems();
+
+    if (shell.TitleBarIcon) {
+        shell.TitleBarIcon->SetBrush(app.GetApplicationIcon());
+        shell.TitleBar->AddLeadingItem(shell.TitleBarIcon);
+    }
+
+    if (shell.TitleBarText) {
+        const std::string projectLabel = workspaceController && !workspaceController->GetProjectRoot().empty()
+            ? workspaceController->GetProjectRoot().filename().string()
+            : std::string("ImWidgetV4 Editor");
+        shell.TitleBarText->SetText(projectLabel);
+        shell.TitleBar->AddLeadingItem(shell.TitleBarText);
+    }
+
+    auto fileButton = MakeTitleBarTextButton("File");
+    BindPopupMenuButton(app, fileButton, [&app, workspaceController]() {
+        return BuildFileMenuItems(app, workspaceController);
     });
-    app.AddTitleBarTabMenu("Build", BuildBuildMenuItems(workspaceController));
-    app.AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
-    app.AddTitleBarTabMenu(app.GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
+    shell.TitleBar->AddLeadingItem(fileButton);
+
+    auto editButton = MakeTitleBarTextButton("Edit");
+    BindPopupMenuButton(app, editButton, [workspaceController]() {
+        return BuildEditMenuItems(workspaceController);
+    });
+    shell.TitleBar->AddLeadingItem(editButton);
+
+    auto projectButton = MakeTitleBarTextButton("Project");
+    BindPopupMenuButton(app, projectButton, [&app, workspaceController]() {
+        return BuildProjectMenuItems(app, workspaceController);
+    });
+    shell.TitleBar->AddLeadingItem(projectButton);
+
+    auto buildButton = MakeTitleBarTextButton("Build");
+    BindPopupMenuButton(app, buildButton, [workspaceController]() {
+        return BuildBuildMenuItems(workspaceController);
+    });
+    shell.TitleBar->AddLeadingItem(buildButton);
+
+    auto viewButton = MakeTitleBarTextButton("View");
+    BindPopupMenuButton(app, viewButton, []() {
+        return BuildSimpleMenuItems("View");
+    });
+    shell.TitleBar->AddLeadingItem(viewButton);
+
+    if (shell.UndoButton) {
+        shell.UndoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)), 16.0f));
+        shell.TitleBar->AddTrailingItem(shell.UndoButton);
+    }
+    if (shell.RedoButton) {
+        shell.RedoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)), 16.0f));
+        shell.TitleBar->AddTrailingItem(shell.RedoButton);
+    }
+
+    auto searchButton = MakeTitleBarIconButton(app.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(210, 219, 232)), "Search");
+    BindPopupMenuButton(app, searchButton, []() {
+        return BuildSimpleMenuItems("Search");
+    });
+    shell.TitleBar->AddTrailingItem(searchButton);
+}
+
+void UpdateEditorTitleBarActions(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    const bool bCanUndo = workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
+    const bool bCanRedo = workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
+
+    if (shell.UndoButton) {
+        shell.UndoButton->SetDisabled(!bCanUndo);
+        shell.UndoButton->SetStyle(MakeTitleBarButtonStyle(bCanUndo));
+        shell.UndoButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Undo, bCanUndo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
+            16.0f));
+    }
+
+    if (shell.RedoButton) {
+        shell.RedoButton->SetDisabled(!bCanRedo);
+        shell.RedoButton->SetStyle(MakeTitleBarButtonStyle(bCanRedo));
+        shell.RedoButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
+            16.0f));
+    }
 }
 
 } // namespace
@@ -494,6 +754,7 @@ public:
 
     void ConfigureApplication(ImApplication& app) override
     {
+        BoundApplication_ = &app;
         const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
         std::error_code currentPathError;
         std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
@@ -503,13 +764,13 @@ public:
         Shell_ = BuildEditorShell();
         WorkspaceController_ = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
         Shell_.ShellHost->SetWorkspaceController(WorkspaceController_);
-        WorkspaceController_->SetOnProjectStateChanged([appPtr = &app, weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+        WorkspaceController_->SetOnProjectStateChanged([this, appPtr = &app, weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
             auto lockedWorkspace = weakWorkspace.lock();
             if (appPtr == nullptr || !lockedWorkspace) {
                 return;
             }
 
-            RebuildTitleBarMenus(*appPtr, lockedWorkspace);
+            RebuildEditorTitleBar(*appPtr, Shell_, lockedWorkspace);
         });
         WorkspaceController_->SetOnExitRequested([appPtr = &app]() {
             if (appPtr == nullptr) {
@@ -531,43 +792,26 @@ public:
             WorkspaceController_->SetProjectRoot(defaultWorkspaceDirectory);
         }
 
+        app.SetApplicationTitle("ImWidgetV4 Editor");
         app.SetApplicationIcon(app.GetCoreIconBrush(ECoreIcon::Settings));
-        app.ClearTitleBarActionButtons();
-        app.AddTitleBarActionButton(FApplicationTitleBarActionButton {
-            app.GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)),
-            "Undo",
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+        if (Shell_.UndoButton) {
+            Shell_.UndoButton->SetToolTipText("Undo");
+            Shell_.UndoButton->OnClicked.AddLambda([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                 if (auto lockedWorkspace = weakWorkspace.lock()) {
                     lockedWorkspace->Undo();
                 }
-            },
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
-                auto lockedWorkspace = weakWorkspace.lock();
-                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanUndo();
-            },
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
-                auto lockedWorkspace = weakWorkspace.lock();
-                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanUndo();
-            }
-        });
-        app.AddTitleBarActionButton(FApplicationTitleBarActionButton {
-            app.GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)),
-            "Redo",
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+            });
+        }
+        if (Shell_.RedoButton) {
+            Shell_.RedoButton->SetToolTipText("Redo");
+            Shell_.RedoButton->OnClicked.AddLambda([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                 if (auto lockedWorkspace = weakWorkspace.lock()) {
                     lockedWorkspace->Redo();
                 }
-            },
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
-                auto lockedWorkspace = weakWorkspace.lock();
-                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanRedo();
-            },
-            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
-                auto lockedWorkspace = weakWorkspace.lock();
-                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanRedo();
-            }
-        });
-        RebuildTitleBarMenus(app, WorkspaceController_);
+            });
+        }
+        RebuildEditorTitleBar(app, Shell_, WorkspaceController_);
+        UpdateEditorTitleBarActions(app, Shell_, WorkspaceController_);
         app.SetRootWidget(Shell_.Root);
     }
 
@@ -580,6 +824,13 @@ public:
     {
         if (WorkspaceController_) {
             WorkspaceController_->TickBackgroundTasks();
+        }
+        if (WorkspaceController_) {
+            // Keep undo/redo availability responsive without rebuilding the full shell tree.
+            // The title text is updated on project state changes via RebuildEditorTitleBar.
+            if (BoundApplication_ != nullptr) {
+                UpdateEditorTitleBarActions(*BoundApplication_, Shell_, WorkspaceController_);
+            }
         }
     }
 
@@ -603,6 +854,7 @@ private:
     FEditorShellWidgets Shell_;
     std::shared_ptr<EditorWorkspaceController> WorkspaceController_;
     std::filesystem::path WorkspaceStatePath_;
+    ImApplication* BoundApplication_ = nullptr;
 };
 
 namespace ImWidgetV4 {

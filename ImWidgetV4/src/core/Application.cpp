@@ -763,15 +763,6 @@ void ImApplication::SetBackend(ImApplicationBackend* backend)
     Backend_ = backend;
     if (Backend_ != nullptr) {
         PromoteBrushToBackendTexture(ApplicationIcon_);
-        for (FApplicationTitleBarTab& tab : TitleBarTabMenus_) {
-            if (tab.LabelKind == EApplicationTitleBarTabLabelKind::Icon) {
-                PromoteBrushToBackendTexture(tab.Icon);
-            }
-
-            for (FApplicationMenuItem& item : tab.Items) {
-                PromoteBrushToBackendTexture(item.Icon);
-            }
-        }
     }
 
     SyncApplicationTitle();
@@ -781,85 +772,6 @@ void ImApplication::SetBackend(ImApplicationBackend* backend)
 ImApplicationBackend* ImApplication::GetBackend() const
 {
     return Backend_;
-}
-
-bool ImApplication::ClearTitleBarTabMenus()
-{
-    if (!CanMutateTitleBarTabMenus()) {
-        return false;
-    }
-
-    TitleBarTabMenus_.clear();
-    return true;
-}
-
-bool ImApplication::AddTitleBarTabMenu(const std::string& text, std::vector<FApplicationMenuItem> items)
-{
-    if (!CanMutateTitleBarTabMenus()) {
-        return false;
-    }
-
-    FApplicationTitleBarTab tab;
-    tab.LabelKind = EApplicationTitleBarTabLabelKind::Text;
-    tab.Text = text;
-    tab.Items = std::move(items);
-    for (FApplicationMenuItem& item : tab.Items) {
-        PromoteBrushToBackendTexture(item.Icon);
-    }
-    TitleBarTabMenus_.push_back(std::move(tab));
-    return true;
-}
-
-bool ImApplication::AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApplicationMenuItem> items)
-{
-    if (!CanMutateTitleBarTabMenus()) {
-        return false;
-    }
-
-    FApplicationTitleBarTab tab;
-    tab.LabelKind = EApplicationTitleBarTabLabelKind::Icon;
-    tab.Icon = icon;
-    PromoteBrushToBackendTexture(tab.Icon);
-    tab.Items = std::move(items);
-    for (FApplicationMenuItem& item : tab.Items) {
-        PromoteBrushToBackendTexture(item.Icon);
-    }
-    TitleBarTabMenus_.push_back(std::move(tab));
-    return true;
-}
-
-const std::vector<FApplicationTitleBarTab>& ImApplication::GetTitleBarTabMenus() const
-{
-    return TitleBarTabMenus_;
-}
-
-bool ImApplication::ClearTitleBarActionButtons()
-{
-    if (!CanMutateTitleBarActions()) {
-        return false;
-    }
-
-    TitleBarActionButtons_.clear();
-    return true;
-}
-
-bool ImApplication::AddTitleBarActionButton(FApplicationTitleBarActionButton button)
-{
-    if (!CanMutateTitleBarActions()) {
-        return false;
-    }
-
-    if (button.Icon.IsValid()) {
-        PromoteBrushToBackendTexture(button.Icon);
-    }
-
-    TitleBarActionButtons_.push_back(std::move(button));
-    return true;
-}
-
-const std::vector<FApplicationTitleBarActionButton>& ImApplication::GetTitleBarActionButtons() const
-{
-    return TitleBarActionButtons_;
 }
 
 void ImApplication::SetToolTipStyle(const FToolTipStyle& style)
@@ -1037,18 +949,6 @@ void ImApplication::ReleaseRuntimeTexture(ImTextureID textureId)
     if (ApplicationIcon_.TextureId == textureId) {
         ApplicationIcon_ = FImageBrush();
         SyncApplicationIcon();
-    }
-
-    for (FApplicationTitleBarTab& tab : TitleBarTabMenus_) {
-        if (tab.Icon.TextureId == textureId) {
-            tab.Icon = FImageBrush();
-        }
-
-        for (FApplicationMenuItem& item : tab.Items) {
-            if (item.Icon.TextureId == textureId) {
-                item.Icon = FImageBrush();
-            }
-        }
     }
 
     if (DefaultImagePlaceholderBrush_.TextureId == textureId) {
@@ -2294,19 +2194,9 @@ bool ImApplication::IsWidgetInActiveTree(const std::shared_ptr<ImWidget>& widget
     return !BuildPathToSceneRoot(widget).empty();
 }
 
-bool ImApplication::CanMutateTitleBarTabMenus() const
-{
-    return Backend_ != nullptr && Backend_->IsUsingCustomHostChrome();
-}
-
-bool ImApplication::CanMutateTitleBarActions() const
-{
-    return Backend_ != nullptr && Backend_->IsUsingCustomHostChrome();
-}
-
 void ImApplication::SyncApplicationTitle()
 {
-    if (Backend_ == nullptr || ApplicationTitle_.empty()) {
+    if (Backend_ == nullptr) {
         return;
     }
 

@@ -25,26 +25,6 @@ class ImApplicationBackend;
 
 using FApplicationMenuItem = FPopupMenuItem;
 
-enum class EApplicationTitleBarTabLabelKind : std::uint8_t {
-    Text,
-    Icon
-};
-
-struct FApplicationTitleBarTab {
-    EApplicationTitleBarTabLabelKind LabelKind = EApplicationTitleBarTabLabelKind::Text;
-    std::string Text;
-    FImageBrush Icon;
-    std::vector<FApplicationMenuItem> Items;
-};
-
-struct FApplicationTitleBarActionButton {
-    FImageBrush Icon;
-    std::string ToolTip;
-    std::function<void()> OnInvoked;
-    std::function<bool()> IsEnabled;
-    std::function<bool()> IsHighlighted;
-};
-
 struct FToolTipStyle {
     FColor BackgroundColor = FColor::FromBytes(30, 34, 42, 248);
     FColor BorderColor = FColor::FromBytes(88, 101, 120, 255);
@@ -90,13 +70,6 @@ public:
     FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) const;
     void SetBackend(ImApplicationBackend* backend);
     ImApplicationBackend* GetBackend() const;
-    bool ClearTitleBarTabMenus();
-    bool AddTitleBarTabMenu(const std::string& text, std::vector<FApplicationMenuItem> items);
-    bool AddTitleBarTabMenu(const FImageBrush& icon, std::vector<FApplicationMenuItem> items);
-    const std::vector<FApplicationTitleBarTab>& GetTitleBarTabMenus() const;
-    bool ClearTitleBarActionButtons();
-    bool AddTitleBarActionButton(FApplicationTitleBarActionButton button);
-    const std::vector<FApplicationTitleBarActionButton>& GetTitleBarActionButtons() const;
     void SetToolTipStyle(const FToolTipStyle& style);
     const FToolTipStyle& GetToolTipStyle() const;
 
@@ -179,8 +152,6 @@ private:
     std::vector<std::filesystem::path> PreferredDefaultFontCandidates_;
     std::string ApplicationTitle_;
     FImageBrush ApplicationIcon_;
-    std::vector<FApplicationTitleBarTab> TitleBarTabMenus_;
-    std::vector<FApplicationTitleBarActionButton> TitleBarActionButtons_;
     FToolTipStyle ToolTipStyle_ {};
     ImApplicationBackend* Backend_ = nullptr;
     std::unordered_map<ImTextureID, FRuntimeTextureData> RuntimeTextures_;
@@ -231,8 +202,6 @@ private:
     std::shared_ptr<ImWidget> ResolveHoveredWidget(const FVector2& position) const;
     void EnsureDefaultImagePlaceholderInitialized() const;
     void EnsureCoreIconAtlasInitialized() const;
-    bool CanMutateTitleBarTabMenus() const;
-    bool CanMutateTitleBarActions() const;
     void SyncApplicationTitle();
     void SyncApplicationIcon();
     bool TryResolveBrushPixels(

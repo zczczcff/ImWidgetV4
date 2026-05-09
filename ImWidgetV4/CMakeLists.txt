@@ -135,6 +135,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/Slider.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/Switch.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/TabView.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/TitleBar.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/TextList.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/TextBlock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/TextOutlineView.h
@@ -179,6 +180,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/Slider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/Switch.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/TabView.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/TitleBar.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/TextList.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/TextBlock.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/TextOutlineView.cpp

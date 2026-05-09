@@ -33,7 +33,6 @@ namespace ImWidgetV4 {
 
 class ImWidget;
 class ImWindow;
-class ImPopupMenu;
 
 /**
  * @brief Win32/DirectX 11 后端实现
@@ -169,6 +168,15 @@ public:
     FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) override;
     void SetUseCustomHostChrome(bool enabled);
     bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome_; }
+    bool SupportsHostWindowDrag() const override;
+    bool SupportsHostWindowMinimize() const override;
+    bool SupportsHostWindowMaximize() const override;
+    bool SupportsHostWindowClose() const override;
+    bool IsHostWindowMaximized() const override;
+    bool BeginHostWindowDrag() override;
+    bool MinimizeHostWindow() override;
+    bool ToggleHostWindowMaximize() override;
+    bool CloseHostWindow() override;
 
     // ========== DirectX 11 特定接口 ==========
 
@@ -191,18 +199,6 @@ public:
     HWND GetWindowHandle() const { return Hwnd_; }
 
 private:
-    enum class EHostChromeButton : std::uint8_t {
-        None,
-        Minimize,
-        Maximize,
-        Close,
-        Action0,
-        Action1,
-        Action2,
-        Action3
-    };
-    struct FHostChromeLayoutCache;
-
     // ========== Win32 窗口 ==========
     HINSTANCE HInstance_;
     HWND Hwnd_;
@@ -225,13 +221,6 @@ private:
     bool bImGuiBackendInitialized_;
     bool bImGuiContextOwned_;
     bool bUseCustomHostChrome_;
-    EHostChromeButton HoveredHostChromeButton_;
-    EHostChromeButton PressedHostChromeButton_;
-    int HoveredTitleBarTabIndex_ = -1;
-    int PressedTitleBarTabIndex_ = -1;
-    int HoveredTitleBarActionIndex_ = -1;
-    int PressedTitleBarActionIndex_ = -1;
-    int ActiveTitleBarTabIndex_ = -1;
     HICON SmallWindowIcon_ = nullptr;
     HICON LargeWindowIcon_ = nullptr;
 
@@ -240,9 +229,6 @@ private:
     FImGuiInputSource InputSource_;
     FPostFrameCallback PostFrameCallback_;
     FCloseRequestedHandler CloseRequestedHandler_;
-    std::shared_ptr<ImWindow> TitleBarMenuPopupWindow_;
-    std::shared_ptr<ImPopupMenu> TitleBarMenuPopupWidget_;
-    std::unique_ptr<FHostChromeLayoutCache> HostChromeLayoutCache_;
 
     // ========== 内部方法 ==========
 
@@ -276,19 +262,6 @@ private:
     float GetHostChromeDpiScale() const;
     int GetHostChromeHeight() const;
     int GetHostChromeResizeBorderThickness() const;
-    RECT GetHostChromeButtonRect(EHostChromeButton button) const;
-    EHostChromeButton HitTestHostChromeButton(const POINT& clientPoint) const;
-    int HitTestTitleBarTab(const POINT& clientPoint);
-    int HitTestTitleBarActionButton(const POINT& clientPoint) const;
-    bool IsPointInHostChromeCaption(const POINT& clientPoint) const;
-    bool HandleHostChromeMouseDown(UINT msg, const POINT& clientPoint);
-    bool HandleHostChromeMouseUp(UINT msg, const POINT& clientPoint);
-    void SyncTitleBarMenuPopupState();
-    void UpdateHostChromeLayoutCache();
-    void UpdateTitleBarMenuPopupWindowLayout();
-    void OpenTitleBarMenuPopup(int tabIndex);
-    void CloseTitleBarMenuPopup();
-    void DrawCustomHostChrome();
     void DestroyWindowIcons();
     static std::wstring Utf8ToWide(const std::string& text);
     static std::string WideToUtf8(const std::wstring& text);

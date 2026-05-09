@@ -1,9 +1,41 @@
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imgui_internal.h>
 #include <algorithm>
+#include <cmath>
 
 namespace ImWidgetV4 {
+
+namespace {
+
+float ResolveSafeImageRounding(float rounding)
+{
+    if (rounding <= 0.5f || ImGui::GetCurrentContext() == nullptr) {
+        return 0.0f;
+    }
+
+    const ImDrawListSharedData* sharedData = ImGui::GetDrawListSharedData();
+    if (sharedData == nullptr) {
+        return 0.0f;
+    }
+
+    if (!std::isfinite(static_cast<double>(sharedData->CircleSegmentMaxError)) ||
+        sharedData->CircleSegmentMaxError <= 0.0f) {
+        return 0.0f;
+    }
+
+    const int radiusIndex = static_cast<int>(std::ceil(rounding));
+    if (radiusIndex >= 0 &&
+        radiusIndex < static_cast<int>(sizeof(sharedData->CircleSegmentCounts) / sizeof(sharedData->CircleSegmentCounts[0])) &&
+        sharedData->CircleSegmentCounts[radiusIndex] == 0) {
+        return 0.0f;
+    }
+
+    return rounding;
+}
+
+} // namespace
 
 ImImage::ImImage()
 {
@@ -136,14 +168,28 @@ void ImImage::Paint(const FPaintContext& paintContext)
         return;
     }
 
-    drawList->AddImageRounded(
+    const float imageRounding = ResolveSafeImageRounding(
+        std::max(0.0f, m_CornerRadius - m_BorderThickness));
+
+    if (imageRounding > 0.0f) {
+        drawList->AddImageRounded(
+            textureId,
+            imageGeometry.GetMin().ToImVec2(),
+            imageGeometry.GetMax().ToImVec2(),
+            brush.Uv0.ToImVec2(),
+            brush.Uv1.ToImVec2(),
+            finalTint.ToImU32(),
+            imageRounding);
+        return;
+    }
+
+    drawList->AddImage(
         textureId,
         imageGeometry.GetMin().ToImVec2(),
         imageGeometry.GetMax().ToImVec2(),
         brush.Uv0.ToImVec2(),
         brush.Uv1.ToImVec2(),
-        finalTint.ToImU32(),
-        std::max(0.0f, m_CornerRadius - m_BorderThickness));
+        finalTint.ToImU32());
 }
 
 FVector2 ImImage::GetMinSize() const

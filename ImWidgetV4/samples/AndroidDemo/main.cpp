@@ -1,7 +1,9 @@
 #include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4\widgets/VerticalBox.h>
 #include <memory>
 #include <string>
@@ -25,6 +27,20 @@ public:
 
         auto root = std::make_shared<ImVerticalBox>();
         root->SetSpacing(16.0f);
+
+        auto titleBar = std::make_shared<ImTitleBar>();
+        titleBar->SetShowSystemButtons(false);
+        auto icon = std::make_shared<ImImage>();
+        icon->SetBrush(application.GetApplicationIcon());
+        icon->SetDesiredSize(FVector2(18.0f, 18.0f));
+        auto titleLabel = std::make_shared<ImTextBlock>();
+        titleLabel->SetText("ImWidgetV4 Android Demo");
+        titleLabel->SetFontSize(16.0f);
+        titleLabel->SetWrapText(false);
+        titleLabel->SetTextColor(FColor::FromBytes(238, 242, 247));
+        titleBar->AddLeadingItem(icon);
+        titleBar->AddLeadingItem(titleLabel);
+        root->AddChild(titleBar);
 
         auto title = std::make_shared<ImTextBlock>();
         title->SetText("ImWidgetV4 Android Backend");

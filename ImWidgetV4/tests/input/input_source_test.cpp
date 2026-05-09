@@ -47,6 +47,29 @@ TEST(InputSourceTest, MouseButtonsWheelAndModifiersAreConverted) {
     EXPECT_FLOAT_EQ(events[2].ScrollDelta.Y, -2.0f);
 }
 
+TEST(InputSourceTest, ResetMouseButtonStateAllowsNextDownEdge) {
+    FImGuiInputSource inputSource;
+    FFrameInfo frameInfo;
+    frameInfo.CurrentTime = 2.5;
+
+    FImGuiInputSnapshot snapshot;
+    snapshot.MousePosition = FVector2(30.0f, 40.0f);
+    snapshot.bHasMousePosition = true;
+    snapshot.MouseButtons[0] = true;
+    inputSource.SetSnapshot(snapshot);
+
+    std::vector<FInputEvent> firstEvents = inputSource.Poll(frameInfo);
+    ASSERT_EQ(firstEvents.size(), 2u);
+    EXPECT_EQ(firstEvents[1].Type, EInputEventType::MouseButtonDown);
+
+    inputSource.ResetMouseButtonState(EMouseButton::Left, false);
+    inputSource.SetSnapshot(snapshot);
+
+    std::vector<FInputEvent> secondEvents = inputSource.Poll(frameInfo);
+    ASSERT_EQ(secondEvents.size(), 1u);
+    EXPECT_EQ(secondEvents[0].Type, EInputEventType::MouseButtonDown);
+}
+
 TEST(InputSourceTest, KeyEdgesAndTextInputAreConverted) {
     FImGuiInputSource inputSource;
     FFrameInfo frameInfo;

@@ -84,6 +84,17 @@ void FImGuiInputSource::SetSnapshot(const FImGuiInputSnapshot& snapshot) {
     PendingSnapshot_ = snapshot;
 }
 
+void FImGuiInputSource::ResetMouseButtonState(EMouseButton button, bool bDown)
+{
+    const std::size_t index = static_cast<std::size_t>(button);
+    if (index >= LastMouseButtons_.size()) {
+        return;
+    }
+
+    LastMouseButtons_[index] = bDown;
+    PendingSnapshot_.MouseButtons[index] = bDown;
+}
+
 std::vector<FInputEvent> FImGuiInputSource::Poll(const FFrameInfo& frameInfo) {
     std::vector<FInputEvent> events;
 

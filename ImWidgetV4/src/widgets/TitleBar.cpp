@@ -10,8 +10,6 @@ namespace ImWidgetV4 {
 namespace {
 
 constexpr float BorderThickness = 1.0f;
-constexpr double DoubleClickThresholdSeconds = 0.35;
-constexpr float DoubleClickDistanceThreshold = 4.0f;
 
 float ClampNonNegative(float value)
 {
@@ -34,13 +32,6 @@ FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& padding)
         FVector2(
             std::max(0.0f, geometry.Size.X - left - right),
             std::max(0.0f, geometry.Size.Y - top - bottom)));
-}
-
-float DistanceSquared(const FVector2& left, const FVector2& right)
-{
-    const float dx = left.X - right.X;
-    const float dy = left.Y - right.Y;
-    return dx * dx + dy * dy;
 }
 
 } // namespace
@@ -243,19 +234,7 @@ FReply ImTitleBar::OnInputEvent(const FInputEvent& event)
                 return FReply::Handled();
             }
 
-            const bool bIsDoubleClick =
-                LastDragRegionClickTimestamp_ >= 0.0 &&
-                (event.Timestamp - LastDragRegionClickTimestamp_) <= DoubleClickThresholdSeconds &&
-                DistanceSquared(event.MousePosition, LastDragRegionClickPosition_) <=
-                    DoubleClickDistanceThreshold * DoubleClickDistanceThreshold;
-            LastDragRegionClickTimestamp_ = event.Timestamp;
-            LastDragRegionClickPosition_ = event.MousePosition;
-
-            if (bIsDoubleClick && backend->SupportsHostWindowMaximize()) {
-                backend->ToggleHostWindowMaximize();
-            } else {
-                backend->BeginHostWindowDrag();
-            }
+            backend->BeginHostWindowDrag();
             return FReply::Handled();
         }
     }

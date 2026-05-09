@@ -23,6 +23,7 @@ public:
     FImGuiInputSource();
 
     void SetSnapshot(const FImGuiInputSnapshot& snapshot);
+    void ResetMouseButtonState(EMouseButton button, bool bDown = false);
     std::vector<FInputEvent> Poll(const FFrameInfo& frameInfo) override;
 
 private:

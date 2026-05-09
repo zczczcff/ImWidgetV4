@@ -156,7 +156,16 @@ TEST_F(TitleBarTest, ChildClickDoesNotTriggerHostDrag)
     EXPECT_EQ(Backend.BeginDragCalls, 0);
 }
 
-TEST_F(TitleBarTest, DragRegionBeginsHostWindowDragAndDoubleClickTogglesMaximize)
+TEST_F(TitleBarTest, DefaultStyleHasNoOuterPadding)
+{
+    const FTitleBarStyle& style = TitleBar->GetStyle();
+    EXPECT_FLOAT_EQ(style.Padding.Left, 0.0f);
+    EXPECT_FLOAT_EQ(style.Padding.Top, 0.0f);
+    EXPECT_FLOAT_EQ(style.Padding.Right, 0.0f);
+    EXPECT_FLOAT_EQ(style.Padding.Bottom, 0.0f);
+}
+
+TEST_F(TitleBarTest, RepeatedDragRegionPressesAlwaysBeginHostWindowDrag)
 {
     Advance();
     const FVector2 dragPoint(200.0f, 18.0f);
@@ -166,8 +175,12 @@ TEST_F(TitleBarTest, DragRegionBeginsHostWindowDragAndDoubleClickTogglesMaximize
     EXPECT_EQ(Backend.ToggleMaximizeCalls, 0);
 
     Advance({MouseEvent(EInputEventType::MouseButtonDown, dragPoint, 0.2)});
-    EXPECT_EQ(Backend.ToggleMaximizeCalls, 1);
-    EXPECT_TRUE(Backend.bMaximized);
+    EXPECT_EQ(Backend.BeginDragCalls, 2);
+    EXPECT_EQ(Backend.ToggleMaximizeCalls, 0);
+
+    Advance({MouseEvent(EInputEventType::MouseButtonDown, dragPoint, 0.4)});
+    EXPECT_EQ(Backend.BeginDragCalls, 3);
+    EXPECT_EQ(Backend.ToggleMaximizeCalls, 0);
 }
 
 TEST_F(TitleBarTest, SystemButtonsInvokeBackendCapabilitiesWhenSupported)

@@ -925,6 +925,10 @@ bool ImWin32DX11Backend::BeginHostWindowDrag()
 
     ::ReleaseCapture();
     ::SendMessageW(Hwnd_, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    InputSource_.ResetMouseButtonState(EMouseButton::Left, false);
+    if (ImGui::GetCurrentContext() != nullptr) {
+        ImGui::GetIO().AddMouseButtonEvent(static_cast<int>(ImGuiMouseButton_Left), false);
+    }
     return true;
 }
 

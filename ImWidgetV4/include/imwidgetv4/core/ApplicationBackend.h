@@ -1,6 +1,7 @@
 #pragma once
 #include <imwidgetv4/core/FileDialog.h>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <imgui.h>
@@ -166,6 +167,20 @@ public:
     {
         (void)options;
         return FPathDialogResult();
+    }
+
+    virtual bool RevealPathInFileManager(
+        const std::filesystem::path& path,
+        bool bSelectItemIfPossible)
+    {
+        (void)path;
+        (void)bSelectItemIfPossible;
+        return false;
+    }
+
+    virtual std::filesystem::path GetExecutableDirectory() const
+    {
+        return {};
     }
 
     /**

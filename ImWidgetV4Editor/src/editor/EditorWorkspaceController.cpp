@@ -20,11 +20,6 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#include <Shellapi.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -2877,21 +2872,17 @@ bool EditorWorkspaceController::RevealProjectItemInExplorer(const std::filesyste
         return false;
     }
 
-    std::wstring commandLine;
-    if (std::filesystem::is_directory(path)) {
-        commandLine = L"/e,\"" + path.wstring() + L"\"";
-    } else {
-        commandLine = L"/select,\"" + path.wstring() + L"\"";
+    if (!m_ShellHost) {
+        return false;
     }
 
-    SHELLEXECUTEINFOW executeInfo {};
-    executeInfo.cbSize = sizeof(executeInfo);
-    executeInfo.fMask = SEE_MASK_FLAG_NO_UI;
-    executeInfo.lpVerb = L"open";
-    executeInfo.lpFile = L"explorer.exe";
-    executeInfo.lpParameters = commandLine.c_str();
-    executeInfo.nShow = SW_SHOWNORMAL;
-    return ShellExecuteExW(&executeInfo) == TRUE;
+    ImApplication* application = m_ShellHost->GetApplication();
+    if (application == nullptr) {
+        return false;
+    }
+
+    const bool bSelectItemIfPossible = !std::filesystem::is_directory(path);
+    return application->RevealPathInFileManager(path, bSelectItemIfPossible);
 }
 
 void EditorWorkspaceController::NotifyProjectStateChanged() const

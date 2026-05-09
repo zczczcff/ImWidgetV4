@@ -1,118 +1,12 @@
 #include "BuildController.h"
 
-#include <Windows.h>
+#include <imwidgetv4/platform/PlatformProcess.h>
 #include <algorithm>
-#include <cstdio>
 #include <sstream>
-#include <vector>
 
 namespace ImWidgetV4Editor {
 
 namespace {
-
-std::wstring Utf8ToWide(const std::string& text)
-{
-    if (text.empty()) {
-        return std::wstring();
-    }
-
-    const int length = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
-    if (length <= 0) {
-        return std::wstring(text.begin(), text.end());
-    }
-
-    std::wstring result(static_cast<std::size_t>(length), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, result.data(), length);
-    if (!result.empty() && result.back() == L'\0') {
-        result.pop_back();
-    }
-    return result;
-}
-
-std::string WideToUtf8(const std::wstring& text)
-{
-    if (text.empty()) {
-        return std::string();
-    }
-
-    const int length = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    if (length <= 0) {
-        std::string fallback;
-        fallback.reserve(text.size());
-        for (wchar_t c : text) {
-            fallback.push_back(c >= 0 && c <= 0x7f ? static_cast<char>(c) : '?');
-        }
-        return fallback;
-    }
-
-    std::string result(static_cast<std::size_t>(length), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, text.c_str(), -1, result.data(), length, nullptr, nullptr);
-    if (!result.empty() && result.back() == '\0') {
-        result.pop_back();
-    }
-    return result;
-}
-
-std::wstring QuoteArgument(const std::wstring& text)
-{
-    std::wstring quoted = L"\"";
-    for (wchar_t c : text) {
-        if (c == L'"') {
-            quoted += L"\\\"";
-        } else {
-            quoted.push_back(c);
-        }
-    }
-    quoted += L"\"";
-    return quoted;
-}
-
-std::wstring JoinCommandArguments(const std::vector<std::wstring>& arguments)
-{
-    std::wstring commandLine;
-    for (std::size_t index = 0; index < arguments.size(); ++index) {
-        if (index > 0) {
-            commandLine += L" ";
-        }
-        commandLine += QuoteArgument(arguments[index]);
-    }
-    return commandLine;
-}
-
-std::string TrimLine(const std::string& text)
-{
-    const std::size_t first = text.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) {
-        return std::string();
-    }
-
-    const std::size_t last = text.find_last_not_of(" \t\r\n");
-    return text.substr(first, last - first + 1);
-}
-
-void EmitOutputLines(
-    const std::string& chunk,
-    std::string& pendingLine,
-    const BuildController::FOutputCallback& outputCallback)
-{
-    if (!outputCallback || chunk.empty()) {
-        return;
-    }
-
-    pendingLine += chunk;
-    std::size_t newlinePosition = std::string::npos;
-    while ((newlinePosition = pendingLine.find('\n')) != std::string::npos) {
-        std::string line = pendingLine.substr(0, newlinePosition);
-        pendingLine.erase(0, newlinePosition + 1);
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-        line = TrimLine(line);
-        if (!line.empty()) {
-            outputCallback(line);
-        }
-    }
-}
 
 std::filesystem::path ResolveCompileTimeLibraryRoot()
 {
@@ -144,10 +38,9 @@ std::filesystem::path BuildController::GetDefaultBuildDirectory(
 
 std::filesystem::path BuildController::GetDefaultLibraryRoot()
 {
-    wchar_t buffer[32768] = {};
-    const DWORD length = GetEnvironmentVariableW(L"IMWIDGETV4_ROOT", buffer, static_cast<DWORD>(std::size(buffer)));
-    if (length > 0 && length < std::size(buffer)) {
-        return std::filesystem::path(buffer).lexically_normal();
+    const std::filesystem::path environmentRoot = ImWidgetV4::GetEnvironmentPathVariable("IMWIDGETV4_ROOT");
+    if (!environmentRoot.empty()) {
+        return environmentRoot;
     }
 
     return ResolveCompileTimeLibraryRoot();
@@ -167,17 +60,17 @@ FBuildResult BuildController::ConfigureProject(
     }
 
     const std::filesystem::path libraryRoot = GetDefaultLibraryRoot();
-    std::vector<std::wstring> arguments = {
-        L"cmake",
-        L"-S", project.GetProjectRoot().wstring(),
-        L"-B", result.BuildDirectory.wstring(),
-        L"-DIMWIDGETV4_ROOT=" + libraryRoot.wstring()
+    std::vector<std::string> arguments = {
+        "cmake",
+        "-S", project.GetProjectRoot().string(),
+        "-B", result.BuildDirectory.string(),
+        "-DIMWIDGETV4_ROOT=" + libraryRoot.string()
     };
 
     if (outputCallback) {
-        outputCallback("[configure] " + WideToUtf8(JoinCommandArguments(arguments)));
+        outputCallback("[configure] " + ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
-    return RunProcess(project.GetProjectRoot(), JoinCommandArguments(arguments), result.BuildDirectory, outputCallback);
+    return RunProcess(project.GetProjectRoot(), arguments, result.BuildDirectory, outputCallback);
 }
 
 FBuildResult BuildController::BuildProject(
@@ -194,98 +87,32 @@ FBuildResult BuildController::BuildProject(
         }
     }
 
-    std::vector<std::wstring> arguments = {
-        L"cmake",
-        L"--build", buildDirectory.wstring(),
-        L"--config", Utf8ToWide(configuration)
+    std::vector<std::string> arguments = {
+        "cmake",
+        "--build", buildDirectory.string(),
+        "--config", configuration
     };
 
     if (outputCallback) {
-        outputCallback("[build] " + WideToUtf8(JoinCommandArguments(arguments)));
+        outputCallback("[build] " + ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
-    return RunProcess(project.GetProjectRoot(), JoinCommandArguments(arguments), buildDirectory, outputCallback);
+    return RunProcess(project.GetProjectRoot(), arguments, buildDirectory, outputCallback);
 }
 
 FBuildResult BuildController::RunProcess(
     const std::filesystem::path& workingDirectory,
-    const std::wstring& commandLine,
+    const std::vector<std::string>& arguments,
     const std::filesystem::path& buildDirectory,
     const FOutputCallback& outputCallback)
 {
     FBuildResult result;
     result.BuildDirectory = buildDirectory;
 
-    SECURITY_ATTRIBUTES securityAttributes {};
-    securityAttributes.nLength = sizeof(securityAttributes);
-    securityAttributes.bInheritHandle = TRUE;
-
-    HANDLE readPipe = nullptr;
-    HANDLE writePipe = nullptr;
-    if (!CreatePipe(&readPipe, &writePipe, &securityAttributes, 0)) {
-        result.ErrorMessage = "Failed to create build output pipe.";
-        return result;
-    }
-
-    SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0);
-
-    STARTUPINFOW startupInfo {};
-    startupInfo.cb = sizeof(startupInfo);
-    startupInfo.dwFlags = STARTF_USESTDHANDLES;
-    startupInfo.hStdOutput = writePipe;
-    startupInfo.hStdError = writePipe;
-
-    PROCESS_INFORMATION processInformation {};
-    std::wstring mutableCommandLine = commandLine;
-    const BOOL created = CreateProcessW(
-        nullptr,
-        mutableCommandLine.data(),
-        nullptr,
-        nullptr,
-        TRUE,
-        CREATE_NO_WINDOW,
-        nullptr,
-        workingDirectory.wstring().c_str(),
-        &startupInfo,
-        &processInformation);
-
-    CloseHandle(writePipe);
-    writePipe = nullptr;
-
-    if (!created) {
-        CloseHandle(readPipe);
-        result.ErrorMessage = "Failed to start process.";
-        return result;
-    }
-
-    std::string pendingLine;
-    char buffer[4096];
-    DWORD bytesRead = 0;
-    while (ReadFile(readPipe, buffer, static_cast<DWORD>(sizeof(buffer)), &bytesRead, nullptr) && bytesRead > 0) {
-        EmitOutputLines(std::string(buffer, buffer + bytesRead), pendingLine, outputCallback);
-    }
-
-    if (!pendingLine.empty()) {
-        const std::string line = TrimLine(pendingLine);
-        if (!line.empty() && outputCallback) {
-            outputCallback(line);
-        }
-    }
-
-    WaitForSingleObject(processInformation.hProcess, INFINITE);
-
-    DWORD exitCode = 0;
-    GetExitCodeProcess(processInformation.hProcess, &exitCode);
-    CloseHandle(processInformation.hThread);
-    CloseHandle(processInformation.hProcess);
-    CloseHandle(readPipe);
-
-    result.ExitCode = static_cast<int>(exitCode);
-    result.bSuccess = exitCode == 0;
-    if (!result.bSuccess && result.ErrorMessage.empty()) {
-        std::ostringstream error;
-        error << "Process exited with code " << exitCode << ".";
-        result.ErrorMessage = error.str();
-    }
+    const ImWidgetV4::FProcessExecutionResult processResult =
+        ImWidgetV4::ExecuteProcess(workingDirectory, arguments, outputCallback);
+    result.bSuccess = processResult.bSuccess;
+    result.ExitCode = processResult.ExitCode;
+    result.ErrorMessage = processResult.ErrorMessage;
     return result;
 }
 

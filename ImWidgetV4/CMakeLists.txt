@@ -110,6 +110,8 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/reflection/uectti/uectti.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/rop/RunTimeObjectProperty.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/input/Input.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/PlatformPaths.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/PlatformProcess.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/rendering/DrawContext.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/rendering/DrawUtils.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/snapshot/Snapshot.h
@@ -156,6 +158,8 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/WindowManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Widget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/Input.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/PlatformPaths.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/PlatformProcess.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snapshot/Snapshot.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snapshot/TextureRegistry.cpp

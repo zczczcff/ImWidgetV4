@@ -166,6 +166,10 @@ public:
     FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) override;
     FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) override;
     FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) override;
+    bool RevealPathInFileManager(
+        const std::filesystem::path& path,
+        bool bSelectItemIfPossible) override;
+    std::filesystem::path GetExecutableDirectory() const override;
     void SetUseCustomHostChrome(bool enabled);
     bool IsUsingCustomHostChrome() const override { return bUseCustomHostChrome_; }
     bool SupportsHostWindowDrag() const override;

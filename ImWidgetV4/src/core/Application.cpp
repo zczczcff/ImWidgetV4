@@ -758,6 +758,26 @@ FPathDialogResult ImApplication::SaveFileDialog(const FSaveFileDialogOptions& op
     return Backend_->SaveFileDialog(options);
 }
 
+bool ImApplication::RevealPathInFileManager(
+    const std::filesystem::path& path,
+    bool bSelectItemIfPossible) const
+{
+    if (Backend_ == nullptr) {
+        return false;
+    }
+
+    return Backend_->RevealPathInFileManager(path, bSelectItemIfPossible);
+}
+
+std::filesystem::path ImApplication::GetExecutableDirectory() const
+{
+    if (Backend_ == nullptr) {
+        return {};
+    }
+
+    return Backend_->GetExecutableDirectory();
+}
+
 void ImApplication::SetBackend(ImApplicationBackend* backend)
 {
     Backend_ = backend;

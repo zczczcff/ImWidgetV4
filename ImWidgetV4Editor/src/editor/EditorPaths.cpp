@@ -1,9 +1,5 @@
 #include "EditorPaths.h"
-
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
+#include <imwidgetv4/platform/PlatformPaths.h>
 
 namespace ImWidgetV4Editor {
 
@@ -24,13 +20,12 @@ std::filesystem::path NormalizeOrFallback(const std::filesystem::path& path)
 
 std::filesystem::path GetEditorExecutableDirectory()
 {
-    wchar_t buffer[MAX_PATH] = {};
-    const DWORD length = ::GetModuleFileNameW(nullptr, buffer, static_cast<DWORD>(std::size(buffer)));
-    if (length == 0 || length >= std::size(buffer)) {
+    const std::filesystem::path executableDirectory = ImWidgetV4::GetCurrentProcessExecutableDirectory();
+    if (executableDirectory.empty()) {
         return NormalizeOrFallback(std::filesystem::current_path());
     }
 
-    return NormalizeOrFallback(std::filesystem::path(buffer).parent_path());
+    return NormalizeOrFallback(executableDirectory);
 }
 
 std::filesystem::path GetDefaultEditorWorkspaceDirectory()

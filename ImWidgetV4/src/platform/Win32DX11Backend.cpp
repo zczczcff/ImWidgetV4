@@ -13,6 +13,7 @@
 #include <locale>
 #include <shobjidl.h>
 #include <sstream>
+#include <system_error>
 
 // 闂佸憡鎸哥粔鎾箖濠婂嫮鐝堕柣妤€鐗婇～?ImGui Win32 缂備焦鍔栭〃鍛般亹濞戞瑦浜ら柛銉㈡杹閺屻倕顭跨捄鍝勵伀闁诡喖锕畷娆撴嚍閵夛附顔?
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -875,6 +876,48 @@ FPathDialogResult ImWin32DX11Backend::SaveFileDialog(const FSaveFileDialogOption
     FPathDialogResult result = ExtractDialogResultPath(dialog);
     dialog->Release();
     return result;
+}
+
+bool ImWin32DX11Backend::RevealPathInFileManager(
+    const std::filesystem::path& path,
+    bool bSelectItemIfPossible)
+{
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+
+    std::wstring parameters;
+    if (std::filesystem::is_directory(path)) {
+        parameters = L"/e,\"" + path.wstring() + L"\"";
+    } else if (bSelectItemIfPossible) {
+        parameters = L"/select,\"" + path.wstring() + L"\"";
+    } else {
+        parameters = L"\"" + path.wstring() + L"\"";
+    }
+
+    SHELLEXECUTEINFOW executeInfo {};
+    executeInfo.cbSize = sizeof(executeInfo);
+    executeInfo.fMask = SEE_MASK_FLAG_NO_UI;
+    executeInfo.lpVerb = L"open";
+    executeInfo.lpFile = L"explorer.exe";
+    executeInfo.lpParameters = parameters.c_str();
+    executeInfo.nShow = SW_SHOWNORMAL;
+    return ShellExecuteExW(&executeInfo) == TRUE;
+}
+
+std::filesystem::path ImWin32DX11Backend::GetExecutableDirectory() const
+{
+    wchar_t buffer[MAX_PATH] = {};
+    const DWORD bufferLength = static_cast<DWORD>(sizeof(buffer) / sizeof(buffer[0]));
+    const DWORD length = ::GetModuleFileNameW(nullptr, buffer, bufferLength);
+    if (length == 0 || length >= bufferLength) {
+        return std::filesystem::current_path();
+    }
+
+    std::error_code errorCode;
+    const std::filesystem::path parentPath = std::filesystem::path(buffer).parent_path();
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(parentPath, errorCode);
+    return errorCode ? parentPath.lexically_normal() : canonicalPath;
 }
 
 void ImWin32DX11Backend::SetUseCustomHostChrome(bool enabled)

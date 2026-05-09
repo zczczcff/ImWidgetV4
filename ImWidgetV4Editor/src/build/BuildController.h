@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace ImWidgetV4Editor {
 
@@ -36,7 +37,7 @@ public:
 private:
     static FBuildResult RunProcess(
         const std::filesystem::path& workingDirectory,
-        const std::wstring& commandLine,
+        const std::vector<std::string>& arguments,
         const std::filesystem::path& buildDirectory,
         const FOutputCallback& outputCallback);
 };

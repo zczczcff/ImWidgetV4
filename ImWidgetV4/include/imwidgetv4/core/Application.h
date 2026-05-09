@@ -68,6 +68,10 @@ public:
     FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) const;
     FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) const;
     FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) const;
+    bool RevealPathInFileManager(
+        const std::filesystem::path& path,
+        bool bSelectItemIfPossible = true) const;
+    std::filesystem::path GetExecutableDirectory() const;
     void SetBackend(ImApplicationBackend* backend);
     ImApplicationBackend* GetBackend() const;
     void SetToolTipStyle(const FToolTipStyle& style);

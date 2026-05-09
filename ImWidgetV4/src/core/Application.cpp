@@ -1386,7 +1386,6 @@ void ImApplication::RouteInputEvents()
                     ResolveHoveredWidget(inputEvent.MousePosition),
                     inputEvent.MousePosition,
                     inputEvent.Timestamp);
-                continue;
             }
         }
 

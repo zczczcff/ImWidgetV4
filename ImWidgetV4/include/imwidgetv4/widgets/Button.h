@@ -58,6 +58,7 @@ public:
     void Paint(const FPaintContext& paintContext) override;
     FVector2 GetMinSize() const override;
     FReply OnInputEvent(const FInputEvent& event) override;
+    void OnFocusChanged(bool bHasFocus) override;
     virtual void Relayout();
 
 protected:

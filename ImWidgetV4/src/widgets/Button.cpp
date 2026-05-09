@@ -142,6 +142,7 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
         const bool isInside = m_Geometry.Contains(event.MousePosition);
 
         SetPressed(false);
+        SetHovered(isInside);
 
         OnReleased.Broadcast(*this);
 
@@ -163,6 +164,14 @@ FReply ImButton::OnInputEvent(const FInputEvent& event) {
     }
 
     return FReply::Unhandled();
+}
+
+void ImButton::OnFocusChanged(bool bHasFocus)
+{
+    ImWidget::OnFocusChanged(bHasFocus);
+    if (!bHasFocus && m_bPressed) {
+        SetPressed(false);
+    }
 }
 
 void ImButton::Relayout() {

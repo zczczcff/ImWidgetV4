@@ -228,7 +228,7 @@ FReply ImTitleBar::OnInputEvent(const FInputEvent& event)
             return FReply::Handled().CaptureMouse(shared_from_this(), EMouseButton::Left);
         }
 
-        if (!HitTestsChildWidgets(event.MousePosition) && IsPointInDragRegion(event.MousePosition)) {
+        if (IsPointInHostDragArea(event.MousePosition)) {
             ImApplicationBackend* backend = GetBackend();
             if (backend == nullptr || !backend->SupportsHostWindowDrag()) {
                 return FReply::Handled();
@@ -299,8 +299,8 @@ void ImTitleBar::Relayout() const
 
             const FVector2 itemMinSize = item->GetMinSize();
             const float itemWidth = ClampNonNegative(itemMinSize.X);
-            const float itemHeight = std::min(innerHeight, ClampNonNegative(itemMinSize.Y));
-            const float itemY = innerGeometry.Position.Y + std::max(0.0f, (innerHeight - itemHeight) * 0.5f);
+            const float itemHeight = innerHeight;
+            const float itemY = innerGeometry.Position.Y;
 
             FChildLayout layout;
             layout.Widget = item;
@@ -361,8 +361,8 @@ void ImTitleBar::Relayout() const
 
             const FVector2 itemMinSize = item->GetMinSize();
             const float itemWidth = ClampNonNegative(itemMinSize.X);
-            const float itemHeight = std::min(innerHeight, ClampNonNegative(itemMinSize.Y));
-            const float itemY = innerGeometry.Position.Y + std::max(0.0f, (innerHeight - itemHeight) * 0.5f);
+            const float itemHeight = innerHeight;
+            const float itemY = innerGeometry.Position.Y;
             FChildLayout layout;
             layout.Widget = item;
             layout.Geometry = FGeometry(FVector2(cursorX, itemY), FVector2(itemWidth, itemHeight));
@@ -692,9 +692,10 @@ bool ImTitleBar::HitTestsChildWidgets(const FVector2& position, std::vector<Ptr>
     return visit(TrailingLayouts_) || visit(LeadingLayouts_);
 }
 
-bool ImTitleBar::IsPointInDragRegion(const FVector2& position) const
+bool ImTitleBar::IsPointInHostDragArea(const FVector2& position) const
 {
-    return DragRegionGeometry_.Contains(position);
+    return m_Geometry.Contains(position) &&
+           HitTestSystemButton(position) == ESystemButton::None;
 }
 
 ImApplicationBackend* ImTitleBar::GetBackend() const

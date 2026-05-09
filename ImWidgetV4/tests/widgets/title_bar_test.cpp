@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TitleBar.h>
 
 using namespace ImWidgetV4;
@@ -156,13 +157,14 @@ TEST_F(TitleBarTest, ChildClickDoesNotTriggerHostDrag)
     EXPECT_EQ(Backend.BeginDragCalls, 0);
 }
 
-TEST_F(TitleBarTest, DefaultStyleHasNoOuterPadding)
+TEST_F(TitleBarTest, DefaultStyleHasNoOuterPaddingOrItemSpacing)
 {
     const FTitleBarStyle& style = TitleBar->GetStyle();
     EXPECT_FLOAT_EQ(style.Padding.Left, 0.0f);
     EXPECT_FLOAT_EQ(style.Padding.Top, 0.0f);
     EXPECT_FLOAT_EQ(style.Padding.Right, 0.0f);
     EXPECT_FLOAT_EQ(style.Padding.Bottom, 0.0f);
+    EXPECT_FLOAT_EQ(style.ItemSpacing, 0.0f);
 }
 
 TEST_F(TitleBarTest, RepeatedDragRegionPressesAlwaysBeginHostWindowDrag)
@@ -181,6 +183,38 @@ TEST_F(TitleBarTest, RepeatedDragRegionPressesAlwaysBeginHostWindowDrag)
     Advance({MouseEvent(EInputEventType::MouseButtonDown, dragPoint, 0.4)});
     EXPECT_EQ(Backend.BeginDragCalls, 3);
     EXPECT_EQ(Backend.ToggleMaximizeCalls, 0);
+}
+
+TEST_F(TitleBarTest, NonInteractiveChildAreaCanBeginHostWindowDrag)
+{
+    auto titleText = std::make_shared<ImTextBlock>();
+    titleText->SetText("Project");
+    titleText->SetHitTestVisible(true);
+    TitleBar->AddLeadingItem(titleText);
+
+    Advance();
+    const FVector2 clickPoint = FindHitPointForWidget(titleText);
+    ASSERT_NE(clickPoint, FVector2(0.0f, 0.0f));
+
+    Advance({MouseEvent(EInputEventType::MouseButtonDown, clickPoint, 0.0)});
+
+    EXPECT_EQ(Backend.BeginDragCalls, 1);
+}
+
+TEST_F(TitleBarTest, ChildItemsFillTitleBarHeightWithoutVerticalGap)
+{
+    auto titleText = std::make_shared<ImTextBlock>();
+    titleText->SetText("Project");
+    TitleBar->AddLeadingItem(titleText);
+
+    Advance();
+    std::vector<std::shared_ptr<ImWidget>> hitPath;
+    ASSERT_TRUE(TitleBar->BuildHitTestPath(FVector2(2.0f, 2.0f), hitPath));
+
+    const FGeometry& titleGeometry = TitleBar->GetGeometry();
+    const FGeometry& itemGeometry = titleText->GetGeometry();
+    EXPECT_FLOAT_EQ(itemGeometry.Position.Y, titleGeometry.Position.Y);
+    EXPECT_FLOAT_EQ(itemGeometry.Size.Y, titleGeometry.Size.Y);
 }
 
 TEST_F(TitleBarTest, SystemButtonsInvokeBackendCapabilitiesWhenSupported)

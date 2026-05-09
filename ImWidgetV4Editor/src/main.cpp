@@ -100,11 +100,11 @@ FButtonStyle MakeTitleBarButtonStyle(bool bHighlighted = false)
     FButtonStyle style = FButtonStyle::CreatePrimary();
     const FColor textColor = FColor::FromBytes(232, 238, 246);
     const FColor baseColor = bHighlighted ? FColor::FromBytes(72, 104, 146, 116) : FColor(0.0f, 0.0f, 0.0f, 0.0f);
-    style.Normal = FButtonStateStyle(baseColor, FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
-    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
-    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 4.0f, false);
+    style.Normal = FButtonStateStyle(baseColor, FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
+    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
+    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
     style.Focused = style.Hovered;
-    style.Disabled = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor::FromBytes(132, 140, 150), 0.0f, 4.0f, false);
+    style.Disabled = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor::FromBytes(132, 140, 150), 0.0f, 0.0f, false);
     return style;
 }
 
@@ -354,11 +354,11 @@ FEditorShellWidgets BuildEditorShell()
     rootLayout->SetSpacing(0.0f);
     auto titleBar = std::make_shared<ImTitleBar>();
     FTitleBarStyle titleBarStyle = titleBar->GetStyle();
-    titleBarStyle.Height = 38.0f;
-    titleBarStyle.Padding = FMargin(10.0f, 6.0f, 10.0f, 6.0f);
-    titleBarStyle.ItemSpacing = 4.0f;
+    titleBarStyle.Height = 24.0f;
+    titleBarStyle.Padding = FMargin(0.0f);
+    titleBarStyle.ItemSpacing = 0.0f;
     titleBarStyle.SystemButtonSize = 34.0f;
-    titleBarStyle.MinDesiredSize = FVector2(0.0f, 38.0f);
+    titleBarStyle.MinDesiredSize = FVector2(0.0f, 24.0f);
     titleBar->SetStyle(titleBarStyle);
 
     auto titleIcon = MakeTitleBarIcon(FImageBrush(), 18.0f);

@@ -30,7 +30,7 @@ public:
     FColor BackgroundColor = FColor::FromBytes(28, 33, 41);
     FColor BorderColor = FColor::FromBytes(16, 19, 24);
     FMargin Padding = FMargin(0.0f);
-    float ItemSpacing = 6.0f;
+    float ItemSpacing = 0.0f;
     float Height = 34.0f;
     float DragRegionMinWidth = 34.0f;
     float SystemButtonSize = 34.0f;
@@ -105,7 +105,7 @@ private:
     float GetResolvedDragRegionMinWidth() const;
     ESystemButton HitTestSystemButton(const FVector2& position) const;
     bool HitTestsChildWidgets(const FVector2& position, std::vector<Ptr>* outPath = nullptr) const;
-    bool IsPointInDragRegion(const FVector2& position) const;
+    bool IsPointInHostDragArea(const FVector2& position) const;
     ImApplicationBackend* GetBackend() const;
     bool HandleSystemButtonClick(ESystemButton button);
     void MarkLayoutDirty();

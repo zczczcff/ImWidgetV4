@@ -1930,6 +1930,10 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     const std::filesystem::path projectRoot = tempRoot / "SampleApp";
     const std::filesystem::path manifestPath = EditorProject::BuildManifestFilePath(projectRoot);
     const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+    const std::filesystem::path rootCMakeListsPath = projectRoot / "CMakeLists.txt";
+    const std::filesystem::path mainCppPath = projectRoot / "src" / "main.cpp";
+    const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "MainView.h";
+    const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "MainView.cpp";
 
     EXPECT_EQ(workspaceController->GetProjectRoot().lexically_normal(), projectRoot.lexically_normal());
     EXPECT_TRUE(std::filesystem::exists(projectRoot / "src"));
@@ -1939,6 +1943,10 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_TRUE(std::filesystem::exists(projectRoot / "cmake"));
     EXPECT_TRUE(std::filesystem::exists(manifestPath));
     EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
+    EXPECT_TRUE(std::filesystem::exists(rootCMakeListsPath));
+    EXPECT_TRUE(std::filesystem::exists(mainCppPath));
+    EXPECT_TRUE(std::filesystem::exists(generatedHeaderPath));
+    EXPECT_TRUE(std::filesystem::exists(generatedSourcePath));
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
     EXPECT_EQ(workspaceController->GetProject()->GetNamespaceName(), "SampleApp");
@@ -2091,6 +2099,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtUsesExplicitOptio
     ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, options));
     const std::filesystem::path projectRoot = tempRoot / "ToolSuite";
     const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "WorkspaceHome.ui.json";
+    const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "WorkspaceHomeView.h";
+    const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "WorkspaceHomeView.cpp";
 
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "ToolSuite");
@@ -2100,6 +2110,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtUsesExplicitOptio
         workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
         std::string("ui/WorkspaceHome.ui.json"));
     EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
+    EXPECT_TRUE(std::filesystem::exists(generatedHeaderPath));
+    EXPECT_TRUE(std::filesystem::exists(generatedSourcePath));
     ASSERT_TRUE(workspaceController->GetActiveSession());
     ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
     EXPECT_EQ(

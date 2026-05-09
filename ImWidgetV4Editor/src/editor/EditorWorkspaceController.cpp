@@ -6,6 +6,7 @@
 #include "InputDialog.h"
 #include "NewAppProjectDialog.h"
 #include "../project/EditorProject.h"
+#include "../templates/ProjectScaffolder.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
@@ -373,6 +374,25 @@ std::string GetDocumentDisplayTitleFromFileName(const std::string& fileName)
     return title.empty() ? std::string("Main") : title;
 }
 
+std::string BuildStartupWidgetClassName(const std::string& startupDocumentFileName)
+{
+    std::string baseName = startupDocumentFileName;
+    if (EndsWithCaseInsensitive(baseName, ".ui.json")) {
+        baseName.resize(baseName.size() - std::string(".ui.json").size());
+    } else {
+        baseName = std::filesystem::path(baseName).stem().string();
+    }
+
+    std::string className = NormalizeProjectIdentifier(baseName, "MainView");
+    if (!className.empty()) {
+        className.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(className.front())));
+    }
+    if (className.size() < 4 || className.substr(className.size() - 4) != "View") {
+        className += "View";
+    }
+    return className;
+}
+
 std::vector<std::string> GetAvailableProjectTemplateNames()
 {
     return {"Blank App"};
@@ -556,6 +576,8 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             std::filesystem::path("ui") / normalizedStartupDocumentFileName;
         const std::filesystem::path startupDocumentPath =
             (projectRoot / startupDocumentRelativePath).lexically_normal();
+        const std::string startupWidgetClassName =
+            BuildStartupWidgetClassName(normalizedStartupDocumentFileName);
         std::shared_ptr<EditorSession> bootstrapSession = CreateSession();
         if (!bootstrapSession || !bootstrapSession->GetDocument()) {
             if (m_OutputText) {
@@ -570,6 +592,22 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         if (!bootstrapSession->GetDocument()->SaveAs(startupDocumentPath, &documentError)) {
             if (m_OutputText) {
                 m_OutputText->SetItems({"Create project failed: " + documentError});
+            }
+            return false;
+        }
+
+        FProjectScaffoldRequest scaffoldRequest;
+        scaffoldRequest.ProjectRoot = projectRoot;
+        scaffoldRequest.ProjectName = trimmedProjectName;
+        scaffoldRequest.NamespaceName = trimmedNamespaceName;
+        scaffoldRequest.TemplateName = trimmedTemplateName;
+        scaffoldRequest.StartupDocumentFileName = normalizedStartupDocumentFileName;
+        scaffoldRequest.StartupWidgetClassName = startupWidgetClassName;
+        scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
+        const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
+        if (!scaffoldResult.bSuccess) {
+            if (m_OutputText) {
+                m_OutputText->SetItems({"Create project failed: " + scaffoldResult.ErrorMessage});
             }
             return false;
         }

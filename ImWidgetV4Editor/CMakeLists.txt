@@ -28,6 +28,7 @@ add_executable(ImWidgetV4Editor
     src/editor/WidgetTypeIcon.cpp
     src/inspector/ReflectionDetailsView.cpp
     src/project/EditorProject.cpp
+    src/templates/ProjectScaffolder.cpp
     src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp
     src/palette/WidgetPaletteView.cpp
@@ -58,6 +59,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/editor/WidgetTypeIcon.cpp
         src/inspector/ReflectionDetailsView.cpp
         src/project/EditorProject.cpp
+        src/templates/ProjectScaffolder.cpp
         src/palette/WidgetPaletteDragDrop.cpp
         src/palette/WidgetPaletteView.cpp
         src/serialization/WidgetFactory.cpp

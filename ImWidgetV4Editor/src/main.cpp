@@ -367,13 +367,26 @@ std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<Edito
 std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     const bool bHasProject = workspaceController && !workspaceController->GetProjectRoot().empty();
+    const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
+    const std::string buildStatus = workspaceController ? workspaceController->GetBuildTaskStatusText() : std::string();
     return {
-        FApplicationMenuItem {"Configure Project", {}, {}, bHasProject, false, [workspaceController]() {
+        FApplicationMenuItem {
+            bBuildRunning
+                ? std::string("Status: ") + (buildStatus.empty() ? "Running..." : buildStatus)
+                : std::string("Status: Idle"),
+            {},
+            {},
+            false,
+            false,
+            {}
+        },
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Configure Project", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->ConfigureProject();
             }
         }},
-        FApplicationMenuItem {"Build Debug", {}, {}, bHasProject, false, [workspaceController]() {
+        FApplicationMenuItem {"Build Debug", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->BuildProject();
             }
@@ -489,6 +502,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
     FEditorShellWidgets shell = BuildEditorShell();
     auto workspaceController = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
+    backend->SetPostFrameCallback([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)](const FFrameInfo&) {
+        if (auto lockedWorkspace = weakWorkspace.lock()) {
+            lockedWorkspace->TickBackgroundTasks();
+        }
+    });
     shell.ShellHost->SetWorkspaceController(workspaceController);
     workspaceController->SetOnProjectStateChanged([weakApp = std::weak_ptr<ImApplication>(app), weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)]() {
         auto lockedApp = weakApp.lock();

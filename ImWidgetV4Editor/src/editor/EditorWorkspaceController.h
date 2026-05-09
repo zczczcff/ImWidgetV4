@@ -1,12 +1,15 @@
 #pragma once
 
+#include "../build/BuildController.h"
 #include <imwidgetv4/core/Application.h>
 #include <filesystem>
 #include <nlohmann/json.hpp>
-#include <unordered_map>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace ImWidgetV4 {
@@ -41,6 +44,7 @@ public:
 
     explicit EditorWorkspaceController(
         std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
+    ~EditorWorkspaceController();
 
     void SetOnProjectStateChanged(std::function<void()> callback);
     void SetOnExitRequested(std::function<void()> callback);
@@ -64,6 +68,9 @@ public:
     bool OpenAppProjectAt(const std::filesystem::path& projectRoot);
     bool ConfigureProject();
     bool BuildProject();
+    void TickBackgroundTasks();
+    bool IsBuildTaskRunning() const;
+    std::string GetBuildTaskStatusText() const;
     bool RevealProjectBuildDirectory() const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
@@ -99,6 +106,11 @@ public:
     std::shared_ptr<EditorProject> GetProject() const { return m_Project; }
 
 private:
+    enum class EBackgroundBuildTaskKind {
+        Configure,
+        Build
+    };
+
     enum class EProjectItemKind {
         OpenDocument,
         RecentFile,
@@ -126,6 +138,20 @@ private:
         EProjectItemKind Kind = EProjectItemKind::OpenDocument;
         int Index = -1;
         std::filesystem::path Path;
+    };
+
+    struct FBackgroundBuildTaskState {
+        EBackgroundBuildTaskKind Kind = EBackgroundBuildTaskKind::Configure;
+        std::string Configuration = "Debug";
+        std::thread Worker;
+        mutable std::mutex Mutex;
+        std::vector<std::string> PendingOutputLines;
+        FBuildResult Result;
+        std::string StatusText;
+        bool bStatusDirty = false;
+        bool bFinished = false;
+        bool bRefreshProjectTreeOnCompletion = false;
+        int LastReportedPercent = -1;
     };
 
     std::shared_ptr<EditorSession> CreateSession() const;
@@ -170,6 +196,9 @@ private:
     void CloseProjectItemContextMenu();
     void NotifyProjectStateChanged() const;
     void AppendOutputLine(const std::string& text) const;
+    bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& configuration);
+    void TickBackgroundBuildTask();
+    void ShutdownBackgroundBuildTask();
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;
     void RememberRecentFile(const std::filesystem::path& filePath);
     void RemoveRecentFilesUnderPath(const std::filesystem::path& path);
@@ -193,6 +222,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextOutlineView> m_WidgetTreeView;
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<ImWidgetV4::ImTextList> m_OutputText;
+    std::shared_ptr<FBackgroundBuildTaskState> m_BackgroundBuildTask;
     std::unordered_map<ImWidgetV4::ImTextOutlineItem*, FProjectItemBinding> m_ProjectItemBindings;
     std::vector<std::filesystem::path> m_RecentFiles;
     std::vector<FDocumentEntry> m_Documents;

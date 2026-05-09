@@ -27,6 +27,7 @@
 #include <Shellapi.h>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <system_error>
@@ -399,12 +400,126 @@ std::vector<std::string> GetAvailableProjectTemplateNames()
     return {"Blank App"};
 }
 
+std::string BuildBackgroundTaskDisplayName(bool bIsConfigure)
+{
+    return bIsConfigure ? "Configure" : "Build";
+}
+
+bool StartsWith(const std::string& text, const std::string& prefix)
+{
+    return text.size() >= prefix.size() &&
+           std::equal(prefix.begin(), prefix.end(), text.begin());
+}
+
+bool TryParseBracketProgress(const std::string& line, int& outCurrent, int& outTotal)
+{
+    outCurrent = 0;
+    outTotal = 0;
+
+    for (std::size_t index = 0; index < line.size(); ++index) {
+        if (line[index] != '[') {
+            continue;
+        }
+
+        std::size_t currentBegin = index + 1;
+        std::size_t currentEnd = currentBegin;
+        while (currentEnd < line.size() && std::isdigit(static_cast<unsigned char>(line[currentEnd])) != 0) {
+            ++currentEnd;
+        }
+        if (currentEnd == currentBegin || currentEnd >= line.size() || line[currentEnd] != '/') {
+            continue;
+        }
+
+        std::size_t totalBegin = currentEnd + 1;
+        std::size_t totalEnd = totalBegin;
+        while (totalEnd < line.size() && std::isdigit(static_cast<unsigned char>(line[totalEnd])) != 0) {
+            ++totalEnd;
+        }
+        if (totalEnd == totalBegin || totalEnd >= line.size() || line[totalEnd] != ']') {
+            continue;
+        }
+
+        try {
+            outCurrent = std::stoi(line.substr(currentBegin, currentEnd - currentBegin));
+            outTotal = std::stoi(line.substr(totalBegin, totalEnd - totalBegin));
+        } catch (...) {
+            return false;
+        }
+
+        return outCurrent >= 0 && outTotal > 0 && outCurrent <= outTotal;
+    }
+
+    return false;
+}
+
+std::string BuildProgressStatusText(int current, int total)
+{
+    const int percent = total > 0
+        ? static_cast<int>(std::lround((static_cast<double>(current) * 100.0) / static_cast<double>(total)))
+        : 0;
+    std::ostringstream stream;
+    stream << "Building... " << percent << "% (" << current << "/" << total << ")";
+    return stream.str();
+}
+
+template<typename TTaskState>
+void UpdateBackgroundBuildTaskStatus(
+    const std::shared_ptr<TTaskState>& task,
+    const std::string& statusText)
+{
+    if (!task || statusText.empty()) {
+        return;
+    }
+
+    if (task->StatusText == statusText) {
+        return;
+    }
+
+    task->StatusText = statusText;
+    task->bStatusDirty = true;
+}
+
+template<typename TTaskState>
+void HandleBackgroundBuildOutputLine(
+    const std::shared_ptr<TTaskState>& task,
+    const std::string& line)
+{
+    if (!task || line.empty()) {
+        return;
+    }
+
+    if (StartsWith(line, "[configure]")) {
+        UpdateBackgroundBuildTaskStatus(task, "Configuring project...");
+        return;
+    }
+
+    if (StartsWith(line, "[build]")) {
+        UpdateBackgroundBuildTaskStatus(task, "Starting build...");
+        return;
+    }
+
+    int current = 0;
+    int total = 0;
+    if (TryParseBracketProgress(line, current, total)) {
+        const int percent = static_cast<int>(std::lround((static_cast<double>(current) * 100.0) / static_cast<double>(total)));
+        if (percent != task->LastReportedPercent) {
+            task->LastReportedPercent = percent;
+            UpdateBackgroundBuildTaskStatus(task, BuildProgressStatusText(current, total));
+        }
+    }
+}
+
 } // namespace
 
 EditorWorkspaceController::EditorWorkspaceController(
     std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
     : m_CreateDefaultDocumentRoot(std::move(createDefaultDocumentRoot))
 {
+}
+
+EditorWorkspaceController::~EditorWorkspaceController()
+{
+    ShutdownBackgroundBuildTask();
 }
 
 void EditorWorkspaceController::SetOnProjectStateChanged(std::function<void()> callback)
@@ -905,22 +1020,7 @@ bool EditorWorkspaceController::ConfigureProject()
         return false;
     }
 
-    BuildController buildController;
-    const FBuildResult result = buildController.ConfigureProject(
-        *m_Project,
-        [this](const std::string& line) {
-            AppendOutputLine(line);
-        },
-        "Debug");
-
-    if (!result.bSuccess) {
-        AppendOutputLine("Configure failed: " + result.ErrorMessage);
-        return false;
-    }
-
-    AppendOutputLine("Configure complete: " + result.BuildDirectory.string());
-    RefreshProjectTree();
-    return true;
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Configure, "Debug");
 }
 
 bool EditorWorkspaceController::BuildProject()
@@ -930,22 +1030,34 @@ bool EditorWorkspaceController::BuildProject()
         return false;
     }
 
-    BuildController buildController;
-    const FBuildResult result = buildController.BuildProject(
-        *m_Project,
-        [this](const std::string& line) {
-            AppendOutputLine(line);
-        },
-        "Debug");
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, "Debug");
+}
 
-    if (!result.bSuccess) {
-        AppendOutputLine("Build failed: " + result.ErrorMessage);
+void EditorWorkspaceController::TickBackgroundTasks()
+{
+    TickBackgroundBuildTask();
+}
+
+bool EditorWorkspaceController::IsBuildTaskRunning() const
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
         return false;
     }
 
-    AppendOutputLine("Build complete: " + result.BuildDirectory.string());
-    RefreshProjectTree();
-    return true;
+    std::lock_guard<std::mutex> lock(task->Mutex);
+    return !task->bFinished;
+}
+
+std::string EditorWorkspaceController::GetBuildTaskStatusText() const
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
+        return std::string();
+    }
+
+    std::lock_guard<std::mutex> lock(task->Mutex);
+    return task->StatusText;
 }
 
 bool EditorWorkspaceController::RevealProjectBuildDirectory() const
@@ -2806,6 +2918,149 @@ void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
     if (!items.empty()) {
         m_OutputText->ScrollToItem(static_cast<int>(items.size() - 1), false);
     }
+}
+
+bool EditorWorkspaceController::StartBackgroundBuildTask(
+    EBackgroundBuildTaskKind kind,
+    const std::string& configuration)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        return false;
+    }
+
+    if (IsBuildTaskRunning()) {
+        AppendOutputLine("Build request ignored: another configure/build task is already running.");
+        return false;
+    }
+
+    ShutdownBackgroundBuildTask();
+
+    std::shared_ptr<EditorProject> project = m_Project;
+    if (!project) {
+        return false;
+    }
+
+    auto task = std::make_shared<FBackgroundBuildTaskState>();
+    task->Kind = kind;
+    task->Configuration = configuration.empty() ? "Debug" : configuration;
+    task->StatusText = kind == EBackgroundBuildTaskKind::Configure
+        ? "Configure queued..."
+        : "Build queued...";
+    task->bStatusDirty = true;
+    m_BackgroundBuildTask = task;
+
+    AppendOutputLine("========================================");
+    AppendOutputLine(
+        BuildBackgroundTaskDisplayName(kind == EBackgroundBuildTaskKind::Configure) +
+        " started in background [" + task->Configuration + "].");
+    NotifyProjectStateChanged();
+
+    task->Worker = std::thread([task, project]() {
+        BuildController controller;
+        const auto outputCallback = [task](const std::string& line) {
+            if (line.empty()) {
+                return;
+            }
+
+            std::lock_guard<std::mutex> lock(task->Mutex);
+            task->PendingOutputLines.push_back(line);
+            HandleBackgroundBuildOutputLine(task, line);
+        };
+
+        FBuildResult result = task->Kind == EBackgroundBuildTaskKind::Configure
+            ? controller.ConfigureProject(*project, outputCallback, task->Configuration)
+            : controller.BuildProject(*project, outputCallback, task->Configuration);
+
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        task->Result = std::move(result);
+        task->bFinished = true;
+        task->bRefreshProjectTreeOnCompletion = task->Result.bSuccess;
+        UpdateBackgroundBuildTaskStatus(
+            task,
+            task->Result.bSuccess
+                ? (task->Kind == EBackgroundBuildTaskKind::Configure ? "Configure finished." : "Build finished.")
+                : (task->Kind == EBackgroundBuildTaskKind::Configure ? "Configure failed." : "Build failed."));
+    });
+
+    return true;
+}
+
+void EditorWorkspaceController::TickBackgroundBuildTask()
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
+        return;
+    }
+
+    std::vector<std::string> pendingLines;
+    std::string statusLine;
+    FBuildResult result;
+    bool bFinished = false;
+    bool bRefreshProjectTree = false;
+
+    {
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        pendingLines.swap(task->PendingOutputLines);
+        if (task->bStatusDirty && !task->StatusText.empty()) {
+            statusLine = task->StatusText;
+            task->bStatusDirty = false;
+        }
+        bFinished = task->bFinished;
+        bRefreshProjectTree = task->bRefreshProjectTreeOnCompletion;
+        if (bFinished) {
+            result = task->Result;
+        }
+    }
+
+    if (!statusLine.empty()) {
+        AppendOutputLine("[status] " + statusLine);
+        NotifyProjectStateChanged();
+    }
+
+    for (const std::string& line : pendingLines) {
+        AppendOutputLine(line);
+    }
+
+    if (!bFinished) {
+        return;
+    }
+
+    if (task->Worker.joinable()) {
+        task->Worker.join();
+    }
+
+    if (result.bSuccess) {
+        AppendOutputLine(
+            BuildBackgroundTaskDisplayName(task->Kind == EBackgroundBuildTaskKind::Configure) +
+            " complete: " + result.BuildDirectory.string());
+    } else {
+        AppendOutputLine(
+            BuildBackgroundTaskDisplayName(task->Kind == EBackgroundBuildTaskKind::Configure) + " failed: " +
+            (result.ErrorMessage.empty()
+                ? ("Process exited with code " + std::to_string(result.ExitCode) + ".")
+                : result.ErrorMessage));
+    }
+
+    if (bRefreshProjectTree) {
+        RefreshProjectTree();
+    }
+
+    m_BackgroundBuildTask.reset();
+    NotifyProjectStateChanged();
+}
+
+void EditorWorkspaceController::ShutdownBackgroundBuildTask()
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
+        return;
+    }
+
+    if (task->Worker.joinable()) {
+        task->Worker.join();
+    }
+
+    m_BackgroundBuildTask.reset();
 }
 
 bool EditorWorkspaceController::HasDirtyDocuments() const

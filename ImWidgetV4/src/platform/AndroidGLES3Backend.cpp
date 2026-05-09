@@ -4,6 +4,7 @@
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/platform/PlatformPaths.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <android/asset_manager.h>
 #include <android/log.h>
@@ -551,6 +552,47 @@ void ImAndroidGLES3Backend::ReleaseTexture(ImTextureID textureId)
     }
 
     RuntimeTextures_.erase(found);
+}
+
+FPathDialogResult ImAndroidGLES3Backend::OpenFileDialog(const FOpenFileDialogOptions& options)
+{
+    (void)options;
+    FPathDialogResult result;
+    result.Code = EPathDialogResultCode::Unsupported;
+    result.ErrorMessage = "Open file dialog is not supported on Android backend yet.";
+    return result;
+}
+
+FPathDialogResult ImAndroidGLES3Backend::OpenFolderDialog(const FOpenFolderDialogOptions& options)
+{
+    (void)options;
+    FPathDialogResult result;
+    result.Code = EPathDialogResultCode::Unsupported;
+    result.ErrorMessage = "Open folder dialog is not supported on Android backend yet.";
+    return result;
+}
+
+FPathDialogResult ImAndroidGLES3Backend::SaveFileDialog(const FSaveFileDialogOptions& options)
+{
+    (void)options;
+    FPathDialogResult result;
+    result.Code = EPathDialogResultCode::Unsupported;
+    result.ErrorMessage = "Save file dialog is not supported on Android backend yet.";
+    return result;
+}
+
+bool ImAndroidGLES3Backend::RevealPathInFileManager(
+    const std::filesystem::path& path,
+    bool bSelectItemIfPossible)
+{
+    (void)path;
+    (void)bSelectItemIfPossible;
+    return false;
+}
+
+std::filesystem::path ImAndroidGLES3Backend::GetExecutableDirectory() const
+{
+    return GetCurrentProcessExecutableDirectory();
 }
 
 bool ImAndroidGLES3Backend::EnsureDisplayInitialized()

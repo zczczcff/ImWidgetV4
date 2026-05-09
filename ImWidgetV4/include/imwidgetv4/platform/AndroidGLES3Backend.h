@@ -54,6 +54,13 @@ public:
         int width,
         int height) override;
     void ReleaseTexture(ImTextureID textureId) override;
+    FPathDialogResult OpenFileDialog(const FOpenFileDialogOptions& options) override;
+    FPathDialogResult OpenFolderDialog(const FOpenFolderDialogOptions& options) override;
+    FPathDialogResult SaveFileDialog(const FSaveFileDialogOptions& options) override;
+    bool RevealPathInFileManager(
+        const std::filesystem::path& path,
+        bool bSelectItemIfPossible) override;
+    std::filesystem::path GetExecutableDirectory() const override;
     bool SetWindowIconFromRGBA(
         const std::uint8_t* rgbaPixels,
         int width,

@@ -558,6 +558,11 @@ bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
+            m_OutputText->SetItems({"Select project root is unsupported by the active platform backend."});
+        } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
+            m_OutputText->SetItems({"Select project root failed: " + dialogResult.ErrorMessage});
+        }
         return false;
     }
 
@@ -917,7 +922,9 @@ bool EditorWorkspaceController::NewAppProject(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
-        if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
+            m_OutputText->SetItems({"Create project is unsupported by the active platform backend."});
+        } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
             m_OutputText->SetItems({"Create project failed: " + dialogResult.ErrorMessage});
         }
         return false;
@@ -942,7 +949,9 @@ bool EditorWorkspaceController::OpenAppProject(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
-        if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
+            m_OutputText->SetItems({"Open project is unsupported by the active platform backend."});
+        } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
             m_OutputText->SetItems({"Open project failed: " + dialogResult.ErrorMessage});
         }
         return false;

@@ -8,8 +8,20 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-add_executable(ImWidgetV4Editor
-    ../ImWidgetV4/src/app/Win32HostedMain.cpp
+set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE "")
+set(IMWIDGETV4_EDITOR_PLATFORM_TARGET "")
+if(TARGET imwidgetv4_platform_win32_dx11)
+    set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE ../ImWidgetV4/src/app/Win32HostedMain.cpp)
+    set(IMWIDGETV4_EDITOR_PLATFORM_TARGET imwidgetv4_platform_win32_dx11)
+elseif(TARGET imwidgetv4_platform_android_gles3)
+    set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE ../ImWidgetV4/src/app/AndroidHostedMain.cpp)
+    set(IMWIDGETV4_EDITOR_PLATFORM_TARGET imwidgetv4_platform_android_gles3)
+else()
+    message(FATAL_ERROR "ImWidgetV4Editor requires a platform backend target.")
+endif()
+
+set(IMWIDGETV4_EDITOR_SOURCES
+    ${IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE}
     src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/commands/AddWidgetCommand.cpp
@@ -39,6 +51,12 @@ add_executable(ImWidgetV4Editor
     src/tree/DocumentTreeViewBinder.cpp
     src/tree/WidgetTreeDragDrop.h
 )
+
+if(ANDROID)
+    add_library(ImWidgetV4Editor SHARED ${IMWIDGETV4_EDITOR_SOURCES})
+else()
+    add_executable(ImWidgetV4Editor ${IMWIDGETV4_EDITOR_SOURCES})
+endif()
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_executable(editor_selection_test
@@ -88,7 +106,7 @@ endif()
 
 target_link_libraries(ImWidgetV4Editor PRIVATE
     imwidgetv4_core
-    imwidgetv4_platform_win32_dx11
+    ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
 )
 
 target_include_directories(ImWidgetV4Editor PRIVATE
@@ -98,9 +116,14 @@ target_include_directories(ImWidgetV4Editor PRIVATE
 
 set_target_properties(ImWidgetV4Editor PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
-    WIN32_EXECUTABLE TRUE
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
     FOLDER "Editor"
 )
+
+if(WIN32)
+    set_target_properties(ImWidgetV4Editor PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 
 if(MSVC)
     target_compile_options(ImWidgetV4Editor PRIVATE /FS)

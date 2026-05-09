@@ -13,6 +13,6 @@ endif()
 
 add_subdirectory(ImWidgetV4)
 
-if(IMWIDGETV4_BUILD_EDITOR AND TARGET imwidgetv4_platform_win32_dx11)
+if(IMWIDGETV4_BUILD_EDITOR AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET imwidgetv4_platform_android_gles3))
     add_subdirectory(ImWidgetV4Editor)
 endif()

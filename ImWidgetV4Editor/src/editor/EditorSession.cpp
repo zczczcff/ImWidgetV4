@@ -871,7 +871,9 @@ bool EditorSession::OpenDocument(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.OpenFileDialog(options);
     if (!dialogResult.IsAccepted()) {
-        if (dialogResult.Code == EPathDialogResultCode::Error) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+            LogStatus("Open failed: file open dialog is unsupported by the active platform backend.");
+        } else if (dialogResult.Code == EPathDialogResultCode::Error) {
             LogStatus("Open failed: " + dialogResult.ErrorMessage);
         }
         return false;
@@ -937,7 +939,9 @@ bool EditorSession::SaveDocumentAs(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.SaveFileDialog(options);
     if (!dialogResult.IsAccepted()) {
-        if (dialogResult.Code == EPathDialogResultCode::Error) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+            LogStatus("Save failed: save dialog is unsupported by the active platform backend.");
+        } else if (dialogResult.Code == EPathDialogResultCode::Error) {
             LogStatus("Save failed: " + dialogResult.ErrorMessage);
         }
         return false;
@@ -975,7 +979,9 @@ bool EditorSession::GenerateCppFiles(ImApplication& app)
 
     const FPathDialogResult dialogResult = app.SaveFileDialog(options);
     if (!dialogResult.IsAccepted()) {
-        if (dialogResult.Code == EPathDialogResultCode::Error) {
+        if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+            LogStatus("Generate C++ failed: save dialog is unsupported by the active platform backend.");
+        } else if (dialogResult.Code == EPathDialogResultCode::Error) {
             LogStatus("Generate C++ failed: " + dialogResult.ErrorMessage);
         }
         return false;

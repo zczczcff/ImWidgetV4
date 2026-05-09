@@ -119,6 +119,8 @@ private:
     mutable FGeometry MinimizeButtonGeometry_;
     mutable FGeometry MaximizeButtonGeometry_;
     mutable FGeometry CloseButtonGeometry_;
+    mutable FGeometry LastLayoutGeometry_;
+    mutable bool bHasLastLayoutGeometry_ = false;
     mutable bool bLayoutDirty_ = true;
     bool bShowSystemButtons_ = true;
     bool bShowMinimizeButton_ = true;

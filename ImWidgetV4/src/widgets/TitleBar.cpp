@@ -273,7 +273,13 @@ bool ImTitleBar::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& ou
 
 void ImTitleBar::Relayout() const
 {
-    if (!bLayoutDirty_) {
+    const bool bGeometryChanged = !bHasLastLayoutGeometry_ ||
+        !NearlyEqual(m_Geometry.Position.X, LastLayoutGeometry_.Position.X) ||
+        !NearlyEqual(m_Geometry.Position.Y, LastLayoutGeometry_.Position.Y) ||
+        !NearlyEqual(m_Geometry.Size.X, LastLayoutGeometry_.Size.X) ||
+        !NearlyEqual(m_Geometry.Size.Y, LastLayoutGeometry_.Size.Y);
+
+    if (!bLayoutDirty_ && !bGeometryChanged) {
         return;
     }
 
@@ -404,6 +410,8 @@ void ImTitleBar::Relayout() const
 
     SyncChildGeometries();
     bLayoutDirty_ = false;
+    LastLayoutGeometry_ = m_Geometry;
+    bHasLastLayoutGeometry_ = true;
 }
 
 void ImTitleBar::DetachItems(std::vector<Ptr>& items)

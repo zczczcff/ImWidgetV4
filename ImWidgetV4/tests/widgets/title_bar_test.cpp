@@ -99,11 +99,13 @@ protected:
         App->SetRootWidget(TitleBar);
     }
 
-    void Advance(const std::vector<FInputEvent>& events = {})
+    void Advance(
+        const std::vector<FInputEvent>& events = {},
+        const FVector2& viewportSize = FVector2(420.0f, 44.0f))
     {
         FFrameContext frameContext;
         frameContext.InputEvents = &events;
-        frameContext.FrameInfo.ViewportSize = FVector2(420.0f, 44.0f);
+        frameContext.FrameInfo.ViewportSize = viewportSize;
         App->AdvanceFrame(frameContext);
     }
 
@@ -268,4 +270,21 @@ TEST_F(TitleBarTest, UnsupportedBackendHidesSystemButtonsFromHitTesting)
     EXPECT_EQ(Backend.ToggleMaximizeCalls, 0);
     EXPECT_EQ(Backend.CloseCalls, 0);
     EXPECT_EQ(Backend.BeginDragCalls, 0);
+}
+
+TEST_F(TitleBarTest, SystemButtonsRelayoutWhenViewportChanges)
+{
+    Advance();
+    Advance({}, FVector2(860.0f, 44.0f));
+
+    const FTitleBarStyle& style = TitleBar->GetStyle();
+    const float closeX = 860.0f - style.Padding.Right - style.SystemButtonSize * 0.5f;
+    const float y = 18.0f;
+
+    Advance({
+        MouseEvent(EInputEventType::MouseButtonDown, FVector2(closeX, y)),
+        MouseEvent(EInputEventType::MouseButtonUp, FVector2(closeX, y))
+    }, FVector2(860.0f, 44.0f));
+
+    EXPECT_EQ(Backend.CloseCalls, 1);
 }

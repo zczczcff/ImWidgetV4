@@ -1,32 +1,40 @@
+#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
 #include "../DemoPaths.h"
 #include "DemoContent.h"
 #include <memory>
-#include <Windows.h>
 
 using namespace ImWidgetV4;
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"Input Widgets Demo - ImWidgetV4",
-        960,
-        640
-    );
+namespace {
 
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FInputWidgetsDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "Input Widgets Demo - ImWidgetV4";
+        config.InitialWidth = 960;
+        config.InitialHeight = 640;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"InputWidgetsDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"InputWidgetsDemo.ini"));
-    backend->SetApplication(app.get());
-    app->SetRootWidget(Samples::CreateInputWidgetsDemoRoot());
+    void ConfigureApplication(ImApplication& application) override
+    {
+        application.SetRootWidget(Samples::CreateInputWidgetsDemoRoot());
+    }
+};
 
-    backend->Run();
-    backend->Shutdown();
+} // namespace
 
-    return 0;
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FInputWidgetsDemoHostDelegate>();
 }
+
+} // namespace ImWidgetV4

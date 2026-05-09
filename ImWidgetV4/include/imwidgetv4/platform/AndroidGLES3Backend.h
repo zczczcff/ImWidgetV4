@@ -4,6 +4,7 @@
 #include <imwidgetv4/platform/ImGuiInputSource.h>
 #include <cstdint>
 #include <cstddef>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -25,6 +26,8 @@ class ImApplication;
 
 class ImAndroidGLES3Backend : public ImApplicationBackend {
 public:
+    using FPostFrameCallback = std::function<void(const FFrameInfo&)>;
+
     explicit ImAndroidGLES3Backend(
         android_app* app,
         std::string windowTitle = "ImWidgetV4 Android",
@@ -44,6 +47,8 @@ public:
     ImApplication* GetApplication() const override;
     void RequestClose() override;
     std::string GetBackendName() const override;
+    void SetPostFrameCallback(FPostFrameCallback callback);
+    void ClearPostFrameCallback();
     ImTextureID CreateTextureFromRGBA(
         const std::uint8_t* rgbaPixels,
         int width,
@@ -118,6 +123,7 @@ private:
 
     ImApplication* Application_ = nullptr;
     FImGuiInputSource InputSource_;
+    FPostFrameCallback PostFrameCallback_;
     std::unordered_map<ImTextureID, GLuint> RuntimeTextures_;
     std::string ClipboardTextCache_;
     bool bSoftKeyboardVisible_ = false;

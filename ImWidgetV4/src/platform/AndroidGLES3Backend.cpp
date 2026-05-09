@@ -450,6 +450,16 @@ ImApplication* ImAndroidGLES3Backend::GetApplication() const
     return Application_;
 }
 
+void ImAndroidGLES3Backend::SetPostFrameCallback(FPostFrameCallback callback)
+{
+    PostFrameCallback_ = std::move(callback);
+}
+
+void ImAndroidGLES3Backend::ClearPostFrameCallback()
+{
+    PostFrameCallback_ = nullptr;
+}
+
 void ImAndroidGLES3Backend::RequestClose()
 {
     bShouldClose_ = true;
@@ -787,6 +797,9 @@ void ImAndroidGLES3Backend::AdvanceApplicationFrame()
     frameContext.InputSource = &InputSource_;
 
     Application_->AdvanceFrame(frameContext);
+    if (PostFrameCallback_ != nullptr) {
+        PostFrameCallback_(frameContext.FrameInfo);
+    }
     SyncSoftKeyboardVisibility();
 }
 

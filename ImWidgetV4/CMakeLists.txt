@@ -82,6 +82,7 @@ target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
 imwidgetv4_set_target_folder(stb_lib "ThirdParty")
 
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/app/ApplicationHost.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/Application.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/ApplicationBackend.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/CoreIcon.h
@@ -143,6 +144,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
 )
 
 set(IMWIDGETV4_CORE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/ApplicationHost.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Application.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIconData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/DrawContext.cpp
@@ -189,6 +191,13 @@ set(IMWIDGETV4_CORE_VS_ONLY_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIconData.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIconMask.inl
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rendering/DrawContext.cpp
+)
+
+set(IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/Win32HostedMain.cpp
+)
+set(IMWIDGETV4_APP_HOST_ANDROID_MAIN_SOURCE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/AndroidHostedMain.cpp
 )
 
 set_source_files_properties(${IMWIDGETV4_CORE_VS_ONLY_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)

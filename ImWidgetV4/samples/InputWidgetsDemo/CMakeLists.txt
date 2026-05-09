@@ -4,6 +4,7 @@ set(IMWIDGETV4_INPUT_WIDGETS_DEMO_SHARED_SOURCES
 
 if(TARGET imwidgetv4_platform_win32_dx11)
     add_executable(InputWidgetsDemo
+        ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
         main.cpp
         ${IMWIDGETV4_INPUT_WIDGETS_DEMO_SHARED_SOURCES}
     )
@@ -26,8 +27,9 @@ endif()
 
 if(TARGET imwidgetv4_platform_android_gles3)
     add_library(InputWidgetsDemo SHARED
-        AndroidMain.cpp
+        ${IMWIDGETV4_APP_HOST_ANDROID_MAIN_SOURCE}
         ${IMWIDGETV4_INPUT_WIDGETS_DEMO_SHARED_SOURCES}
+        main.cpp
         ${IMWIDGETV4_ANDROID_NATIVE_APP_GLUE_SOURCE}
     )
 

@@ -9,6 +9,7 @@ if(MSVC)
 endif()
 
 add_executable(ImWidgetV4Editor
+    ../ImWidgetV4/src/app/Win32HostedMain.cpp
     src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/commands/AddWidgetCommand.cpp
@@ -92,6 +93,7 @@ target_link_libraries(ImWidgetV4Editor PRIVATE
 
 target_include_directories(ImWidgetV4Editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
 )
 
 set_target_properties(ImWidgetV4Editor PROPERTIES

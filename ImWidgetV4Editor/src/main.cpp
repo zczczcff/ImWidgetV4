@@ -6,8 +6,9 @@
 #include "palette/WidgetPaletteView.h"
 #include "tree/DocumentTreeViewBinder.h"
 
+#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
+#include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
@@ -20,7 +21,6 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
-#include <Windows.h>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -478,109 +478,138 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+class FEditorApplicationHostDelegate : public IApplicationHostDelegate
 {
-    const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
-    std::error_code currentPathError;
-    std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
-
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"ImWidgetV4 Editor",
-        1440,
-        900);
-    backend->SetUseCustomHostChrome(true);
-
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Failed to initialize editor backend.", L"ImWidgetV4 Editor", MB_OK | MB_ICONERROR);
-        return -1;
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "ImWidgetV4 Editor";
+        config.InitialWidth = 1440;
+        config.InitialHeight = 900;
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"ImWidgetV4Editor.ini");
+        config.bUseCustomHostChrome = true;
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ImWidgetV4Editor.ini"));
-    backend->SetApplication(app.get());
-    const std::filesystem::path workspaceStatePath = GetEditorWorkspaceStatePath();
+    void ConfigureApplication(ImApplication& app) override
+    {
+        const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
+        std::error_code currentPathError;
+        std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
 
-    FEditorShellWidgets shell = BuildEditorShell();
-    auto workspaceController = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
-    backend->SetPostFrameCallback([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)](const FFrameInfo&) {
-        if (auto lockedWorkspace = weakWorkspace.lock()) {
-            lockedWorkspace->TickBackgroundTasks();
-        }
-    });
-    shell.ShellHost->SetWorkspaceController(workspaceController);
-    workspaceController->SetOnProjectStateChanged([weakApp = std::weak_ptr<ImApplication>(app), weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)]() {
-        auto lockedApp = weakApp.lock();
-        auto lockedWorkspace = weakWorkspace.lock();
-        if (!lockedApp || !lockedWorkspace) {
-            return;
+        WorkspaceStatePath_ = GetEditorWorkspaceStatePath();
+
+        Shell_ = BuildEditorShell();
+        WorkspaceController_ = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
+        Shell_.ShellHost->SetWorkspaceController(WorkspaceController_);
+        WorkspaceController_->SetOnProjectStateChanged([appPtr = &app, weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+            auto lockedWorkspace = weakWorkspace.lock();
+            if (appPtr == nullptr || !lockedWorkspace) {
+                return;
+            }
+
+            RebuildTitleBarMenus(*appPtr, lockedWorkspace);
+        });
+        WorkspaceController_->SetOnExitRequested([appPtr = &app]() {
+            if (appPtr == nullptr) {
+                return;
+            }
+
+            if (ImApplicationBackend* backend = appPtr->GetBackend()) {
+                backend->RequestClose();
+            }
+        });
+        WorkspaceController_->Bind(
+            Shell_.ShellHost,
+            Shell_.DocumentTabs,
+            Shell_.ProjectView,
+            Shell_.WidgetTreeView,
+            Shell_.DetailsView,
+            Shell_.OutputText);
+        if (!WorkspaceController_->LoadWorkspaceState(WorkspaceStatePath_)) {
+            WorkspaceController_->SetProjectRoot(defaultWorkspaceDirectory);
         }
 
-        RebuildTitleBarMenus(*lockedApp, lockedWorkspace);
-    });
-    workspaceController->SetOnExitRequested([weakBackend = std::weak_ptr<ImWin32DX11Backend>(backend)]() {
-        if (auto lockedBackend = weakBackend.lock()) {
-            lockedBackend->RequestClose();
-        }
-    });
-    workspaceController->Bind(
-        shell.ShellHost,
-        shell.DocumentTabs,
-        shell.ProjectView,
-        shell.WidgetTreeView,
-        shell.DetailsView,
-        shell.OutputText);
-    if (!workspaceController->LoadWorkspaceState(workspaceStatePath)) {
-        workspaceController->SetProjectRoot(defaultWorkspaceDirectory);
+        app.SetApplicationIcon(app.GetCoreIconBrush(ECoreIcon::Settings));
+        app.ClearTitleBarActionButtons();
+        app.AddTitleBarActionButton(FApplicationTitleBarActionButton {
+            app.GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)),
+            "Undo",
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                if (auto lockedWorkspace = weakWorkspace.lock()) {
+                    lockedWorkspace->Undo();
+                }
+            },
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                auto lockedWorkspace = weakWorkspace.lock();
+                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanUndo();
+            },
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                auto lockedWorkspace = weakWorkspace.lock();
+                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanUndo();
+            }
+        });
+        app.AddTitleBarActionButton(FApplicationTitleBarActionButton {
+            app.GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)),
+            "Redo",
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                if (auto lockedWorkspace = weakWorkspace.lock()) {
+                    lockedWorkspace->Redo();
+                }
+            },
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                auto lockedWorkspace = weakWorkspace.lock();
+                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanRedo();
+            },
+            [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                auto lockedWorkspace = weakWorkspace.lock();
+                return lockedWorkspace && lockedWorkspace->GetActiveSession() && lockedWorkspace->GetActiveSession()->CanRedo();
+            }
+        });
+        RebuildTitleBarMenus(app, WorkspaceController_);
+        app.SetRootWidget(Shell_.Root);
     }
 
-    app->SetApplicationTitle("ImWidgetV4 Editor");
-    app->SetApplicationIcon(app->GetCoreIconBrush(ECoreIcon::Settings));
-    app->ClearTitleBarActionButtons();
-    app->AddTitleBarActionButton(FApplicationTitleBarActionButton {
-        app->GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)),
-        "Undo",
-        [workspaceController]() {
-            if (workspaceController) {
-                workspaceController->Undo();
-            }
-        },
-        [workspaceController]() {
-            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
-        },
-        [workspaceController]() {
-            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
-        }
-    });
-    app->AddTitleBarActionButton(FApplicationTitleBarActionButton {
-        app->GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)),
-        "Redo",
-        [workspaceController]() {
-            if (workspaceController) {
-                workspaceController->Redo();
-            }
-        },
-        [workspaceController]() {
-            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
-        },
-        [workspaceController]() {
-            return workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
-        }
-    });
-    RebuildTitleBarMenus(*app, workspaceController);
-    app->SetRootWidget(shell.Root);
+    bool InitializeApplication(ImApplication&, ImApplicationBackend&) override
+    {
+        return true;
+    }
 
-    backend->SetCloseRequestedHandler([weakApp = std::weak_ptr<ImApplication>(app), weakWorkspace = std::weak_ptr<EditorWorkspaceController>(workspaceController)]() {
-        auto lockedApp = weakApp.lock();
-        auto lockedWorkspace = weakWorkspace.lock();
-        if (!lockedApp || !lockedWorkspace) {
+    void Tick(ImApplication&, const FFrameInfo&) override
+    {
+        if (WorkspaceController_) {
+            WorkspaceController_->TickBackgroundTasks();
+        }
+    }
+
+    bool OnCloseRequested(ImApplication& app) override
+    {
+        if (!WorkspaceController_) {
             return true;
         }
 
-        return lockedWorkspace->RequestApplicationClose(*lockedApp);
-    });
+        return WorkspaceController_->RequestApplicationClose(app);
+    }
 
-    backend->Run();
-    workspaceController->SaveWorkspaceState(workspaceStatePath);
-    backend->Shutdown();
-    return 0;
+    void OnShutdown(ImApplication&) override
+    {
+        if (WorkspaceController_) {
+            WorkspaceController_->SaveWorkspaceState(WorkspaceStatePath_);
+        }
+    }
+
+private:
+    FEditorShellWidgets Shell_;
+    std::shared_ptr<EditorWorkspaceController> WorkspaceController_;
+    std::filesystem::path WorkspaceStatePath_;
+};
+
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FEditorApplicationHostDelegate>();
 }
+
+} // namespace ImWidgetV4

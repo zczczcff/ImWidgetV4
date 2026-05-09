@@ -53,6 +53,12 @@ public:
     void SetBackgroundColor(const FColor& color);
     const FColor& GetBackgroundColor() const { return m_BackgroundColor; }
 
+    void SetBorderColor(const FColor& color);
+    const FColor& GetBorderColor() const { return m_BorderColor; }
+
+    void SetBorderThickness(float thickness);
+    float GetBorderThickness() const { return m_BorderThickness; }
+
     void SetCornerRadius(float radius);
     float GetCornerRadius() const { return m_CornerRadius; }
 

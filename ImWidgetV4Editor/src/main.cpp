@@ -108,11 +108,28 @@ FButtonStyle MakeTitleBarButtonStyle(bool bHighlighted = false)
     return style;
 }
 
+FButtonStyle MakeTitleBarIconButtonStyle()
+{
+    FButtonStyle style = FButtonStyle::CreatePrimary();
+    const FColor transparent(0.0f, 0.0f, 0.0f, 0.0f);
+    const FColor textColor = FColor::FromBytes(232, 238, 246);
+    style.Normal = FButtonStateStyle(transparent, transparent, textColor, 0.0f, 0.0f, false);
+    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 18), transparent, textColor, 0.0f, 0.0f, false);
+    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 30), transparent, textColor, 0.0f, 0.0f, false);
+    style.Focused = style.Hovered;
+    style.Disabled = FButtonStateStyle(transparent, transparent, FColor::FromBytes(132, 140, 150), 0.0f, 0.0f, false);
+    return style;
+}
+
 std::shared_ptr<ImImage> MakeTitleBarIcon(const FImageBrush& brush, float size = 16.0f)
 {
     auto image = std::make_shared<ImImage>();
     image->SetBrush(brush);
     image->SetDesiredSize(FVector2(size, size));
+    image->SetBackgroundColor(FColor(0.0f, 0.0f, 0.0f, 0.0f));
+    image->SetBorderColor(FColor(0.0f, 0.0f, 0.0f, 0.0f));
+    image->SetBorderThickness(0.0f);
+    image->SetCornerRadius(0.0f);
     return image;
 }
 
@@ -134,7 +151,7 @@ std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const std::string
 std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const std::string& tooltip)
 {
     auto button = std::make_shared<FCompactTitleBarButton>();
-    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetStyle(MakeTitleBarIconButtonStyle());
     button->SetContent(MakeTitleBarIcon(brush, 16.0f));
     button->SetCompactMinSize(FVector2(30.0f, 28.0f));
     if (ImPaddingSlot* slot = button->GetContentSlot()) {
@@ -355,8 +372,8 @@ FEditorShellWidgets BuildEditorShell()
     auto titleBar = std::make_shared<ImTitleBar>();
     FTitleBarStyle titleBarStyle = titleBar->GetStyle();
     titleBarStyle.Height = 24.0f;
-    titleBarStyle.Padding = FMargin(0.0f);
-    titleBarStyle.ItemSpacing = 0.0f;
+    titleBarStyle.Padding = FMargin(4.0f, 0.0f, 0.0f, 0.0f);
+    titleBarStyle.ItemSpacing = 4.0f;
     titleBarStyle.SystemButtonSize = 34.0f;
     titleBarStyle.MinDesiredSize = FVector2(0.0f, 24.0f);
     titleBar->SetStyle(titleBarStyle);
@@ -697,18 +714,18 @@ void RebuildEditorTitleBar(
 
     if (shell.UndoButton) {
         shell.UndoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)), 16.0f));
-        shell.TitleBar->AddTrailingItem(shell.UndoButton);
+        shell.TitleBar->AddLeadingItem(shell.UndoButton);
     }
     if (shell.RedoButton) {
         shell.RedoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)), 16.0f));
-        shell.TitleBar->AddTrailingItem(shell.RedoButton);
+        shell.TitleBar->AddLeadingItem(shell.RedoButton);
     }
 
     auto searchButton = MakeTitleBarIconButton(app.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(210, 219, 232)), "Search");
     BindPopupMenuButton(app, searchButton, []() {
         return BuildSimpleMenuItems("Search");
     });
-    shell.TitleBar->AddTrailingItem(searchButton);
+    shell.TitleBar->AddLeadingItem(searchButton);
 }
 
 void UpdateEditorTitleBarActions(
@@ -721,7 +738,7 @@ void UpdateEditorTitleBarActions(
 
     if (shell.UndoButton) {
         shell.UndoButton->SetDisabled(!bCanUndo);
-        shell.UndoButton->SetStyle(MakeTitleBarButtonStyle(bCanUndo));
+        shell.UndoButton->SetStyle(MakeTitleBarIconButtonStyle());
         shell.UndoButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Undo, bCanUndo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
             16.0f));
@@ -729,7 +746,7 @@ void UpdateEditorTitleBarActions(
 
     if (shell.RedoButton) {
         shell.RedoButton->SetDisabled(!bCanRedo);
-        shell.RedoButton->SetStyle(MakeTitleBarButtonStyle(bCanRedo));
+        shell.RedoButton->SetStyle(MakeTitleBarIconButtonStyle());
         shell.RedoButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
             16.0f));

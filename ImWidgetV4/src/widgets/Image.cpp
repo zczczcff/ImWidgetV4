@@ -90,6 +90,27 @@ void ImImage::SetBackgroundColor(const FColor& color)
     Invalidate(EInvalidateReason::Paint);
 }
 
+void ImImage::SetBorderColor(const FColor& color)
+{
+    if (m_BorderColor.ToImU32() == color.ToImU32()) {
+        return;
+    }
+
+    m_BorderColor = color;
+    Invalidate(EInvalidateReason::Paint);
+}
+
+void ImImage::SetBorderThickness(float thickness)
+{
+    const float clampedThickness = std::max(0.0f, thickness);
+    if (m_BorderThickness == clampedThickness) {
+        return;
+    }
+
+    m_BorderThickness = clampedThickness;
+    Invalidate(EInvalidateReason::Paint);
+}
+
 void ImImage::SetCornerRadius(float radius)
 {
     const float clampedRadius = std::max(0.0f, radius);

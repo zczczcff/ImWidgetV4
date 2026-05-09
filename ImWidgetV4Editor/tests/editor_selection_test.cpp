@@ -5,6 +5,7 @@
 #include "../src/commands/MoveWidgetCommand.h"
 #include "../src/commands/ReflectablePropertyCommand.h"
 #include "../src/commands/RemoveWidgetCommand.h"
+#include "../src/build/BuildController.h"
 #include "../src/editor/EditorDocument.h"
 #include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
@@ -1947,6 +1948,22 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_TRUE(std::filesystem::exists(mainCppPath));
     EXPECT_TRUE(std::filesystem::exists(generatedHeaderPath));
     EXPECT_TRUE(std::filesystem::exists(generatedSourcePath));
+    {
+        std::ifstream stream(rootCMakeListsPath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_NE(text.find("add_subdirectory(\"${IMWIDGETV4_ROOT}\""), std::string::npos);
+        EXPECT_NE(text.find("generated/MainView.cpp"), std::string::npos);
+    }
+    {
+        std::ifstream stream(mainCppPath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_NE(text.find("#include \"MainView.h\""), std::string::npos);
+        EXPECT_NE(text.find("std::make_shared<SampleApp::MainView>()"), std::string::npos);
+    }
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
     EXPECT_EQ(workspaceController->GetProject()->GetNamespaceName(), "SampleApp");
@@ -2119,6 +2136,17 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtUsesExplicitOptio
         startupDocumentPath.lexically_normal());
 
     std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, BuildControllerUsesProjectRootBuildDirectoryConvention)
+{
+    const std::filesystem::path projectRoot = std::filesystem::path("E:/project/TestApp");
+    EXPECT_EQ(
+        BuildController::GetDefaultBuildDirectory(projectRoot, "Debug").lexically_normal(),
+        (projectRoot / "build" / "win32-debug").lexically_normal());
+    EXPECT_EQ(
+        BuildController::GetDefaultBuildDirectory(projectRoot, "Release").lexically_normal(),
+        (projectRoot / "build" / "win32-release").lexically_normal());
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerCreateFolderAtPathCreatesDirectory)

@@ -364,6 +364,40 @@ std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<Edito
     };
 }
 
+std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    const bool bHasProject = workspaceController && !workspaceController->GetProjectRoot().empty();
+    return {
+        FApplicationMenuItem {"Configure Project", {}, {}, bHasProject, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->ConfigureProject();
+            }
+        }},
+        FApplicationMenuItem {"Build Debug", {}, {}, bHasProject, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->BuildProject();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {"Reveal Build Folder", {}, {}, bHasProject, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->RevealProjectBuildDirectory();
+            }
+        }},
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        FApplicationMenuItem {
+            bHasProject
+                ? std::string("Build Dir: ") + (workspaceController->GetProjectRoot() / "build" / "win32-debug").string()
+                : std::string("Build directory not available"),
+            {},
+            {},
+            false,
+            false,
+            {}
+        }
+    };
+}
+
 void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     app.ClearTitleBarTabMenus();
@@ -424,6 +458,7 @@ void RebuildTitleBarMenus(ImApplication& app, const std::shared_ptr<EditorWorksp
             {}
         }
     });
+    app.AddTitleBarTabMenu("Build", BuildBuildMenuItems(workspaceController));
     app.AddTitleBarTabMenu("View", BuildSimpleMenuItems("View"));
     app.AddTitleBarTabMenu(app.GetCoreIconBrush(ECoreIcon::Search), BuildSimpleMenuItems("Search"));
 }

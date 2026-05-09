@@ -5,6 +5,7 @@
 #include "EditorShellHost.h"
 #include "InputDialog.h"
 #include "NewAppProjectDialog.h"
+#include "../build/BuildController.h"
 #include "../project/EditorProject.h"
 #include "../templates/ProjectScaffolder.h"
 #include "../inspector/ReflectionDetailsView.h"
@@ -895,6 +896,71 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
         m_OutputText->SetItems({"Opened app project " + project->GetProjectName()});
     }
     return true;
+}
+
+bool EditorWorkspaceController::ConfigureProject()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Configure failed: project root not configured.");
+        return false;
+    }
+
+    BuildController buildController;
+    const FBuildResult result = buildController.ConfigureProject(
+        *m_Project,
+        [this](const std::string& line) {
+            AppendOutputLine(line);
+        },
+        "Debug");
+
+    if (!result.bSuccess) {
+        AppendOutputLine("Configure failed: " + result.ErrorMessage);
+        return false;
+    }
+
+    AppendOutputLine("Configure complete: " + result.BuildDirectory.string());
+    RefreshProjectTree();
+    return true;
+}
+
+bool EditorWorkspaceController::BuildProject()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Build failed: project root not configured.");
+        return false;
+    }
+
+    BuildController buildController;
+    const FBuildResult result = buildController.BuildProject(
+        *m_Project,
+        [this](const std::string& line) {
+            AppendOutputLine(line);
+        },
+        "Debug");
+
+    if (!result.bSuccess) {
+        AppendOutputLine("Build failed: " + result.ErrorMessage);
+        return false;
+    }
+
+    AppendOutputLine("Build complete: " + result.BuildDirectory.string());
+    RefreshProjectTree();
+    return true;
+}
+
+bool EditorWorkspaceController::RevealProjectBuildDirectory() const
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path buildDirectory =
+        BuildController::GetDefaultBuildDirectory(m_ProjectRoot, "Debug");
+    if (!std::filesystem::exists(buildDirectory)) {
+        return false;
+    }
+
+    return RevealProjectItemInExplorer(buildDirectory);
 }
 
 bool EditorWorkspaceController::SaveDocument(ImApplication& app)
@@ -2720,6 +2786,25 @@ void EditorWorkspaceController::NotifyProjectStateChanged() const
 {
     if (m_OnProjectStateChanged) {
         m_OnProjectStateChanged();
+    }
+}
+
+void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
+{
+    if (!m_OutputText || text.empty()) {
+        return;
+    }
+
+    std::vector<std::string> items = m_OutputText->GetItems();
+    items.push_back(text);
+    constexpr std::size_t kMaxOutputLines = 300;
+    if (items.size() > kMaxOutputLines) {
+        items.erase(items.begin(), items.begin() + static_cast<std::ptrdiff_t>(items.size() - kMaxOutputLines));
+    }
+
+    m_OutputText->SetItems(items);
+    if (!items.empty()) {
+        m_OutputText->ScrollToItem(static_cast<int>(items.size() - 1), false);
     }
 }
 

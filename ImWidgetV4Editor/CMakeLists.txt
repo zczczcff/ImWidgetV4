@@ -9,6 +9,7 @@ if(MSVC)
 endif()
 
 add_executable(ImWidgetV4Editor
+    src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/commands/AddWidgetCommand.cpp
     src/commands/CommandStack.cpp
@@ -40,6 +41,7 @@ add_executable(ImWidgetV4Editor
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_executable(editor_selection_test
+        src/build/BuildController.cpp
         src/codegen/WidgetTreeToCppGenerator.cpp
         src/commands/AddWidgetCommand.cpp
         src/commands/CommandStack.cpp

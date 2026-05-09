@@ -62,6 +62,9 @@ public:
     bool NewAppProject(ImWidgetV4::ImApplication& app);
     bool OpenAppProject(ImWidgetV4::ImApplication& app);
     bool OpenAppProjectAt(const std::filesystem::path& projectRoot);
+    bool ConfigureProject();
+    bool BuildProject();
+    bool RevealProjectBuildDirectory() const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
     bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const std::string& projectName);
@@ -166,6 +169,7 @@ private:
     void OpenProjectItemContextMenu(ImWidgetV4::ImApplication& app, ImWidgetV4::ImTextOutlineItem* item, ImWidgetV4::FVector2 position);
     void CloseProjectItemContextMenu();
     void NotifyProjectStateChanged() const;
+    void AppendOutputLine(const std::string& text) const;
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;
     void RememberRecentFile(const std::filesystem::path& filePath);
     void RemoveRecentFilesUnderPath(const std::filesystem::path& path);

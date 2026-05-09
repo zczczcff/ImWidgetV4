@@ -67,7 +67,7 @@ std::shared_ptr<ImVerticalBox> MakeImageCard(
     return card;
 }
 
-constexpr std::array<std::pair<ECoreIcon, const char*>, 67> GCoreIcons = {{
+constexpr std::array<std::pair<ECoreIcon, const char*>, 94> GCoreIcons = {{
     {ECoreIcon::Save, "Save"},
     {ECoreIcon::Folder, "Folder"},
     {ECoreIcon::File, "File"},
@@ -134,7 +134,34 @@ constexpr std::array<std::pair<ECoreIcon, const char*>, 67> GCoreIcons = {{
     {ECoreIcon::BoxSlot, "BoxSlot"},
     {ECoreIcon::Style, "Style"},
     {ECoreIcon::TextList, "TextList"},
-    {ECoreIcon::TextOutlineView, "TextOutlineView"}
+    {ECoreIcon::TextOutlineView, "TextOutlineView"},
+    {ECoreIcon::Configure, "Configure"},
+    {ECoreIcon::Generate, "Generate"},
+    {ECoreIcon::Build, "Build"},
+    {ECoreIcon::BuildAll, "BuildAll"},
+    {ECoreIcon::Clean, "Clean"},
+    {ECoreIcon::Rebuild, "Rebuild"},
+    {ECoreIcon::Debug, "Debug"},
+    {ECoreIcon::Install, "Install"},
+    {ECoreIcon::Test, "Test"},
+    {ECoreIcon::CMakeFile, "CMakeFile"},
+    {ECoreIcon::TargetSelection, "TargetSelection"},
+    {ECoreIcon::BuildOutput, "BuildOutput"},
+    {ECoreIcon::OpenBuildDirectory, "OpenBuildDirectory"},
+    {ECoreIcon::CMakeCache, "CMakeCache"},
+    {ECoreIcon::AddSourceFile, "AddSourceFile"},
+    {ECoreIcon::AddLibrary, "AddLibrary"},
+    {ECoreIcon::AddExecutable, "AddExecutable"},
+    {ECoreIcon::DependencyGraph, "DependencyGraph"},
+    {ECoreIcon::FindPackage, "FindPackage"},
+    {ECoreIcon::Properties, "Properties"},
+    {ECoreIcon::ClearCache, "ClearCache"},
+    {ECoreIcon::OpenTerminal, "OpenTerminal"},
+    {ECoreIcon::CompileCurrentFile, "CompileCurrentFile"},
+    {ECoreIcon::ProjectTree, "ProjectTree"},
+    {ECoreIcon::Package, "Package"},
+    {ECoreIcon::MemoryCheck, "MemoryCheck"},
+    {ECoreIcon::ParallelBuild, "ParallelBuild"}
 }};
 
 std::shared_ptr<ImVerticalBox> MakeCoreIconCell(

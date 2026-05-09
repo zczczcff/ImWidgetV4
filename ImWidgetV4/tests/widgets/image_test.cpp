@@ -82,7 +82,7 @@ protected:
     }
 };
 
-constexpr std::array<ECoreIcon, 67> GAllCoreIcons = {
+constexpr std::array<ECoreIcon, 94> GAllCoreIcons = {
     ECoreIcon::Save,
     ECoreIcon::Folder,
     ECoreIcon::File,
@@ -149,7 +149,34 @@ constexpr std::array<ECoreIcon, 67> GAllCoreIcons = {
     ECoreIcon::BoxSlot,
     ECoreIcon::Style,
     ECoreIcon::TextList,
-    ECoreIcon::TextOutlineView
+    ECoreIcon::TextOutlineView,
+    ECoreIcon::Configure,
+    ECoreIcon::Generate,
+    ECoreIcon::Build,
+    ECoreIcon::BuildAll,
+    ECoreIcon::Clean,
+    ECoreIcon::Rebuild,
+    ECoreIcon::Debug,
+    ECoreIcon::Install,
+    ECoreIcon::Test,
+    ECoreIcon::CMakeFile,
+    ECoreIcon::TargetSelection,
+    ECoreIcon::BuildOutput,
+    ECoreIcon::OpenBuildDirectory,
+    ECoreIcon::CMakeCache,
+    ECoreIcon::AddSourceFile,
+    ECoreIcon::AddLibrary,
+    ECoreIcon::AddExecutable,
+    ECoreIcon::DependencyGraph,
+    ECoreIcon::FindPackage,
+    ECoreIcon::Properties,
+    ECoreIcon::ClearCache,
+    ECoreIcon::OpenTerminal,
+    ECoreIcon::CompileCurrentFile,
+    ECoreIcon::ProjectTree,
+    ECoreIcon::Package,
+    ECoreIcon::MemoryCheck,
+    ECoreIcon::ParallelBuild
 };
 
 } // namespace
@@ -277,7 +304,7 @@ TEST_F(ImageTest, CoreIconAtlasProducesTransparentBackgroundAndOpaqueGlyphPixels
     ImApplication::FRuntimeTextureData textureData;
     ASSERT_TRUE(application.FindRuntimeTextureData(saveBrush.TextureId, textureData));
     ASSERT_EQ(textureData.Width, 256);
-    ASSERT_EQ(textureData.Height, 288);
+    ASSERT_EQ(textureData.Height, 384);
     ASSERT_EQ(textureData.BytesPerPixel, 4);
 
     const auto samplePixel = [&textureData](int x, int y) {

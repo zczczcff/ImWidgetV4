@@ -6,8 +6,8 @@ namespace ImWidgetV4::CoreIconInternal {
 namespace {
 
 constexpr int GAtlasColumns = 8;
-constexpr int GAtlasRows = 9;
-constexpr int GIconCount = 67;
+constexpr int GAtlasRows = 12;
+constexpr int GIconCount = 94;
 constexpr int GMaskByteCount = (AtlasWidth * AtlasHeight) / 8;
 
 const std::array<std::uint8_t, GMaskByteCount> GCoreIconMask = {

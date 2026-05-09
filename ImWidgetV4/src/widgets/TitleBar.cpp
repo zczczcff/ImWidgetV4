@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/widgets/Button.h>
 #include <algorithm>
 #include <cmath>
 
@@ -19,6 +20,24 @@ float ClampNonNegative(float value)
 bool NearlyEqual(float left, float right)
 {
     return std::fabs(left - right) <= 0.01f;
+}
+
+void ClearHoverStateInSubtree(const std::shared_ptr<ImWidget>& widget, const FVector2& mousePosition)
+{
+    if (!widget) {
+        return;
+    }
+
+    if (std::dynamic_pointer_cast<ImButton>(widget)) {
+        FInputEvent leaveEvent;
+        leaveEvent.Type = EInputEventType::MouseLeave;
+        leaveEvent.MousePosition = mousePosition;
+        widget->OnInputEvent(leaveEvent);
+    }
+
+    for (const std::shared_ptr<ImWidget>& child : widget->GetChildren()) {
+        ClearHoverStateInSubtree(child, mousePosition);
+    }
 }
 
 FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& padding)
@@ -229,6 +248,17 @@ FReply ImTitleBar::OnInputEvent(const FInputEvent& event)
         }
 
         if (IsPointInHostDragArea(event.MousePosition)) {
+            for (const FChildLayout& layout : LeadingLayouts_) {
+                ClearHoverStateInSubtree(layout.Widget, event.MousePosition);
+            }
+            for (const FChildLayout& layout : TrailingLayouts_) {
+                ClearHoverStateInSubtree(layout.Widget, event.MousePosition);
+            }
+
+            if (ImApplication* application = GetApplication()) {
+                application->ClearKeyboardFocus();
+            }
+
             ImApplicationBackend* backend = GetBackend();
             if (backend == nullptr || !backend->SupportsHostWindowDrag()) {
                 return FReply::Handled();

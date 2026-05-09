@@ -1,4 +1,5 @@
-﻿add_executable(WindowDemo
+add_executable(WindowDemo
+    ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
     main.cpp
 )
 

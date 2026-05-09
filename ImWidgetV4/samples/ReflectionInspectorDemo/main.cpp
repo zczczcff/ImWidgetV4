@@ -1,9 +1,8 @@
-﻿#include <Windows.h>
+﻿#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/WindowManager.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/BoxSlot.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
@@ -625,22 +624,23 @@ std::shared_ptr<ImSelectableSampleCard> MakeInspectableSummaryCard(
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"Reflection Inspector Demo - ImWidgetV4",
-        1440,
-        860);
-
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FReflectionInspectorDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "Reflection Inspector Demo - ImWidgetV4";
+        config.InitialWidth = 1440;
+        config.InitialHeight = 860;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"ReflectionInspectorDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ReflectionInspectorDemo.ini"));
-    backend->SetApplication(app.get());
-
+    void ConfigureApplication(ImApplication& application) override
+    {
+        ImApplication* app = &application;
     auto mainRoot = std::make_shared<ImVerticalBox>();
     mainRoot->SetSpacing(12.0f);
 
@@ -660,9 +660,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     auto sampleColumn = std::make_shared<ImVerticalBox>();
     sampleColumn->SetSpacing(12.0f);
 
-    FPropertyInspectorController controller(status);
-    const auto selectObject = [&](const std::shared_ptr<ReflectableObject>& object) {
-        controller.SelectObject(object);
+    auto controller = std::make_shared<FPropertyInspectorController>(status);
+    const auto selectObject = [controller](const std::shared_ptr<ReflectableObject>& object) {
+        controller->SelectObject(object);
     };
 
     sampleColumn->AddChild(MakeLabel("Core Widgets", 18.0f, FColor::FromBytes(255, 214, 102)));
@@ -671,14 +671,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     primaryButton->SetText("Primary Action");
     primaryButton->SetStyle(FButtonStyle::CreatePrimary());
     auto primaryButtonCard = MakeInspectableSample(primaryButton, selectObject);
-    controller.RegisterSampleCard(primaryButtonCard);
+    controller->RegisterSampleCard(primaryButtonCard);
     sampleColumn->AddChild(primaryButtonCard);
 
     auto dangerButton = std::make_shared<ImButton>();
     dangerButton->SetText("Delete Asset");
     dangerButton->SetStyle(FButtonStyle::CreateDanger());
     auto dangerButtonCard = MakeInspectableSample(dangerButton, selectObject);
-    controller.RegisterSampleCard(dangerButtonCard);
+    controller->RegisterSampleCard(dangerButtonCard);
     sampleColumn->AddChild(dangerButtonCard);
 
     auto headline = std::make_shared<ImTextBlock>();
@@ -686,7 +686,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     headline->SetFontSize(26.0f);
     headline->SetTextColor(FColor::FromBytes(255, 214, 102));
     auto headlineCard = MakeInspectableSample(headline, selectObject);
-    controller.RegisterSampleCard(headlineCard);
+    controller->RegisterSampleCard(headlineCard);
     sampleColumn->AddChild(headlineCard);
 
     auto paragraph = std::make_shared<ImTextBlock>();
@@ -694,7 +694,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     paragraph->SetWrapText(true);
     paragraph->SetTextColor(FColor::FromBytes(220, 227, 235));
     auto paragraphCard = MakeInspectableSample(paragraph, selectObject);
-    controller.RegisterSampleCard(paragraphCard);
+    controller->RegisterSampleCard(paragraphCard);
     sampleColumn->AddChild(paragraphCard);
 
     sampleColumn->AddChild(MakeLabel("Input Widgets", 18.0f, FColor::FromBytes(255, 214, 102)));
@@ -702,7 +702,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     auto sampleCheckBox = std::make_shared<ImCheckBox>();
     sampleCheckBox->SetLabel("Disable the other input samples");
     auto sampleCheckBoxCard = MakeInspectableSample(sampleCheckBox, selectObject);
-    controller.RegisterSampleCard(sampleCheckBoxCard);
+    controller->RegisterSampleCard(sampleCheckBoxCard);
     sampleColumn->AddChild(sampleCheckBoxCard);
 
     auto sampleSlider = std::make_shared<ImSlider>();
@@ -710,7 +710,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     sampleSlider->SetValue(42.0f);
     sampleSlider->SetStep(5.0f);
     auto sampleSliderCard = MakeInspectableSample(sampleSlider, selectObject);
-    controller.RegisterSampleCard(sampleSliderCard);
+    controller->RegisterSampleCard(sampleSliderCard);
     sampleColumn->AddChild(sampleSliderCard);
 
     auto sampleComboBox = std::make_shared<ImComboBox>();
@@ -718,14 +718,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     sampleComboBox->SetItems({"Prototype UI", "Polish Theme", "Write Tests", "Ship Demo"});
     sampleComboBox->SetSelectedIndex(1);
     auto sampleComboBoxCard = MakeInspectableSample(sampleComboBox, selectObject);
-    controller.RegisterSampleCard(sampleComboBoxCard);
+    controller->RegisterSampleCard(sampleComboBoxCard);
     sampleColumn->AddChild(sampleComboBoxCard);
 
     auto sampleEditableText = std::make_shared<ImEditableText>();
     sampleEditableText->SetHintText("Commit text with Enter");
     sampleEditableText->SetText("Reflection-enabled input");
     auto sampleEditableTextCard = MakeInspectableSample(sampleEditableText, selectObject);
-    controller.RegisterSampleCard(sampleEditableTextCard);
+    controller->RegisterSampleCard(sampleEditableTextCard);
     sampleColumn->AddChild(sampleEditableTextCard);
 
     sampleColumn->AddChild(MakeLabel("Layout And Containers", 18.0f, FColor::FromBytes(255, 214, 102)));
@@ -738,7 +738,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     middleButton->SetText("Center");
     sampleHorizontalBox->AddChild(MakeLabel("Right", 14.0f, FColor::FromBytes(189, 198, 209)));
     auto sampleHorizontalBoxCard = MakeInspectableSample(sampleHorizontalBox, selectObject);
-    controller.RegisterSampleCard(sampleHorizontalBoxCard);
+    controller->RegisterSampleCard(sampleHorizontalBoxCard);
     sampleColumn->AddChild(sampleHorizontalBoxCard);
 
     auto sampleVerticalBox = std::make_shared<ImVerticalBox>();
@@ -747,7 +747,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     sampleVerticalBox->AddChild(MakeLabel("Stacked Row B", 14.0f, FColor::FromBytes(189, 198, 209)));
     sampleVerticalBox->AddChild(MakeLabel("Stacked Row C", 14.0f, FColor::FromBytes(160, 214, 190)));
     auto sampleVerticalBoxCard = MakeInspectableSample(sampleVerticalBox, selectObject);
-    controller.RegisterSampleCard(sampleVerticalBoxCard);
+    controller->RegisterSampleCard(sampleVerticalBoxCard);
     sampleColumn->AddChild(sampleVerticalBoxCard);
 
     auto sampleScrollContent = std::make_shared<ImVerticalBox>();
@@ -759,7 +759,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     auto sampleScrollBox = std::make_shared<ImScrollBox>();
     sampleScrollBox->SetContent(sampleScrollContent);
     auto sampleScrollBoxCard = MakeInspectableSample(sampleScrollBox, selectObject);
-    controller.RegisterSampleCard(sampleScrollBoxCard);
+    controller->RegisterSampleCard(sampleScrollBoxCard);
     sampleColumn->AddChild(sampleScrollBoxCard);
 
     auto sampleExpandableBox = std::make_shared<ImExpandableBox>();
@@ -773,7 +773,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     expandableBody->AddChild(expandableCheckBox);
     sampleExpandableBox->SetBody(expandableBody);
     auto sampleExpandableBoxCard = MakeInspectableSample(sampleExpandableBox, selectObject);
-    controller.RegisterSampleCard(sampleExpandableBoxCard);
+    controller->RegisterSampleCard(sampleExpandableBoxCard);
     sampleColumn->AddChild(sampleExpandableBoxCard);
 
     auto sampleCanvasPanel = std::make_shared<ImCanvasPanel>();
@@ -786,7 +786,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     canvasCheckBox->SetLabel("Floating");
     sampleCanvasPanel->AddChildAt(canvasCheckBox, FVector2(0.18f, 0.64f));
     auto sampleCanvasPanelCard = MakeInspectableSample(sampleCanvasPanel, selectObject);
-    controller.RegisterSampleCard(sampleCanvasPanelCard);
+    controller->RegisterSampleCard(sampleCanvasPanelCard);
     sampleColumn->AddChild(sampleCanvasPanelCard);
 
     auto sampleHorizontalSplitter = std::make_shared<ImHorizontalSplitter>();
@@ -794,7 +794,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     sampleHorizontalSplitter->AddPart(MakeLabel("Middle Pane", 13.0f, FColor::FromBytes(214, 222, 234)), 1.5f, 60.0f);
     sampleHorizontalSplitter->AddPart(MakeLabel("Right Pane", 13.0f, FColor::FromBytes(160, 214, 190)), 1.0f, 50.0f);
     auto sampleHorizontalSplitterCard = MakeInspectableSample(sampleHorizontalSplitter, selectObject);
-    controller.RegisterSampleCard(sampleHorizontalSplitterCard);
+    controller->RegisterSampleCard(sampleHorizontalSplitterCard);
     sampleColumn->AddChild(sampleHorizontalSplitterCard);
 
     auto sampleVerticalSplitter = std::make_shared<ImVerticalSplitter>();
@@ -802,7 +802,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     sampleVerticalSplitter->AddPart(MakeLabel("Middle Pane", 13.0f, FColor::FromBytes(214, 222, 234)), 1.2f, 36.0f);
     sampleVerticalSplitter->AddPart(MakeLabel("Bottom Pane", 13.0f, FColor::FromBytes(160, 214, 190)), 1.0f, 32.0f);
     auto sampleVerticalSplitterCard = MakeInspectableSample(sampleVerticalSplitter, selectObject);
-    controller.RegisterSampleCard(sampleVerticalSplitterCard);
+    controller->RegisterSampleCard(sampleVerticalSplitterCard);
     sampleColumn->AddChild(sampleVerticalSplitterCard);
 
     sampleColumn->AddChild(MakeLabel("Content Widgets", 18.0f, FColor::FromBytes(255, 214, 102)));
@@ -810,7 +810,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     auto sampleImage = std::make_shared<ImImage>();
     sampleImage->SetDesiredSize(FVector2(240.0f, 140.0f));
     auto sampleImageCard = MakeInspectableSample(sampleImage, selectObject);
-    controller.RegisterSampleCard(sampleImageCard);
+    controller->RegisterSampleCard(sampleImageCard);
     sampleColumn->AddChild(sampleImageCard);
 
     auto sampleTextList = std::make_shared<ImTextList>();
@@ -822,7 +822,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     });
     sampleTextList->SetScrollOffset(18.0f);
     auto sampleTextListCard = MakeInspectableSample(sampleTextList, selectObject);
-    controller.RegisterSampleCard(sampleTextListCard);
+    controller->RegisterSampleCard(sampleTextListCard);
     sampleColumn->AddChild(sampleTextListCard);
 
     sampleColumn->AddChild(MakeLabel("Reflection-Only Slot Samples", 18.0f, FColor::FromBytes(255, 214, 102)));
@@ -834,7 +834,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "Standalone slot sample for editing fill coefficient and inherited padding/geometry fields.",
         boxSlot,
         selectObject);
-    controller.RegisterSampleCard(boxSlotCard);
+    controller->RegisterSampleCard(boxSlotCard);
     sampleColumn->AddChild(boxSlotCard);
 
     auto canvasSlot = std::make_shared<ImCanvasPanelSlot>();
@@ -846,7 +846,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "Edits relative position, relative size, and autosize without needing a live canvas child.",
         canvasSlot,
         selectObject);
-    controller.RegisterSampleCard(canvasSlotCard);
+    controller->RegisterSampleCard(canvasSlotCard);
     sampleColumn->AddChild(canvasSlotCard);
 
     auto horizontalSplitterSlot = std::make_shared<ImHorizontalSplitterSlot>();
@@ -857,7 +857,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "Reflection sample for splitter ratios and minimum widths.",
         horizontalSplitterSlot,
         selectObject);
-    controller.RegisterSampleCard(horizontalSplitterSlotCard);
+    controller->RegisterSampleCard(horizontalSplitterSlotCard);
     sampleColumn->AddChild(horizontalSplitterSlotCard);
 
     auto verticalSplitterSlot = std::make_shared<ImVerticalSplitterSlot>();
@@ -868,7 +868,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         "Reflection sample for splitter ratios and minimum heights.",
         verticalSplitterSlot,
         selectObject);
-    controller.RegisterSampleCard(verticalSplitterSlotCard);
+    controller->RegisterSampleCard(verticalSplitterSlotCard);
     sampleColumn->AddChild(verticalSplitterSlotCard);
 
     auto mainSamplesScroll = std::make_shared<ImScrollBox>();
@@ -883,40 +883,53 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     inspectorOptions.Size = FVector2(430.0f, 700.0f);
     inspectorOptions.RootWidget = std::make_shared<ImVerticalBox>();
     auto inspectorWindow = app->GetWindowManager().CreateWindow(inspectorOptions);
-    controller.SetInspectorWindow(inspectorWindow);
+    controller->SetInspectorWindow(inspectorWindow);
 
-    primaryButton->OnClicked.AddLambda([&](ImButton&) {
+    primaryButton->OnClicked.AddLambda([status](ImButton&) {
         status->SetText("Primary button clicked. Inspector edits remain live.");
     });
 
-    dangerButton->OnClicked.AddLambda([&](ImButton&) {
+    dangerButton->OnClicked.AddLambda([status](ImButton&) {
         status->SetText("Danger button clicked. Try editing its text or style in the inspector.");
     });
 
-    sampleCheckBox->OnCheckStateChanged.AddLambda([&](ImCheckBox&, bool checked) {
+    sampleCheckBox->OnCheckStateChanged.AddLambda([sampleComboBox, sampleEditableText, sampleSlider, status](ImCheckBox&, bool checked) {
         sampleComboBox->SetDisabled(checked);
         sampleEditableText->SetDisabled(checked);
         sampleSlider->SetDisabled(checked);
         status->SetText(checked ? "Input samples disabled by checkbox." : "Input samples re-enabled.");
     });
 
-    sampleComboBox->OnSelectionChanged.AddLambda([&](ImComboBox& sender, int) {
+    sampleComboBox->OnSelectionChanged.AddLambda([status](ImComboBox& sender, int) {
         status->SetText("Combo selection: " + sender.GetSelectedText());
     });
 
-    sampleEditableText->OnTextCommitted.AddLambda([&](ImEditableText&, const std::string& text) {
+    sampleEditableText->OnTextCommitted.AddLambda([status](ImEditableText&, const std::string& text) {
         status->SetText("Editable text committed: " + text);
     });
 
-    sampleSlider->OnValueChanged.AddLambda([&](ImSlider&, float value) {
+    sampleSlider->OnValueChanged.AddLambda([status](ImSlider&, float value) {
         status->SetText("Slider value changed to " + FormatFloat(value));
     });
 
-    controller.SelectObject(primaryButton);
+        controller->SelectObject(primaryButton);
+    }
+};
 
-    backend->Run();
-    backend->Shutdown();
-    return 0;
+
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FReflectionInspectorDemoHostDelegate>();
 }
+
+} // namespace ImWidgetV4
+
+
+
+
+
+
 
 

@@ -1,25 +1,16 @@
-﻿#include <Windows.h>
+#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/UserWidget.h>
-#include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4\widgets/VerticalBox.h>
 #include "../DemoPaths.h"
 #include <memory>
 #include <string>
 
 using namespace ImWidgetV4;
-
-#ifdef max
-#undef max
-#endif
-
-#ifdef min
-#undef min
-#endif
 
 namespace {
 
@@ -201,60 +192,63 @@ protected:
     }
 };
 
-} // namespace
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"UserWidget Demo - ImWidgetV4",
-        980,
-        720
-    );
-
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FUserWidgetDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "UserWidget Demo - ImWidgetV4";
+        config.InitialWidth = 980;
+        config.InitialHeight = 720;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"UserWidgetDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"UserWidgetDemo.ini"));
-    backend->SetApplication(app.get());
+    void ConfigureApplication(ImApplication& application) override
+    {
+        auto root = std::make_shared<ImVerticalBox>();
+        root->SetSpacing(18.0f);
 
-    auto root = std::make_shared<ImVerticalBox>();
-    root->SetSpacing(18.0f);
+        auto title = MakeLabel("ImUserWidget Demo", 30.0f, FColor::FromBytes(255, 214, 102));
+        root->AddChild(title, FMargin(20.0f, 20.0f, 16.0f, 0.0f));
 
-    auto title = MakeLabel("ImUserWidget Demo", 30.0f, FColor::FromBytes(255, 214, 102));
-    root->AddChild(title, FMargin(20.0f, 20.0f, 16.0f, 0.0f));
+        root->AddChild(
+            MakeLabel(
+                "ImUserWidget wraps an internal root widget tree and exposes a reusable runtime user control. These samples use RebuildWidget() to generate the tree, then cache named children with FindWidgetAs(...).",
+                15.0f,
+                FColor::FromBytes(214, 222, 234)),
+            FMargin(20.0f, 0.0f, 20.0f, 0.0f));
 
-    root->AddChild(
-        MakeLabel(
-            "ImUserWidget wraps an internal root widget tree and exposes a reusable runtime user control. These samples use RebuildWidget() to generate the tree, then cache named children with FindWidgetAs(...).",
-            15.0f,
-            FColor::FromBytes(214, 222, 234)),
-        FMargin(20.0f, 0.0f, 20.0f, 0.0f));
+        auto topRow = std::make_shared<ImHorizontalBox>();
+        topRow->SetSpacing(22.0f);
 
-    auto topRow = std::make_shared<ImHorizontalBox>();
-    topRow->SetSpacing(22.0f);
+        auto statusCard = std::make_shared<ImLabeledValueCard>();
+        statusCard->SetLabelText("Runtime Binding");
+        statusCard->SetValueText("Ready");
+        topRow->AddChild(statusCard, FMargin(20.0f, 0.0f, 0.0f, 0.0f));
 
-    auto statusCard = std::make_shared<ImLabeledValueCard>();
-    statusCard->SetLabelText("Runtime Binding");
-    statusCard->SetValueText("Ready");
-    topRow->AddChild(statusCard, FMargin(20.0f, 0.0f, 0.0f, 0.0f));
+        auto counterCard = std::make_shared<ImCounterCard>();
+        counterCard->SetTitle("Standalone Counter");
+        topRow->AddChild(counterCard);
 
-    auto counterCard = std::make_shared<ImCounterCard>();
-    counterCard->SetTitle("Standalone Counter");
-    topRow->AddChild(counterCard);
+        root->AddChild(topRow);
 
-    root->AddChild(topRow);
+        auto nestedDashboard = std::make_shared<ImDashboardWidget>();
+        root->AddChild(nestedDashboard, FMargin(20.0f, 0.0f, 20.0f, 20.0f));
 
-    auto nestedDashboard = std::make_shared<ImDashboardWidget>();
-    root->AddChild(nestedDashboard, FMargin(20.0f, 0.0f, 20.0f, 20.0f));
+        application.SetRootWidget(root);
+    }
+};
 
-    app->SetRootWidget(root);
-    backend->Run();
-    backend->Shutdown();
+} // namespace
 
-    return 0;
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FUserWidgetDemoHostDelegate>();
 }
 
-
+} // namespace ImWidgetV4

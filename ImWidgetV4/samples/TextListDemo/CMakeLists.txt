@@ -1,4 +1,5 @@
-﻿add_executable(TextListDemo
+add_executable(TextListDemo
+    ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
     main.cpp
 )
 

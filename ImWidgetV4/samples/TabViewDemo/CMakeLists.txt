@@ -1,4 +1,5 @@
-﻿add_executable(TabViewDemo
+add_executable(TabViewDemo
+    ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
     main.cpp
 )
 

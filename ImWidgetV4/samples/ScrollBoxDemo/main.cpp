@@ -1,5 +1,5 @@
-﻿#include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
+﻿#include <imwidgetv4/app/ApplicationHost.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
@@ -14,7 +14,6 @@
 #include <string>
 #include <system_error>
 #include <vector>
-#include <Windows.h>
 
 using namespace ImWidgetV4;
 
@@ -80,21 +79,23 @@ std::shared_ptr<ImButton> MakeDangerButton(const std::string& text)
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"ScrollBox Demo - ImWidgetV4",
-        1260,
-        860);
-
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FScrollBoxDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "ScrollBox Demo - ImWidgetV4";
+        config.InitialWidth = 1260;
+        config.InitialHeight = 860;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"ScrollBoxDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ScrollBoxDemo.ini"));
-    backend->SetApplication(app.get());
+    void ConfigureApplication(ImApplication& application) override
+    {
+        ImApplication* app = &application;
 
     auto root = std::make_shared<ImVerticalBox>();
     root->SetSpacing(10.0f);
@@ -179,7 +180,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             rowButton->SetStyle(FButtonStyle::CreatePrimary());
             listTargetButton = rowButton;
         }
-        rowButton->OnClicked.AddLambda([&, index](ImButton&) {
+        rowButton->OnClicked.AddLambda([statusText, index](ImButton&) {
             statusText->SetText("Clicked vertical list row " + std::to_string(index + 1) + ".");
         });
         verticalContent->AddChild(rowButton, FMargin(6.0f, 6.0f, index == 0 ? 6.0f : 0.0f, 0.0f));
@@ -218,7 +219,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             cardButton->SetStyle(FButtonStyle::CreatePrimary());
             stripTargetButton = cardButton;
         }
-        cardButton->OnClicked.AddLambda([&, index](ImButton&) {
+        cardButton->OnClicked.AddLambda([statusText, index](ImButton&) {
             statusText->SetText("Clicked horizontal strip card " + std::to_string(index + 1) + ".");
         });
         horizontalContent->AddChild(cardButton, FMargin(index == 0 ? 8.0f : 0.0f, 0.0f, 8.0f, 8.0f));
@@ -275,87 +276,109 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     canvasScrollBox->SetContent(canvas);
     rightColumn->AddChildFill(canvasScrollBox, 1.0f);
 
-    app->SetRootWidget(root);
+        app->SetRootWidget(root);
 
-    const std::filesystem::path snapshotPath =
+    SnapshotPath_ =
         std::filesystem::absolute(std::filesystem::path("artifacts") / "snapshots" / "scroll_box_demo.png");
-    bool bPendingSnapshotExport = false;
 
-    jumpListButton->OnClicked.AddLambda([&](ImButton&) {
+    jumpListButton->OnClicked.AddLambda([verticalScrollBox, listTargetButton, statusText](ImButton&) {
         verticalScrollBox->ScrollToWidget(listTargetButton);
         statusText->SetText("Jumped to the highlighted row in the vertical list.");
     });
 
-    jumpStripButton->OnClicked.AddLambda([&](ImButton&) {
+    jumpStripButton->OnClicked.AddLambda([horizontalScrollBox, stripTargetButton, statusText](ImButton&) {
         horizontalScrollBox->ScrollToWidget(stripTargetButton, true);
         statusText->SetText("Jumped to the final card in the horizontal strip.");
     });
 
-    jumpCanvasCenterButton->OnClicked.AddLambda([&](ImButton&) {
+    jumpCanvasCenterButton->OnClicked.AddLambda([canvasScrollBox, centerCard, statusText](ImButton&) {
         canvasScrollBox->ScrollToWidget(centerCard, true);
         statusText->SetText("Centered the middle canvas node.");
     });
 
-    jumpCanvasTargetButton->OnClicked.AddLambda([&](ImButton&) {
+    jumpCanvasTargetButton->OnClicked.AddLambda([canvasScrollBox, canvasTargetButton, statusText](ImButton&) {
         canvasScrollBox->ScrollToWidget(canvasTargetButton);
         statusText->SetText("Jumped to the bottom-right canvas target.");
     });
 
-    resetButton->OnClicked.AddLambda([&](ImButton&) {
+    resetButton->OnClicked.AddLambda([verticalScrollBox, horizontalScrollBox, canvasScrollBox, statusText](ImButton&) {
         verticalScrollBox->ScrollToStart();
         horizontalScrollBox->ScrollToStart();
         canvasScrollBox->ScrollToStart();
         statusText->SetText("Reset all ScrollBox views back to their origin.");
     });
 
-    exportSnapshotButton->OnClicked.AddLambda([&](ImButton&) {
-        bPendingSnapshotExport = true;
+    exportSnapshotButton->OnClicked.AddLambda([this, statusText](ImButton&) {
+        bPendingSnapshotExport_ = true;
         statusText->SetText("Snapshot export scheduled for the end of this frame.");
     });
 
-    listTargetButton->OnClicked.AddLambda([&](ImButton&) {
+    listTargetButton->OnClicked.AddLambda([statusText](ImButton&) {
         statusText->SetText("Highlighted vertical list target clicked.");
     });
 
-    stripTargetButton->OnClicked.AddLambda([&](ImButton&) {
+    stripTargetButton->OnClicked.AddLambda([statusText](ImButton&) {
         statusText->SetText("Highlighted horizontal strip target clicked.");
     });
 
-    canvasTargetButton->OnClicked.AddLambda([&](ImButton&) {
+    canvasTargetButton->OnClicked.AddLambda([statusText](ImButton&) {
         statusText->SetText("Bottom-right canvas target clicked.");
     });
 
-    backend->SetPostFrameCallback([&](const FFrameInfo& frameInfo) {
-        if (!bPendingSnapshotExport) {
+    StatusText_ = statusText;
+    }
+
+    void Tick(ImApplication& application, const FFrameInfo& frameInfo) override
+    {
+        if (!bPendingSnapshotExport_) {
             return;
         }
 
-        bPendingSnapshotExport = false;
+        bPendingSnapshotExport_ = false;
 
         std::error_code directoryError;
-        std::filesystem::create_directories(snapshotPath.parent_path(), directoryError);
+        std::filesystem::create_directories(SnapshotPath_.parent_path(), directoryError);
 
         FFrameContext snapshotFrameContext;
         snapshotFrameContext.FrameInfo = frameInfo;
 
         const bool bExported =
             !directoryError &&
-            app->ExportSnapshotToPng(snapshotPath, snapshotFrameContext, MakeSnapshotOptions(frameInfo));
+            application.ExportSnapshotToPng(SnapshotPath_, snapshotFrameContext, MakeSnapshotOptions(frameInfo));
+
+        if (!StatusText_) {
+            return;
+        }
 
         if (bExported) {
-            statusText->SetText("Snapshot exported to: " + snapshotPath.string());
+            StatusText_->SetText("Snapshot exported to: " + SnapshotPath_.string());
         } else {
-            std::string message = "Snapshot export failed: " + snapshotPath.string();
+            std::string message = "Snapshot export failed: " + SnapshotPath_.string();
             if (directoryError) {
                 message += " (" + directoryError.message() + ")";
             }
-            statusText->SetText(message);
+            StatusText_->SetText(message);
         }
-    });
+    }
 
-    backend->Run();
-    backend->Shutdown();
-    return 0;
+private:
+    std::shared_ptr<ImTextBlock> StatusText_;
+    std::filesystem::path SnapshotPath_;
+    bool bPendingSnapshotExport_ = false;
+};
+
+
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FScrollBoxDemoHostDelegate>();
 }
+
+} // namespace ImWidgetV4
+
+
+
+
 
 

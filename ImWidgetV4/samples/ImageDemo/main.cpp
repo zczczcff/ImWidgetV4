@@ -1,32 +1,41 @@
-#include <Windows.h>
+#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
 #include "../DemoPaths.h"
 #include "DemoContent.h"
 #include <memory>
 
 using namespace ImWidgetV4;
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(
-        L"Image Demo - ImWidgetV4",
-        1080,
-        760
-    );
+namespace {
 
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FImageDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "Image Demo - ImWidgetV4";
+        config.InitialWidth = 1080;
+        config.InitialHeight = 760;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"ImageDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"ImageDemo.ini"));
-    backend->SetApplication(app.get());
-    app->SetRootWidget(Samples::CreateImageDemoRoot(*app));
+    void ConfigureApplication(ImApplication& application) override
+    {
+        application.SetApplicationIcon(application.GetCoreIconBrush(ECoreIcon::Image));
+        application.SetRootWidget(Samples::CreateImageDemoRoot(application));
+    }
+};
 
-    backend->Run();
-    backend->Shutdown();
+} // namespace
 
-    return 0;
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FImageDemoHostDelegate>();
 }
+
+} // namespace ImWidgetV4

@@ -1,4 +1,5 @@
-﻿add_executable(BoxPanelDemo
+add_executable(BoxPanelDemo
+    ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
     main.cpp
 )
 

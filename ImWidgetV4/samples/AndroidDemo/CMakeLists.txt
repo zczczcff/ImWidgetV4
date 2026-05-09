@@ -13,6 +13,7 @@ if(IMWIDGETV4_ANDROID_NDK_ROOT)
 endif()
 
 add_library(AndroidDemo SHARED
+    ${IMWIDGETV4_APP_HOST_ANDROID_MAIN_SOURCE}
     main.cpp
     ${ANDROID_NATIVE_APP_GLUE_SOURCE}
 )

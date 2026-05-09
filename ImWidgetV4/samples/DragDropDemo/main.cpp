@@ -1,14 +1,13 @@
+#include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
-#include <imwidgetv4/platform/Win32DX11Backend.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
-#include <imwidgetv4/widgets/TextBlock.h>
-#include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4\widgets/TextBlock.h>
+#include <imwidgetv4\widgets/VerticalBox.h>
 #include "../DemoPaths.h"
 #include <memory>
 #include <string>
-#include <Windows.h>
 
 using namespace ImWidgetV4;
 
@@ -35,7 +34,7 @@ public:
         return reply;
     }
 
-    std::shared_ptr<FDragDropOperation> OnDragDetected(const FDragDetectEvent& event) override
+    std::shared_ptr<FDragDropOperation> OnDragDetected(const FDragDetectEvent&) override
     {
         auto op = std::make_shared<FDragDropOperation>();
         op->Payload = std::make_shared<DemoDragPayload>();
@@ -132,64 +131,75 @@ private:
     std::shared_ptr<ImTextBlock> Label_;
 };
 
-} // namespace
-
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
-{
-    auto backend = std::make_shared<ImWin32DX11Backend>(L"DragDrop Demo - ImWidgetV4", 960, 620);
-    if (!backend->Initialize()) {
-        MessageBoxW(nullptr, L"Backend initialization failed", L"Error", MB_OK | MB_ICONERROR);
-        return -1;
+class FDragDropDemoHostDelegate : public IApplicationHostDelegate {
+public:
+    FApplicationHostConfig GetHostConfig() const override
+    {
+        FApplicationHostConfig config;
+        config.Title = "DragDrop Demo - ImWidgetV4";
+        config.InitialWidth = 960;
+        config.InitialHeight = 620;
+#if defined(_WIN32)
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"DragDropDemo.ini");
+#endif
+        return config;
     }
 
-    auto app = std::make_shared<ImApplication>();
-    app->SetIniSettingsPath(Samples::GetDefaultSampleImGuiIniPath(L"DragDropDemo.ini"));
-    backend->SetApplication(app.get());
+    void ConfigureApplication(ImApplication& application) override
+    {
+        auto root = std::make_shared<ImVerticalBox>();
+        root->SetSpacing(16.0f);
 
-    auto root = std::make_shared<ImVerticalBox>();
-    root->SetSpacing(16.0f);
+        auto hint = std::make_shared<ImTextBlock>();
+        hint->SetText("Drag the left buttons into the green drop panel. The red panel rejects drops.");
+        hint->SetFontSize(18.0f);
+        root->AddChild(hint);
 
-    auto hint = std::make_shared<ImTextBlock>();
-    hint->SetText("Drag the left buttons into the green drop panel. The red panel rejects drops.");
-    hint->SetFontSize(18.0f);
-    root->AddChild(hint);
+        auto content = std::make_shared<ImHorizontalBox>();
+        content->SetSpacing(18.0f);
+        root->AddChild(content);
 
-    auto content = std::make_shared<ImHorizontalBox>();
-    content->SetSpacing(18.0f);
-    root->AddChild(content);
+        auto sourceColumn = std::make_shared<ImVerticalBox>();
+        sourceColumn->SetSpacing(12.0f);
+        content->AddChild(sourceColumn);
 
-    auto sourceColumn = std::make_shared<ImVerticalBox>();
-    sourceColumn->SetSpacing(12.0f);
-    content->AddChild(sourceColumn);
+        auto sourceA = std::make_shared<DemoDragSource>("Palette Item A");
+        auto sourceB = std::make_shared<DemoDragSource>("Palette Item B");
+        sourceColumn->AddChild(sourceA);
+        sourceColumn->AddChild(sourceB);
 
-    auto sourceA = std::make_shared<DemoDragSource>("Palette Item A");
-    auto sourceB = std::make_shared<DemoDragSource>("Palette Item B");
-    sourceColumn->AddChild(sourceA);
-    sourceColumn->AddChild(sourceB);
+        auto acceptLabel = std::make_shared<ImTextBlock>();
+        acceptLabel->SetText("Accept Drop");
+        acceptLabel->SetFontSize(20.0f);
+        auto acceptTarget = std::make_shared<DemoDropTarget>(
+            "accept-target",
+            true,
+            FColor::FromBytes(37, 68, 50));
+        acceptTarget->SetLabel(acceptLabel);
 
-    auto acceptLabel = std::make_shared<ImTextBlock>();
-    acceptLabel->SetText("Accept Drop");
-    acceptLabel->SetFontSize(20.0f);
-    auto acceptTarget = std::make_shared<DemoDropTarget>(
-        "accept-target",
-        true,
-        FColor::FromBytes(37, 68, 50));
-    acceptTarget->SetLabel(acceptLabel);
+        auto rejectLabel = std::make_shared<ImTextBlock>();
+        rejectLabel->SetText("Reject Drop");
+        rejectLabel->SetFontSize(20.0f);
+        auto rejectTarget = std::make_shared<DemoDropTarget>(
+            "reject-target",
+            false,
+            FColor::FromBytes(69, 43, 43));
+        rejectTarget->SetLabel(rejectLabel);
 
-    auto rejectLabel = std::make_shared<ImTextBlock>();
-    rejectLabel->SetText("Reject Drop");
-    rejectLabel->SetFontSize(20.0f);
-    auto rejectTarget = std::make_shared<DemoDropTarget>(
-        "reject-target",
-        false,
-        FColor::FromBytes(69, 43, 43));
-    rejectTarget->SetLabel(rejectLabel);
+        content->AddChild(acceptTarget);
+        content->AddChild(rejectTarget);
 
-    content->AddChild(acceptTarget);
-    content->AddChild(rejectTarget);
+        application.SetRootWidget(root);
+    }
+};
 
-    app->SetRootWidget(root);
-    backend->Run();
-    backend->Shutdown();
-    return 0;
+} // namespace
+
+namespace ImWidgetV4 {
+
+std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()
+{
+    return std::make_shared<FDragDropDemoHostDelegate>();
 }
+
+} // namespace ImWidgetV4

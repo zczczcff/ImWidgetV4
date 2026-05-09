@@ -1,4 +1,5 @@
-﻿add_executable(ReflectionInspectorDemo
+add_executable(ReflectionInspectorDemo
+    ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
     main.cpp
 )
 

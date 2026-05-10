@@ -54,6 +54,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextList> OutputText;
     std::shared_ptr<ImImage> TitleBarIcon;
     std::shared_ptr<ImTextBlock> TitleBarText;
+    std::shared_ptr<ImTextBlock> TitleBarProfileStatusText;
     std::shared_ptr<ImButton> UndoButton;
     std::shared_ptr<ImButton> RedoButton;
 };
@@ -385,8 +386,16 @@ FEditorShellWidgets BuildEditorShell()
     titleText->SetFontSize(16.0f);
     titleText->SetWrapText(false);
     titleText->SetTextColor(FColor::FromBytes(238, 242, 247));
+
+    auto titleBarProfileStatusText = std::make_shared<ImTextBlock>();
+    titleBarProfileStatusText->SetText("");
+    titleBarProfileStatusText->SetFontSize(12.0f);
+    titleBarProfileStatusText->SetWrapText(false);
+    titleBarProfileStatusText->SetTextColor(FColor::FromBytes(150, 160, 172));
+
     titleBar->AddLeadingItem(titleIcon);
     titleBar->AddLeadingItem(titleText);
+    titleBar->AddLeadingItem(titleBarProfileStatusText);
 
     auto undoButton = MakeTitleBarIconButton(FImageBrush(), "Undo");
     auto redoButton = MakeTitleBarIconButton(FImageBrush(), "Redo");
@@ -461,6 +470,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.OutputText = outputText;
     shell.TitleBarIcon = titleIcon;
     shell.TitleBarText = titleText;
+    shell.TitleBarProfileStatusText = titleBarProfileStatusText;
     shell.UndoButton = undoButton;
     shell.RedoButton = redoButton;
     return shell;
@@ -811,6 +821,10 @@ void RebuildEditorTitleBar(
         shell.TitleBar->AddLeadingItem(shell.TitleBarText);
     }
 
+    if (shell.TitleBarProfileStatusText) {
+        shell.TitleBar->AddLeadingItem(shell.TitleBarProfileStatusText);
+    }
+
     auto fileButton = MakeTitleBarTextButton("File");
     BindPopupMenuButton(app, fileButton, [&app, workspaceController]() {
         return BuildFileMenuItems(app, workspaceController);
@@ -879,6 +893,37 @@ void UpdateEditorTitleBarActions(
         shell.RedoButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
             16.0f));
+    }
+
+    if (shell.TitleBarProfileStatusText) {
+        std::string statusText = "No active build profile";
+        FColor statusColor = FColor::FromBytes(150, 160, 172);
+
+        if (workspaceController) {
+            const std::string activeProfileName = workspaceController->GetActiveBuildProfileName();
+            if (!activeProfileName.empty()) {
+                statusText = activeProfileName;
+                if (workspaceController->IsBuildTaskRunning()) {
+                    const std::string buildStatus = workspaceController->GetBuildTaskStatusText();
+                    statusText += " | " + (buildStatus.empty() ? std::string("Running") : buildStatus);
+                    statusColor = FColor::FromBytes(103, 177, 255);
+                } else if (const std::shared_ptr<EditorProject> project = workspaceController->GetProject()) {
+                    if (const FEditorBuildProfile* profile = project->FindBuildProfile(activeProfileName)) {
+                        const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(*profile);
+                        if (probeReport.bReady) {
+                            statusText += " | Ready";
+                            statusColor = FColor::FromBytes(125, 204, 138);
+                        } else {
+                            statusText += " | Needs Setup";
+                            statusColor = FColor::FromBytes(230, 184, 104);
+                        }
+                    }
+                }
+            }
+        }
+
+        shell.TitleBarProfileStatusText->SetText(statusText);
+        shell.TitleBarProfileStatusText->SetTextColor(statusColor);
     }
 }
 

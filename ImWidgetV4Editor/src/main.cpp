@@ -83,6 +83,10 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextBlock> TitleBarProfileStatusText;
     std::shared_ptr<ImButton> UndoButton;
     std::shared_ptr<ImButton> RedoButton;
+    bool bLastCanUndo = false;
+    bool bLastCanRedo = false;
+    std::string LastTitleBarProfileStatusText;
+    FColor LastTitleBarProfileStatusColor = FColor::Transparent;
     std::string BuildDraftProfileName;
     std::string BuildDraftWindowsGenerator;
     std::string BuildDraftAndroidAbi;
@@ -1257,17 +1261,17 @@ void UpdateEditorTitleBarActions(
     const bool bCanUndo = workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanUndo();
     const bool bCanRedo = workspaceController && workspaceController->GetActiveSession() && workspaceController->GetActiveSession()->CanRedo();
 
-    if (shell.UndoButton) {
+    if (shell.UndoButton && shell.bLastCanUndo != bCanUndo) {
+        shell.bLastCanUndo = bCanUndo;
         shell.UndoButton->SetDisabled(!bCanUndo);
-        shell.UndoButton->SetStyle(MakeTitleBarIconButtonStyle());
         shell.UndoButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Undo, bCanUndo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
             16.0f));
     }
 
-    if (shell.RedoButton) {
+    if (shell.RedoButton && shell.bLastCanRedo != bCanRedo) {
+        shell.bLastCanRedo = bCanRedo;
         shell.RedoButton->SetDisabled(!bCanRedo);
-        shell.RedoButton->SetStyle(MakeTitleBarIconButtonStyle());
         shell.RedoButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
             16.0f));
@@ -1303,8 +1307,17 @@ void UpdateEditorTitleBarActions(
             }
         }
 
-        shell.TitleBarProfileStatusText->SetText(statusText);
-        shell.TitleBarProfileStatusText->SetTextColor(statusColor);
+        if (shell.LastTitleBarProfileStatusText != statusText) {
+            shell.LastTitleBarProfileStatusText = statusText;
+            shell.TitleBarProfileStatusText->SetText(statusText);
+        }
+        if (shell.LastTitleBarProfileStatusColor.R != statusColor.R ||
+            shell.LastTitleBarProfileStatusColor.G != statusColor.G ||
+            shell.LastTitleBarProfileStatusColor.B != statusColor.B ||
+            shell.LastTitleBarProfileStatusColor.A != statusColor.A) {
+            shell.LastTitleBarProfileStatusColor = statusColor;
+            shell.TitleBarProfileStatusText->SetTextColor(statusColor);
+        }
     }
 }
 

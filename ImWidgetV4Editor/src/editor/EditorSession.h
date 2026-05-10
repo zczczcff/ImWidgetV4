@@ -54,7 +54,8 @@ public:
         const std::shared_ptr<ReflectionDetailsView>& detailsView,
         const std::shared_ptr<ImWidgetV4::ImTextList>& outputText,
         const std::shared_ptr<ImWidgetV4::ImTextList>& headerPreviewText = nullptr,
-        const std::shared_ptr<ImWidgetV4::ImTextList>& sourcePreviewText = nullptr);
+        const std::shared_ptr<ImWidgetV4::ImTextList>& sourcePreviewText = nullptr,
+        const std::shared_ptr<ImWidgetV4::ImTabView>& workspaceTabs = nullptr);
 
     const std::shared_ptr<EditorDocument>& GetDocument() const { return m_Document; }
     std::string GetDocumentTabTitle() const;
@@ -80,6 +81,7 @@ public:
     std::string GetUndoLabel() const;
     std::string GetRedoLabel() const;
     void UpdateDocumentFilePath(const std::filesystem::path& filePath);
+    void TickDeferredRefreshes();
 
     void LogStatus(const std::string& text);
     bool ApplyDocumentSnapshot(
@@ -243,9 +245,14 @@ private:
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone);
     void RefreshDocumentViews(const std::shared_ptr<ImWidgetV4::ImWidget>& selectedWidget);
+    void RequestPreviewRefresh();
+    void RequestSchemaRefresh();
+    void RequestGeneratedCodePreviewRefresh();
+    void RequestAllDeferredRefreshes();
     void RefreshPreview();
     void RefreshSchemaView();
     void RefreshGeneratedCodePreview();
+    bool IsWorkspaceTabActive(int index) const;
     bool BuildGeneratedCode(
         const std::string& className,
         const std::string& namespaceName,
@@ -271,6 +278,7 @@ private:
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
     std::shared_ptr<EditorDocument> m_Document;
     std::shared_ptr<ImWidgetV4::ImTabView> m_DocumentTabs;
+    std::shared_ptr<ImWidgetV4::ImTabView> m_WorkspaceTabs;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_DocumentHost;
     std::shared_ptr<ImWidgetV4::ImScrollBox> m_PreviewHost;
     std::shared_ptr<ImWidgetV4::ImTextList> m_SchemaText;
@@ -294,6 +302,9 @@ private:
     json m_CopiedWidgetJson;
     bool m_bHasCopiedWidget = false;
     bool m_bSyncingSelectionState = false;
+    bool m_bPreviewRefreshPending = false;
+    bool m_bSchemaRefreshPending = false;
+    bool m_bGeneratedCodePreviewRefreshPending = false;
 };
 
 } // namespace ImWidgetV4Editor

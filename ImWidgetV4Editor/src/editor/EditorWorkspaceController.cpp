@@ -1155,6 +1155,12 @@ void EditorWorkspaceController::TickBackgroundTasks()
 {
     TickBackgroundBuildTask();
     TickBackgroundProbeTask();
+
+    for (auto& document : m_Documents) {
+        if (document.Session) {
+            document.Session->TickDeferredRefreshes();
+        }
+    }
 }
 
 bool EditorWorkspaceController::IsBuildTaskRunning() const
@@ -1634,7 +1640,8 @@ void EditorWorkspaceController::ActivateDocumentTab(int index)
         m_DetailsView,
         m_OutputText,
         entry.Widgets.HeaderPreviewText,
-        entry.Widgets.SourcePreviewText);
+        entry.Widgets.SourcePreviewText,
+        entry.Widgets.WorkspaceTabs);
 
     RebuildProjectView();
 }

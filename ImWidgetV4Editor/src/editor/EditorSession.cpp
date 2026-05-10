@@ -684,9 +684,11 @@ void EditorSession::BindDocumentWidgets(
     const std::shared_ptr<ReflectionDetailsView>& detailsView,
     const std::shared_ptr<ImTextList>& outputText,
     const std::shared_ptr<ImTextList>& headerPreviewText,
-    const std::shared_ptr<ImTextList>& sourcePreviewText)
+    const std::shared_ptr<ImTextList>& sourcePreviewText,
+    const std::shared_ptr<ImTabView>& workspaceTabs)
 {
     SetDocumentTabBinding(documentTabs, documentTabIndex);
+    m_WorkspaceTabs = workspaceTabs;
     m_DocumentHost = documentHost;
     m_PreviewHost = previewHost;
     m_SchemaText = schemaText;
@@ -1537,6 +1539,30 @@ std::shared_ptr<EditorDocument> EditorSession::CreateDefaultDocument() const
     return document;
 }
 
+void EditorSession::TickDeferredRefreshes()
+{
+    const bool bRefreshPreview = m_bPreviewRefreshPending;
+    const bool bRefreshSchema = m_bSchemaRefreshPending;
+    const bool bRefreshGeneratedCodePreview = m_bGeneratedCodePreviewRefreshPending;
+    if (!bRefreshPreview && !bRefreshSchema && !bRefreshGeneratedCodePreview) {
+        return;
+    }
+
+    m_bPreviewRefreshPending = false;
+    m_bSchemaRefreshPending = false;
+    m_bGeneratedCodePreviewRefreshPending = false;
+
+    if (bRefreshPreview) {
+        RefreshPreview();
+    }
+    if (bRefreshSchema) {
+        RefreshSchemaView();
+    }
+    if (bRefreshGeneratedCodePreview) {
+        RefreshGeneratedCodePreview();
+    }
+}
+
 void EditorSession::ApplyDocumentToUi()
 {
     if (m_TreeBinder) {
@@ -1555,9 +1581,7 @@ void EditorSession::ApplyDocumentToUi()
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document && m_Document->IsDirty());
     }
 
-    RefreshPreview();
-    RefreshSchemaView();
-    RefreshGeneratedCodePreview();
+    RequestAllDeferredRefreshes();
 
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
@@ -1867,8 +1891,8 @@ bool EditorSession::ApplyReflectablePropertyChange(
             selectedWidget);
     }
 
-    RefreshPreview();
-    RefreshSchemaView();
+    RequestPreviewRefresh();
+    RequestSchemaRefresh();
     SyncSelectionState(selectedWidget);
     return true;
 }
@@ -2035,7 +2059,7 @@ bool EditorSession::ApplyDocumentSnapshot(
         m_DocumentTabs->SetTabDirty(m_DocumentTabIndex, m_Document->IsDirty());
     }
 
-    RefreshPreview();
+    RequestAllDeferredRefreshes();
 
     return true;
 }
@@ -2659,8 +2683,9 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
         m_DocumentHost->SetContent(m_Document ? m_Document->GetRootWidget() : nullptr);
     }
 
-    RefreshPreview();
-    RefreshSchemaView();
+    RequestPreviewRefresh();
+    RequestSchemaRefresh();
+    RequestGeneratedCodePreviewRefresh();
 
     if (m_TreeBinder) {
         m_TreeBinder->RebuildFromRoot(
@@ -2671,9 +2696,36 @@ void EditorSession::RefreshDocumentViews(const std::shared_ptr<ImWidget>& select
     SyncSelectionState(selectedWidget);
 }
 
+void EditorSession::RequestPreviewRefresh()
+{
+    m_bPreviewRefreshPending = true;
+}
+
+void EditorSession::RequestSchemaRefresh()
+{
+    m_bSchemaRefreshPending = true;
+}
+
+void EditorSession::RequestGeneratedCodePreviewRefresh()
+{
+    m_bGeneratedCodePreviewRefreshPending = true;
+}
+
+void EditorSession::RequestAllDeferredRefreshes()
+{
+    RequestPreviewRefresh();
+    RequestSchemaRefresh();
+    RequestGeneratedCodePreviewRefresh();
+}
+
 void EditorSession::RefreshPreview()
 {
     if (!m_PreviewHost) {
+        return;
+    }
+
+    if (!IsWorkspaceTabActive(1)) {
+        m_bPreviewRefreshPending = true;
         return;
     }
 
@@ -2701,6 +2753,11 @@ void EditorSession::RefreshSchemaView()
         return;
     }
 
+    if (!IsWorkspaceTabActive(2)) {
+        m_bSchemaRefreshPending = true;
+        return;
+    }
+
     if (!m_Document) {
         m_SchemaText->SetItems({"{}"});
         return;
@@ -2719,6 +2776,13 @@ void EditorSession::RefreshSchemaView()
 void EditorSession::RefreshGeneratedCodePreview()
 {
     if (!m_HeaderPreviewText && !m_SourcePreviewText) {
+        return;
+    }
+
+    const bool bHeaderActive = IsWorkspaceTabActive(3);
+    const bool bSourceActive = IsWorkspaceTabActive(4);
+    if (!bHeaderActive && !bSourceActive) {
+        m_bGeneratedCodePreviewRefreshPending = true;
         return;
     }
 
@@ -2752,6 +2816,15 @@ void EditorSession::RefreshGeneratedCodePreview()
     if (m_SourcePreviewText) {
         m_SourcePreviewText->SetItems({result.Files.SourceText});
     }
+}
+
+bool EditorSession::IsWorkspaceTabActive(int index) const
+{
+    if (!m_WorkspaceTabs) {
+        return true;
+    }
+
+    return m_WorkspaceTabs->GetActiveTabIndex() == index;
 }
 
 bool EditorSession::BuildGeneratedCode(

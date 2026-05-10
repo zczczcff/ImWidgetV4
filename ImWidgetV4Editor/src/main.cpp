@@ -63,6 +63,8 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImEditableText> BuildAndroidNdkRootEditor;
     std::shared_ptr<ImButton> BuildConfigureButton;
     std::shared_ptr<ImButton> BuildRunButton;
+    std::shared_ptr<ImButton> BuildCleanButton;
+    std::shared_ptr<ImButton> BuildRebuildButton;
     std::shared_ptr<ImButton> BuildApplyProfileButton;
     std::shared_ptr<ImButton> BuildReprobeButton;
     std::shared_ptr<ImButton> BuildSettingsButton;
@@ -538,6 +540,12 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto buildButton = std::make_shared<ImButton>();
     buildButton->SetText("Build");
 
+    auto cleanButton = std::make_shared<ImButton>();
+    cleanButton->SetText("Clean");
+
+    auto rebuildButton = std::make_shared<ImButton>();
+    rebuildButton->SetText("Rebuild");
+
     auto settingsButton = std::make_shared<ImButton>();
     settingsButton->SetText("Settings");
 
@@ -582,6 +590,8 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     buttonRow->SetSpacing(6.0f);
     buttonRow->AddChildFill(configureButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(cleanButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(rebuildButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(revealButton, 1.0f, FMargin(0.0f));
 
     auto overviewText = BuildBuildOverviewPanel();
@@ -606,6 +616,8 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     shell.BuildAndroidNdkRootEditor = androidNdkRootEditor;
     shell.BuildConfigureButton = configureButton;
     shell.BuildRunButton = buildButton;
+    shell.BuildCleanButton = cleanButton;
+    shell.BuildRebuildButton = rebuildButton;
     shell.BuildApplyProfileButton = applyProfileButton;
     shell.BuildReprobeButton = reprobeButton;
     shell.BuildSettingsButton = settingsButton;
@@ -913,6 +925,16 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                 workspaceController->BuildProject();
             }
         }},
+        FApplicationMenuItem {"Clean Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->CleanProject();
+            }
+        }},
+        FApplicationMenuItem {"Rebuild Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->RebuildProject();
+            }
+        }},
         FApplicationMenuItem {"", {}, {}, true, true, {}}
     };
 
@@ -968,6 +990,30 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->BuildProject(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {
+                        "Clean This Profile",
+                        {},
+                        {},
+                        !bBuildRunning,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->CleanProject(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {
+                        "Rebuild This Profile",
+                        {},
+                        {},
+                        !bBuildRunning,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->RebuildProject(profileName);
                             }
                         }
                     },
@@ -1484,6 +1530,12 @@ void UpdateBuildDockActions(
     if (shell.BuildRunButton) {
         shell.BuildRunButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
+    if (shell.BuildCleanButton) {
+        shell.BuildCleanButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
+    if (shell.BuildRebuildButton) {
+        shell.BuildRebuildButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
     if (shell.BuildSettingsButton) {
         shell.BuildSettingsButton->SetDisabled(!bHasProject);
     }
@@ -1784,6 +1836,22 @@ public:
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
                         lockedWorkspace->BuildProject();
+                    }
+                });
+        }
+        if (Shell_.BuildCleanButton) {
+            Shell_.BuildCleanButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->CleanProject();
+                    }
+                });
+        }
+        if (Shell_.BuildRebuildButton) {
+            Shell_.BuildRebuildButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RebuildProject();
                     }
                 });
         }

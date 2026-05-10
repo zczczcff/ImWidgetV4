@@ -397,9 +397,20 @@ std::vector<std::string> GetAvailableProjectTemplateNames()
     return {"Blank App"};
 }
 
-std::string BuildBackgroundTaskDisplayName(bool bIsConfigure)
+std::string BuildBackgroundTaskDisplayName(int kind)
 {
-    return bIsConfigure ? "Configure" : "Build";
+    switch (kind) {
+    case 0:
+        return "Configure";
+    case 1:
+        return "Build";
+    case 2:
+        return "Clean";
+    case 3:
+        return "Rebuild";
+    default:
+        return "Build";
+    }
 }
 
 bool StartsWith(const std::string& text, const std::string& prefix)
@@ -1082,6 +1093,60 @@ bool EditorWorkspaceController::BuildProject(const std::string& profileName)
     }
 
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, resolvedProfileName);
+}
+
+bool EditorWorkspaceController::CleanProject()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Clean failed: project root not configured.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Clean, m_Project->GetActiveBuildProfileName());
+}
+
+bool EditorWorkspaceController::CleanProject(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Clean failed: project root not configured.");
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine("Clean failed: build profile not found.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Clean, resolvedProfileName);
+}
+
+bool EditorWorkspaceController::RebuildProject()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Rebuild failed: project root not configured.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Rebuild, m_Project->GetActiveBuildProfileName());
+}
+
+bool EditorWorkspaceController::RebuildProject(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Rebuild failed: project root not configured.");
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine("Rebuild failed: build profile not found.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Rebuild, resolvedProfileName);
 }
 
 void EditorWorkspaceController::TickBackgroundTasks()
@@ -3193,7 +3258,7 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     }
 
     if (IsBuildTaskRunning()) {
-        AppendOutputLine("Build request ignored: another configure/build task is already running.");
+        AppendOutputLine("Build request ignored: another background build task is already running.");
         return false;
     }
 
@@ -3207,15 +3272,14 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     auto task = std::make_shared<FBackgroundBuildTaskState>();
     task->Kind = kind;
     task->ProfileName = profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
-    task->StatusText = kind == EBackgroundBuildTaskKind::Configure
-        ? "Configure queued..."
-        : "Build queued...";
+    const std::string taskDisplayName = BuildBackgroundTaskDisplayName(static_cast<int>(kind));
+    task->StatusText = taskDisplayName + " queued...";
     task->bStatusDirty = true;
     m_BackgroundBuildTask = task;
 
     AppendOutputLine("========================================");
     AppendOutputLine(
-        BuildBackgroundTaskDisplayName(kind == EBackgroundBuildTaskKind::Configure) +
+        taskDisplayName +
         " started in background [" + task->ProfileName + "].");
     NotifyProjectStateChanged();
 
@@ -3231,19 +3295,36 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
             HandleBackgroundBuildOutputLine(task, line);
         };
 
-        FBuildResult result = task->Kind == EBackgroundBuildTaskKind::Configure
-            ? controller.ConfigureProject(*project, task->ProfileName, outputCallback)
-            : controller.BuildProject(*project, task->ProfileName, outputCallback);
+        FBuildResult result;
+        switch (task->Kind) {
+        case EBackgroundBuildTaskKind::Configure:
+            result = controller.ConfigureProject(*project, task->ProfileName, outputCallback);
+            break;
+        case EBackgroundBuildTaskKind::Build:
+            result = controller.BuildProject(*project, task->ProfileName, outputCallback);
+            break;
+        case EBackgroundBuildTaskKind::Clean:
+            result = controller.CleanProject(*project, task->ProfileName, outputCallback);
+            break;
+        case EBackgroundBuildTaskKind::Rebuild:
+            result = controller.RebuildProject(*project, task->ProfileName, outputCallback);
+            break;
+        default:
+            result = controller.BuildProject(*project, task->ProfileName, outputCallback);
+            break;
+        }
 
         std::lock_guard<std::mutex> lock(task->Mutex);
         task->Result = std::move(result);
         task->bFinished = true;
         task->bRefreshProjectTreeOnCompletion = task->Result.bSuccess;
+        const std::string completedTaskDisplayName =
+            BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         UpdateBackgroundBuildTaskStatus(
             task,
             task->Result.bSuccess
-                ? (task->Kind == EBackgroundBuildTaskKind::Configure ? "Configure finished." : "Build finished.")
-                : (task->Kind == EBackgroundBuildTaskKind::Configure ? "Configure failed." : "Build failed."));
+                ? (completedTaskDisplayName + " finished.")
+                : (completedTaskDisplayName + " failed."));
     });
 
     return true;
@@ -3294,12 +3375,16 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
     }
 
     if (result.bSuccess) {
+        const std::string completedTaskDisplayName =
+            BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         AppendOutputLine(
-            BuildBackgroundTaskDisplayName(task->Kind == EBackgroundBuildTaskKind::Configure) +
+            completedTaskDisplayName +
             " complete: " + result.BuildDirectory.string());
     } else {
+        const std::string completedTaskDisplayName =
+            BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         AppendOutputLine(
-            BuildBackgroundTaskDisplayName(task->Kind == EBackgroundBuildTaskKind::Configure) + " failed: " +
+            completedTaskDisplayName + " failed: " +
             (result.ErrorMessage.empty()
                 ? ("Process exited with code " + std::to_string(result.ExitCode) + ".")
                 : result.ErrorMessage));

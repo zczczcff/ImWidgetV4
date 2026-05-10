@@ -36,11 +36,25 @@ public:
     FBuildResult BuildProject(
         const EditorProject& project,
         const FOutputCallback& outputCallback) const;
+    FBuildResult CleanProject(
+        const EditorProject& project,
+        const FOutputCallback& outputCallback) const;
+    FBuildResult RebuildProject(
+        const EditorProject& project,
+        const FOutputCallback& outputCallback) const;
     FBuildResult ConfigureProject(
         const EditorProject& project,
         const std::string& profileName,
         const FOutputCallback& outputCallback) const;
     FBuildResult BuildProject(
+        const EditorProject& project,
+        const std::string& profileName,
+        const FOutputCallback& outputCallback) const;
+    FBuildResult CleanProject(
+        const EditorProject& project,
+        const std::string& profileName,
+        const FOutputCallback& outputCallback) const;
+    FBuildResult RebuildProject(
         const EditorProject& project,
         const std::string& profileName,
         const FOutputCallback& outputCallback) const;

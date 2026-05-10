@@ -72,6 +72,30 @@ FBuildResult BuildController::BuildProject(
     return BuildProject(project, activeProfile->Name, outputCallback);
 }
 
+FBuildResult BuildController::CleanProject(
+    const EditorProject& project,
+    const FOutputCallback& outputCallback) const
+{
+    const FEditorBuildProfile* activeProfile = project.GetActiveBuildProfile();
+    if (activeProfile == nullptr) {
+        return BuildMissingProfileResult(project.GetActiveBuildProfileName());
+    }
+
+    return CleanProject(project, activeProfile->Name, outputCallback);
+}
+
+FBuildResult BuildController::RebuildProject(
+    const EditorProject& project,
+    const FOutputCallback& outputCallback) const
+{
+    const FEditorBuildProfile* activeProfile = project.GetActiveBuildProfile();
+    if (activeProfile == nullptr) {
+        return BuildMissingProfileResult(project.GetActiveBuildProfileName());
+    }
+
+    return RebuildProject(project, activeProfile->Name, outputCallback);
+}
+
 FBuildResult BuildController::ConfigureProject(
     const EditorProject& project,
     const std::string& profileName,
@@ -138,6 +162,45 @@ FBuildResult BuildController::BuildProject(
             ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
     return RunProcess(project.GetProjectRoot(), arguments, buildDirectory, outputCallback);
+}
+
+FBuildResult BuildController::CleanProject(
+    const EditorProject& project,
+    const std::string& profileName,
+    const FOutputCallback& outputCallback) const
+{
+    const FEditorBuildProfile* profile = project.FindBuildProfile(profileName);
+    if (profile == nullptr) {
+        return BuildMissingProfileResult(profileName);
+    }
+
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+    std::vector<std::string> arguments = {
+        "cmake",
+        "--build", buildDirectory.string(),
+        "--config", profile->Configuration,
+        "--target", "clean"
+    };
+
+    if (outputCallback) {
+        outputCallback(
+            "[clean:" + profile->Name + "] " +
+            ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
+    }
+    return RunProcess(project.GetProjectRoot(), arguments, buildDirectory, outputCallback);
+}
+
+FBuildResult BuildController::RebuildProject(
+    const EditorProject& project,
+    const std::string& profileName,
+    const FOutputCallback& outputCallback) const
+{
+    const FBuildResult cleanResult = CleanProject(project, profileName, outputCallback);
+    if (!cleanResult.bSuccess) {
+        return cleanResult;
+    }
+
+    return BuildProject(project, profileName, outputCallback);
 }
 
 std::vector<std::string> BuildController::BuildConfigureArguments(

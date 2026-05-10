@@ -1040,6 +1040,23 @@ bool EditorWorkspaceController::ConfigureProject()
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Configure, m_Project->GetActiveBuildProfileName());
 }
 
+bool EditorWorkspaceController::ConfigureProject(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Configure failed: project root not configured.");
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine("Configure failed: build profile not found.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Configure, resolvedProfileName);
+}
+
 bool EditorWorkspaceController::BuildProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
@@ -1048,6 +1065,23 @@ bool EditorWorkspaceController::BuildProject()
     }
 
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, m_Project->GetActiveBuildProfileName());
+}
+
+bool EditorWorkspaceController::BuildProject(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine("Build failed: project root not configured.");
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine("Build failed: build profile not found.");
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, resolvedProfileName);
 }
 
 void EditorWorkspaceController::TickBackgroundTasks()
@@ -1148,6 +1182,27 @@ bool EditorWorkspaceController::RevealProjectBuildDirectory() const
     }
 
     const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(m_ProjectRoot, *activeProfile);
+    if (!std::filesystem::exists(buildDirectory)) {
+        return false;
+    }
+
+    return RevealProjectItemInExplorer(buildDirectory);
+}
+
+bool EditorWorkspaceController::RevealProjectBuildDirectory(const std::string& profileName) const
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    const FEditorBuildProfile* profile = m_Project->FindBuildProfile(resolvedProfileName);
+    if (profile == nullptr) {
+        return false;
+    }
+
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(m_ProjectRoot, *profile);
     if (!std::filesystem::exists(buildDirectory)) {
         return false;
     }
@@ -2632,6 +2687,80 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
         });
     }
 
+    if (binding.Kind == EProjectItemKind::BuildProfile) {
+        const bool bBuildRunning = IsBuildTaskRunning();
+        const bool bIsActiveProfile = m_Project && binding.ProfileName == m_Project->GetActiveBuildProfileName();
+
+        items.push_back(FPopupMenuItem {
+            bIsActiveProfile ? "Active Profile" : "Set Active Profile",
+            {},
+            {},
+            !bBuildRunning && !binding.ProfileName.empty(),
+            false,
+            [weakThis, profileName = binding.ProfileName]() {
+                if (auto self = weakThis.lock()) {
+                    self->SetActiveBuildProfile(profileName);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Configure This Profile",
+            {},
+            {},
+            !bBuildRunning && !binding.ProfileName.empty(),
+            false,
+            [weakThis, profileName = binding.ProfileName]() {
+                if (auto self = weakThis.lock()) {
+                    self->ConfigureProject(profileName);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Build This Profile",
+            {},
+            {},
+            !bBuildRunning && !binding.ProfileName.empty(),
+            false,
+            [weakThis, profileName = binding.ProfileName]() {
+                if (auto self = weakThis.lock()) {
+                    self->BuildProject(profileName);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {
+            "Reveal Build Folder",
+            {},
+            {},
+            !binding.ProfileName.empty(),
+            false,
+            [weakThis, profileName = binding.ProfileName]() {
+                if (auto self = weakThis.lock()) {
+                    self->RevealProjectBuildDirectory(profileName);
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+        items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+        items.push_back(FPopupMenuItem {
+            "Project Settings...",
+            {},
+            {},
+            true,
+            false,
+            [weakThis, application = &app]() {
+                if (auto self = weakThis.lock()) {
+                    if (application) {
+                        self->OpenProjectSettings(*application);
+                    }
+                    self->CloseProjectItemContextMenu();
+                }
+            }
+        });
+    }
+
     if (binding.Kind == EProjectItemKind::WorkspaceDirectory ||
         binding.Kind == EProjectItemKind::WorkspaceFile) {
         items.push_back(FPopupMenuItem {
@@ -3529,13 +3658,32 @@ void EditorWorkspaceController::RebuildProjectView()
             if (profilesRootItem) {
                 profilesRootItem->Expanded = true;
                 for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
+                    const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(profile);
+                    const std::string readinessLabel = probeReport.bReady ? "Ready" : "Needs Setup";
+
                     std::string label = profile.Name + " [" +
                         GetTargetPlatformDisplayName(profile.TargetPlatform) + " / " +
-                        profile.Configuration + "]";
+                        profile.Configuration + " / " + readinessLabel + "]";
                     if (profile.Name == m_Project->GetActiveBuildProfileName()) {
                         label += " *";
                     }
-                    m_ProjectView->AddChildItem(profilesRootItem, label);
+
+                    ImTextOutlineItem* profileItem = m_ProjectView->AddChildItem(profilesRootItem, label);
+                    if (!profileItem) {
+                        continue;
+                    }
+
+                    m_ProjectItemBindings[profileItem] =
+                        FProjectItemBinding {EProjectItemKind::BuildProfile, -1, {}, profile.Name};
+
+                    for (const FEnvironmentProbeItem& probeItem : probeReport.Items) {
+                        std::string probeLabel =
+                            probeItem.Label + " [" + ToDisplayString(probeItem.Status) + "]";
+                        if (!probeItem.Details.empty()) {
+                            probeLabel += " - " + probeItem.Details;
+                        }
+                        m_ProjectView->AddChildItem(profileItem, probeLabel);
+                    }
                 }
             }
         }
@@ -3619,6 +3767,13 @@ void EditorWorkspaceController::HandleProjectSelectionChanged(ImTextOutlineView&
     if (binding.Kind == EProjectItemKind::OpenDocument) {
         if (binding.Index != m_ActiveDocumentIndex) {
             ActivateDocumentAt(binding.Index);
+        }
+        return;
+    }
+
+    if (binding.Kind == EProjectItemKind::BuildProfile) {
+        if (!binding.ProfileName.empty()) {
+            SetActiveBuildProfile(binding.ProfileName);
         }
         return;
     }

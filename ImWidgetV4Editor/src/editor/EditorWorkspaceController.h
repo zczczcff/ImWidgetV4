@@ -70,7 +70,9 @@ public:
     bool OpenProjectSettings(ImWidgetV4::ImApplication& app);
     bool OpenAppProjectAt(const std::filesystem::path& projectRoot);
     bool ConfigureProject();
+    bool ConfigureProject(const std::string& profileName);
     bool BuildProject();
+    bool BuildProject(const std::string& profileName);
     void TickBackgroundTasks();
     bool IsBuildTaskRunning() const;
     std::string GetBuildTaskStatusText() const;
@@ -79,6 +81,7 @@ public:
     bool SetActiveBuildProfile(const std::string& profileName);
     bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
     bool RevealProjectBuildDirectory() const;
+    bool RevealProjectBuildDirectory(const std::string& profileName) const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
     bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const std::string& projectName);
@@ -122,7 +125,8 @@ private:
         OpenDocument,
         RecentFile,
         WorkspaceDirectory,
-        WorkspaceFile
+        WorkspaceFile,
+        BuildProfile
     };
 
     struct FSessionWidgets {
@@ -145,6 +149,7 @@ private:
         EProjectItemKind Kind = EProjectItemKind::OpenDocument;
         int Index = -1;
         std::filesystem::path Path;
+        std::string ProfileName;
     };
 
     struct FBackgroundBuildTaskState {

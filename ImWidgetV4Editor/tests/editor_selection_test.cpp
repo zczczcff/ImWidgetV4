@@ -2099,6 +2099,62 @@ TEST(EditorSelectionTest, EditorProjectPersistsBuildProfileOverrides)
     std::filesystem::remove_all(tempRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerSetActiveBuildProfilePersistsSelection)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_workspace_active_profile";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot / "ui", errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorDocument document;
+    document.NewDocument(BuildDocumentRoot(), "Main");
+    std::string documentError;
+    ASSERT_TRUE(document.SaveAs(tempRoot / "ui" / "Main.ui.json", &documentError)) << documentError;
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "WorkspaceProfileProject",
+        "WorkspaceProfileProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+    std::string projectError;
+    ASSERT_TRUE(project.Save(&projectError)) << projectError;
+
+    ASSERT_TRUE(workspaceController->OpenAppProjectAt(tempRoot));
+    EXPECT_EQ(workspaceController->GetActiveBuildProfileName(), "Windows Debug");
+
+    ASSERT_TRUE(workspaceController->SetActiveBuildProfile("Android Debug"));
+    EXPECT_EQ(workspaceController->GetActiveBuildProfileName(), "Android Debug");
+    ASSERT_TRUE(workspaceController->GetProject());
+    ASSERT_NE(workspaceController->GetProject()->GetActiveBuildProfile(), nullptr);
+    EXPECT_EQ(
+        workspaceController->GetProject()->GetActiveBuildProfile()->TargetPlatform,
+        EEditorTargetPlatform::Android);
+
+    EditorProject restoredProject;
+    std::string loadError;
+    ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
+    EXPECT_EQ(restoredProject.GetActiveBuildProfileName(), "Android Debug");
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
 {
     auto shellHost = std::make_shared<EditorShellHost>();

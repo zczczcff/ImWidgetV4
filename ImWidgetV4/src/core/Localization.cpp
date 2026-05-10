@@ -57,7 +57,9 @@ bool FLocalizationManager::SetCulture(std::string culture)
         return true;
     }
 
+    const std::string oldCulture = Culture_;
     Culture_ = std::move(culture);
+    OnCultureChanged.Broadcast(oldCulture, Culture_);
     return true;
 }
 

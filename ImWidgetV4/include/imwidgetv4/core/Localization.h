@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 
 #include <filesystem>
@@ -38,6 +39,8 @@ struct FStringTable {
 
 class FLocalizationManager {
 public:
+    using FCultureChangedEvent = TMulticastDelegate<const std::string&, const std::string&>;
+
     static FLocalizationManager& Get();
 
     void SetDefaultCulture(std::string culture);
@@ -53,6 +56,8 @@ public:
 
     std::string Resolve(const FText& text) const;
     std::string Resolve(const std::string& key, const std::string& defaultText = std::string()) const;
+
+    FCultureChangedEvent OnCultureChanged;
 
 private:
     const FStringTable* FindTable(const std::string& culture) const;

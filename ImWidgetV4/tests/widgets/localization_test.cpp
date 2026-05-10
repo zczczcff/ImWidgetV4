@@ -152,6 +152,29 @@ TEST(LocalizationTest, EditableTextLocalizesHintButKeepsUserTextPlain)
     EXPECT_EQ(restored.GetText(), "User Value");
 }
 
+TEST(LocalizationTest, CultureChangedBroadcastsOnlyWhenCultureActuallyChanges)
+{
+    ResetLocalization();
+
+    std::vector<std::string> transitions;
+    const FDelegateHandle handle = FLocalizationManager::Get().OnCultureChanged.AddLambda(
+        [&](const std::string& oldCulture, const std::string& newCulture) {
+            transitions.push_back(oldCulture + "->" + newCulture);
+        });
+
+    EXPECT_TRUE(FLocalizationManager::Get().SetCulture("en-US"));
+    EXPECT_TRUE(transitions.empty());
+
+    EXPECT_TRUE(FLocalizationManager::Get().SetCulture("zh-CN"));
+    ASSERT_EQ(transitions.size(), 1u);
+    EXPECT_EQ(transitions[0], "en-US->zh-CN");
+
+    EXPECT_TRUE(FLocalizationManager::Get().SetCulture("zh-CN"));
+    EXPECT_EQ(transitions.size(), 1u);
+
+    EXPECT_TRUE(FLocalizationManager::Get().OnCultureChanged.Remove(handle));
+}
+
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)
 {
     ResetLocalization();

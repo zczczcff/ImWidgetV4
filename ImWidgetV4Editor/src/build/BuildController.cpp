@@ -17,6 +17,21 @@ std::filesystem::path ResolveCompileTimeLibraryRoot()
     return (sourcePath.parent_path() / "ImWidgetV4").lexically_normal();
 }
 
+std::string ResolveHostPlatformTag()
+{
+#if defined(__ANDROID__)
+    return "android";
+#elif defined(_WIN32)
+    return "win32";
+#elif defined(__APPLE__)
+    return "macos";
+#elif defined(__linux__)
+    return "linux";
+#else
+    return "native";
+#endif
+}
+
 } // namespace
 
 std::filesystem::path BuildController::GetDefaultBuildDirectory(
@@ -33,7 +48,7 @@ std::filesystem::path BuildController::GetDefaultBuildDirectory(
         normalizedConfiguration = "debug";
     }
 
-    return (projectRoot / "build" / ("win32-" + normalizedConfiguration)).lexically_normal();
+    return (projectRoot / "build" / (ResolveHostPlatformTag() + "-" + normalizedConfiguration)).lexically_normal();
 }
 
 std::filesystem::path BuildController::GetDefaultLibraryRoot()

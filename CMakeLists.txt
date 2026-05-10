@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(ImWidgetWorkspace VERSION 0.1.0 LANGUAGES CXX)
+project(ImWidgetWorkspace VERSION 0.1.0 LANGUAGES C CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 

@@ -1,5 +1,6 @@
 package com.imwidgetv4.android;
 
+import android.app.AlertDialog;
 import android.app.ActivityManager;
 import android.app.NativeActivity;
 import android.content.ClipData;
@@ -20,12 +21,28 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ImWidgetNativeActivity extends NativeActivity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private EditText keyboardProxyView;
     private long nativeBackendHandle;
     private boolean suppressProxyCallbacks;
+
+    private enum NativePathDialogMode {
+        OPEN_FILE,
+        OPEN_FOLDER,
+        SAVE_FILE
+    }
+
+    private interface NativePathDialogCallback {
+        void onComplete(String selectedPath);
+    }
 
     private static native void nativeOnTextInput(long backendHandle, int codePoint);
     private static native void nativeOnSpecialKey(long backendHandle, int keyCode, boolean isDown);
@@ -124,6 +141,246 @@ public class ImWidgetNativeActivity extends NativeActivity {
 
     public void setNativeBackendHandle(long backendHandle) {
         nativeBackendHandle = backendHandle;
+    }
+
+    public String showNativeOpenFileDialog(String title, String initialDirectory) {
+        return runNativePathDialogBlocking(
+            NativePathDialogMode.OPEN_FILE,
+            title,
+            initialDirectory,
+            "");
+    }
+
+    public String showNativeOpenFolderDialog(String title, String initialDirectory) {
+        return runNativePathDialogBlocking(
+            NativePathDialogMode.OPEN_FOLDER,
+            title,
+            initialDirectory,
+            "");
+    }
+
+    public String showNativeSaveFileDialog(String title, String initialDirectory, String defaultFileName) {
+        return runNativePathDialogBlocking(
+            NativePathDialogMode.SAVE_FILE,
+            title,
+            initialDirectory,
+            defaultFileName);
+    }
+
+    private String runNativePathDialogBlocking(
+        NativePathDialogMode mode,
+        String title,
+        String initialDirectory,
+        String defaultFileName) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return "";
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> selectedPathRef = new AtomicReference<>("");
+        mainHandler.post(() -> {
+            try {
+                File initialDir = resolveInitialDirectory(initialDirectory);
+                showNativePathDialogRecursive(
+                    mode,
+                    initialDir,
+                    sanitizeDialogTitle(title, mode),
+                    sanitizeDefaultFileName(defaultFileName),
+                    selectedPath -> {
+                        selectedPathRef.set(selectedPath != null ? selectedPath : "");
+                        latch.countDown();
+                    });
+            } catch (Throwable ignored) {
+                selectedPathRef.set("");
+                latch.countDown();
+            }
+        });
+
+        try {
+            latch.await();
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            return "";
+        }
+
+        return selectedPathRef.get();
+    }
+
+    private File resolveInitialDirectory(String initialDirectory) {
+        if (initialDirectory != null && !initialDirectory.trim().isEmpty()) {
+            File candidate = new File(initialDirectory.trim());
+            if (candidate.isFile()) {
+                File parent = candidate.getParentFile();
+                if (parent != null && parent.isDirectory()) {
+                    return parent;
+                }
+            } else if (candidate.isDirectory()) {
+                return candidate;
+            }
+        }
+
+        File externalFilesDir = getExternalFilesDir(null);
+        if (externalFilesDir != null && externalFilesDir.isDirectory()) {
+            return externalFilesDir;
+        }
+
+        File filesDir = getFilesDir();
+        if (filesDir != null && filesDir.isDirectory()) {
+            return filesDir;
+        }
+
+        File cacheDir = getCacheDir();
+        if (cacheDir != null && cacheDir.isDirectory()) {
+            return cacheDir;
+        }
+
+        return new File("/");
+    }
+
+    private String sanitizeDialogTitle(String title, NativePathDialogMode mode) {
+        if (title != null && !title.trim().isEmpty()) {
+            return title.trim();
+        }
+
+        if (mode == NativePathDialogMode.OPEN_FOLDER) {
+            return "Select Folder";
+        }
+        if (mode == NativePathDialogMode.SAVE_FILE) {
+            return "Save File";
+        }
+        return "Open File";
+    }
+
+    private String sanitizeDefaultFileName(String defaultFileName) {
+        String candidate = defaultFileName != null ? defaultFileName.trim() : "";
+        if (candidate.isEmpty()) {
+            return "Untitled.imw";
+        }
+
+        candidate = candidate.replace('\\', '_').replace('/', '_');
+        if (candidate.isEmpty()) {
+            return "Untitled.imw";
+        }
+        return candidate;
+    }
+
+    private void showNativePathDialogRecursive(
+        NativePathDialogMode mode,
+        File directory,
+        String title,
+        String defaultFileName,
+        NativePathDialogCallback callback) {
+        File currentDirectory = directory;
+        if (currentDirectory == null || !currentDirectory.isDirectory()) {
+            currentDirectory = resolveInitialDirectory("");
+        }
+
+        File[] children = currentDirectory.listFiles();
+        ArrayList<File> directories = new ArrayList<>();
+        ArrayList<File> files = new ArrayList<>();
+        if (children != null) {
+            for (File child : children) {
+                if (child == null || !child.canRead()) {
+                    continue;
+                }
+
+                if (child.isDirectory()) {
+                    directories.add(child);
+                } else if (child.isFile()) {
+                    files.add(child);
+                }
+            }
+        }
+
+        Comparator<File> nameComparator = (left, right) ->
+            left.getName().compareToIgnoreCase(right.getName());
+        Collections.sort(directories, nameComparator);
+        Collections.sort(files, nameComparator);
+
+        ArrayList<String> labels = new ArrayList<>();
+        ArrayList<File> navigateTargets = new ArrayList<>();
+        ArrayList<String> selectedPaths = new ArrayList<>();
+
+        if (mode == NativePathDialogMode.OPEN_FOLDER) {
+            labels.add("[Select this folder]");
+            navigateTargets.add(null);
+            selectedPaths.add(currentDirectory.getAbsolutePath());
+        } else if (mode == NativePathDialogMode.SAVE_FILE) {
+            File saveTarget = new File(currentDirectory, defaultFileName);
+            labels.add("[Save as " + defaultFileName + "]");
+            navigateTargets.add(null);
+            selectedPaths.add(saveTarget.getAbsolutePath());
+        }
+
+        File parentDirectory = currentDirectory.getParentFile();
+        if (parentDirectory != null && parentDirectory.isDirectory()) {
+            labels.add("[..]");
+            navigateTargets.add(parentDirectory);
+            selectedPaths.add(null);
+        }
+
+        for (File childDirectory : directories) {
+            labels.add("[Dir] " + childDirectory.getName());
+            navigateTargets.add(childDirectory);
+            selectedPaths.add(null);
+        }
+
+        if (mode != NativePathDialogMode.OPEN_FOLDER) {
+            for (File childFile : files) {
+                labels.add(childFile.getName());
+                navigateTargets.add(null);
+                selectedPaths.add(childFile.getAbsolutePath());
+            }
+        }
+
+        if (labels.isEmpty()) {
+            callback.onComplete("");
+            return;
+        }
+
+        final boolean[] resolved = {false};
+        final File activeDirectory = currentDirectory;
+        final String dialogTitle = title + "\n" + activeDirectory.getAbsolutePath();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(dialogTitle);
+        builder.setItems(labels.toArray(new String[0]), (dialog, which) -> {
+            if (which < 0 || which >= labels.size()) {
+                if (!resolved[0]) {
+                    resolved[0] = true;
+                    callback.onComplete("");
+                }
+                return;
+            }
+
+            File navigationTarget = navigateTargets.get(which);
+            if (navigationTarget != null) {
+                resolved[0] = true;
+                showNativePathDialogRecursive(
+                    mode,
+                    navigationTarget,
+                    title,
+                    defaultFileName,
+                    callback);
+                return;
+            }
+
+            String selectedPath = selectedPaths.get(which);
+            resolved[0] = true;
+            callback.onComplete(selectedPath != null ? selectedPath : "");
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            if (!resolved[0]) {
+                resolved[0] = true;
+                callback.onComplete("");
+            }
+        });
+        builder.setOnCancelListener(dialog -> {
+            if (!resolved[0]) {
+                resolved[0] = true;
+                callback.onComplete("");
+            }
+        });
+        builder.show();
     }
 
     private static boolean isModifierKeyCode(int keyCode) {

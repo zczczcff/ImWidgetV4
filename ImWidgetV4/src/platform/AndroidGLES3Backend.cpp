@@ -2,6 +2,7 @@
 
 #if defined(__ANDROID__)
 
+#include <android_native_app_glue.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/platform/PlatformPaths.h>
@@ -240,6 +241,33 @@ bool ClearPendingJavaException(JNIEnv* env)
 
     env->ExceptionClear();
     return true;
+}
+
+std::string CopyJStringToUtf8(JNIEnv* env, jstring value)
+{
+    if (env == nullptr || value == nullptr) {
+        return std::string();
+    }
+
+    const char* utfChars = env->GetStringUTFChars(value, nullptr);
+    if (utfChars == nullptr) {
+        return std::string();
+    }
+
+    std::string result(utfChars);
+    env->ReleaseStringUTFChars(value, utfChars);
+    return result;
+}
+
+std::filesystem::path NormalizePathOrFallback(const std::filesystem::path& path)
+{
+    if (path.empty()) {
+        return {};
+    }
+
+    std::error_code errorCode;
+    const std::filesystem::path canonicalPath = std::filesystem::weakly_canonical(path, errorCode);
+    return errorCode ? path.lexically_normal() : canonicalPath;
 }
 
 } // namespace
@@ -556,28 +584,229 @@ void ImAndroidGLES3Backend::ReleaseTexture(ImTextureID textureId)
 
 FPathDialogResult ImAndroidGLES3Backend::OpenFileDialog(const FOpenFileDialogOptions& options)
 {
-    (void)options;
     FPathDialogResult result;
-    result.Code = EPathDialogResultCode::Unsupported;
-    result.ErrorMessage = "Open file dialog is not supported on Android backend yet.";
+    FScopedJniEnv jni(App_ != nullptr ? App_->activity : nullptr);
+    if (!jni.IsValid() || App_ == nullptr || App_->activity == nullptr || App_->activity->clazz == nullptr) {
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android activity is unavailable for file dialog.";
+        return result;
+    }
+
+    jclass activityClass = jni.Env->GetObjectClass(App_->activity->clazz);
+    if (activityClass == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Failed to resolve Android activity class.";
+        return result;
+    }
+
+    jmethodID methodId = jni.Env->GetMethodID(
+        activityClass,
+        "showNativeOpenFileDialog",
+        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (methodId == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Unsupported;
+        result.ErrorMessage = "Native open file dialog bridge is not available.";
+        return result;
+    }
+
+    const std::string initialDirectory = options.InitialDirectory.string();
+    jstring titleString = jni.Env->NewStringUTF(options.Title.c_str());
+    jstring initialDirectoryString = jni.Env->NewStringUTF(initialDirectory.c_str());
+    jstring selectedPathString = static_cast<jstring>(
+        jni.Env->CallObjectMethod(App_->activity->clazz, methodId, titleString, initialDirectoryString));
+
+    if (titleString != nullptr) {
+        jni.Env->DeleteLocalRef(titleString);
+    }
+    if (initialDirectoryString != nullptr) {
+        jni.Env->DeleteLocalRef(initialDirectoryString);
+    }
+
+    if (ClearPendingJavaException(jni.Env)) {
+        if (selectedPathString != nullptr) {
+            jni.Env->DeleteLocalRef(selectedPathString);
+        }
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android file dialog invocation failed.";
+        return result;
+    }
+
+    const std::string selectedPathUtf8 = CopyJStringToUtf8(jni.Env, selectedPathString);
+    if (selectedPathString != nullptr) {
+        jni.Env->DeleteLocalRef(selectedPathString);
+    }
+    jni.Env->DeleteLocalRef(activityClass);
+
+    if (selectedPathUtf8.empty()) {
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    result.Code = EPathDialogResultCode::Accepted;
+    result.Path = NormalizePathOrFallback(std::filesystem::path(selectedPathUtf8));
     return result;
 }
 
 FPathDialogResult ImAndroidGLES3Backend::OpenFolderDialog(const FOpenFolderDialogOptions& options)
 {
-    (void)options;
     FPathDialogResult result;
-    result.Code = EPathDialogResultCode::Unsupported;
-    result.ErrorMessage = "Open folder dialog is not supported on Android backend yet.";
+    FScopedJniEnv jni(App_ != nullptr ? App_->activity : nullptr);
+    if (!jni.IsValid() || App_ == nullptr || App_->activity == nullptr || App_->activity->clazz == nullptr) {
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android activity is unavailable for folder dialog.";
+        return result;
+    }
+
+    jclass activityClass = jni.Env->GetObjectClass(App_->activity->clazz);
+    if (activityClass == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Failed to resolve Android activity class.";
+        return result;
+    }
+
+    jmethodID methodId = jni.Env->GetMethodID(
+        activityClass,
+        "showNativeOpenFolderDialog",
+        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (methodId == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Unsupported;
+        result.ErrorMessage = "Native open folder dialog bridge is not available.";
+        return result;
+    }
+
+    const std::string initialDirectory = options.InitialDirectory.string();
+    jstring titleString = jni.Env->NewStringUTF(options.Title.c_str());
+    jstring initialDirectoryString = jni.Env->NewStringUTF(initialDirectory.c_str());
+    jstring selectedPathString = static_cast<jstring>(
+        jni.Env->CallObjectMethod(App_->activity->clazz, methodId, titleString, initialDirectoryString));
+
+    if (titleString != nullptr) {
+        jni.Env->DeleteLocalRef(titleString);
+    }
+    if (initialDirectoryString != nullptr) {
+        jni.Env->DeleteLocalRef(initialDirectoryString);
+    }
+
+    if (ClearPendingJavaException(jni.Env)) {
+        if (selectedPathString != nullptr) {
+            jni.Env->DeleteLocalRef(selectedPathString);
+        }
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android folder dialog invocation failed.";
+        return result;
+    }
+
+    const std::string selectedPathUtf8 = CopyJStringToUtf8(jni.Env, selectedPathString);
+    if (selectedPathString != nullptr) {
+        jni.Env->DeleteLocalRef(selectedPathString);
+    }
+    jni.Env->DeleteLocalRef(activityClass);
+
+    if (selectedPathUtf8.empty()) {
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    result.Code = EPathDialogResultCode::Accepted;
+    result.Path = NormalizePathOrFallback(std::filesystem::path(selectedPathUtf8));
     return result;
 }
 
 FPathDialogResult ImAndroidGLES3Backend::SaveFileDialog(const FSaveFileDialogOptions& options)
 {
-    (void)options;
     FPathDialogResult result;
-    result.Code = EPathDialogResultCode::Unsupported;
-    result.ErrorMessage = "Save file dialog is not supported on Android backend yet.";
+    FScopedJniEnv jni(App_ != nullptr ? App_->activity : nullptr);
+    if (!jni.IsValid() || App_ == nullptr || App_->activity == nullptr || App_->activity->clazz == nullptr) {
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android activity is unavailable for save dialog.";
+        return result;
+    }
+
+    jclass activityClass = jni.Env->GetObjectClass(App_->activity->clazz);
+    if (activityClass == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Failed to resolve Android activity class.";
+        return result;
+    }
+
+    jmethodID methodId = jni.Env->GetMethodID(
+        activityClass,
+        "showNativeSaveFileDialog",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    if (methodId == nullptr) {
+        ClearPendingJavaException(jni.Env);
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Unsupported;
+        result.ErrorMessage = "Native save file dialog bridge is not available.";
+        return result;
+    }
+
+    const std::string initialDirectory = options.InitialDirectory.string();
+    std::string defaultFileName = options.DefaultFileName;
+    if (defaultFileName.empty()) {
+        defaultFileName = "Untitled";
+        if (!options.DefaultExtension.empty()) {
+            if (options.DefaultExtension.front() == '.') {
+                defaultFileName += options.DefaultExtension;
+            } else {
+                defaultFileName += "." + options.DefaultExtension;
+            }
+        }
+    }
+
+    jstring titleString = jni.Env->NewStringUTF(options.Title.c_str());
+    jstring initialDirectoryString = jni.Env->NewStringUTF(initialDirectory.c_str());
+    jstring defaultFileNameString = jni.Env->NewStringUTF(defaultFileName.c_str());
+    jstring selectedPathString = static_cast<jstring>(
+        jni.Env->CallObjectMethod(
+            App_->activity->clazz,
+            methodId,
+            titleString,
+            initialDirectoryString,
+            defaultFileNameString));
+
+    if (titleString != nullptr) {
+        jni.Env->DeleteLocalRef(titleString);
+    }
+    if (initialDirectoryString != nullptr) {
+        jni.Env->DeleteLocalRef(initialDirectoryString);
+    }
+    if (defaultFileNameString != nullptr) {
+        jni.Env->DeleteLocalRef(defaultFileNameString);
+    }
+
+    if (ClearPendingJavaException(jni.Env)) {
+        if (selectedPathString != nullptr) {
+            jni.Env->DeleteLocalRef(selectedPathString);
+        }
+        jni.Env->DeleteLocalRef(activityClass);
+        result.Code = EPathDialogResultCode::Error;
+        result.ErrorMessage = "Android save dialog invocation failed.";
+        return result;
+    }
+
+    const std::string selectedPathUtf8 = CopyJStringToUtf8(jni.Env, selectedPathString);
+    if (selectedPathString != nullptr) {
+        jni.Env->DeleteLocalRef(selectedPathString);
+    }
+    jni.Env->DeleteLocalRef(activityClass);
+
+    if (selectedPathUtf8.empty()) {
+        result.Code = EPathDialogResultCode::Cancelled;
+        return result;
+    }
+
+    result.Code = EPathDialogResultCode::Accepted;
+    result.Path = NormalizePathOrFallback(std::filesystem::path(selectedPathUtf8));
     return result;
 }
 

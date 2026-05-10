@@ -9,6 +9,7 @@
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextOutlineView.h>
 
 using namespace ImWidgetV4;
 
@@ -173,6 +174,33 @@ TEST(LocalizationTest, CultureChangedBroadcastsOnlyWhenCultureActuallyChanges)
     EXPECT_EQ(transitions.size(), 1u);
 
     EXPECT_TRUE(FLocalizationManager::Get().OnCultureChanged.Remove(handle));
+}
+
+TEST(LocalizationTest, TextOutlineItemUsesLocalizedTextAndKeepsDefaultText)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Tree.Root"] = "Root-Pseudo";
+    pseudo.Entries["Tree.Child"] = "Child-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImTextOutlineView outlineView;
+    ImTextOutlineItem* root = outlineView.AddRootItem(FText::FromKey("Tree.Root", "Root"));
+    ImTextOutlineItem* child = outlineView.AddChildItem(root, FText::FromKey("Tree.Child", "Child"));
+
+    ASSERT_NE(root, nullptr);
+    ASSERT_NE(child, nullptr);
+    EXPECT_EQ(root->Text, "Root");
+    EXPECT_EQ(root->TextValue.Resolve(), "Root-Pseudo");
+    EXPECT_EQ(child->Text, "Child");
+    EXPECT_EQ(child->TextValue.Resolve(), "Child-Pseudo");
+
+    ImTextOutlineItem plainItem;
+    plainItem.Text = "Plain";
+    EXPECT_EQ(plainItem.ToJson()["Properties"]["ImTextOutlineItem::Text"], "Plain");
 }
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)

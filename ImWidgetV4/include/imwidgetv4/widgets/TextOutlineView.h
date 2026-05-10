@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <memory>
@@ -24,6 +25,7 @@ class ImTextOutlineItem : public ReflectableObject {
 
 public:
     std::string Text;
+    FText TextValue;
     FImageBrush IconBrush;
     int IconType = -1;
     bool Expanded = false;
@@ -125,7 +127,9 @@ public:
     virtual ~ImTextOutlineView() = default;
 
     ImTextOutlineItem* AddRootItem(const std::string& text);
+    ImTextOutlineItem* AddRootItem(const FText& text);
     ImTextOutlineItem* AddChildItem(ImTextOutlineItem* parent, const std::string& text);
+    ImTextOutlineItem* AddChildItem(ImTextOutlineItem* parent, const FText& text);
     void RemoveItem(ImTextOutlineItem* item);
     void ClearItems();
 
@@ -214,6 +218,7 @@ private:
     void EndScrollbarDrag();
     void HandleKeyboardNavigation(EKey key);
     void FlattenVisibleChildren(ImTextOutlineItem& item, int depth, float& cursorY);
+    std::string ResolveItemText(const ImTextOutlineItem& item) const;
     float MeasureTextWidth(const std::string& text) const;
     ETextOutlineDropZone ResolveDropZone(const FVisibleEntry& entry, const FVector2& position) const;
     FGeometry ResolveDropIndicatorGeometry(const FVisibleEntry& entry, ETextOutlineDropZone zone) const;

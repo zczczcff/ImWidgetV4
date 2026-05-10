@@ -70,6 +70,21 @@ ImTextOutlineItem* ImTextOutlineView::AddRootItem(const std::string& text)
 {
     auto item = std::make_unique<ImTextOutlineItem>();
     item->Text = text;
+    item->TextValue = FText::FromString(text);
+    ImTextOutlineItem* itemPtr = item.get();
+    RootItems_.push_back(std::move(item));
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    return itemPtr;
+}
+
+ImTextOutlineItem* ImTextOutlineView::AddRootItem(const FText& text)
+{
+    auto item = std::make_unique<ImTextOutlineItem>();
+    item->TextValue = text;
+    item->Text = text.IsLocalized()
+        ? (text.GetDefaultText().empty() ? text.GetKey() : text.GetDefaultText())
+        : text.GetInvariantText();
     ImTextOutlineItem* itemPtr = item.get();
     RootItems_.push_back(std::move(item));
     bLayoutDirty_ = true;
@@ -85,6 +100,26 @@ ImTextOutlineItem* ImTextOutlineView::AddChildItem(ImTextOutlineItem* parent, co
 
     auto item = std::make_unique<ImTextOutlineItem>();
     item->Text = text;
+    item->TextValue = FText::FromString(text);
+    item->Parent = parent;
+    ImTextOutlineItem* itemPtr = item.get();
+    parent->Children.push_back(std::move(item));
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    return itemPtr;
+}
+
+ImTextOutlineItem* ImTextOutlineView::AddChildItem(ImTextOutlineItem* parent, const FText& text)
+{
+    if (parent == nullptr || !ContainsItem(parent)) {
+        return nullptr;
+    }
+
+    auto item = std::make_unique<ImTextOutlineItem>();
+    item->TextValue = text;
+    item->Text = text.IsLocalized()
+        ? (text.GetDefaultText().empty() ? text.GetKey() : text.GetDefaultText())
+        : text.GetInvariantText();
     item->Parent = parent;
     ImTextOutlineItem* itemPtr = item.get();
     parent->Children.push_back(std::move(item));
@@ -321,7 +356,7 @@ void ImTextOutlineView::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawText(
             textPosition,
             Style_.TextColor,
-            entry.Item->Text,
+            ResolveItemText(*entry.Item),
             Style_.FontSize);
         paintContext.DrawContext_.PopClipRect();
 
@@ -971,7 +1006,7 @@ void ImTextOutlineView::FlattenVisibleChildren(ImTextOutlineItem& item, int dept
     FVisibleEntry entry;
     entry.Item = &item;
     entry.Depth = depth;
-    entry.TextWidth = MeasureTextWidth(item.Text) +
+    entry.TextWidth = MeasureTextWidth(ResolveItemText(item)) +
         (item.IconBrush.IsValid() ? (Style_.IconSize + Style_.IconSpacing) : 0.0f);
     entry.ContentY = cursorY;
     entry.RowHeight = rowHeight;
@@ -985,6 +1020,15 @@ void ImTextOutlineView::FlattenVisibleChildren(ImTextOutlineItem& item, int dept
             }
         }
     }
+}
+
+std::string ImTextOutlineView::ResolveItemText(const ImTextOutlineItem& item) const
+{
+    if (item.TextValue.IsLocalized() || !item.TextValue.GetInvariantText().empty()) {
+        return item.TextValue.Resolve();
+    }
+
+    return item.Text;
 }
 
 float ImTextOutlineView::MeasureTextWidth(const std::string& text) const

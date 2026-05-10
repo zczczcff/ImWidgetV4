@@ -78,6 +78,19 @@ std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
     return generator.empty() ? std::string("Default") : generator;
 }
 
+std::shared_ptr<ImHorizontalBox> MakePathOverrideEditorRow(
+    const std::shared_ptr<ImEditableText>& editor,
+    const std::shared_ptr<ImButton>& browseButton,
+    const std::shared_ptr<ImButton>& clearButton)
+{
+    auto row = std::make_shared<ImHorizontalBox>();
+    row->SetSpacing(6.0f);
+    row->AddChildFill(editor, 1.0f, FMargin(0.0f));
+    row->AddChild(browseButton, FMargin(0.0f));
+    row->AddChild(clearButton, FMargin(0.0f));
+    return row;
+}
+
 } // namespace
 
 bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialogOptions& options)
@@ -122,9 +135,25 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     ApplyInspectorEditableTextStyle(*androidSdkRootEditor, false);
     androidSdkRootEditor->SetHintText("Override Android SDK root");
 
+    auto androidSdkBrowseButton = std::make_shared<ImButton>();
+    androidSdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
+    androidSdkBrowseButton->SetText("Browse");
+
+    auto androidSdkClearButton = std::make_shared<ImButton>();
+    androidSdkClearButton->SetStyle(MakeDialogButtonStyle(false));
+    androidSdkClearButton->SetText("Clear");
+
     auto androidNdkRootEditor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*androidNdkRootEditor, false);
     androidNdkRootEditor->SetHintText("Override Android NDK root");
+
+    auto androidNdkBrowseButton = std::make_shared<ImButton>();
+    androidNdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
+    androidNdkBrowseButton->SetText("Browse");
+
+    auto androidNdkClearButton = std::make_shared<ImButton>();
+    androidNdkClearButton->SetStyle(MakeDialogButtonStyle(false));
+    androidNdkClearButton->SetText("Clear");
 
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(8.0f);
@@ -135,8 +164,16 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android ABI", androidAbiComboBox), FMargin(0.0f));
     androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android API Level", androidApiLevelEditor), FMargin(0.0f));
     androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android STL", androidStlComboBox), FMargin(0.0f));
-    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android SDK Root", androidSdkRootEditor), FMargin(0.0f));
-    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android NDK Root", androidNdkRootEditor), FMargin(0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(
+            "Android SDK Root",
+            MakePathOverrideEditorRow(androidSdkRootEditor, androidSdkBrowseButton, androidSdkClearButton)),
+        FMargin(0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(
+            "Android NDK Root",
+            MakePathOverrideEditorRow(androidNdkRootEditor, androidNdkBrowseButton, androidNdkClearButton)),
+        FMargin(0.0f));
 
     auto probeText = std::make_shared<ImTextList>();
     FTextListStyle probeStyle = probeText->GetStyle();
@@ -258,6 +295,101 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             self->SetErrorMessage("");
             self->UpdateProfileEditorsFromSelection();
             self->RefreshAndroidEditorVisibility();
+            self->RefreshProbeReport();
+        }
+    });
+
+    androidSdkBrowseButton->OnClicked.AddLambda([weakThis, &app](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+
+            FOpenFolderDialogOptions options;
+            options.Title = "Select Android SDK Root";
+            if (self->m_AndroidSdkRootEditor && !self->m_AndroidSdkRootEditor->GetText().empty()) {
+                options.InitialDirectory = std::filesystem::path(self->m_AndroidSdkRootEditor->GetText());
+            } else if (const FEditorBuildProfile* selectedProfile = self->GetSelectedProfile()) {
+                options.InitialDirectory = ResolveAndroidSdkRootForProfile(*selectedProfile);
+            }
+
+            const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
+            if (dialogResult.IsAccepted()) {
+                self->m_AndroidSdkRootEditor->SetText(dialogResult.Path.string());
+                std::string error;
+                if (!self->ApplyEditorValuesToSelection(&error)) {
+                    self->SetErrorMessage(error);
+                    return;
+                }
+                self->RefreshProbeReport();
+                return;
+            }
+
+            if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+                self->SetErrorMessage("Folder selection is unsupported by the active platform backend.");
+            } else if (dialogResult.Code == EPathDialogResultCode::Error) {
+                self->SetErrorMessage("Android SDK root selection failed: " + dialogResult.ErrorMessage);
+            }
+        }
+    });
+
+    androidSdkClearButton->OnClicked.AddLambda([weakThis](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+            if (self->m_AndroidSdkRootEditor) {
+                self->m_AndroidSdkRootEditor->SetText("");
+            }
+            std::string error;
+            if (!self->ApplyEditorValuesToSelection(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
+            self->RefreshProbeReport();
+        }
+    });
+
+    androidNdkBrowseButton->OnClicked.AddLambda([weakThis, &app](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+
+            FOpenFolderDialogOptions options;
+            options.Title = "Select Android NDK Root";
+            if (self->m_AndroidNdkRootEditor && !self->m_AndroidNdkRootEditor->GetText().empty()) {
+                options.InitialDirectory = std::filesystem::path(self->m_AndroidNdkRootEditor->GetText());
+            } else if (const FEditorBuildProfile* selectedProfile = self->GetSelectedProfile()) {
+                options.InitialDirectory =
+                    ResolveAndroidNdkRootForProfile(*selectedProfile, ResolveAndroidSdkRootForProfile(*selectedProfile));
+            }
+
+            const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
+            if (dialogResult.IsAccepted()) {
+                self->m_AndroidNdkRootEditor->SetText(dialogResult.Path.string());
+                std::string error;
+                if (!self->ApplyEditorValuesToSelection(&error)) {
+                    self->SetErrorMessage(error);
+                    return;
+                }
+                self->RefreshProbeReport();
+                return;
+            }
+
+            if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+                self->SetErrorMessage("Folder selection is unsupported by the active platform backend.");
+            } else if (dialogResult.Code == EPathDialogResultCode::Error) {
+                self->SetErrorMessage("Android NDK root selection failed: " + dialogResult.ErrorMessage);
+            }
+        }
+    });
+
+    androidNdkClearButton->OnClicked.AddLambda([weakThis](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+            if (self->m_AndroidNdkRootEditor) {
+                self->m_AndroidNdkRootEditor->SetText("");
+            }
+            std::string error;
+            if (!self->ApplyEditorValuesToSelection(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
             self->RefreshProbeReport();
         }
     });

@@ -27,6 +27,7 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -53,10 +54,17 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ImComboBox> BuildProfileComboBox;
+    std::shared_ptr<ImComboBox> BuildWindowsGeneratorComboBox;
+    std::shared_ptr<ImComboBox> BuildAndroidAbiComboBox;
+    std::shared_ptr<ImComboBox> BuildAndroidApiComboBox;
+    std::shared_ptr<ImComboBox> BuildAndroidStlComboBox;
     std::shared_ptr<ImButton> BuildConfigureButton;
     std::shared_ptr<ImButton> BuildRunButton;
+    std::shared_ptr<ImButton> BuildApplyProfileButton;
     std::shared_ptr<ImButton> BuildSettingsButton;
     std::shared_ptr<ImButton> BuildRevealButton;
+    std::shared_ptr<ImVerticalBox> BuildWindowsSettingsGroup;
+    std::shared_ptr<ImVerticalBox> BuildAndroidSettingsGroup;
     std::shared_ptr<ImTextList> BuildOverviewText;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextList> OutputText;
@@ -65,6 +73,13 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextBlock> TitleBarProfileStatusText;
     std::shared_ptr<ImButton> UndoButton;
     std::shared_ptr<ImButton> RedoButton;
+    std::string BuildDraftProfileName;
+    std::string BuildDraftWindowsGenerator;
+    std::string BuildDraftAndroidAbi;
+    std::string BuildDraftAndroidApi;
+    std::string BuildDraftAndroidStl;
+    bool bBuildProfileDraftDirty = false;
+    bool bBuildProfileDraftSyncing = false;
 };
 
 class FCompactTitleBarButton : public ImButton {
@@ -314,6 +329,127 @@ std::shared_ptr<ImTextList> BuildBuildOverviewPanel()
     });
 }
 
+std::vector<std::string> GetBuildDockWindowsGeneratorOptions()
+{
+    return {
+        "Default",
+        "Ninja",
+        "Visual Studio 17 2022"
+    };
+}
+
+std::string ResolveBuildDockWindowsGeneratorValue(const std::string& generator)
+{
+    return generator.empty() ? std::string("Default") : generator;
+}
+
+std::vector<std::string> GetBuildDockAndroidAbiOptions()
+{
+    return {"arm64-v8a", "armeabi-v7a", "x86_64", "x86"};
+}
+
+std::vector<std::string> GetBuildDockAndroidApiOptions()
+{
+    return {"21", "23", "24", "26", "28", "29", "30", "31", "33", "34"};
+}
+
+std::vector<std::string> GetBuildDockAndroidStlOptions()
+{
+    return {"c++_shared", "c++_static"};
+}
+
+int FindStringOptionIndex(const std::vector<std::string>& options, const std::string& value)
+{
+    for (int index = 0; index < static_cast<int>(options.size()); ++index) {
+        if (options[static_cast<std::size_t>(index)] == value) {
+            return index;
+        }
+    }
+
+    return -1;
+}
+
+void SyncBuildDockDraftFromProfile(FEditorShellWidgets& shell, const FEditorBuildProfile* profile)
+{
+    shell.BuildDraftProfileName = profile ? profile->Name : std::string();
+    shell.BuildDraftWindowsGenerator = profile ? profile->Generator : std::string();
+    shell.BuildDraftAndroidAbi = profile ? profile->AndroidSettings.Abi : std::string();
+    shell.BuildDraftAndroidApi = profile ? std::to_string(profile->AndroidSettings.ApiLevel) : std::string();
+    shell.BuildDraftAndroidStl = profile ? profile->AndroidSettings.Stl : std::string();
+    shell.bBuildProfileDraftDirty = false;
+}
+
+void ApplyBuildDockDraftToWidgets(FEditorShellWidgets& shell, const FEditorBuildProfile* profile)
+{
+    shell.bBuildProfileDraftSyncing = true;
+
+    if (shell.BuildWindowsGeneratorComboBox) {
+        const std::vector<std::string> generatorOptions = GetBuildDockWindowsGeneratorOptions();
+        shell.BuildWindowsGeneratorComboBox->SetItems(generatorOptions);
+        const int generatorIndex =
+            FindStringOptionIndex(generatorOptions, ResolveBuildDockWindowsGeneratorValue(shell.BuildDraftWindowsGenerator));
+        if (generatorIndex >= 0) {
+            shell.BuildWindowsGeneratorComboBox->SetSelectedIndex(generatorIndex);
+        } else {
+            shell.BuildWindowsGeneratorComboBox->ClearSelection();
+        }
+    }
+
+    if (shell.BuildAndroidAbiComboBox) {
+        const std::vector<std::string> abiOptions = GetBuildDockAndroidAbiOptions();
+        shell.BuildAndroidAbiComboBox->SetItems(abiOptions);
+        const int abiIndex = FindStringOptionIndex(abiOptions, shell.BuildDraftAndroidAbi);
+        if (abiIndex >= 0) {
+            shell.BuildAndroidAbiComboBox->SetSelectedIndex(abiIndex);
+        } else {
+            shell.BuildAndroidAbiComboBox->ClearSelection();
+        }
+    }
+
+    if (shell.BuildAndroidApiComboBox) {
+        std::vector<std::string> apiOptions = GetBuildDockAndroidApiOptions();
+        if (!shell.BuildDraftAndroidApi.empty() &&
+            FindStringOptionIndex(apiOptions, shell.BuildDraftAndroidApi) < 0) {
+            apiOptions.push_back(shell.BuildDraftAndroidApi);
+            std::sort(apiOptions.begin(), apiOptions.end(), [](const std::string& left, const std::string& right) {
+                return std::stoi(left) < std::stoi(right);
+            });
+        }
+
+        shell.BuildAndroidApiComboBox->SetItems(apiOptions);
+        const int apiIndex = FindStringOptionIndex(apiOptions, shell.BuildDraftAndroidApi);
+        if (apiIndex >= 0) {
+            shell.BuildAndroidApiComboBox->SetSelectedIndex(apiIndex);
+        } else {
+            shell.BuildAndroidApiComboBox->ClearSelection();
+        }
+    }
+
+    if (shell.BuildAndroidStlComboBox) {
+        const std::vector<std::string> stlOptions = GetBuildDockAndroidStlOptions();
+        shell.BuildAndroidStlComboBox->SetItems(stlOptions);
+        const int stlIndex = FindStringOptionIndex(stlOptions, shell.BuildDraftAndroidStl);
+        if (stlIndex >= 0) {
+            shell.BuildAndroidStlComboBox->SetSelectedIndex(stlIndex);
+        } else {
+            shell.BuildAndroidStlComboBox->ClearSelection();
+        }
+    }
+
+    const bool bShowWindowsSettings =
+        profile != nullptr && profile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop;
+    const bool bShowAndroidSettings =
+        profile != nullptr && profile->TargetPlatform == EEditorTargetPlatform::Android;
+    if (shell.BuildWindowsSettingsGroup) {
+        shell.BuildWindowsSettingsGroup->SetVisible(bShowWindowsSettings);
+    }
+    if (shell.BuildAndroidSettingsGroup) {
+        shell.BuildAndroidSettingsGroup->SetVisible(bShowAndroidSettings);
+    }
+
+    shell.bBuildProfileDraftSyncing = false;
+}
+
 std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
 {
     using namespace ImWidgetV4Editor::PropertyEditorWidgets;
@@ -321,6 +457,25 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto profileComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*profileComboBox);
     profileComboBox->SetItems({});
+
+    auto windowsGeneratorComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*windowsGeneratorComboBox);
+    windowsGeneratorComboBox->SetItems(GetBuildDockWindowsGeneratorOptions());
+
+    auto androidAbiComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*androidAbiComboBox);
+    androidAbiComboBox->SetItems(GetBuildDockAndroidAbiOptions());
+
+    auto androidApiComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*androidApiComboBox);
+    androidApiComboBox->SetItems(GetBuildDockAndroidApiOptions());
+
+    auto androidStlComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*androidStlComboBox);
+    androidStlComboBox->SetItems(GetBuildDockAndroidStlOptions());
+
+    auto applyProfileButton = std::make_shared<ImButton>();
+    applyProfileButton->SetText("Apply");
 
     auto configureButton = std::make_shared<ImButton>();
     configureButton->SetText("Configure");
@@ -334,11 +489,33 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto revealButton = std::make_shared<ImButton>();
     revealButton->SetText("Reveal");
 
+    auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
+    windowsSettingsGroup->SetSpacing(6.0f);
+    windowsSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow("Generator", windowsGeneratorComboBox),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+
+    auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
+    androidSettingsGroup->SetSpacing(6.0f);
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow("ABI", androidAbiComboBox),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow("API", androidApiComboBox),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow("STL", androidStlComboBox),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+
+    auto profileActionRow = std::make_shared<ImHorizontalBox>();
+    profileActionRow->SetSpacing(6.0f);
+    profileActionRow->AddChildFill(applyProfileButton, 1.0f, FMargin(0.0f));
+    profileActionRow->AddChildFill(settingsButton, 1.0f, FMargin(0.0f));
+
     auto buttonRow = std::make_shared<ImHorizontalBox>();
     buttonRow->SetSpacing(6.0f);
     buttonRow->AddChildFill(configureButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
-    buttonRow->AddChildFill(settingsButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(revealButton, 1.0f, FMargin(0.0f));
 
     auto overviewText = BuildBuildOverviewPanel();
@@ -348,14 +525,24 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     panel->AddChild(MakePanelTitle("Build"), FMargin(10.0f, 10.0f, 10.0f, 0.0f));
     panel->AddChild(MakePanelBody("Toolchain readiness, active profile, and recent build output."), FMargin(10.0f, 0.0f, 10.0f, 0.0f));
     panel->AddChild(MakeInspectorVerticalPropertyRow("Active Profile", profileComboBox), FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    panel->AddChild(windowsSettingsGroup, FMargin(0.0f));
+    panel->AddChild(androidSettingsGroup, FMargin(0.0f));
+    panel->AddChild(profileActionRow, FMargin(8.0f, 0.0f, 8.0f, 0.0f));
     panel->AddChild(buttonRow, FMargin(8.0f, 0.0f, 8.0f, 0.0f));
     panel->AddChildFill(overviewText, 1.0f, FMargin(0.0f));
 
     shell.BuildProfileComboBox = profileComboBox;
+    shell.BuildWindowsGeneratorComboBox = windowsGeneratorComboBox;
+    shell.BuildAndroidAbiComboBox = androidAbiComboBox;
+    shell.BuildAndroidApiComboBox = androidApiComboBox;
+    shell.BuildAndroidStlComboBox = androidStlComboBox;
     shell.BuildConfigureButton = configureButton;
     shell.BuildRunButton = buildButton;
+    shell.BuildApplyProfileButton = applyProfileButton;
     shell.BuildSettingsButton = settingsButton;
     shell.BuildRevealButton = revealButton;
+    shell.BuildWindowsSettingsGroup = windowsSettingsGroup;
+    shell.BuildAndroidSettingsGroup = androidSettingsGroup;
     shell.BuildOverviewText = overviewText;
     return panel;
 }
@@ -1096,6 +1283,10 @@ void UpdateBuildDockActions(
     const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
     const std::string activeProfileName =
         workspaceController ? workspaceController->GetActiveBuildProfileName() : std::string();
+    const std::shared_ptr<EditorProject> project =
+        workspaceController ? workspaceController->GetProject() : nullptr;
+    const FEditorBuildProfile* activeProfile =
+        (project && !activeProfileName.empty()) ? project->FindBuildProfile(activeProfileName) : nullptr;
 
     if (shell.BuildProfileComboBox) {
         const std::vector<std::string> profileNames =
@@ -1112,10 +1303,63 @@ void UpdateBuildDockActions(
 
         if (selectedIndex >= 0) {
             shell.BuildProfileComboBox->SetSelectedIndex(selectedIndex);
+        } else {
+            shell.BuildProfileComboBox->ClearSelection();
         }
         shell.BuildProfileComboBox->SetDisabled(!bHasProject || bBuildRunning);
     }
 
+    if (!bHasProject || activeProfile == nullptr) {
+        if (!shell.BuildDraftProfileName.empty() || shell.bBuildProfileDraftDirty) {
+            SyncBuildDockDraftFromProfile(shell, nullptr);
+        }
+        ApplyBuildDockDraftToWidgets(shell, nullptr);
+    } else if (shell.BuildDraftProfileName != activeProfileName || !shell.bBuildProfileDraftDirty) {
+        SyncBuildDockDraftFromProfile(shell, activeProfile);
+        ApplyBuildDockDraftToWidgets(shell, activeProfile);
+    } else {
+        const bool bShowWindowsSettings = activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop;
+        const bool bShowAndroidSettings = activeProfile->TargetPlatform == EEditorTargetPlatform::Android;
+        if (shell.BuildWindowsSettingsGroup) {
+            shell.BuildWindowsSettingsGroup->SetVisible(bShowWindowsSettings);
+        }
+        if (shell.BuildAndroidSettingsGroup) {
+            shell.BuildAndroidSettingsGroup->SetVisible(bShowAndroidSettings);
+        }
+    }
+
+    if (shell.BuildWindowsGeneratorComboBox) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+            !bBuildRunning;
+        shell.BuildWindowsGeneratorComboBox->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidAbiComboBox) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidAbiComboBox->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidApiComboBox) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidApiComboBox->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidStlComboBox) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidStlComboBox->SetDisabled(!bEnable);
+    }
+    if (shell.BuildApplyProfileButton) {
+        shell.BuildApplyProfileButton->SetDisabled(
+            !bHasProject || activeProfile == nullptr || bBuildRunning || !shell.bBuildProfileDraftDirty);
+    }
     if (shell.BuildConfigureButton) {
         shell.BuildConfigureButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
@@ -1213,6 +1457,81 @@ public:
                         if (comboBox.HasSelection()) {
                             lockedWorkspace->SetActiveBuildProfile(comboBox.GetSelectedText());
                         }
+                    }
+                });
+        }
+        if (Shell_.BuildWindowsGeneratorComboBox) {
+            Shell_.BuildWindowsGeneratorComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
+                if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
+                    Shell_.BuildDraftWindowsGenerator =
+                        comboBox.GetSelectedText() == "Default" ? std::string() : comboBox.GetSelectedText();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
+        if (Shell_.BuildAndroidAbiComboBox) {
+            Shell_.BuildAndroidAbiComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
+                if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
+                    Shell_.BuildDraftAndroidAbi = comboBox.GetSelectedText();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
+        if (Shell_.BuildAndroidApiComboBox) {
+            Shell_.BuildAndroidApiComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
+                if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
+                    Shell_.BuildDraftAndroidApi = comboBox.GetSelectedText();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
+        if (Shell_.BuildAndroidStlComboBox) {
+            Shell_.BuildAndroidStlComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
+                if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
+                    Shell_.BuildDraftAndroidStl = comboBox.GetSelectedText();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
+        if (Shell_.BuildApplyProfileButton) {
+            Shell_.BuildApplyProfileButton->OnClicked.AddLambda(
+                [this](ImButton&) {
+                    if (!WorkspaceController_) {
+                        return;
+                    }
+
+                    const std::shared_ptr<EditorProject> project = WorkspaceController_->GetProject();
+                    if (!project) {
+                        return;
+                    }
+
+                    const std::string activeProfileName = WorkspaceController_->GetActiveBuildProfileName();
+                    const FEditorBuildProfile* activeProfile = project->FindBuildProfile(activeProfileName);
+                    if (activeProfile == nullptr) {
+                        return;
+                    }
+
+                    FEditorBuildProfile updatedProfile = *activeProfile;
+                    if (updatedProfile.TargetPlatform == EEditorTargetPlatform::WindowsDesktop) {
+                        updatedProfile.Generator = Shell_.BuildDraftWindowsGenerator;
+                    } else if (updatedProfile.TargetPlatform == EEditorTargetPlatform::Android) {
+                        if (!Shell_.BuildDraftAndroidAbi.empty()) {
+                            updatedProfile.AndroidSettings.Abi = Shell_.BuildDraftAndroidAbi;
+                        }
+                        if (!Shell_.BuildDraftAndroidApi.empty()) {
+                            try {
+                                updatedProfile.AndroidSettings.ApiLevel = std::stoi(Shell_.BuildDraftAndroidApi);
+                            } catch (...) {
+                                return;
+                            }
+                        }
+                        if (!Shell_.BuildDraftAndroidStl.empty()) {
+                            updatedProfile.AndroidSettings.Stl = Shell_.BuildDraftAndroidStl;
+                        }
+                    }
+
+                    if (WorkspaceController_->UpdateBuildProfile(updatedProfile, true)) {
+                        Shell_.bBuildProfileDraftDirty = false;
                     }
                 });
         }

@@ -179,6 +179,8 @@ json BuildProfileToJson(const FEditorBuildProfile& profile)
     androidJson["Abi"] = profile.AndroidSettings.Abi;
     androidJson["ApiLevel"] = profile.AndroidSettings.ApiLevel;
     androidJson["Stl"] = profile.AndroidSettings.Stl;
+    androidJson["SdkRootOverride"] = profile.AndroidSettings.SdkRootOverride.generic_string();
+    androidJson["NdkRootOverride"] = profile.AndroidSettings.NdkRootOverride.generic_string();
     profileJson["Android"] = std::move(androidJson);
 
     profileJson["ExtraConfigureArguments"] = profile.ExtraConfigureArguments;
@@ -223,6 +225,10 @@ bool BuildProfileFromJson(const json& profileJson, FEditorBuildProfile& outProfi
         profile.AndroidSettings.Abi = androidJson.value("Abi", std::string("arm64-v8a"));
         profile.AndroidSettings.ApiLevel = androidJson.value("ApiLevel", 24);
         profile.AndroidSettings.Stl = androidJson.value("Stl", std::string("c++_shared"));
+        profile.AndroidSettings.SdkRootOverride =
+            NormalizeStoredBuildDirectory(std::filesystem::path(androidJson.value("SdkRootOverride", std::string())));
+        profile.AndroidSettings.NdkRootOverride =
+            NormalizeStoredBuildDirectory(std::filesystem::path(androidJson.value("NdkRootOverride", std::string())));
     }
 
     const json extraArgsJson = profileJson.value("ExtraConfigureArguments", json::array());

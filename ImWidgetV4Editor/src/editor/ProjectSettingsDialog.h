@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../toolchains/EnvironmentProbe.h"
+#include "../toolchains/PlatformConfiguration.h"
 
 #include <imwidgetv4/core/Application.h>
 #include <functional>
@@ -11,8 +12,10 @@
 namespace ImWidgetV4 {
 class ImButton;
 class ImComboBox;
+class ImEditableText;
 class ImTextBlock;
 class ImTextList;
+class ImVerticalBox;
 class ImWidget;
 class ImWindow;
 }
@@ -25,12 +28,11 @@ struct FProjectSettingsDialogOptions {
     std::string ProjectName;
     std::string NamespaceName;
     std::string StartupDocument;
-    std::vector<std::string> BuildProfileNames;
+    std::vector<FEditorBuildProfile> BuildProfiles;
     std::string ActiveBuildProfileName;
-    FEnvironmentProbeReport ProbeReport;
     ImWidgetV4::FVector2 Position {240.0f, 120.0f};
-    ImWidgetV4::FVector2 Size {620.0f, 460.0f};
-    std::function<bool(const std::string& profileName)> OnConfirm;
+    ImWidgetV4::FVector2 Size {620.0f, 540.0f};
+    std::function<bool(const FEditorBuildProfile& profile, bool bMakeActive)> OnConfirm;
     std::function<void()> OnCancel;
 };
 
@@ -43,14 +45,30 @@ public:
     std::shared_ptr<ImWidgetV4::ImWindow> GetWindow() const { return m_Window; }
 
 private:
+    FEditorBuildProfile* GetSelectedProfile();
+    const FEditorBuildProfile* GetSelectedProfile() const;
+    void PopulateProfileComboBox();
+    void UpdateProfileEditorsFromSelection();
+    bool ApplyEditorValuesToSelection(std::string* outError = nullptr);
+    void RefreshProbeReport();
+    void RefreshAndroidEditorVisibility();
     void Reset();
     void SetErrorMessage(const std::string& message);
 
     FProjectSettingsDialogOptions m_Options;
     std::shared_ptr<ImWidgetV4::ImWidget> m_Root;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_ProfileComboBox;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_WindowsGeneratorComboBox;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_AndroidAbiComboBox;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidApiLevelEditor;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_AndroidStlComboBox;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidSdkRootEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidNdkRootEditor;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_WindowsSettingsGroup;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_AndroidSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImTextList> m_ProbeText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> m_ErrorText;
+    std::shared_ptr<ImWidgetV4::ImButton> m_ReprobeButton;
     std::shared_ptr<ImWidgetV4::ImButton> m_ConfirmButton;
     std::shared_ptr<ImWidgetV4::ImButton> m_CancelButton;
     std::shared_ptr<ImWidgetV4::ImWindow> m_Window;

@@ -5,6 +5,7 @@
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
@@ -43,6 +44,40 @@ std::vector<std::string> BuildProbeLines(const FEnvironmentProbeReport& report)
     return lines;
 }
 
+std::vector<std::string> BuildProfileNames(const std::vector<FEditorBuildProfile>& profiles)
+{
+    std::vector<std::string> names;
+    names.reserve(profiles.size());
+    for (const FEditorBuildProfile& profile : profiles) {
+        names.push_back(profile.Name);
+    }
+    return names;
+}
+
+std::vector<std::string> GetAndroidAbiOptions()
+{
+    return {"arm64-v8a", "armeabi-v7a", "x86_64", "x86"};
+}
+
+std::vector<std::string> GetAndroidStlOptions()
+{
+    return {"c++_shared", "c++_static"};
+}
+
+std::vector<std::string> GetWindowsGeneratorOptions()
+{
+    return {
+        "",
+        "Ninja",
+        "Visual Studio 17 2022"
+    };
+}
+
+std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
+{
+    return generator.empty() ? std::string("Default") : generator;
+}
+
 } // namespace
 
 bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialogOptions& options)
@@ -62,13 +97,46 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
 
     auto profileComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*profileComboBox);
-    profileComboBox->SetItems(m_Options.BuildProfileNames);
-    for (int index = 0; index < static_cast<int>(m_Options.BuildProfileNames.size()); ++index) {
-        if (m_Options.BuildProfileNames[static_cast<std::size_t>(index)] == m_Options.ActiveBuildProfileName) {
-            profileComboBox->SetSelectedIndex(index);
-            break;
-        }
+    profileComboBox->SetItems(BuildProfileNames(m_Options.BuildProfiles));
+
+    auto windowsGeneratorComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*windowsGeneratorComboBox);
+    std::vector<std::string> windowsGeneratorLabels;
+    for (const std::string& generator : GetWindowsGeneratorOptions()) {
+        windowsGeneratorLabels.push_back(GetWindowsGeneratorDisplayLabel(generator));
     }
+    windowsGeneratorComboBox->SetItems(windowsGeneratorLabels);
+
+    auto androidAbiComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*androidAbiComboBox);
+    androidAbiComboBox->SetItems(GetAndroidAbiOptions());
+
+    auto androidApiLevelEditor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*androidApiLevelEditor, false);
+
+    auto androidStlComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*androidStlComboBox);
+    androidStlComboBox->SetItems(GetAndroidStlOptions());
+
+    auto androidSdkRootEditor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*androidSdkRootEditor, false);
+    androidSdkRootEditor->SetHintText("Override Android SDK root");
+
+    auto androidNdkRootEditor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*androidNdkRootEditor, false);
+    androidNdkRootEditor->SetHintText("Override Android NDK root");
+
+    auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
+    windowsSettingsGroup->SetSpacing(8.0f);
+    windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Windows Generator", windowsGeneratorComboBox), FMargin(0.0f));
+
+    auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
+    androidSettingsGroup->SetSpacing(8.0f);
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android ABI", androidAbiComboBox), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android API Level", androidApiLevelEditor), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android STL", androidStlComboBox), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android SDK Root", androidSdkRootEditor), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android NDK Root", androidNdkRootEditor), FMargin(0.0f));
 
     auto probeText = std::make_shared<ImTextList>();
     FTextListStyle probeStyle = probeText->GetStyle();
@@ -84,7 +152,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     probeStyle.FontSize = 13.0f;
     probeStyle.LineSpacing = 1.1f;
     probeText->SetStyle(probeStyle);
-    probeText->SetItems(BuildProbeLines(m_Options.ProbeReport));
+    probeText->SetItems({});
 
     auto errorText = std::make_shared<ImTextBlock>();
     errorText->SetText("");
@@ -96,6 +164,10 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     confirmButton->SetStyle(MakeDialogButtonStyle(true));
     confirmButton->SetText("Apply");
 
+    auto reprobeButton = std::make_shared<ImButton>();
+    reprobeButton->SetStyle(MakeDialogButtonStyle(false));
+    reprobeButton->SetText("Re-Probe");
+
     auto cancelButton = std::make_shared<ImButton>();
     cancelButton->SetStyle(MakeDialogButtonStyle(false));
     cancelButton->SetText("Close");
@@ -106,12 +178,15 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     fields->AddChild(MakeInspectorVerticalPropertyRow("Namespace", namespaceField), FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow("Startup UI", startupField), FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow("Active Build Profile", profileComboBox), FMargin(0.0f));
+    fields->AddChild(windowsSettingsGroup, FMargin(0.0f));
+    fields->AddChild(androidSettingsGroup, FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow("Environment Probe", probeText), FMargin(0.0f));
     fields->AddChild(errorText, FMargin(2.0f, 0.0f, 2.0f, 0.0f));
 
     auto buttonRow = std::make_shared<ImHorizontalBox>();
     buttonRow->SetSpacing(8.0f);
     buttonRow->AddChildFill(MakeInspectorFlexibleSpacer(), 1.0f, FMargin(0.0f));
+    buttonRow->AddChild(reprobeButton);
     buttonRow->AddChild(confirmButton);
     buttonRow->AddChild(cancelButton);
 
@@ -124,23 +199,43 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
 
     m_Root = root;
     m_ProfileComboBox = profileComboBox;
+    m_WindowsGeneratorComboBox = windowsGeneratorComboBox;
+    m_AndroidAbiComboBox = androidAbiComboBox;
+    m_AndroidApiLevelEditor = androidApiLevelEditor;
+    m_AndroidStlComboBox = androidStlComboBox;
+    m_AndroidSdkRootEditor = androidSdkRootEditor;
+    m_AndroidNdkRootEditor = androidNdkRootEditor;
+    m_WindowsSettingsGroup = windowsSettingsGroup;
+    m_AndroidSettingsGroup = androidSettingsGroup;
     m_ProbeText = probeText;
     m_ErrorText = errorText;
+    m_ReprobeButton = reprobeButton;
     m_ConfirmButton = confirmButton;
     m_CancelButton = cancelButton;
+
+    PopulateProfileComboBox();
+    UpdateProfileEditorsFromSelection();
+    RefreshAndroidEditorVisibility();
+    RefreshProbeReport();
 
     const std::weak_ptr<ProjectSettingsDialog> weakThis = weak_from_this();
     auto requestConfirm = [weakThis, &app]() {
         if (auto self = weakThis.lock()) {
             self->SetErrorMessage("");
-            if (!self->m_ProfileComboBox || !self->m_ProfileComboBox->HasSelection()) {
+            std::string error;
+            if (!self->ApplyEditorValuesToSelection(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
+
+            FEditorBuildProfile* selectedProfile = self->GetSelectedProfile();
+            if (selectedProfile == nullptr) {
                 self->SetErrorMessage("Select a build profile.");
                 return;
             }
 
-            const std::string profileName = self->m_ProfileComboBox->GetSelectedText();
-            const std::function<bool(const std::string&)> onConfirm = self->m_Options.OnConfirm;
-            if (onConfirm && !onConfirm(profileName)) {
+            const std::function<bool(const FEditorBuildProfile&, bool)> onConfirm = self->m_Options.OnConfirm;
+            if (onConfirm && !onConfirm(*selectedProfile, true)) {
                 return;
             }
 
@@ -157,6 +252,27 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             }
         }
     };
+
+    profileComboBox->OnSelectionChanged.AddLambda([weakThis](ImComboBox&, int) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+            self->UpdateProfileEditorsFromSelection();
+            self->RefreshAndroidEditorVisibility();
+            self->RefreshProbeReport();
+        }
+    });
+
+    reprobeButton->OnClicked.AddLambda([weakThis](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+            std::string error;
+            if (!self->ApplyEditorValuesToSelection(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
+            self->RefreshProbeReport();
+        }
+    });
 
     confirmButton->OnClicked.AddLambda([requestConfirm](ImButton&) {
         requestConfirm();
@@ -198,8 +314,17 @@ void ProjectSettingsDialog::Reset()
     m_Window.reset();
     m_Root.reset();
     m_ProfileComboBox.reset();
+    m_WindowsGeneratorComboBox.reset();
+    m_AndroidAbiComboBox.reset();
+    m_AndroidApiLevelEditor.reset();
+    m_AndroidStlComboBox.reset();
+    m_AndroidSdkRootEditor.reset();
+    m_AndroidNdkRootEditor.reset();
+    m_WindowsSettingsGroup.reset();
+    m_AndroidSettingsGroup.reset();
     m_ProbeText.reset();
     m_ErrorText.reset();
+    m_ReprobeButton.reset();
     m_ConfirmButton.reset();
     m_CancelButton.reset();
     m_Options = FProjectSettingsDialogOptions();
@@ -209,6 +334,194 @@ void ProjectSettingsDialog::SetErrorMessage(const std::string& message)
 {
     if (m_ErrorText) {
         m_ErrorText->SetText(message);
+    }
+}
+
+FEditorBuildProfile* ProjectSettingsDialog::GetSelectedProfile()
+{
+    if (!m_ProfileComboBox || !m_ProfileComboBox->HasSelection()) {
+        return nullptr;
+    }
+
+    const std::string profileName = m_ProfileComboBox->GetSelectedText();
+    return FindBuildProfileByName(m_Options.BuildProfiles, profileName);
+}
+
+const FEditorBuildProfile* ProjectSettingsDialog::GetSelectedProfile() const
+{
+    if (!m_ProfileComboBox || !m_ProfileComboBox->HasSelection()) {
+        return nullptr;
+    }
+
+    const std::string profileName = m_ProfileComboBox->GetSelectedText();
+    return FindBuildProfileByName(m_Options.BuildProfiles, profileName);
+}
+
+void ProjectSettingsDialog::PopulateProfileComboBox()
+{
+    if (!m_ProfileComboBox) {
+        return;
+    }
+
+    m_ProfileComboBox->SetItems(BuildProfileNames(m_Options.BuildProfiles));
+    for (int index = 0; index < static_cast<int>(m_Options.BuildProfiles.size()); ++index) {
+        if (m_Options.BuildProfiles[static_cast<std::size_t>(index)].Name == m_Options.ActiveBuildProfileName) {
+            m_ProfileComboBox->SetSelectedIndex(index);
+            return;
+        }
+    }
+
+    if (!m_Options.BuildProfiles.empty()) {
+        m_ProfileComboBox->SetSelectedIndex(0);
+    }
+}
+
+void ProjectSettingsDialog::UpdateProfileEditorsFromSelection()
+{
+    const FEditorBuildProfile* selectedProfile = GetSelectedProfile();
+    if (selectedProfile == nullptr) {
+        return;
+    }
+
+    if (m_AndroidAbiComboBox) {
+        const auto abiOptions = GetAndroidAbiOptions();
+        for (int index = 0; index < static_cast<int>(abiOptions.size()); ++index) {
+            if (abiOptions[static_cast<std::size_t>(index)] == selectedProfile->AndroidSettings.Abi) {
+                m_AndroidAbiComboBox->SetSelectedIndex(index);
+                break;
+            }
+        }
+    }
+
+    if (m_AndroidApiLevelEditor) {
+        m_AndroidApiLevelEditor->SetText(std::to_string(selectedProfile->AndroidSettings.ApiLevel));
+    }
+
+    if (m_WindowsGeneratorComboBox) {
+        const auto generatorOptions = GetWindowsGeneratorOptions();
+        for (int index = 0; index < static_cast<int>(generatorOptions.size()); ++index) {
+            if (generatorOptions[static_cast<std::size_t>(index)] == selectedProfile->Generator) {
+                m_WindowsGeneratorComboBox->SetSelectedIndex(index);
+                break;
+            }
+        }
+    }
+
+    if (m_AndroidStlComboBox) {
+        const auto stlOptions = GetAndroidStlOptions();
+        for (int index = 0; index < static_cast<int>(stlOptions.size()); ++index) {
+            if (stlOptions[static_cast<std::size_t>(index)] == selectedProfile->AndroidSettings.Stl) {
+                m_AndroidStlComboBox->SetSelectedIndex(index);
+                break;
+            }
+        }
+    }
+
+    if (m_AndroidSdkRootEditor) {
+        m_AndroidSdkRootEditor->SetText(selectedProfile->AndroidSettings.SdkRootOverride.string());
+    }
+
+    if (m_AndroidNdkRootEditor) {
+        m_AndroidNdkRootEditor->SetText(selectedProfile->AndroidSettings.NdkRootOverride.string());
+    }
+}
+
+bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
+{
+    FEditorBuildProfile* selectedProfile = GetSelectedProfile();
+    if (selectedProfile == nullptr) {
+        if (outError) {
+            *outError = "Select a build profile.";
+        }
+        return false;
+    }
+
+    if (selectedProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop) {
+        if (!m_WindowsGeneratorComboBox || !m_WindowsGeneratorComboBox->HasSelection()) {
+            if (outError) {
+                *outError = "Select a Windows generator.";
+            }
+            return false;
+        }
+
+        const int selectedIndex = m_WindowsGeneratorComboBox->GetSelectedIndex();
+        const auto generatorOptions = GetWindowsGeneratorOptions();
+        if (selectedIndex < 0 || selectedIndex >= static_cast<int>(generatorOptions.size())) {
+            if (outError) {
+                *outError = "Select a valid Windows generator.";
+            }
+            return false;
+        }
+
+        selectedProfile->Generator = generatorOptions[static_cast<std::size_t>(selectedIndex)];
+        return true;
+    }
+
+    if (selectedProfile->TargetPlatform != EEditorTargetPlatform::Android) {
+        return true;
+    }
+
+    if (!m_AndroidAbiComboBox || !m_AndroidAbiComboBox->HasSelection()) {
+        if (outError) {
+            *outError = "Select an Android ABI.";
+        }
+        return false;
+    }
+
+    if (!m_AndroidStlComboBox || !m_AndroidStlComboBox->HasSelection()) {
+        if (outError) {
+            *outError = "Select an Android STL.";
+        }
+        return false;
+    }
+
+    selectedProfile->AndroidSettings.Abi = m_AndroidAbiComboBox->GetSelectedText();
+    selectedProfile->AndroidSettings.Stl = m_AndroidStlComboBox->GetSelectedText();
+
+    int apiLevel = 0;
+    try {
+        apiLevel = m_AndroidApiLevelEditor ? std::stoi(m_AndroidApiLevelEditor->GetText()) : 0;
+    } catch (...) {
+        apiLevel = 0;
+    }
+
+    if (apiLevel < 21) {
+        if (outError) {
+            *outError = "Android API Level must be 21 or higher.";
+        }
+        return false;
+    }
+
+    selectedProfile->AndroidSettings.ApiLevel = apiLevel;
+    selectedProfile->AndroidSettings.SdkRootOverride =
+        m_AndroidSdkRootEditor ? std::filesystem::path(m_AndroidSdkRootEditor->GetText()).lexically_normal() : std::filesystem::path();
+    selectedProfile->AndroidSettings.NdkRootOverride =
+        m_AndroidNdkRootEditor ? std::filesystem::path(m_AndroidNdkRootEditor->GetText()).lexically_normal() : std::filesystem::path();
+    return true;
+}
+
+void ProjectSettingsDialog::RefreshProbeReport()
+{
+    const FEditorBuildProfile* selectedProfile = GetSelectedProfile();
+    if (selectedProfile == nullptr || !m_ProbeText) {
+        return;
+    }
+
+    m_ProbeText->SetItems(BuildProbeLines(EnvironmentProbe::Probe(*selectedProfile)));
+}
+
+void ProjectSettingsDialog::RefreshAndroidEditorVisibility()
+{
+    const FEditorBuildProfile* selectedProfile = GetSelectedProfile();
+    const bool bShowWindowsSettings =
+        selectedProfile != nullptr && selectedProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop;
+    const bool bShowAndroidSettings =
+        selectedProfile != nullptr && selectedProfile->TargetPlatform == EEditorTargetPlatform::Android;
+    if (m_WindowsSettingsGroup) {
+        m_WindowsSettingsGroup->SetVisible(bShowWindowsSettings);
+    }
+    if (m_AndroidSettingsGroup) {
+        m_AndroidSettingsGroup->SetVisible(bShowAndroidSettings);
     }
 }
 

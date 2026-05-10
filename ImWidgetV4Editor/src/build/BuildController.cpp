@@ -115,6 +115,12 @@ FBuildResult BuildController::ConfigureProject(
         arguments.push_back("-DANDROID_ABI=" + profile->AndroidSettings.Abi);
         arguments.push_back("-DANDROID_PLATFORM=android-" + std::to_string(profile->AndroidSettings.ApiLevel));
         arguments.push_back("-DANDROID_STL=" + profile->AndroidSettings.Stl);
+        if (!probeReport.AndroidSdkRoot.empty()) {
+            arguments.push_back("-DANDROID_SDK_ROOT=" + probeReport.AndroidSdkRoot.string());
+        }
+        if (!probeReport.AndroidNdkRoot.empty()) {
+            arguments.push_back("-DANDROID_NDK=" + probeReport.AndroidNdkRoot.string());
+        }
     }
 
     for (const std::string& extraArgument : profile->ExtraConfigureArguments) {

@@ -17,6 +17,8 @@ struct FAndroidBuildSettings {
     std::string Abi = "arm64-v8a";
     int ApiLevel = 24;
     std::string Stl = "c++_shared";
+    std::filesystem::path SdkRootOverride;
+    std::filesystem::path NdkRootOverride;
 };
 
 struct FEditorBuildProfile {

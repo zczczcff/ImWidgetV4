@@ -150,8 +150,8 @@ void ProbeWindowsDesktop(FEnvironmentProbeReport& report)
 
 void ProbeAndroid(FEnvironmentProbeReport& report, const FEditorBuildProfile& profile)
 {
-    report.AndroidSdkRoot = ResolveAndroidSdkRoot();
-    report.AndroidNdkRoot = ResolveAndroidNdkRoot(report.AndroidSdkRoot);
+    report.AndroidSdkRoot = ResolveAndroidSdkRootForProfile(profile);
+    report.AndroidNdkRoot = ResolveAndroidNdkRootForProfile(profile, report.AndroidSdkRoot);
     if (!report.AndroidNdkRoot.empty()) {
         report.AndroidToolchainFile =
             report.AndroidNdkRoot / "build" / "cmake" / "android.toolchain.cmake";
@@ -240,6 +240,26 @@ FEnvironmentProbeReport EnvironmentProbe::Probe(const FEditorBuildProfile& profi
             return item.Status != EEnvironmentProbeStatus::Missing;
         });
     return report;
+}
+
+std::filesystem::path ResolveAndroidSdkRootForProfile(const FEditorBuildProfile& profile)
+{
+    if (!profile.AndroidSettings.SdkRootOverride.empty()) {
+        return profile.AndroidSettings.SdkRootOverride.lexically_normal();
+    }
+
+    return ResolveAndroidSdkRoot();
+}
+
+std::filesystem::path ResolveAndroidNdkRootForProfile(
+    const FEditorBuildProfile& profile,
+    const std::filesystem::path& sdkRoot)
+{
+    if (!profile.AndroidSettings.NdkRootOverride.empty()) {
+        return profile.AndroidSettings.NdkRootOverride.lexically_normal();
+    }
+
+    return ResolveAndroidNdkRoot(sdkRoot);
 }
 
 std::string ToDisplayString(EEnvironmentProbeStatus status)

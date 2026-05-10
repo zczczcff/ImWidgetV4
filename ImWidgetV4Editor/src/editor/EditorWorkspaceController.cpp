@@ -1109,6 +1109,33 @@ bool EditorWorkspaceController::SetActiveBuildProfile(const std::string& profile
     return true;
 }
 
+bool EditorWorkspaceController::UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive)
+{
+    if (!m_Project) {
+        return false;
+    }
+
+    FEditorBuildProfile* existingProfile = m_Project->FindBuildProfile(profile.Name);
+    if (existingProfile == nullptr) {
+        return false;
+    }
+
+    *existingProfile = profile;
+    if (bMakeActive && !m_Project->SetActiveBuildProfileName(profile.Name)) {
+        return false;
+    }
+
+    std::string saveError;
+    if (!m_Project->Save(&saveError)) {
+        AppendOutputLine("Failed to save build profile changes: " + saveError);
+        return false;
+    }
+
+    RebuildProjectView();
+    NotifyProjectStateChanged();
+    return true;
+}
+
 bool EditorWorkspaceController::RevealProjectBuildDirectory() const
 {
     if (!m_Project || m_ProjectRoot.empty()) {
@@ -2065,12 +2092,11 @@ void EditorWorkspaceController::OpenProjectSettingsDialog(ImApplication& app)
     dialogOptions.ProjectName = m_Project->GetProjectName();
     dialogOptions.NamespaceName = m_Project->GetNamespaceName();
     dialogOptions.StartupDocument = m_Project->GetStartupDocumentRelativePath().generic_string();
-    dialogOptions.BuildProfileNames = GetBuildProfileNames();
+    dialogOptions.BuildProfiles = m_Project->GetBuildProfiles();
     dialogOptions.ActiveBuildProfileName = m_Project->GetActiveBuildProfileName();
-    dialogOptions.ProbeReport = probeReport;
-    dialogOptions.OnConfirm = [weakThis = weak_from_this()](const std::string& profileName) {
+    dialogOptions.OnConfirm = [weakThis = weak_from_this()](const FEditorBuildProfile& profile, bool bMakeActive) {
         if (auto self = weakThis.lock()) {
-            return self->SetActiveBuildProfile(profileName);
+            return self->UpdateBuildProfile(profile, bMakeActive);
         }
         return false;
     };

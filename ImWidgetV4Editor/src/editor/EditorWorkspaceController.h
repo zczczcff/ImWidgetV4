@@ -77,6 +77,7 @@ public:
     std::string GetActiveBuildProfileName() const;
     std::vector<std::string> GetBuildProfileNames() const;
     bool SetActiveBuildProfile(const std::string& profileName);
+    bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
     bool RevealProjectBuildDirectory() const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);

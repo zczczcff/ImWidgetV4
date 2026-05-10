@@ -37,6 +37,11 @@ public:
     static FEnvironmentProbeReport Probe(const FEditorBuildProfile& profile);
 };
 
+std::filesystem::path ResolveAndroidSdkRootForProfile(const FEditorBuildProfile& profile);
+std::filesystem::path ResolveAndroidNdkRootForProfile(
+    const FEditorBuildProfile& profile,
+    const std::filesystem::path& sdkRoot);
+
 std::string ToDisplayString(EEnvironmentProbeStatus status);
 
 } // namespace ImWidgetV4Editor

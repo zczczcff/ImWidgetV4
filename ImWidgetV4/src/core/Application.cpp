@@ -1677,6 +1677,7 @@ bool ImApplication::TryStartDragDrop(const FInputEvent& event)
         operation->Payload = std::make_shared<FDragDropPayload>();
     }
     if (operation->PreviewWidget) {
+        operation->PreviewWidget->SetApplicationRecursive(this);
         operation->PreviewWidget->SetHitTestVisible(false);
     }
     operation->TriggerButton = DragDropState_->ArmedButton_;
@@ -2192,6 +2193,7 @@ void ImApplication::PaintDragDropPreview(const FFrameContext& frameContext)
     }
 
     const std::shared_ptr<ImWidget>& previewWidget = DragDropState_->ActiveOperation_->PreviewWidget;
+    previewWidget->SetApplicationRecursive(this);
     previewWidget->SetHitTestVisible(false);
     const FVector2 previewSize = previewWidget->GetMinSize();
     const FVector2 previewPosition = DragDropState_->CurrentPosition_ + DragDropState_->ActiveOperation_->PreviewOffset;

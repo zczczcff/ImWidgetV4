@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <memory>
 #include <string>
@@ -24,6 +26,7 @@ public:
 
     bool bArmDragOnMouseDown = false;
     bool bCreateOperation = false;
+    bool bCreateImagePreview = false;
     bool bAcceptDrag = false;
     bool bHandleDrop = false;
     std::vector<std::string>* Log = nullptr;
@@ -50,10 +53,27 @@ public:
 
         auto operation = std::make_shared<FDragDropOperation>();
         operation->Payload = std::make_shared<FTestDragPayload>();
-        auto preview = std::make_shared<ImTextBlock>();
-        preview->SetText("Preview");
-        preview->SetHitTestVisible(false);
-        operation->PreviewWidget = preview;
+        if (bCreateImagePreview) {
+            auto previewRow = std::make_shared<ImHorizontalBox>();
+            previewRow->SetHitTestVisible(false);
+
+            auto previewImage = std::make_shared<ImImage>();
+            previewImage->SetDesiredSize(FVector2(16.0f, 16.0f));
+            previewImage->SetHitTestVisible(false);
+            previewRow->AddChild(previewImage);
+
+            auto previewText = std::make_shared<ImTextBlock>();
+            previewText->SetText("Preview");
+            previewText->SetHitTestVisible(false);
+            previewRow->AddChild(previewText);
+
+            operation->PreviewWidget = previewRow;
+        } else {
+            auto preview = std::make_shared<ImTextBlock>();
+            preview->SetText("Preview");
+            preview->SetHitTestVisible(false);
+            operation->PreviewWidget = preview;
+        }
         operation->PreviewOffset = FVector2(8.0f, 10.0f);
         return operation;
     }
@@ -223,4 +243,26 @@ TEST_F(DragDropTest, EscapeCancelsActiveDrag)
     EXPECT_NE(std::find(Log.begin(), Log.end(), "leave:target"), Log.end());
     EXPECT_NE(std::find(Log.begin(), Log.end(), "end:source"), Log.end());
     EXPECT_EQ(std::find(Log.begin(), Log.end(), "drop:target"), Log.end());
+}
+
+TEST_F(DragDropTest, DragPreviewSubtreeGetsApplicationAssigned)
+{
+    Source->bArmDragOnMouseDown = true;
+    Source->bCreateOperation = true;
+    Source->bCreateImagePreview = true;
+
+    Advance({
+        MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f)),
+        MouseEvent(EInputEventType::MouseMove, FVector2(40.0f, 24.0f))
+    });
+
+    ASSERT_TRUE(App->IsDragDropActive());
+    const std::shared_ptr<FDragDropOperation> operation = App->GetCurrentDragDropOperation();
+    ASSERT_NE(operation, nullptr);
+    ASSERT_NE(operation->PreviewWidget, nullptr);
+    EXPECT_EQ(operation->PreviewWidget->GetApplication(), App.get());
+
+    const auto& previewChildren = operation->PreviewWidget->GetChildren();
+    ASSERT_FALSE(previewChildren.empty());
+    EXPECT_EQ(previewChildren.front()->GetApplication(), App.get());
 }

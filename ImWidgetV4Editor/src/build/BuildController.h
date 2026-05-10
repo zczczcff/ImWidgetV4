@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../project/EditorProject.h"
+#include "../toolchains\EnvironmentProbe.h"
 
 #include <filesystem>
 #include <functional>
@@ -23,18 +24,36 @@ public:
     static std::filesystem::path GetDefaultBuildDirectory(
         const std::filesystem::path& projectRoot,
         const std::string& configuration = "Debug");
+    static std::filesystem::path GetDefaultBuildDirectory(
+        const std::filesystem::path& projectRoot,
+        EEditorTargetPlatform targetPlatform,
+        const std::string& configuration = "Debug");
     static std::filesystem::path GetDefaultLibraryRoot();
 
     FBuildResult ConfigureProject(
         const EditorProject& project,
-        const FOutputCallback& outputCallback,
-        const std::string& configuration = "Debug") const;
+        const FOutputCallback& outputCallback) const;
     FBuildResult BuildProject(
         const EditorProject& project,
-        const FOutputCallback& outputCallback,
-        const std::string& configuration = "Debug") const;
+        const FOutputCallback& outputCallback) const;
+    FBuildResult ConfigureProject(
+        const EditorProject& project,
+        const std::string& profileName,
+        const FOutputCallback& outputCallback) const;
+    FBuildResult BuildProject(
+        const EditorProject& project,
+        const std::string& profileName,
+        const FOutputCallback& outputCallback) const;
 
 private:
+    static void EmitEnvironmentProbeReport(
+        const FEnvironmentProbeReport& report,
+        const FOutputCallback& outputCallback);
+    static FBuildResult BuildMissingProfileResult(const std::string& profileName);
+    static FBuildResult BuildEnvironmentFailureResult(
+        const FEditorBuildProfile& profile,
+        const std::filesystem::path& projectRoot,
+        const FEnvironmentProbeReport& report);
     static FBuildResult RunProcess(
         const std::filesystem::path& workingDirectory,
         const std::vector<std::string>& arguments,

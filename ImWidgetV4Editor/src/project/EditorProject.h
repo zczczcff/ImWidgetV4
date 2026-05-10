@@ -1,15 +1,17 @@
 #pragma once
 
 #include "../serialization/DocumentFormat.h"
+#include "../toolchains/PlatformConfiguration.h"
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace ImWidgetV4Editor {
 
 class EditorProject {
 public:
-    static constexpr int FormatVersion = 2;
+    static constexpr int FormatVersion = 3;
 
     static std::string GetManifestFileName();
     static std::filesystem::path BuildManifestFilePath(const std::filesystem::path& projectRoot);
@@ -51,15 +53,29 @@ public:
         m_StartupDocumentRelativePath = startupDocumentRelativePath;
     }
 
+    const std::vector<FEditorBuildProfile>& GetBuildProfiles() const { return m_BuildProfiles; }
+    std::vector<FEditorBuildProfile>& GetBuildProfiles() { return m_BuildProfiles; }
+
+    const std::string& GetActiveBuildProfileName() const { return m_ActiveBuildProfileName; }
+    bool SetActiveBuildProfileName(const std::string& profileName);
+    const FEditorBuildProfile* FindBuildProfile(const std::string& profileName) const;
+    FEditorBuildProfile* FindBuildProfile(const std::string& profileName);
+    const FEditorBuildProfile* GetActiveBuildProfile() const;
+    FEditorBuildProfile* GetActiveBuildProfile();
+
     std::filesystem::path GetManifestFilePath() const;
     std::filesystem::path GetStartupDocumentPath() const;
 
 private:
+    void EnsureBuildProfiles();
+
     std::string m_ProjectName;
     std::string m_NamespaceName;
     std::string m_TemplateName = "Blank App";
     std::filesystem::path m_ProjectRoot;
     std::filesystem::path m_StartupDocumentRelativePath;
+    std::vector<FEditorBuildProfile> m_BuildProfiles;
+    std::string m_ActiveBuildProfileName;
 };
 
 } // namespace ImWidgetV4Editor

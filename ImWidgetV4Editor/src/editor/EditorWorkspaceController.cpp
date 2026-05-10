@@ -1024,7 +1024,7 @@ bool EditorWorkspaceController::ConfigureProject()
         return false;
     }
 
-    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Configure, "Debug");
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Configure, m_Project->GetActiveBuildProfileName());
 }
 
 bool EditorWorkspaceController::BuildProject()
@@ -1034,7 +1034,7 @@ bool EditorWorkspaceController::BuildProject()
         return false;
     }
 
-    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, "Debug");
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, m_Project->GetActiveBuildProfileName());
 }
 
 void EditorWorkspaceController::TickBackgroundTasks()
@@ -1064,14 +1064,50 @@ std::string EditorWorkspaceController::GetBuildTaskStatusText() const
     return task->StatusText;
 }
 
+std::string EditorWorkspaceController::GetActiveBuildProfileName() const
+{
+    return m_Project ? m_Project->GetActiveBuildProfileName() : std::string();
+}
+
+std::vector<std::string> EditorWorkspaceController::GetBuildProfileNames() const
+{
+    std::vector<std::string> names;
+    if (!m_Project) {
+        return names;
+    }
+
+    for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
+        names.push_back(profile.Name);
+    }
+    return names;
+}
+
+bool EditorWorkspaceController::SetActiveBuildProfile(const std::string& profileName)
+{
+    if (!m_Project || !m_Project->SetActiveBuildProfileName(profileName)) {
+        return false;
+    }
+
+    std::string saveError;
+    if (!m_Project->Save(&saveError)) {
+        AppendOutputLine("Failed to save active build profile: " + saveError);
+    }
+    NotifyProjectStateChanged();
+    return true;
+}
+
 bool EditorWorkspaceController::RevealProjectBuildDirectory() const
 {
     if (!m_Project || m_ProjectRoot.empty()) {
         return false;
     }
 
-    const std::filesystem::path buildDirectory =
-        BuildController::GetDefaultBuildDirectory(m_ProjectRoot, "Debug");
+    const FEditorBuildProfile* activeProfile = m_Project->GetActiveBuildProfile();
+    if (activeProfile == nullptr) {
+        return false;
+    }
+
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(m_ProjectRoot, *activeProfile);
     if (!std::filesystem::exists(buildDirectory)) {
         return false;
     }
@@ -2922,7 +2958,7 @@ void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
 
 bool EditorWorkspaceController::StartBackgroundBuildTask(
     EBackgroundBuildTaskKind kind,
-    const std::string& configuration)
+    const std::string& profileName)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
         return false;
@@ -2942,7 +2978,7 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
 
     auto task = std::make_shared<FBackgroundBuildTaskState>();
     task->Kind = kind;
-    task->Configuration = configuration.empty() ? "Debug" : configuration;
+    task->ProfileName = profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     task->StatusText = kind == EBackgroundBuildTaskKind::Configure
         ? "Configure queued..."
         : "Build queued...";
@@ -2952,7 +2988,7 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     AppendOutputLine("========================================");
     AppendOutputLine(
         BuildBackgroundTaskDisplayName(kind == EBackgroundBuildTaskKind::Configure) +
-        " started in background [" + task->Configuration + "].");
+        " started in background [" + task->ProfileName + "].");
     NotifyProjectStateChanged();
 
     task->Worker = std::thread([task, project]() {
@@ -2968,8 +3004,8 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
         };
 
         FBuildResult result = task->Kind == EBackgroundBuildTaskKind::Configure
-            ? controller.ConfigureProject(*project, outputCallback, task->Configuration)
-            : controller.BuildProject(*project, outputCallback, task->Configuration);
+            ? controller.ConfigureProject(*project, task->ProfileName, outputCallback)
+            : controller.BuildProject(*project, task->ProfileName, outputCallback);
 
         std::lock_guard<std::mutex> lock(task->Mutex);
         task->Result = std::move(result);
@@ -3402,6 +3438,27 @@ void EditorWorkspaceController::RebuildProjectView()
             m_ProjectView->AddChildItem(
                 workspaceRootItem,
                 "Startup UI: " + m_Project->GetStartupDocumentRelativePath().generic_string());
+        }
+        if (!m_Project->GetActiveBuildProfileName().empty()) {
+            m_ProjectView->AddChildItem(
+                workspaceRootItem,
+                "Active Build Profile: " + m_Project->GetActiveBuildProfileName());
+        }
+        if (!m_Project->GetBuildProfiles().empty()) {
+            ImTextOutlineItem* profilesRootItem =
+                m_ProjectView->AddChildItem(workspaceRootItem, "Build Profiles");
+            if (profilesRootItem) {
+                profilesRootItem->Expanded = true;
+                for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
+                    std::string label = profile.Name + " [" +
+                        GetTargetPlatformDisplayName(profile.TargetPlatform) + " / " +
+                        profile.Configuration + "]";
+                    if (profile.Name == m_Project->GetActiveBuildProfileName()) {
+                        label += " *";
+                    }
+                    m_ProjectView->AddChildItem(profilesRootItem, label);
+                }
+            }
         }
     }
 

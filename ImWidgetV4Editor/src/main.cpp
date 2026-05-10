@@ -554,7 +554,7 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
     const bool bHasProject = workspaceController && !workspaceController->GetProjectRoot().empty();
     const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
     const std::string buildStatus = workspaceController ? workspaceController->GetBuildTaskStatusText() : std::string();
-    return {
+    std::vector<FApplicationMenuItem> items = {
         FApplicationMenuItem {
             bBuildRunning
                 ? std::string("Status: ") + (buildStatus.empty() ? "Running..." : buildStatus)
@@ -571,29 +571,74 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                 workspaceController->ConfigureProject();
             }
         }},
-        FApplicationMenuItem {"Build Debug", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        FApplicationMenuItem {"Build Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->BuildProject();
             }
         }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Reveal Build Folder", {}, {}, bHasProject, false, [workspaceController]() {
-            if (workspaceController) {
-                workspaceController->RevealProjectBuildDirectory();
-            }
-        }},
-        FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {
-            bHasProject
-                ? std::string("Build Dir: ") + (workspaceController->GetProjectRoot() / "build" / "win32-debug").string()
-                : std::string("Build directory not available"),
+        FApplicationMenuItem {"", {}, {}, true, true, {}}
+    };
+
+    const std::string activeProfileName =
+        workspaceController ? workspaceController->GetActiveBuildProfileName() : std::string();
+    if (!activeProfileName.empty()) {
+        items.push_back(FApplicationMenuItem {
+            std::string("Active Profile: ") + activeProfileName,
             {},
             {},
             false,
             false,
             {}
+        });
+
+        const std::vector<std::string> profileNames = workspaceController->GetBuildProfileNames();
+        for (const std::string& profileName : profileNames) {
+            items.push_back(FApplicationMenuItem {
+                (profileName == activeProfileName ? "[x] " : "[ ] ") + profileName,
+                {},
+                {},
+                !bBuildRunning,
+                false,
+                [workspaceController, profileName]() {
+                    if (workspaceController) {
+                        workspaceController->SetActiveBuildProfile(profileName);
+                    }
+                }
+            });
         }
-    };
+
+        items.push_back(FApplicationMenuItem {"", {}, {}, true, true, {}});
+    }
+
+    items.push_back(FApplicationMenuItem {"Reveal Build Folder", {}, {}, bHasProject, false, [workspaceController]() {
+        if (workspaceController) {
+            workspaceController->RevealProjectBuildDirectory();
+        }
+    }});
+
+    items.push_back(FApplicationMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(FApplicationMenuItem {
+        bHasProject && !activeProfileName.empty()
+            ? std::string("Profile: ") + activeProfileName
+            : std::string("No active build profile"),
+        {},
+        {},
+        false,
+        false,
+        {}
+    });
+    items.push_back(FApplicationMenuItem {
+        bHasProject
+            ? std::string("Build workflow uses saved project profile settings")
+            : std::string("Build directory not available"),
+        {},
+        {},
+        false,
+        false,
+        {}
+    });
+
+    return items;
 }
 
 std::vector<FPopupMenuItem> BuildProjectMenuItems(

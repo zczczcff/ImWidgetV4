@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../build/BuildController.h"
+#include "../toolchains/PlatformConfiguration.h"
 #include <imwidgetv4/core/Application.h>
 #include <filesystem>
 #include <nlohmann/json.hpp>
@@ -71,6 +72,9 @@ public:
     void TickBackgroundTasks();
     bool IsBuildTaskRunning() const;
     std::string GetBuildTaskStatusText() const;
+    std::string GetActiveBuildProfileName() const;
+    std::vector<std::string> GetBuildProfileNames() const;
+    bool SetActiveBuildProfile(const std::string& profileName);
     bool RevealProjectBuildDirectory() const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
@@ -142,7 +146,7 @@ private:
 
     struct FBackgroundBuildTaskState {
         EBackgroundBuildTaskKind Kind = EBackgroundBuildTaskKind::Configure;
-        std::string Configuration = "Debug";
+        std::string ProfileName;
         std::thread Worker;
         mutable std::mutex Mutex;
         std::vector<std::string> PendingOutputLines;
@@ -196,7 +200,7 @@ private:
     void CloseProjectItemContextMenu();
     void NotifyProjectStateChanged() const;
     void AppendOutputLine(const std::string& text) const;
-    bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& configuration);
+    bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& profileName);
     void TickBackgroundBuildTask();
     void ShutdownBackgroundBuildTask();
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;

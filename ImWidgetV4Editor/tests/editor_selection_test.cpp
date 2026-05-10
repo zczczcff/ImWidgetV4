@@ -2008,6 +2008,39 @@ TEST(EditorSelectionTest, EditorProjectLoadRestoresSavedManifestData)
     EXPECT_EQ(
         restoredProject.GetStartupDocumentRelativePath().generic_string(),
         std::string("ui/Main.ui.json"));
+    ASSERT_EQ(restoredProject.GetBuildProfiles().size(), 3U);
+    EXPECT_EQ(restoredProject.GetActiveBuildProfileName(), "Windows Debug");
+    ASSERT_NE(restoredProject.FindBuildProfile("Android Debug"), nullptr);
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, EditorProjectPersistsActiveBuildProfileChanges)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_profile_persist";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "ProfileProject",
+        "ProfileProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+    ASSERT_TRUE(project.SetActiveBuildProfileName("Android Debug"));
+
+    std::string saveError;
+    ASSERT_TRUE(project.Save(&saveError)) << saveError;
+
+    EditorProject restoredProject;
+    std::string loadError;
+    ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
+    EXPECT_EQ(restoredProject.GetActiveBuildProfileName(), "Android Debug");
+    ASSERT_NE(restoredProject.GetActiveBuildProfile(), nullptr);
+    EXPECT_EQ(restoredProject.GetActiveBuildProfile()->TargetPlatform, EEditorTargetPlatform::Android);
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }
@@ -2142,11 +2175,14 @@ TEST(EditorSelectionTest, BuildControllerUsesProjectRootBuildDirectoryConvention
 {
     const std::filesystem::path projectRoot = std::filesystem::path("E:/project/TestApp");
     EXPECT_EQ(
-        BuildController::GetDefaultBuildDirectory(projectRoot, "Debug").lexically_normal(),
+        BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::WindowsDesktop, "Debug").lexically_normal(),
         (projectRoot / "build" / "win32-debug").lexically_normal());
     EXPECT_EQ(
-        BuildController::GetDefaultBuildDirectory(projectRoot, "Release").lexically_normal(),
+        BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::WindowsDesktop, "Release").lexically_normal(),
         (projectRoot / "build" / "win32-release").lexically_normal());
+    EXPECT_EQ(
+        BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::Android, "Debug").lexically_normal(),
+        (projectRoot / "build" / "android-debug").lexically_normal());
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerCreateFolderAtPathCreatesDirectory)

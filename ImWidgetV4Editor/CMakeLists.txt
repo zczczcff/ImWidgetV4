@@ -59,6 +59,8 @@ set(IMWIDGETV4_EDITOR_SOURCES
     src/inspector/ReflectionDetailsView.cpp
     src/project/EditorProject.cpp
     src/templates/ProjectScaffolder.cpp
+    src/toolchains/EnvironmentProbe.cpp
+    src/toolchains/PlatformConfiguration.cpp
     src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp
     src/palette/WidgetPaletteView.cpp
@@ -97,6 +99,8 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/inspector/ReflectionDetailsView.cpp
         src/project/EditorProject.cpp
         src/templates/ProjectScaffolder.cpp
+        src/toolchains/EnvironmentProbe.cpp
+        src/toolchains/PlatformConfiguration.cpp
         src/palette/WidgetPaletteDragDrop.cpp
         src/palette/WidgetPaletteView.cpp
         src/serialization/WidgetFactory.cpp

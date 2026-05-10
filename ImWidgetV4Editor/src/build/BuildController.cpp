@@ -17,38 +17,25 @@ std::filesystem::path ResolveCompileTimeLibraryRoot()
     return (sourcePath.parent_path() / "ImWidgetV4").lexically_normal();
 }
 
-std::string ResolveHostPlatformTag()
-{
-#if defined(__ANDROID__)
-    return "android";
-#elif defined(_WIN32)
-    return "win32";
-#elif defined(__APPLE__)
-    return "macos";
-#elif defined(__linux__)
-    return "linux";
-#else
-    return "native";
-#endif
-}
-
 } // namespace
 
 std::filesystem::path BuildController::GetDefaultBuildDirectory(
     const std::filesystem::path& projectRoot,
     const std::string& configuration)
 {
-    std::string normalizedConfiguration = configuration;
-    std::transform(
-        normalizedConfiguration.begin(),
-        normalizedConfiguration.end(),
-        normalizedConfiguration.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (normalizedConfiguration.empty()) {
-        normalizedConfiguration = "debug";
-    }
+    return GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::WindowsDesktop, configuration);
+}
 
-    return (projectRoot / "build" / (ResolveHostPlatformTag() + "-" + normalizedConfiguration)).lexically_normal();
+std::filesystem::path BuildController::GetDefaultBuildDirectory(
+    const std::filesystem::path& projectRoot,
+    EEditorTargetPlatform targetPlatform,
+    const std::string& configuration)
+{
+    FEditorBuildProfile profile;
+    profile.TargetPlatform = targetPlatform;
+    profile.Configuration = configuration;
+    profile.BuildDirectory = BuildDefaultBuildDirectoryRelativePath(targetPlatform, configuration);
+    return ResolveBuildDirectoryPath(projectRoot, profile);
 }
 
 std::filesystem::path BuildController::GetDefaultLibraryRoot()
@@ -63,15 +50,51 @@ std::filesystem::path BuildController::GetDefaultLibraryRoot()
 
 FBuildResult BuildController::ConfigureProject(
     const EditorProject& project,
-    const FOutputCallback& outputCallback,
-    const std::string& configuration) const
+    const FOutputCallback& outputCallback) const
+{
+    const FEditorBuildProfile* activeProfile = project.GetActiveBuildProfile();
+    if (activeProfile == nullptr) {
+        return BuildMissingProfileResult(project.GetActiveBuildProfileName());
+    }
+
+    return ConfigureProject(project, activeProfile->Name, outputCallback);
+}
+
+FBuildResult BuildController::BuildProject(
+    const EditorProject& project,
+    const FOutputCallback& outputCallback) const
+{
+    const FEditorBuildProfile* activeProfile = project.GetActiveBuildProfile();
+    if (activeProfile == nullptr) {
+        return BuildMissingProfileResult(project.GetActiveBuildProfileName());
+    }
+
+    return BuildProject(project, activeProfile->Name, outputCallback);
+}
+
+FBuildResult BuildController::ConfigureProject(
+    const EditorProject& project,
+    const std::string& profileName,
+    const FOutputCallback& outputCallback) const
 {
     FBuildResult result;
-    result.BuildDirectory = GetDefaultBuildDirectory(project.GetProjectRoot(), configuration);
 
     if (project.GetProjectRoot().empty()) {
         result.ErrorMessage = "Project root is empty.";
         return result;
+    }
+
+    const FEditorBuildProfile* profile = project.FindBuildProfile(profileName);
+    if (profile == nullptr) {
+        return BuildMissingProfileResult(profileName);
+    }
+
+    result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+
+    const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(*profile);
+    EmitEnvironmentProbeReport(probeReport, outputCallback);
+    if (!probeReport.bReady) {
+        return BuildEnvironmentFailureResult(*profile, project.GetProjectRoot(), probeReport);
     }
 
     const std::filesystem::path libraryRoot = GetDefaultLibraryRoot();
@@ -82,21 +105,46 @@ FBuildResult BuildController::ConfigureProject(
         "-DIMWIDGETV4_ROOT=" + libraryRoot.string()
     };
 
+    if (!profile->Generator.empty()) {
+        arguments.push_back("-G");
+        arguments.push_back(profile->Generator);
+    }
+
+    if (profile->TargetPlatform == EEditorTargetPlatform::Android) {
+        arguments.push_back("-DCMAKE_TOOLCHAIN_FILE=" + probeReport.AndroidToolchainFile.string());
+        arguments.push_back("-DANDROID_ABI=" + profile->AndroidSettings.Abi);
+        arguments.push_back("-DANDROID_PLATFORM=android-" + std::to_string(profile->AndroidSettings.ApiLevel));
+        arguments.push_back("-DANDROID_STL=" + profile->AndroidSettings.Stl);
+    }
+
+    for (const std::string& extraArgument : profile->ExtraConfigureArguments) {
+        if (!extraArgument.empty()) {
+            arguments.push_back(extraArgument);
+        }
+    }
+
     if (outputCallback) {
-        outputCallback("[configure] " + ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
+        outputCallback(
+            "[configure:" + profile->Name + "] " +
+            ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
     return RunProcess(project.GetProjectRoot(), arguments, result.BuildDirectory, outputCallback);
 }
 
 FBuildResult BuildController::BuildProject(
     const EditorProject& project,
-    const FOutputCallback& outputCallback,
-    const std::string& configuration) const
+    const std::string& profileName,
+    const FOutputCallback& outputCallback) const
 {
+    const FEditorBuildProfile* profile = project.FindBuildProfile(profileName);
+    if (profile == nullptr) {
+        return BuildMissingProfileResult(profileName);
+    }
+
     FBuildResult configureResult;
-    const std::filesystem::path buildDirectory = GetDefaultBuildDirectory(project.GetProjectRoot(), configuration);
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
     if (!std::filesystem::exists(buildDirectory / "CMakeCache.txt")) {
-        configureResult = ConfigureProject(project, outputCallback, configuration);
+        configureResult = ConfigureProject(project, profile->Name, outputCallback);
         if (!configureResult.bSuccess) {
             return configureResult;
         }
@@ -105,13 +153,52 @@ FBuildResult BuildController::BuildProject(
     std::vector<std::string> arguments = {
         "cmake",
         "--build", buildDirectory.string(),
-        "--config", configuration
+        "--config", profile->Configuration
     };
 
     if (outputCallback) {
-        outputCallback("[build] " + ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
+        outputCallback(
+            "[build:" + profile->Name + "] " +
+            ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
     return RunProcess(project.GetProjectRoot(), arguments, buildDirectory, outputCallback);
+}
+
+void BuildController::EmitEnvironmentProbeReport(
+    const FEnvironmentProbeReport& report,
+    const FOutputCallback& outputCallback)
+{
+    if (!outputCallback) {
+        return;
+    }
+
+    outputCallback("[probe] Target: " + GetTargetPlatformDisplayName(report.TargetPlatform));
+    for (const FEnvironmentProbeItem& item : report.Items) {
+        outputCallback("[probe] " + item.Label + ": " + ToDisplayString(item.Status) + " - " + item.Details);
+    }
+}
+
+FBuildResult BuildController::BuildMissingProfileResult(const std::string& profileName)
+{
+    FBuildResult result;
+    result.ErrorMessage = profileName.empty()
+        ? "No active build profile is configured."
+        : "Build profile was not found: " + profileName;
+    return result;
+}
+
+FBuildResult BuildController::BuildEnvironmentFailureResult(
+    const FEditorBuildProfile& profile,
+    const std::filesystem::path& projectRoot,
+    const FEnvironmentProbeReport& report)
+{
+    FBuildResult result;
+    result.BuildDirectory = ResolveBuildDirectoryPath(projectRoot, profile);
+    result.ErrorMessage =
+        "Environment probe failed for " + GetTargetPlatformDisplayName(report.TargetPlatform) + ".";
+    result.ExitCode = -1;
+    result.bSuccess = false;
+    return result;
 }
 
 FBuildResult BuildController::RunProcess(

@@ -34,6 +34,8 @@ void EditorProject::Reset()
     m_TemplateName = "Blank App";
     m_ProjectRoot.clear();
     m_StartupDocumentRelativePath.clear();
+    m_BuildProfiles.clear();
+    m_ActiveBuildProfileName.clear();
 }
 
 bool EditorProject::CreateNew(
@@ -49,6 +51,7 @@ bool EditorProject::CreateNew(
     m_NamespaceName = namespaceName;
     m_TemplateName = templateName.empty() ? std::string("Blank App") : templateName;
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(startupDocumentRelativePath);
+    EnsureBuildProfiles();
     return IsValid();
 }
 
@@ -144,7 +147,14 @@ json EditorProject::ToJson() const
     projectSection["Namespace"] = m_NamespaceName;
     projectSection["Template"] = m_TemplateName;
     projectSection["StartupDocument"] = m_StartupDocumentRelativePath.generic_string();
+    projectSection["ActiveBuildProfile"] = m_ActiveBuildProfileName;
     projectJson["Project"] = std::move(projectSection);
+
+    json buildProfilesJson = json::array();
+    for (const FEditorBuildProfile& profile : m_BuildProfiles) {
+        buildProfilesJson.push_back(BuildProfileToJson(profile));
+    }
+    projectJson["BuildProfiles"] = std::move(buildProfilesJson);
     return projectJson;
 }
 
@@ -168,7 +178,7 @@ bool EditorProject::FromJson(
     }
 
     const int version = projectJson.value("Version", 0);
-    if (version != 1 && version != FormatVersion) {
+    if (version != 1 && version != 2 && version != FormatVersion) {
         if (outError) {
             *outError = "Unsupported project manifest version.";
         }
@@ -190,6 +200,25 @@ bool EditorProject::FromJson(
     m_TemplateName = projectSection.value("Template", std::string("Blank App"));
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(
         std::filesystem::path(projectSection.value("StartupDocument", std::string())));
+    m_ActiveBuildProfileName = projectSection.value("ActiveBuildProfile", std::string());
+
+    const json buildProfilesJson = projectJson.value("BuildProfiles", json::array());
+    if (buildProfilesJson.is_array()) {
+        for (const json& buildProfileJson : buildProfilesJson) {
+            FEditorBuildProfile profile;
+            std::string profileError;
+            if (!BuildProfileFromJson(buildProfileJson, profile, &profileError)) {
+                if (outError) {
+                    *outError = profileError;
+                }
+                Reset();
+                return false;
+            }
+            m_BuildProfiles.push_back(std::move(profile));
+        }
+    }
+
+    EnsureBuildProfiles();
 
     if (!IsValid()) {
         if (outError) {
@@ -209,7 +238,9 @@ bool EditorProject::IsValid() const
            !m_TemplateName.empty() &&
            !m_ProjectRoot.empty() &&
            !m_StartupDocumentRelativePath.empty() &&
-           !m_StartupDocumentRelativePath.is_absolute();
+           !m_StartupDocumentRelativePath.is_absolute() &&
+           !m_BuildProfiles.empty() &&
+           !m_ActiveBuildProfileName.empty();
 }
 
 std::filesystem::path EditorProject::GetManifestFilePath() const
@@ -224,6 +255,68 @@ std::filesystem::path EditorProject::GetStartupDocumentPath() const
     }
 
     return (m_ProjectRoot / m_StartupDocumentRelativePath).lexically_normal();
+}
+
+bool EditorProject::SetActiveBuildProfileName(const std::string& profileName)
+{
+    if (profileName.empty() || FindBuildProfile(profileName) == nullptr) {
+        return false;
+    }
+
+    m_ActiveBuildProfileName = profileName;
+    return true;
+}
+
+const FEditorBuildProfile* EditorProject::FindBuildProfile(const std::string& profileName) const
+{
+    return FindBuildProfileByName(m_BuildProfiles, profileName);
+}
+
+FEditorBuildProfile* EditorProject::FindBuildProfile(const std::string& profileName)
+{
+    return FindBuildProfileByName(m_BuildProfiles, profileName);
+}
+
+const FEditorBuildProfile* EditorProject::GetActiveBuildProfile() const
+{
+    return FindBuildProfile(m_ActiveBuildProfileName);
+}
+
+FEditorBuildProfile* EditorProject::GetActiveBuildProfile()
+{
+    return FindBuildProfile(m_ActiveBuildProfileName);
+}
+
+void EditorProject::EnsureBuildProfiles()
+{
+    if (m_BuildProfiles.empty()) {
+        m_BuildProfiles = BuildDefaultBuildProfiles();
+    }
+
+    for (FEditorBuildProfile& profile : m_BuildProfiles) {
+        if (profile.Name.empty()) {
+            profile.Name = GetTargetPlatformDisplayName(profile.TargetPlatform) + " " + profile.Configuration;
+        }
+        if (profile.Configuration.empty()) {
+            profile.Configuration = "Debug";
+        }
+        if (profile.BuildDirectory.empty()) {
+            profile.BuildDirectory = BuildDefaultBuildDirectoryRelativePath(
+                profile.TargetPlatform,
+                profile.Configuration);
+        }
+    }
+
+    if (FindBuildProfile(m_ActiveBuildProfileName) == nullptr) {
+        const FEditorBuildProfile* preferredWindowsDebug = FindBuildProfile("Windows Debug");
+        if (preferredWindowsDebug != nullptr) {
+            m_ActiveBuildProfileName = preferredWindowsDebug->Name;
+        } else if (!m_BuildProfiles.empty()) {
+            m_ActiveBuildProfileName = m_BuildProfiles.front().Name;
+        } else {
+            m_ActiveBuildProfileName.clear();
+        }
+    }
 }
 
 } // namespace ImWidgetV4Editor

@@ -1014,6 +1014,9 @@ void UpdateBuildOverviewPanel(
 
     const std::string activeProfileName = workspaceController->GetActiveBuildProfileName();
     const FEnvironmentProbeReport probeReport = workspaceController->GetActiveBuildProfileProbeReport();
+    const std::shared_ptr<EditorProject> project = workspaceController->GetProject();
+    const FEditorBuildProfile* activeProfile =
+        (project && !activeProfileName.empty()) ? project->FindBuildProfile(activeProfileName) : nullptr;
     lines.push_back("Active Profile: " + (activeProfileName.empty() ? std::string("None") : activeProfileName));
     lines.push_back("Build Status: " + (workspaceController->IsBuildTaskRunning()
         ? workspaceController->GetBuildTaskStatusText()
@@ -1021,9 +1024,47 @@ void UpdateBuildOverviewPanel(
     lines.push_back("Probe Ready: " + std::string(probeReport.bReady ? "Yes" : "No"));
     lines.push_back("");
 
+    if (activeProfile != nullptr) {
+        lines.push_back("Profile Details:");
+        lines.push_back("  Target: " + GetTargetPlatformDisplayName(activeProfile->TargetPlatform));
+        lines.push_back("  Configuration: " + activeProfile->Configuration);
+        lines.push_back("  Generator: " + (activeProfile->Generator.empty() ? std::string("Default") : activeProfile->Generator));
+        lines.push_back("  Build Directory: " + ResolveBuildDirectoryPath(project->GetProjectRoot(), *activeProfile).string());
+
+        if (activeProfile->TargetPlatform == EEditorTargetPlatform::Android) {
+            lines.push_back("  Android ABI: " + activeProfile->AndroidSettings.Abi);
+            lines.push_back("  Android API: " + std::to_string(activeProfile->AndroidSettings.ApiLevel));
+            lines.push_back("  Android STL: " + activeProfile->AndroidSettings.Stl);
+            if (!activeProfile->AndroidSettings.SdkRootOverride.empty()) {
+                lines.push_back("  SDK Override: " + activeProfile->AndroidSettings.SdkRootOverride.string());
+            }
+            if (!activeProfile->AndroidSettings.NdkRootOverride.empty()) {
+                lines.push_back("  NDK Override: " + activeProfile->AndroidSettings.NdkRootOverride.string());
+            }
+        }
+
+        lines.push_back("");
+    }
+
     if (probeReport.Items.empty()) {
         lines.push_back("No probe data available.");
     } else {
+        std::vector<std::string> missingItems;
+        for (const FEnvironmentProbeItem& item : probeReport.Items) {
+            if (item.Status == EEnvironmentProbeStatus::Missing) {
+                missingItems.push_back(item.Label);
+            }
+        }
+
+        if (!missingItems.empty()) {
+            lines.push_back("Setup Needed:");
+            for (const std::string& missingItem : missingItems) {
+                lines.push_back("  Missing " + missingItem);
+            }
+            lines.push_back("  Use Settings to update this profile and re-probe.");
+            lines.push_back("");
+        }
+
         lines.push_back("Environment Probe:");
         for (const FEnvironmentProbeItem& item : probeReport.Items) {
             lines.push_back("  " + item.Label + " [" + ToDisplayString(item.Status) + "]");

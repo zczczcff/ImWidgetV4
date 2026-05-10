@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ImWidgetV4 {
@@ -82,6 +83,10 @@ public:
     std::string GetBuildTaskStatusText() const;
     std::string GetActiveBuildProfileName() const;
     FEnvironmentProbeReport GetActiveBuildProfileProbeReport() const;
+    bool TryGetBuildProfileProbeReport(const std::string& profileName, FEnvironmentProbeReport& outReport) const;
+    bool IsBuildProfileProbeRefreshing(const std::string& profileName) const;
+    bool IsActiveBuildProfileProbeRefreshing() const;
+    void RequestBuildProfileProbeRefresh();
     std::vector<std::string> GetBuildProfileNames() const;
     bool SetActiveBuildProfile(const std::string& profileName);
     bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
@@ -174,6 +179,13 @@ private:
         int LastReportedPercent = -1;
     };
 
+    struct FBackgroundProbeTaskState {
+        std::thread Worker;
+        mutable std::mutex Mutex;
+        std::unordered_map<std::string, FEnvironmentProbeReport> Results;
+        bool bFinished = false;
+    };
+
     std::shared_ptr<EditorSession> CreateSession() const;
     FSessionWidgets CreateSessionWidgets() const;
     bool AddSession(const std::shared_ptr<EditorSession>& session, bool bActivateNewTab);
@@ -220,6 +232,10 @@ private:
     bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& profileName);
     void TickBackgroundBuildTask();
     void ShutdownBackgroundBuildTask();
+    void InvalidateBuildProfileProbeCache();
+    void StartBackgroundProbeTask();
+    void TickBackgroundProbeTask();
+    void ShutdownBackgroundProbeTask();
     int FindDocumentIndexByPath(const std::filesystem::path& filePath) const;
     void RememberRecentFile(const std::filesystem::path& filePath);
     void RemoveRecentFilesUnderPath(const std::filesystem::path& path);
@@ -244,7 +260,10 @@ private:
     std::shared_ptr<ReflectionDetailsView> m_DetailsView;
     std::shared_ptr<ImWidgetV4::ImTextList> m_OutputText;
     std::shared_ptr<FBackgroundBuildTaskState> m_BackgroundBuildTask;
+    std::shared_ptr<FBackgroundProbeTaskState> m_BackgroundProbeTask;
     std::unordered_map<ImWidgetV4::ImTextOutlineItem*, FProjectItemBinding> m_ProjectItemBindings;
+    std::unordered_map<std::string, FEnvironmentProbeReport> m_BuildProfileProbeReports;
+    std::unordered_set<std::string> m_RefreshingBuildProfileNames;
     std::vector<std::filesystem::path> m_RecentFiles;
     std::vector<FDocumentEntry> m_Documents;
     std::shared_ptr<ImWidgetV4::ImPopupMenu> m_CloseConfirmMenu;
@@ -265,6 +284,8 @@ private:
     ImWidgetV4::ImTextOutlineItem* m_ContextMenuProjectItem = nullptr;
     int m_PendingCloseDocumentIndex = -1;
     int m_ActiveDocumentIndex = -1;
+    bool m_bBuildProfileProbeRefreshPending = false;
+    bool m_bRefreshProjectViewOnProbeCompletion = false;
     bool m_bExitRequested = false;
     bool m_bIgnoringTabActivation = false;
 };

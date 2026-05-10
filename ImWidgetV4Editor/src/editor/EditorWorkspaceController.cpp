@@ -528,6 +528,7 @@ EditorWorkspaceController::EditorWorkspaceController(
 EditorWorkspaceController::~EditorWorkspaceController()
 {
     ShutdownBackgroundBuildTask();
+    ShutdownBackgroundProbeTask();
 }
 
 void EditorWorkspaceController::SetOnProjectStateChanged(std::function<void()> callback)
@@ -542,6 +543,7 @@ void EditorWorkspaceController::SetOnExitRequested(std::function<void()> callbac
 
 void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& projectRoot)
 {
+    InvalidateBuildProfileProbeCache();
     if (projectRoot.empty()) {
         m_ProjectRoot.clear();
         m_Project.reset();
@@ -1152,6 +1154,7 @@ bool EditorWorkspaceController::RebuildProject(const std::string& profileName)
 void EditorWorkspaceController::TickBackgroundTasks()
 {
     TickBackgroundBuildTask();
+    TickBackgroundProbeTask();
 }
 
 bool EditorWorkspaceController::IsBuildTaskRunning() const
@@ -1193,7 +1196,78 @@ FEnvironmentProbeReport EditorWorkspaceController::GetActiveBuildProfileProbeRep
         return report;
     }
 
-    return EnvironmentProbe::Probe(*profile);
+    report.TargetPlatform = profile->TargetPlatform;
+    auto it = m_BuildProfileProbeReports.find(profile->Name);
+    if (it != m_BuildProfileProbeReports.end()) {
+        return it->second;
+    }
+
+    return report;
+}
+
+bool EditorWorkspaceController::TryGetBuildProfileProbeReport(
+    const std::string& profileName,
+    FEnvironmentProbeReport& outReport) const
+{
+    auto it = m_BuildProfileProbeReports.find(profileName);
+    if (it == m_BuildProfileProbeReports.end()) {
+        return false;
+    }
+
+    outReport = it->second;
+    return true;
+}
+
+bool EditorWorkspaceController::IsBuildProfileProbeRefreshing(const std::string& profileName) const
+{
+    return !profileName.empty() &&
+        m_RefreshingBuildProfileNames.find(profileName) != m_RefreshingBuildProfileNames.end();
+}
+
+bool EditorWorkspaceController::IsActiveBuildProfileProbeRefreshing() const
+{
+    return IsBuildProfileProbeRefreshing(GetActiveBuildProfileName());
+}
+
+void EditorWorkspaceController::RequestBuildProfileProbeRefresh()
+{
+    if (!m_Project) {
+        InvalidateBuildProfileProbeCache();
+        NotifyProjectStateChanged();
+        return;
+    }
+
+    std::unordered_set<std::string> validProfileNames;
+    for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
+        validProfileNames.insert(profile.Name);
+        m_RefreshingBuildProfileNames.insert(profile.Name);
+    }
+
+    for (auto it = m_BuildProfileProbeReports.begin(); it != m_BuildProfileProbeReports.end();) {
+        if (validProfileNames.find(it->first) == validProfileNames.end()) {
+            it = m_BuildProfileProbeReports.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (auto it = m_RefreshingBuildProfileNames.begin(); it != m_RefreshingBuildProfileNames.end();) {
+        if (validProfileNames.find(*it) == validProfileNames.end()) {
+            it = m_RefreshingBuildProfileNames.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_BackgroundProbeTask) {
+        m_bBuildProfileProbeRefreshPending = true;
+        m_bRefreshProjectViewOnProbeCompletion = true;
+        NotifyProjectStateChanged();
+        return;
+    }
+
+    m_bRefreshProjectViewOnProbeCompletion = true;
+    StartBackgroundProbeTask();
+    NotifyProjectStateChanged();
 }
 
 std::vector<std::string> EditorWorkspaceController::GetBuildProfileNames() const
@@ -1218,6 +1292,9 @@ bool EditorWorkspaceController::SetActiveBuildProfile(const std::string& profile
     std::string saveError;
     if (!m_Project->Save(&saveError)) {
         AppendOutputLine("Failed to save active build profile: " + saveError);
+    }
+    if (m_BuildProfileProbeReports.find(profileName) == m_BuildProfileProbeReports.end()) {
+        RequestBuildProfileProbeRefresh();
     }
     NotifyProjectStateChanged();
     return true;
@@ -1245,6 +1322,7 @@ bool EditorWorkspaceController::UpdateBuildProfile(const FEditorBuildProfile& pr
         return false;
     }
 
+    RequestBuildProfileProbeRefresh();
     RebuildProjectView();
     NotifyProjectStateChanged();
     return true;
@@ -2220,12 +2298,6 @@ void EditorWorkspaceController::OpenProjectSettingsDialog(ImApplication& app)
 {
     if (!m_Project) {
         return;
-    }
-
-    const FEditorBuildProfile* activeProfile = m_Project->GetActiveBuildProfile();
-    FEnvironmentProbeReport probeReport;
-    if (activeProfile != nullptr) {
-        probeReport = EnvironmentProbe::Probe(*activeProfile);
     }
 
     FProjectSettingsDialogOptions dialogOptions;
@@ -3249,6 +3321,100 @@ void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
     }
 }
 
+void EditorWorkspaceController::InvalidateBuildProfileProbeCache()
+{
+    ShutdownBackgroundProbeTask();
+    m_BuildProfileProbeReports.clear();
+    m_RefreshingBuildProfileNames.clear();
+    m_bBuildProfileProbeRefreshPending = false;
+    m_bRefreshProjectViewOnProbeCompletion = false;
+}
+
+void EditorWorkspaceController::StartBackgroundProbeTask()
+{
+    if (!m_Project) {
+        return;
+    }
+
+    const std::vector<FEditorBuildProfile> profiles = m_Project->GetBuildProfiles();
+    if (profiles.empty()) {
+        m_RefreshingBuildProfileNames.clear();
+        m_BuildProfileProbeReports.clear();
+        return;
+    }
+
+    auto task = std::make_shared<FBackgroundProbeTaskState>();
+    m_BackgroundProbeTask = task;
+    task->Worker = std::thread([task, profiles]() {
+        std::unordered_map<std::string, FEnvironmentProbeReport> results;
+        results.reserve(profiles.size());
+        for (const FEditorBuildProfile& profile : profiles) {
+            results[profile.Name] = EnvironmentProbe::Probe(profile);
+        }
+
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        task->Results = std::move(results);
+        task->bFinished = true;
+    });
+}
+
+void EditorWorkspaceController::TickBackgroundProbeTask()
+{
+    const std::shared_ptr<FBackgroundProbeTaskState> task = m_BackgroundProbeTask;
+    if (!task) {
+        return;
+    }
+
+    bool bFinished = false;
+    std::unordered_map<std::string, FEnvironmentProbeReport> results;
+    {
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        bFinished = task->bFinished;
+        if (bFinished) {
+            results = task->Results;
+        }
+    }
+
+    if (!bFinished) {
+        return;
+    }
+
+    if (task->Worker.joinable()) {
+        task->Worker.join();
+    }
+
+    m_BackgroundProbeTask.reset();
+    m_BuildProfileProbeReports = std::move(results);
+    m_RefreshingBuildProfileNames.clear();
+
+    const bool bRefreshProjectView = m_bRefreshProjectViewOnProbeCompletion;
+    m_bRefreshProjectViewOnProbeCompletion = false;
+    if (bRefreshProjectView) {
+        RebuildProjectView();
+    }
+
+    NotifyProjectStateChanged();
+
+    if (m_bBuildProfileProbeRefreshPending) {
+        m_bBuildProfileProbeRefreshPending = false;
+        RequestBuildProfileProbeRefresh();
+    }
+}
+
+void EditorWorkspaceController::ShutdownBackgroundProbeTask()
+{
+    const std::shared_ptr<FBackgroundProbeTaskState> task = m_BackgroundProbeTask;
+    if (!task) {
+        return;
+    }
+
+    if (task->Worker.joinable()) {
+        task->Worker.join();
+    }
+
+    m_BackgroundProbeTask.reset();
+}
+
 bool EditorWorkspaceController::StartBackgroundBuildTask(
     EBackgroundBuildTaskKind kind,
     const std::string& profileName)
@@ -3532,6 +3698,7 @@ bool EditorWorkspaceController::LoadProjectManifestAtRoot(
     const std::filesystem::path& projectRoot,
     bool bLogErrors)
 {
+    InvalidateBuildProfileProbeCache();
     m_Project.reset();
     if (projectRoot.empty()) {
         return false;
@@ -3552,6 +3719,7 @@ bool EditorWorkspaceController::LoadProjectManifestAtRoot(
     }
 
     m_Project = project;
+    RequestBuildProfileProbeRefresh();
     return true;
 }
 
@@ -3763,8 +3931,12 @@ void EditorWorkspaceController::RebuildProjectView()
             if (profilesRootItem) {
                 profilesRootItem->Expanded = true;
                 for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
-                    const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(profile);
-                    const std::string readinessLabel = probeReport.bReady ? "Ready" : "Needs Setup";
+                    FEnvironmentProbeReport probeReport;
+                    const bool bHasProbeReport = TryGetBuildProfileProbeReport(profile.Name, probeReport);
+                    const bool bRefreshingProbe = IsBuildProfileProbeRefreshing(profile.Name);
+                    const std::string readinessLabel = bHasProbeReport
+                        ? (probeReport.bReady ? "Ready" : "Needs Setup")
+                        : (bRefreshingProbe ? "Refreshing" : "Unknown");
 
                     std::string label = profile.Name + " [" +
                         GetTargetPlatformDisplayName(profile.TargetPlatform) + " / " +
@@ -3781,13 +3953,19 @@ void EditorWorkspaceController::RebuildProjectView()
                     m_ProjectItemBindings[profileItem] =
                         FProjectItemBinding {EProjectItemKind::BuildProfile, -1, {}, profile.Name};
 
-                    for (const FEnvironmentProbeItem& probeItem : probeReport.Items) {
-                        std::string probeLabel =
-                            probeItem.Label + " [" + ToDisplayString(probeItem.Status) + "]";
-                        if (!probeItem.Details.empty()) {
-                            probeLabel += " - " + probeItem.Details;
+                    if (bHasProbeReport) {
+                        for (const FEnvironmentProbeItem& probeItem : probeReport.Items) {
+                            std::string probeLabel =
+                                probeItem.Label + " [" + ToDisplayString(probeItem.Status) + "]";
+                            if (!probeItem.Details.empty()) {
+                                probeLabel += " - " + probeItem.Details;
+                            }
+                            m_ProjectView->AddChildItem(profileItem, probeLabel);
                         }
-                        m_ProjectView->AddChildItem(profileItem, probeLabel);
+                    } else {
+                        m_ProjectView->AddChildItem(
+                            profileItem,
+                            bRefreshingProbe ? "Refreshing environment probe..." : "Probe data unavailable");
                     }
                 }
             }

@@ -954,8 +954,14 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
             workspaceController ? workspaceController->GetProject() : nullptr;
         if (project) {
             for (const FEditorBuildProfile& profile : project->GetBuildProfiles()) {
-                const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(profile);
-                const std::string readinessLabel = probeReport.bReady ? "Ready" : "Needs Setup";
+                FEnvironmentProbeReport probeReport;
+                const bool bHasProbeReport =
+                    workspaceController->TryGetBuildProfileProbeReport(profile.Name, probeReport);
+                const bool bProbeRefreshing =
+                    workspaceController->IsBuildProfileProbeRefreshing(profile.Name);
+                const std::string readinessLabel = bHasProbeReport
+                    ? (probeReport.bReady ? "Ready" : "Needs Setup")
+                    : (bProbeRefreshing ? "Refreshing" : "Unknown");
                 std::vector<FApplicationMenuItem> profileSubItems = {
                     FApplicationMenuItem {
                         profile.Name == activeProfileName ? "Active Profile" : "Set Active Profile",
@@ -1279,9 +1285,9 @@ void UpdateEditorTitleBarActions(
                     const std::string buildStatus = workspaceController->GetBuildTaskStatusText();
                     statusText += " | " + (buildStatus.empty() ? std::string("Running") : buildStatus);
                     statusColor = FColor::FromBytes(103, 177, 255);
-                } else if (const std::shared_ptr<EditorProject> project = workspaceController->GetProject()) {
-                    if (const FEditorBuildProfile* profile = project->FindBuildProfile(activeProfileName)) {
-                        const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(*profile);
+                } else {
+                    FEnvironmentProbeReport probeReport;
+                    if (workspaceController->TryGetBuildProfileProbeReport(activeProfileName, probeReport)) {
                         if (probeReport.bReady) {
                             statusText += " | Ready";
                             statusColor = FColor::FromBytes(125, 204, 138);
@@ -1289,6 +1295,9 @@ void UpdateEditorTitleBarActions(
                             statusText += " | Needs Setup";
                             statusColor = FColor::FromBytes(230, 184, 104);
                         }
+                    } else if (workspaceController->IsBuildProfileProbeRefreshing(activeProfileName)) {
+                        statusText += " | Checking...";
+                        statusColor = FColor::FromBytes(103, 177, 255);
                     }
                 }
             }
@@ -1320,6 +1329,7 @@ void UpdateBuildOverviewPanel(
 
     const std::string activeProfileName = workspaceController->GetActiveBuildProfileName();
     const FEnvironmentProbeReport probeReport = workspaceController->GetActiveBuildProfileProbeReport();
+    const bool bProbeRefreshing = workspaceController->IsActiveBuildProfileProbeRefreshing();
     const std::shared_ptr<EditorProject> project = workspaceController->GetProject();
     const FEditorBuildProfile* activeProfile =
         (project && !activeProfileName.empty()) ? project->FindBuildProfile(activeProfileName) : nullptr;
@@ -1327,7 +1337,13 @@ void UpdateBuildOverviewPanel(
     lines.push_back("Build Status: " + (workspaceController->IsBuildTaskRunning()
         ? workspaceController->GetBuildTaskStatusText()
         : std::string("Idle")));
-    lines.push_back("Probe Ready: " + std::string(probeReport.bReady ? "Yes" : "No"));
+    if (bProbeRefreshing) {
+        lines.push_back("Probe Ready: Refreshing...");
+    } else if (!probeReport.Items.empty()) {
+        lines.push_back("Probe Ready: " + std::string(probeReport.bReady ? "Yes" : "No"));
+    } else {
+        lines.push_back("Probe Ready: Unknown");
+    }
     lines.push_back("");
 
     if (activeProfile != nullptr) {
@@ -1352,7 +1368,10 @@ void UpdateBuildOverviewPanel(
         lines.push_back("");
     }
 
-    if (probeReport.Items.empty()) {
+    if (bProbeRefreshing) {
+        lines.push_back("Environment Probe:");
+        lines.push_back("  Refreshing toolchain status...");
+    } else if (probeReport.Items.empty()) {
         lines.push_back("No probe data available.");
     } else {
         std::vector<std::string> missingItems;
@@ -1735,9 +1754,8 @@ public:
         }
         if (Shell_.BuildReprobeButton) {
             Shell_.BuildReprobeButton->OnClicked.AddLambda([this](ImButton&) {
-                if (BoundApplication_ != nullptr && WorkspaceController_) {
-                    UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
-                    UpdateBuildDockActions(Shell_, *BoundApplication_, WorkspaceController_);
+                if (WorkspaceController_) {
+                    WorkspaceController_->RequestBuildProfileProbeRefresh();
                 }
             });
         }
@@ -1893,9 +1911,7 @@ public:
             // The title text is updated on project state changes via RebuildEditorTitleBar.
             if (BoundApplication_ != nullptr) {
                 UpdateEditorTitleBarActions(*BoundApplication_, Shell_, WorkspaceController_);
-                UpdateBuildDockActions(Shell_, *BoundApplication_, WorkspaceController_);
             }
-            UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
         }
     }
 

@@ -18,3 +18,4 @@ rootProject.name = "ImWidgetAndroidShell"
 include(":app")
 include(":imageDemoApp")
 include(":inputWidgetsDemoApp")
+include(":editorApp")

@@ -12,10 +12,10 @@
 
 #if defined(__ANDROID__)
 #include <android/native_activity.h>
-#include <android_native_app_glue.h>
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <jni.h>
+struct android_app;
 #endif
 
 namespace ImWidgetV4 {
@@ -29,7 +29,7 @@ public:
     using FPostFrameCallback = std::function<void(const FFrameInfo&)>;
 
     explicit ImAndroidGLES3Backend(
-        android_app* app,
+        ::android_app* app,
         std::string windowTitle = "ImWidgetV4 Android",
         const std::string& glslVersion = "#version 300 es");
     ~ImAndroidGLES3Backend() override;
@@ -104,12 +104,12 @@ private:
     void HandleAppCommand(int32_t command);
     int32_t HandleInputEvent(AInputEvent* inputEvent);
 
-    static void HandleAppCommandThunk(android_app* app, int32_t command);
-    static int32_t HandleInputEventThunk(android_app* app, AInputEvent* inputEvent);
+    static void HandleAppCommandThunk(::android_app* app, int32_t command);
+    static int32_t HandleInputEventThunk(::android_app* app, AInputEvent* inputEvent);
     static const char* GetClipboardTextThunk(void* userData);
     static void SetClipboardTextThunk(void* userData, const char* text);
 
-    android_app* App_ = nullptr;
+    ::android_app* App_ = nullptr;
     ANativeWindow* NativeWindow_ = nullptr;
     std::string WindowTitle_;
     std::string GlslVersion_;

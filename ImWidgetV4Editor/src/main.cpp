@@ -36,7 +36,7 @@ namespace {
 
 std::filesystem::path GetEditorWorkspaceStatePath()
 {
-    const std::filesystem::path directory = std::filesystem::path(L"C:\\ImWidgetV4\\editor");
+    const std::filesystem::path directory = Samples::GetDefaultSampleDataDirectory("editor");
     std::error_code errorCode;
     std::filesystem::create_directories(directory, errorCode);
     return directory / "workspace_state.json";
@@ -764,7 +764,7 @@ public:
         config.Title = "ImWidgetV4 Editor";
         config.InitialWidth = 1440;
         config.InitialHeight = 900;
-        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath(L"ImWidgetV4Editor.ini");
+        config.IniSettingsPath = Samples::GetDefaultSampleImGuiIniPath("ImWidgetV4Editor.ini");
         config.bUseCustomHostChrome = true;
         return config;
     }

@@ -8,20 +8,36 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
+set(IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT "")
+if(ANDROID)
+    if(DEFINED CMAKE_ANDROID_NDK)
+        set(IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT ${CMAKE_ANDROID_NDK})
+    elseif(DEFINED ANDROID_NDK)
+        set(IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT ${ANDROID_NDK})
+    endif()
+endif()
+
 set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE "")
 set(IMWIDGETV4_EDITOR_PLATFORM_TARGET "")
+set(IMWIDGETV4_EDITOR_ANDROID_NATIVE_APP_GLUE_SOURCE "")
 if(TARGET imwidgetv4_platform_win32_dx11)
     set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE ../ImWidgetV4/src/app/Win32HostedMain.cpp)
     set(IMWIDGETV4_EDITOR_PLATFORM_TARGET imwidgetv4_platform_win32_dx11)
 elseif(TARGET imwidgetv4_platform_android_gles3)
     set(IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE ../ImWidgetV4/src/app/AndroidHostedMain.cpp)
     set(IMWIDGETV4_EDITOR_PLATFORM_TARGET imwidgetv4_platform_android_gles3)
+    if(IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT)
+        set(IMWIDGETV4_EDITOR_ANDROID_NATIVE_APP_GLUE_SOURCE
+            ${IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT}/sources/android/native_app_glue/android_native_app_glue.c
+        )
+    endif()
 else()
     message(FATAL_ERROR "ImWidgetV4Editor requires a platform backend target.")
 endif()
 
 set(IMWIDGETV4_EDITOR_SOURCES
     ${IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE}
+    ${IMWIDGETV4_EDITOR_ANDROID_NATIVE_APP_GLUE_SOURCE}
     src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/commands/AddWidgetCommand.cpp
@@ -113,6 +129,12 @@ target_include_directories(ImWidgetV4Editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
 )
+
+if(ANDROID AND IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT)
+    target_include_directories(ImWidgetV4Editor PRIVATE
+        ${IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT}/sources/android/native_app_glue
+    )
+endif()
 
 set_target_properties(ImWidgetV4Editor PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor

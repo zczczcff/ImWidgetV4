@@ -555,14 +555,47 @@ void EditorWorkspaceController::SetProjectRoot(const std::filesystem::path& proj
         LoadProjectManifestAtRoot(m_ProjectRoot, false);
     }
 
-    RebuildProjectView();
+    RequestProjectViewRefresh();
     NotifyProjectStateChanged();
 }
 
 void EditorWorkspaceController::RefreshProjectTree()
 {
-    RebuildProjectView();
+    RequestProjectViewRefresh();
     NotifyProjectStateChanged();
+}
+
+void EditorWorkspaceController::EnsureAtLeastOneSession()
+{
+    if (!m_Documents.empty()) {
+        return;
+    }
+
+    BeginBatchUiUpdate();
+    AddSession(CreateSession(), true);
+    EndBatchUiUpdate(true);
+}
+
+void EditorWorkspaceController::BeginBatchUiUpdate()
+{
+    m_bBatchUiUpdateActive = true;
+}
+
+void EditorWorkspaceController::EndBatchUiUpdate(bool bForceRefresh)
+{
+    m_bBatchUiUpdateActive = false;
+
+    if (bForceRefresh || m_bProjectViewRefreshPending) {
+        RebuildProjectView();
+        m_bProjectViewRefreshPending = false;
+    }
+
+    if (bForceRefresh || m_bProjectStateNotificationPending) {
+        m_bProjectStateNotificationPending = false;
+        if (m_OnProjectStateChanged) {
+            m_OnProjectStateChanged();
+        }
+    }
 }
 
 bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
@@ -861,13 +894,11 @@ void EditorWorkspaceController::Bind(
             });
     }
 
-    if (m_Documents.empty()) {
-        AddSession(CreateSession(), true);
-    } else {
+    BeginBatchUiUpdate();
+    if (!m_Documents.empty()) {
         ActivateDocumentTab(m_DocumentTabs ? m_DocumentTabs->GetActiveTabIndex() : 0);
     }
-
-    RebuildProjectView();
+    EndBatchUiUpdate(true);
 }
 
 bool EditorWorkspaceController::NewDocument()
@@ -1613,7 +1644,7 @@ bool EditorWorkspaceController::AddSession(const std::shared_ptr<EditorSession>&
         ActivateDocumentTab(tabIndex);
     }
 
-    RebuildProjectView();
+    RequestProjectViewRefresh();
     return true;
 }
 
@@ -1643,7 +1674,7 @@ void EditorWorkspaceController::ActivateDocumentTab(int index)
         entry.Widgets.SourcePreviewText,
         entry.Widgets.WorkspaceTabs);
 
-    RebuildProjectView();
+    RequestProjectViewRefresh();
 }
 
 bool EditorWorkspaceController::CloseDocumentAt(ImApplication& app, int index)
@@ -2540,6 +2571,8 @@ bool EditorWorkspaceController::ApplyWorkspaceStateJson(const json& workspaceSta
         return false;
     }
 
+    BeginBatchUiUpdate();
+
     const std::string projectRoot = workspaceState.value("ProjectRoot", std::string());
     if (!projectRoot.empty()) {
         SetProjectRoot(projectRoot);
@@ -2596,7 +2629,7 @@ bool EditorWorkspaceController::ApplyWorkspaceStateJson(const json& workspaceSta
         ActivateDocumentAt(std::clamp(desiredActiveIndex, 0, static_cast<int>(m_Documents.size()) - 1));
     }
 
-    RebuildProjectView();
+    EndBatchUiUpdate(true);
     return true;
 }
 
@@ -3304,6 +3337,12 @@ bool EditorWorkspaceController::RevealProjectItemInExplorer(const std::filesyste
 
 void EditorWorkspaceController::NotifyProjectStateChanged() const
 {
+    EditorWorkspaceController* self = const_cast<EditorWorkspaceController*>(this);
+    if (self->m_bBatchUiUpdateActive) {
+        self->m_bProjectStateNotificationPending = true;
+        return;
+    }
+
     if (m_OnProjectStateChanged) {
         m_OnProjectStateChanged();
     }
@@ -4040,6 +4079,16 @@ void EditorWorkspaceController::RebuildProjectView()
     if (!bAddedWorkspaceChild) {
         m_ProjectView->AddChildItem(workspaceRootItem, "No supported files");
     }
+}
+
+void EditorWorkspaceController::RequestProjectViewRefresh()
+{
+    if (m_bBatchUiUpdateActive) {
+        m_bProjectViewRefreshPending = true;
+        return;
+    }
+
+    RebuildProjectView();
 }
 
 void EditorWorkspaceController::HandleProjectSelectionChanged(ImTextOutlineView&, ImTextOutlineItem* item)

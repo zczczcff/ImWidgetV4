@@ -1630,9 +1630,7 @@ public:
             Shell_.WidgetTreeView,
             Shell_.DetailsView,
             Shell_.OutputText);
-        if (!WorkspaceController_->LoadWorkspaceState(WorkspaceStatePath_)) {
-            WorkspaceController_->SetProjectRoot(defaultWorkspaceDirectory);
-        }
+        bWorkspaceRestoreCompleted_ = false;
 
         app.SetApplicationTitle("ImWidgetV4 Editor");
         app.SetApplicationIcon(app.GetCoreIconBrush(ECoreIcon::Settings));
@@ -1916,6 +1914,7 @@ public:
 
     void Tick(ImApplication&, const FFrameInfo&) override
     {
+        RestoreWorkspaceAfterFirstFrame();
         if (WorkspaceController_) {
             WorkspaceController_->TickBackgroundTasks();
         }
@@ -1945,10 +1944,25 @@ public:
     }
 
 private:
+    void RestoreWorkspaceAfterFirstFrame()
+    {
+        if (bWorkspaceRestoreCompleted_ || WorkspaceController_ == nullptr) {
+            return;
+        }
+
+        bWorkspaceRestoreCompleted_ = true;
+        const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
+        if (!WorkspaceController_->LoadWorkspaceState(WorkspaceStatePath_)) {
+            WorkspaceController_->SetProjectRoot(defaultWorkspaceDirectory);
+        }
+        WorkspaceController_->EnsureAtLeastOneSession();
+    }
+
     FEditorShellWidgets Shell_;
     std::shared_ptr<EditorWorkspaceController> WorkspaceController_;
     std::filesystem::path WorkspaceStatePath_;
     ImApplication* BoundApplication_ = nullptr;
+    bool bWorkspaceRestoreCompleted_ = false;
 };
 
 namespace ImWidgetV4 {

@@ -54,6 +54,7 @@ public:
     void SetProjectRoot(const std::filesystem::path& projectRoot);
     const std::filesystem::path& GetProjectRoot() const { return m_ProjectRoot; }
     void RefreshProjectTree();
+    void EnsureAtLeastOneSession();
 
     void Bind(
         const std::shared_ptr<EditorShellHost>& shellHost,
@@ -119,6 +120,8 @@ public:
     void ConfirmApplicationClose();
     bool SaveWorkspaceState(const std::filesystem::path& filePath) const;
     bool LoadWorkspaceState(const std::filesystem::path& filePath);
+    void BeginBatchUiUpdate();
+    void EndBatchUiUpdate(bool bForceRefresh = true);
     int GetDocumentCount() const { return static_cast<int>(m_Documents.size()); }
     int GetActiveDocumentIndex() const { return m_ActiveDocumentIndex; }
     std::vector<std::string> GetOutputLines() const;
@@ -246,6 +249,7 @@ private:
     bool LoadProjectManifestAtRoot(const std::filesystem::path& projectRoot, bool bLogErrors = true);
     void ClearOpenDocuments();
     void RebuildProjectView();
+    void RequestProjectViewRefresh();
     void HandleProjectSelectionChanged(ImWidgetV4::ImTextOutlineView& view, ImWidgetV4::ImTextOutlineItem* item);
 
     std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> m_CreateDefaultDocumentRoot;
@@ -288,6 +292,9 @@ private:
     bool m_bRefreshProjectViewOnProbeCompletion = false;
     bool m_bExitRequested = false;
     bool m_bIgnoringTabActivation = false;
+    bool m_bBatchUiUpdateActive = false;
+    bool m_bProjectViewRefreshPending = false;
+    bool m_bProjectStateNotificationPending = false;
 };
 
 } // namespace ImWidgetV4Editor

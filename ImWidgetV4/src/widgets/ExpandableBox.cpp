@@ -23,6 +23,16 @@ bool IsWidgetInSubtree(const std::shared_ptr<ImWidget>& root, const std::shared_
     return false;
 }
 
+FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness)
+{
+    const float inset = std::max(0.0f, borderThickness);
+    return FGeometry(
+        FVector2(geometry.Position.X + inset, geometry.Position.Y + inset),
+        FVector2(
+            std::max(0.0f, geometry.Size.X - inset * 2.0f),
+            std::max(0.0f, geometry.Size.Y - inset * 2.0f)));
+}
+
 } // namespace
 
 ImExpandableBox::ImExpandableBox()
@@ -148,30 +158,24 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         containerMin,
         containerMax,
-        m_Style.BorderColor,
+        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         cornerRadius,
         std::max(1.0f, m_Style.BorderThickness));
-
-    if (HasKeyboardFocus()) {
-        const FVector2 outlineInset(1.0f, 1.0f);
-        paintContext.DrawContext_.DrawRect(
-            containerMin + outlineInset,
-            containerMax - outlineInset,
-            m_Style.FocusedOutlineColor,
-            cornerRadius,
-            2.0f);
-    }
 
     RenderChildren(paintContext);
 }
 
 FVector2 ImExpandableBox::GetMinSize() const
 {
+    const float borderInset = std::max(0.0f, m_Style.BorderThickness);
+    const float totalBorderWidth = borderInset * 2.0f;
     const float indicatorStripWidth = m_Style.IndicatorSize + m_Style.IndicatorSpacing;
     const FVector2 headerMin = m_HeaderWidget ? m_HeaderWidget->GetMinSize() : FVector2(0.0f, 0.0f);
     const float headerWidth =
+        totalBorderWidth +
         m_Style.HeaderPadding.Left + indicatorStripWidth + headerMin.X + m_Style.HeaderPadding.Right;
     const float headerHeight =
+        totalBorderWidth +
         m_Style.HeaderPadding.Top +
         std::max(m_Style.IndicatorSize, headerMin.Y) +
         m_Style.HeaderPadding.Bottom;
@@ -183,7 +187,7 @@ FVector2 ImExpandableBox::GetMinSize() const
         const FVector2 bodyMin = m_BodyWidget->GetMinSize();
         minWidth = std::max(
             minWidth,
-            m_Style.BodyPadding.Left + bodyMin.X + m_Style.BodyPadding.Right);
+            totalBorderWidth + m_Style.BodyPadding.Left + bodyMin.X + m_Style.BodyPadding.Right);
         minHeight += m_Style.BodyPadding.Top + bodyMin.Y + m_Style.BodyPadding.Bottom;
     }
 
@@ -256,14 +260,15 @@ bool ImExpandableBox::BuildHitTestPath(const FVector2& position, std::vector<Ptr
 
 void ImExpandableBox::Relayout()
 {
+    const FGeometry innerGeometry = InsetGeometryByBorder(m_Geometry, m_Style.BorderThickness);
     const float headerHeight = ComputeHeaderHeight();
     const float bodyHeight = ComputeBodyHeight();
     const float visibleHeight = m_bExpanded ? headerHeight + bodyHeight : headerHeight;
-    const FVector2 visibleSize(m_Geometry.Size.X, visibleHeight);
+    const FVector2 visibleSize(innerGeometry.Size.X, visibleHeight);
 
-    m_HeaderGeometry = FGeometry(m_Geometry.Position, FVector2(visibleSize.X, headerHeight));
+    m_HeaderGeometry = FGeometry(innerGeometry.Position, FVector2(visibleSize.X, headerHeight));
     m_BodyGeometry = FGeometry(
-        FVector2(m_Geometry.Position.X, m_Geometry.Position.Y + headerHeight),
+        FVector2(innerGeometry.Position.X, innerGeometry.Position.Y + headerHeight),
         FVector2(visibleSize.X, bodyHeight));
 
     const float indicatorY = m_HeaderGeometry.Position.Y +

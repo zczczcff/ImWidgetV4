@@ -404,18 +404,9 @@ void ImTabView::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BorderColor,
+        HasFocusWithinTabView() ? Style_.FocusedOutlineColor : Style_.BorderColor,
         Style_.CornerRadius,
         Style_.BorderThickness);
-
-    if (HasFocusWithinTabView()) {
-        paintContext.DrawContext_.DrawRect(
-            m_Geometry.GetMin() + FVector2(2.0f, 2.0f),
-            m_Geometry.GetMax() - FVector2(2.0f, 2.0f),
-            Style_.FocusedOutlineColor,
-            std::max(0.0f, Style_.CornerRadius - 2.0f),
-            1.5f);
-    }
 
     if (TabStripGeometry_.IsValid()) {
         paintContext.DrawContext_.DrawRectFilled(

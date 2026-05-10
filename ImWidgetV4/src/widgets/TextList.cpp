@@ -436,19 +436,9 @@ void ImTextList::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_Style.BorderColor,
+        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         m_Style.CornerRadius,
         m_Style.BorderThickness);
-
-    if (HasKeyboardFocus()) {
-        const FVector2 inset(m_Style.BorderThickness + 2.0f, m_Style.BorderThickness + 2.0f);
-        paintContext.DrawContext_.DrawRect(
-            m_Geometry.GetMin() + inset,
-            m_Geometry.GetMax() - inset,
-            m_Style.FocusedOutlineColor,
-            std::max(0.0f, m_Style.CornerRadius - 2.0f),
-            1.5f);
-    }
 
     if (m_CachedViewportGeometry.IsValid()) {
         paintContext.DrawContext_.PushClipRect(
@@ -638,6 +628,7 @@ bool ImTextList::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& ou
 
 void ImTextList::OnFocusChanged(bool bHasFocus)
 {
+    (void)bHasFocus;
     Invalidate(EInvalidateReason::Paint);
 }
 

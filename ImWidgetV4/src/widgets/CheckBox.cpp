@@ -111,22 +111,10 @@ void ImCheckBox::Paint(const FPaintContext& paintContext) {
     paintContext.DrawContext_.DrawRect(
         indicatorMin,
         indicatorMax,
-        m_Style.BorderColor,
+        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         m_Style.IndicatorCornerRadius,
         m_Style.BorderThickness
     );
-
-    if (HasKeyboardFocus()) {
-        const FVector2 outlineMin = m_Geometry.Position + FVector2(1.0f, 1.0f);
-        const FVector2 outlineMax = m_Geometry.Position + m_Geometry.Size - FVector2(1.0f, 1.0f);
-        paintContext.DrawContext_.DrawRect(
-            outlineMin,
-            outlineMax,
-            m_Style.FocusedOutlineColor,
-            m_Style.IndicatorCornerRadius + 2.0f,
-            2.0f
-        );
-    }
 
     if (m_bChecked) {
         const float size = m_Style.IndicatorSize;

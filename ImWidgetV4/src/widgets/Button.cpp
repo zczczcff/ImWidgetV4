@@ -5,6 +5,20 @@
 
 namespace ImWidgetV4 {
 
+namespace {
+
+FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness)
+{
+    const float inset = std::max(0.0f, borderThickness);
+    return FGeometry(
+        FVector2(geometry.Position.X + inset, geometry.Position.Y + inset),
+        FVector2(
+            std::max(0.0f, geometry.Size.X - inset * 2.0f),
+            std::max(0.0f, geometry.Size.Y - inset * 2.0f)));
+}
+
+} // namespace
+
 ImButton::ImButton()
     : ImPanelWidget()
     , m_Style()
@@ -94,11 +108,21 @@ void ImButton::Paint(const FPaintContext& paintContext) {
 FVector2 ImButton::GetMinSize() const {
     const auto& children = GetChildren();
     const ImPaddingSlot* slot = dynamic_cast<const ImPaddingSlot*>(GetSlotAt(0));
+    const float borderInset = std::max(
+        {
+            0.0f,
+            m_Style.Normal.BorderThickness,
+            m_Style.Hovered.BorderThickness,
+            m_Style.Pressed.BorderThickness,
+            m_Style.Focused.BorderThickness,
+            m_Style.Disabled.BorderThickness
+        });
+    const float totalBorderWidth = borderInset * 2.0f;
 
     if (!children.empty() && slot) {
         FVector2 contentMinSize = children[0]->GetMinSize();
-        contentMinSize.X += slot->PaddingLeft + slot->PaddingRight;
-        contentMinSize.Y += slot->PaddingTop + slot->PaddingBottom;
+        contentMinSize.X += slot->PaddingLeft + slot->PaddingRight + totalBorderWidth;
+        contentMinSize.Y += slot->PaddingTop + slot->PaddingBottom + totalBorderWidth;
 
         return FVector2(
             std::max(contentMinSize.X, m_OriginalMinSize.X),
@@ -179,8 +203,9 @@ void ImButton::Relayout() {
     const auto& children = GetChildren();
 
     if (slot && !children.empty()) {
-        slot->SetSlotPosition(m_Geometry.Position);
-        slot->SetSlotSize(m_Geometry.Size);
+        const FGeometry contentGeometry = InsetGeometryByBorder(m_Geometry, GetCurrentStateStyle().BorderThickness);
+        slot->SetSlotPosition(contentGeometry.Position);
+        slot->SetSlotSize(contentGeometry.Size);
         slot->ApplyLayout(children[0].get());
     }
 }

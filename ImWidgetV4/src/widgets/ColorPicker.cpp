@@ -180,7 +180,7 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
     drawContext.DrawRect(
         m_Geometry.Position,
         m_Geometry.Position + m_Geometry.Size,
-        m_Style.BorderColor,
+        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         m_Style.CornerRadius,
         m_Style.BorderThickness);
 
@@ -270,14 +270,6 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
             2.0f);
     }
 
-    if (HasKeyboardFocus()) {
-        drawContext.DrawRect(
-            m_Geometry.Position + FVector2(1.0f, 1.0f),
-            m_Geometry.Position + m_Geometry.Size - FVector2(1.0f, 1.0f),
-            m_Style.FocusedOutlineColor,
-            std::max(0.0f, m_Style.CornerRadius - 1.0f),
-            2.0f);
-    }
 }
 
 FVector2 ImColorPicker::GetMinSize() const

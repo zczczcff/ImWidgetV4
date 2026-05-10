@@ -81,19 +81,9 @@ void ImSwitch::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         trackGeometry.GetMin(),
         trackGeometry.GetMax(),
-        m_Style.BorderColor,
+        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         trackRounding,
         m_Style.BorderThickness);
-
-    if (HasKeyboardFocus()) {
-        const FVector2 outlinePadding(1.0f, 1.0f);
-        paintContext.DrawContext_.DrawRect(
-            m_Geometry.GetMin() + outlinePadding,
-            m_Geometry.GetMax() - outlinePadding,
-            m_Style.FocusedOutlineColor,
-            std::max(0.0f, trackRounding + 2.0f),
-            2.0f);
-    }
 
     paintContext.DrawContext_.DrawCircleFilled(
         thumbCenter,

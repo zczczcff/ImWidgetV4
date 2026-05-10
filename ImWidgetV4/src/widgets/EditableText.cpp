@@ -10,6 +10,11 @@ namespace {
 
 std::string GFallbackClipboardText;
 
+float ResolveContentInset(float borderThickness)
+{
+    return std::max(0.0f, borderThickness);
+}
+
 bool IsContinuationByte(unsigned char value) {
     return (value & 0xC0U) == 0x80U;
 }
@@ -247,13 +252,14 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
         m_Style.BorderThickness
     );
 
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
     const FVector2 innerMin(
-        m_Geometry.Position.X + m_Style.Padding.Left,
-        m_Geometry.Position.Y + m_Style.Padding.Top
+        m_Geometry.Position.X + borderInset + m_Style.Padding.Left,
+        m_Geometry.Position.Y + borderInset + m_Style.Padding.Top
     );
     const FVector2 innerMax(
-        m_Geometry.Position.X + m_Geometry.Size.X - m_Style.Padding.Right,
-        m_Geometry.Position.Y + m_Geometry.Size.Y - m_Style.Padding.Bottom
+        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - m_Style.Padding.Right,
+        m_Geometry.Position.Y + m_Geometry.Size.Y - borderInset - m_Style.Padding.Bottom
     );
 
     paintContext.DrawContext_.PushClipRect(innerMin, innerMax, true);
@@ -345,8 +351,9 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
 
 FVector2 ImEditableText::GetMinSize() const {
     const FVector2 textSize = MeasureText(m_Text.empty() ? m_HintText : m_Text);
-    const float width = m_Style.Padding.Left + textSize.X + m_Style.Padding.Right;
-    const float height = m_Style.Padding.Top + std::max(textSize.Y, m_Style.FontSize) + m_Style.Padding.Bottom;
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float width = borderInset * 2.0f + m_Style.Padding.Left + textSize.X + m_Style.Padding.Right;
+    const float height = borderInset * 2.0f + m_Style.Padding.Top + std::max(textSize.Y, m_Style.FontSize) + m_Style.Padding.Bottom;
 
     return FVector2(
         std::max(width, m_Style.MinDesiredSize.X),
@@ -490,8 +497,9 @@ std::size_t ImEditableText::ClampByteIndex(std::size_t byteIndex) const {
 }
 
 std::size_t ImEditableText::ResolveCursorByteIndexAt(const FVector2& mousePosition) const {
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
     const float localX =
-        mousePosition.X - (m_Geometry.Position.X + m_Style.Padding.Left) + m_HorizontalScrollOffset;
+        mousePosition.X - (m_Geometry.Position.X + borderInset + m_Style.Padding.Left) + m_HorizontalScrollOffset;
     if (localX <= 0.0f || m_Text.empty()) {
         return 0;
     }
@@ -528,7 +536,10 @@ void ImEditableText::SetCursorByteIndex(std::size_t byteIndex, bool bExtendSelec
 }
 
 void ImEditableText::EnsureCursorVisible() {
-    const float visibleWidth = std::max(0.0f, m_Geometry.Size.X - m_Style.Padding.Left - m_Style.Padding.Right);
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float visibleWidth = std::max(
+        0.0f,
+        m_Geometry.Size.X - borderInset * 2.0f - m_Style.Padding.Left - m_Style.Padding.Right);
     if (visibleWidth <= 0.0f) {
         m_HorizontalScrollOffset = 0.0f;
         return;

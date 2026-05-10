@@ -168,6 +168,7 @@ private:
     void ClampPopupScrollOffset();
     float MeasureTextWidth(const std::string& text) const;
     float ResolvePopupHeight() const;
+    float ResolvePopupContentHeight() const;
 
     FComboBoxStyle m_Style;
     std::vector<std::string> m_Items;

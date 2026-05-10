@@ -17,7 +17,7 @@ void DrawContext::DrawRectFilled(const ImVec2& vMin, const ImVec2& vMax, ImU32 u
 
 void DrawContext::DrawRect(const ImVec2& vMin, const ImVec2& vMax, ImU32 uColor,
                            float fRounding, ImDrawFlags nFlags, float fThickness) {
-    if (m_pDrawList && uColor != 0) {
+    if (m_pDrawList && uColor != 0 && fThickness > 0.0f) {
         m_pDrawList->AddRect(vMin, vMax, uColor, fRounding, nFlags, fThickness);
     }
 }
@@ -37,7 +37,9 @@ void DrawContext::DrawRectangle(const ImVec2& vMin, const ImVec2& vMax,
 
     // 再绘制边框
     if (uBorderColor != 0) {
-        m_pDrawList->AddRect(vMin, vMax, uBorderColor, fRounding, nFlags, fBorderThickness);
+        if (fBorderThickness > 0.0f) {
+            m_pDrawList->AddRect(vMin, vMax, uBorderColor, fRounding, nFlags, fBorderThickness);
+        }
     }
 }
 

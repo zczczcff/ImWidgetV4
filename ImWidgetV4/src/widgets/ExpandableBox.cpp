@@ -160,7 +160,7 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
         containerMax,
         HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
         cornerRadius,
-        std::max(1.0f, m_Style.BorderThickness));
+        m_Style.BorderThickness);
 
     RenderChildren(paintContext);
 }

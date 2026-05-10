@@ -155,16 +155,16 @@ void DrawContext::DrawRect(const FVector2& min, const FVector2& max,
 {
     if (!m_DrawList) return;
 
+    if (!IsFiniteFloat(thickness) || thickness <= 0.0f) {
+        return;
+    }
+
     FVector2 sanitizedMin;
     FVector2 sanitizedMax;
     if (!SanitizeRect(min, max, sanitizedMin, sanitizedMax, rounding)) {
         return;
     }
     rounding = ResolveSafeRounding(rounding);
-
-    if (!IsFiniteFloat(thickness) || thickness <= 0.0f) {
-        thickness = 1.0f;
-    }
 
     m_DrawList->AddRect(
         sanitizedMin.ToImVec2(),

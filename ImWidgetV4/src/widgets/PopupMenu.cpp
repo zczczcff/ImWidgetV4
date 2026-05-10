@@ -13,6 +13,11 @@ namespace {
 
 constexpr int InvalidPopupMenuIndex = -1;
 
+float ResolveBorderInset(float borderThickness)
+{
+    return std::max(0.0f, borderThickness);
+}
+
 } // namespace
 
 ImPopupMenu::ImPopupMenu()
@@ -72,18 +77,19 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
         Style_.CornerRadius,
         Style_.BorderThickness);
 
-    paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
+    const FGeometry contentGeometry = GetContentGeometry();
+    paintContext.DrawContext_.PushClipRect(contentGeometry.GetMin(), contentGeometry.GetMax(), true);
 
     const float submenuIndicatorWidth = ResolveSubmenuIndicatorWidth();
-    float rowY = m_Geometry.Position.Y + Style_.OuterPaddingY;
-    const float rowWidth = std::max(0.0f, m_Geometry.Size.X - Style_.OuterPaddingX * 2.0f);
+    float rowY = contentGeometry.Position.Y + Style_.OuterPaddingY;
+    const float rowWidth = std::max(0.0f, contentGeometry.Size.X - Style_.OuterPaddingX * 2.0f);
     for (std::size_t index = 0; index < Items_.size(); ++index) {
         const FPopupMenuItem& item = Items_[index];
         if (item.bIsSeparator) {
             const float separatorY = rowY + Style_.RowHeight * 0.5f;
             paintContext.DrawContext_.DrawLine(
-                FVector2(m_Geometry.Position.X + Style_.OuterPaddingX + Style_.HorizontalPadding, separatorY),
-                FVector2(m_Geometry.Position.X + m_Geometry.Size.X - Style_.OuterPaddingX - Style_.HorizontalPadding, separatorY),
+                FVector2(contentGeometry.Position.X + Style_.OuterPaddingX + Style_.HorizontalPadding, separatorY),
+                FVector2(contentGeometry.GetMax().X - Style_.OuterPaddingX - Style_.HorizontalPadding, separatorY),
                 Style_.SeparatorColor,
                 1.0f);
             rowY += Style_.RowHeight;
@@ -91,7 +97,7 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
         }
 
         const FGeometry rowGeometry(
-            FVector2(m_Geometry.Position.X + Style_.OuterPaddingX, rowY),
+            FVector2(contentGeometry.Position.X + Style_.OuterPaddingX, rowY),
             FVector2(rowWidth, Style_.RowHeight));
         const bool bHovered = static_cast<int>(index) == HoveredItemIndex_;
         const bool bPressed = static_cast<int>(index) == PressedItemIndex_;
@@ -166,14 +172,19 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
 FVector2 ImPopupMenu::GetMinSize() const
 {
     const FMenuMetrics metrics = ComputeMetrics();
+    const float borderInset = ResolveBorderInset(Style_.BorderThickness);
 
     const float width =
+        borderInset * 2.0f +
         Style_.OuterPaddingX * 2.0f +
         Style_.HorizontalPadding * 2.0f +
         metrics.MaxTextWidth +
         (metrics.bHasAnyIcon ? (Style_.IconSize + Style_.IconTextSpacing) : 0.0f) +
         (metrics.bHasAnySubMenu ? (ResolveSubmenuIndicatorWidth() + Style_.SubmenuIndicatorSpacing) : 0.0f);
-    const float height = Style_.OuterPaddingY * 2.0f + static_cast<float>(Items_.size()) * Style_.RowHeight;
+    const float height =
+        borderInset * 2.0f +
+        Style_.OuterPaddingY * 2.0f +
+        static_cast<float>(Items_.size()) * Style_.RowHeight;
 
     return FVector2(
         std::max(Style_.MinDesiredSize.X, width),
@@ -253,28 +264,40 @@ FReply ImPopupMenu::OnInputEvent(const FInputEvent& event)
     return FReply::Unhandled();
 }
 
+FGeometry ImPopupMenu::GetContentGeometry() const
+{
+    const float borderInset = ResolveBorderInset(Style_.BorderThickness);
+    return FGeometry(
+        FVector2(m_Geometry.Position.X + borderInset, m_Geometry.Position.Y + borderInset),
+        FVector2(
+            std::max(0.0f, m_Geometry.Size.X - borderInset * 2.0f),
+            std::max(0.0f, m_Geometry.Size.Y - borderInset * 2.0f)));
+}
+
 FGeometry ImPopupMenu::GetRowGeometry(int index) const
 {
     if (index < 0 || index >= static_cast<int>(Items_.size())) {
         return FGeometry();
     }
 
+    const FGeometry contentGeometry = GetContentGeometry();
     return FGeometry(
         FVector2(
-            m_Geometry.Position.X + Style_.OuterPaddingX,
-            m_Geometry.Position.Y + Style_.OuterPaddingY + Style_.RowHeight * static_cast<float>(index)),
+            contentGeometry.Position.X + Style_.OuterPaddingX,
+            contentGeometry.Position.Y + Style_.OuterPaddingY + Style_.RowHeight * static_cast<float>(index)),
         FVector2(
-            std::max(0.0f, m_Geometry.Size.X - Style_.OuterPaddingX * 2.0f),
+            std::max(0.0f, contentGeometry.Size.X - Style_.OuterPaddingX * 2.0f),
             Style_.RowHeight));
 }
 
 int ImPopupMenu::ResolveIndexAt(const FVector2& position) const
 {
-    if (!m_Geometry.Contains(position) || Items_.empty()) {
+    const FGeometry contentGeometry = GetContentGeometry();
+    if (!contentGeometry.Contains(position) || Items_.empty()) {
         return InvalidPopupMenuIndex;
     }
 
-    const float localY = position.Y - m_Geometry.Position.Y - Style_.OuterPaddingY;
+    const float localY = position.Y - contentGeometry.Position.Y - Style_.OuterPaddingY;
     const int index = static_cast<int>(localY / Style_.RowHeight);
     if (index < 0 || index >= static_cast<int>(Items_.size())) {
         return InvalidPopupMenuIndex;

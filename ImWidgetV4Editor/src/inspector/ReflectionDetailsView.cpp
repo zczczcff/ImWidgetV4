@@ -393,7 +393,7 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
     style.Padding = FMargin(0.0f);
     style.RowPadding = FMargin(6.0f, 8.0f, 4.0f, 4.0f);
     style.BackgroundColor = FColor::FromBytes(24, 28, 34);
-    style.BorderThickness = 0.0f;
+    style.BorderThickness = 1.0f;
     style.CornerRadius = 0.0f;
     style.IndentWidth = 16.0f;
     style.IndicatorSize = 10.0f;
@@ -422,7 +422,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
     auto outlineView = std::make_shared<ImOutlineView>();
     FOutlineViewStyle style = outlineView->GetStyle();
     style.Padding = FMargin(0.0f);
-    style.BorderThickness = 0.0f;
+    style.BorderThickness = 1.0f;
     style.CornerRadius = 0.0f;
     outlineView->SetStyle(style);
 

@@ -69,6 +69,7 @@ private:
         bool bHasAnySubMenu = false;
     };
 
+    FGeometry GetContentGeometry() const;
     FGeometry GetRowGeometry(int index) const;
     int ResolveIndexAt(const FVector2& position) const;
     bool HasSubMenuAt(int index) const;

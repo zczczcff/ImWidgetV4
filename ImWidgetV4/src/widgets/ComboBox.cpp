@@ -31,6 +31,21 @@ float MeasureTextWidthWithFont(const std::string& text, float fontSize)
     return fontSize * 0.55f * static_cast<float>(text.size());
 }
 
+float ResolveContentInset(float borderThickness)
+{
+    return std::max(0.0f, borderThickness);
+}
+
+FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness)
+{
+    const float borderInset = ResolveContentInset(borderThickness);
+    return FGeometry(
+        FVector2(geometry.Position.X + borderInset, geometry.Position.Y + borderInset),
+        FVector2(
+            std::max(0.0f, geometry.Size.X - borderInset * 2.0f),
+            std::max(0.0f, geometry.Size.Y - borderInset * 2.0f)));
+}
+
 } // namespace
 
 class ImComboPopupList : public ImWidget {
@@ -63,13 +78,15 @@ public:
             style.CornerRadius,
             style.BorderThickness);
 
-        paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
+        const FGeometry contentGeometry = InsetGeometryByBorder(m_Geometry, style.BorderThickness);
+        paintContext.DrawContext_.PushClipRect(contentGeometry.GetMin(), contentGeometry.GetMax(), true);
         for (int index = firstVisibleIndex; index < lastVisibleIndex; ++index) {
-            const float rowY = m_Geometry.Position.Y + static_cast<float>(index) * itemHeight - scrollOffset;
-            const FVector2 rowMin(m_Geometry.Position.X, rowY);
-            const FVector2 rowMax(m_Geometry.Position.X + m_Geometry.Size.X, rowY + itemHeight);
+            const float rowY = contentGeometry.Position.Y + static_cast<float>(index) * itemHeight - scrollOffset;
+            const FVector2 rowMin(contentGeometry.Position.X, rowY);
+            const FVector2 rowMax(contentGeometry.Position.X + contentGeometry.Size.X, rowY + itemHeight);
 
-            if (rowMax.Y <= m_Geometry.Position.Y || rowMin.Y >= m_Geometry.Position.Y + m_Geometry.Size.Y) {
+            if (rowMax.Y <= contentGeometry.Position.Y ||
+                rowMin.Y >= contentGeometry.Position.Y + contentGeometry.Size.Y) {
                 continue;
             }
 
@@ -180,12 +197,18 @@ private:
     int ResolveIndexAt(const FVector2& position) const
     {
         const std::shared_ptr<ImComboBox> owner = Owner_.lock();
-        if (!m_Geometry.Contains(position) || !owner || owner->m_Items.empty()) {
+        if (!owner || owner->m_Items.empty()) {
             return InvalidComboIndex;
         }
 
-        const float localY = position.Y - m_Geometry.Position.Y + owner->m_PopupScrollOffset;
-        const int index = static_cast<int>(localY / owner->m_Style.PopupItemHeight);
+        const FComboBoxStyle& style = owner->m_Style;
+        const FGeometry contentGeometry = InsetGeometryByBorder(m_Geometry, style.BorderThickness);
+        if (!contentGeometry.Contains(position)) {
+            return InvalidComboIndex;
+        }
+
+        const float localY = position.Y - contentGeometry.Position.Y + owner->m_PopupScrollOffset;
+        const int index = static_cast<int>(localY / style.PopupItemHeight);
         if (index < 0 || index >= static_cast<int>(owner->m_Items.size())) {
             return InvalidComboIndex;
         }
@@ -413,11 +436,13 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
     const FColor textColor = HasSelection()
         ? (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor)
         : m_Style.PlaceholderTextColor;
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
     const float textY = m_Geometry.Position.Y +
-        std::max(0.0f, (m_Geometry.Size.Y - m_Style.FontSize) * 0.5f);
+        borderInset +
+        std::max(0.0f, (m_Geometry.Size.Y - borderInset * 2.0f - m_Style.FontSize) * 0.5f);
     const float arrowHalf = m_Style.ArrowSize * 0.5f;
     const FVector2 arrowCenter(
-        m_Geometry.Position.X + m_Geometry.Size.X - m_Style.Padding.Right - arrowHalf,
+        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - m_Style.Padding.Right - arrowHalf,
         m_Geometry.Position.Y + m_Geometry.Size.Y * 0.5f);
 
     paintContext.DrawContext_.DrawRectFilled(
@@ -434,14 +459,14 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
 
     const float textRight = arrowCenter.X - m_Style.ArrowSize - 10.0f;
     const FVector2 clipMin(
-        m_Geometry.Position.X + m_Style.Padding.Left,
-        m_Geometry.Position.Y);
+        m_Geometry.Position.X + borderInset + m_Style.Padding.Left,
+        m_Geometry.Position.Y + borderInset);
     const FVector2 clipMax(
         textRight,
-        m_Geometry.Position.Y + m_Geometry.Size.Y);
+        m_Geometry.Position.Y + m_Geometry.Size.Y - borderInset);
     paintContext.DrawContext_.PushClipRect(clipMin, clipMax, true);
     paintContext.DrawContext_.DrawText(
-        FVector2(m_Geometry.Position.X + m_Style.Padding.Left, textY),
+        FVector2(m_Geometry.Position.X + borderInset + m_Style.Padding.Left, textY),
         textColor,
         displayText,
         m_Style.FontSize);
@@ -462,13 +487,15 @@ FVector2 ImComboBox::GetMinSize() const
         longestTextWidth = std::max(longestTextWidth, MeasureTextWidth(item));
     }
 
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+
     return FVector2(
         std::max(
             m_Style.MinDesiredSize.X,
-            m_Style.Padding.Left + longestTextWidth + m_Style.Padding.Right + m_Style.ArrowSize + 18.0f),
+            borderInset * 2.0f + m_Style.Padding.Left + longestTextWidth + m_Style.Padding.Right + m_Style.ArrowSize + 18.0f),
         std::max(
             m_Style.MinDesiredSize.Y,
-            m_Style.Padding.Top + m_Style.FontSize + m_Style.Padding.Bottom));
+            borderInset * 2.0f + m_Style.Padding.Top + m_Style.FontSize + m_Style.Padding.Bottom));
 }
 
 FReply ImComboBox::OnInputEvent(const FInputEvent& event)
@@ -575,7 +602,7 @@ void ImComboBox::EnsurePopupSelectionVisible()
     }
 
     const float itemHeight = m_Style.PopupItemHeight;
-    const float popupHeight = ResolvePopupHeight();
+    const float popupHeight = ResolvePopupContentHeight();
     const float itemTop = static_cast<float>(m_HighlightedIndex) * itemHeight;
     const float itemBottom = itemTop + itemHeight;
 
@@ -591,7 +618,7 @@ void ImComboBox::EnsurePopupSelectionVisible()
 void ImComboBox::ClampPopupScrollOffset()
 {
     const float itemHeight = m_Style.PopupItemHeight;
-    const float popupHeight = ResolvePopupHeight();
+    const float popupHeight = ResolvePopupContentHeight();
     const float maxScroll = std::max(0.0f, static_cast<float>(m_Items.size()) * itemHeight - popupHeight);
     m_PopupScrollOffset = std::clamp(m_PopupScrollOffset, 0.0f, maxScroll);
 }
@@ -732,7 +759,16 @@ float ImComboBox::MeasureTextWidth(const std::string& text) const
 float ImComboBox::ResolvePopupHeight() const
 {
     const float visibleItems = static_cast<float>(std::min(m_MaxVisibleItems, static_cast<int>(m_Items.size())));
-    return std::max(m_Style.PopupItemHeight, visibleItems * m_Style.PopupItemHeight);
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    return std::max(
+        m_Style.PopupItemHeight + borderInset * 2.0f,
+        visibleItems * m_Style.PopupItemHeight + borderInset * 2.0f);
+}
+
+float ImComboBox::ResolvePopupContentHeight() const
+{
+    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    return std::max(0.0f, ResolvePopupHeight() - borderInset * 2.0f);
 }
 
 } // namespace ImWidgetV4

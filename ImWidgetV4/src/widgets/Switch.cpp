@@ -94,7 +94,7 @@ void ImSwitch::Paint(const FPaintContext& paintContext)
         thumbRadius,
         m_Style.BorderColor,
         0,
-        std::max(1.0f, m_Style.BorderThickness));
+        m_Style.BorderThickness);
 }
 
 FVector2 ImSwitch::GetMinSize() const

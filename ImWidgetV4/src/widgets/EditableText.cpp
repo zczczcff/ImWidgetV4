@@ -194,6 +194,19 @@ void ImEditableText::SetHintText(const std::string& hintText) {
     }
 
     m_HintText = hintText;
+    m_HintTextValue = FText::FromString(hintText);
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImEditableText::SetHintText(const FText& hintText) {
+    if (m_HintTextValue == hintText) {
+        return;
+    }
+
+    m_HintTextValue = hintText;
+    m_HintText = hintText.IsLocalized()
+        ? (hintText.GetDefaultText().empty() ? hintText.GetKey() : hintText.GetDefaultText())
+        : hintText.GetInvariantText();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -265,7 +278,8 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
     paintContext.DrawContext_.PushClipRect(innerMin, innerMax, true);
 
     const bool bShowingHint = m_Text.empty();
-    const std::string& displayText = bShowingHint ? m_HintText : m_Text;
+    const std::string resolvedHintText = bShowingHint ? ResolveHintText() : std::string();
+    const std::string& displayText = bShowingHint ? resolvedHintText : m_Text;
     const FColor baseTextColor = bShowingHint
         ? m_Style.HintTextColor
         : (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor);
@@ -350,7 +364,7 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
 }
 
 FVector2 ImEditableText::GetMinSize() const {
-    const FVector2 textSize = MeasureText(m_Text.empty() ? m_HintText : m_Text);
+    const FVector2 textSize = MeasureText(m_Text.empty() ? ResolveHintText() : m_Text);
     const float borderInset = ResolveContentInset(m_Style.BorderThickness);
     const float width = borderInset * 2.0f + m_Style.Padding.Left + textSize.X + m_Style.Padding.Right;
     const float height = borderInset * 2.0f + m_Style.Padding.Top + std::max(textSize.Y, m_Style.FontSize) + m_Style.Padding.Bottom;
@@ -765,6 +779,14 @@ float ImEditableText::MeasureCaretX(std::size_t byteIndex) const {
 
 FVector2 ImEditableText::MeasureText(const std::string& text) const {
     return MeasureTextWithFont(text, m_Style.FontSize);
+}
+
+std::string ImEditableText::ResolveHintText() const {
+    if (m_HintTextValue.IsLocalized() || !m_HintTextValue.GetInvariantText().empty()) {
+        return m_HintTextValue.Resolve();
+    }
+
+    return m_HintText;
 }
 
 void ImEditableText::SetHovered(bool bHovered) {

@@ -5,6 +5,7 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -124,6 +125,31 @@ TEST(LocalizationTest, ComboBoxUsesLocalizedItemsAndPlaceholder)
     restored.FromJson(comboBox.ToJson());
     restored.SetSelectedIndex(1);
     EXPECT_EQ(restored.GetSelectedText(), "Second");
+}
+
+TEST(LocalizationTest, EditableTextLocalizesHintButKeepsUserTextPlain)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Input.SearchHint"] = "Search-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImEditableText editableText;
+    editableText.SetHintText(FText::FromKey("Input.SearchHint", "Search"));
+    editableText.SetText("User Value");
+
+    EXPECT_EQ(editableText.GetHintText(), "Search");
+    EXPECT_EQ(editableText.GetHintTextValue().Resolve(), "Search-Pseudo");
+    EXPECT_EQ(editableText.GetText(), "User Value");
+    EXPECT_EQ(editableText.ToJson()["Properties"]["ImEditableText::HintText"], "Search");
+
+    ImEditableText restored;
+    restored.FromJson(editableText.ToJson());
+    EXPECT_EQ(restored.GetHintText(), "Search");
+    EXPECT_EQ(restored.GetText(), "User Value");
 }
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)

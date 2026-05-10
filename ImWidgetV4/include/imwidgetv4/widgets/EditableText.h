@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <cstddef>
 #include <string>
@@ -78,7 +79,9 @@ public:
     const std::string& GetText() const { return m_Text; }
 
     void SetHintText(const std::string& hintText);
+    void SetHintText(const FText& hintText);
     const std::string& GetHintText() const { return m_HintText; }
+    const FText& GetHintTextValue() const { return m_HintTextValue; }
 
     void SetStyle(const FEditableTextStyle& style);
     const FEditableTextStyle& GetStyle() const { return m_Style; }
@@ -134,12 +137,14 @@ private:
     void PasteFromClipboard();
     float MeasureCaretX(std::size_t byteIndex) const;
     FVector2 MeasureText(const std::string& text) const;
+    std::string ResolveHintText() const;
     void SetHovered(bool bHovered);
     void SetDraggingSelection(bool bDraggingSelection);
 
     FEditableTextStyle m_Style;
     std::string m_Text;
     std::string m_HintText;
+    FText m_HintTextValue;
     std::size_t m_CursorByteIndex = 0;
     std::size_t m_SelectionAnchorByteIndex = 0;
     float m_HorizontalScrollOffset = 0.0f;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <string>
 
@@ -65,7 +66,9 @@ public:
     virtual ~ImCheckBox() = default;
 
     void SetLabel(const std::string& label);
-    const std::string& GetLabel() const { return m_Label; }
+    void SetLabel(const FText& label);
+    std::string GetLabel() const;
+    const FText& GetLabelText() const { return m_LabelText; }
 
     void SetChecked(bool bChecked);
     bool IsChecked() const { return m_bChecked; }
@@ -88,6 +91,7 @@ public:
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
+    void FromJson(const json& j) override;
 
 protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
@@ -96,9 +100,11 @@ private:
     void SetPressed(bool bPressed);
     void SetHovered(bool bHovered);
     FVector2 MeasureLabelSize() const;
+    std::string ResolveLabel() const;
 
     FCheckBoxStyle m_Style;
     std::string m_Label;
+    FText m_LabelText;
     bool m_bChecked = false;
     bool m_bHovered = false;
     bool m_bPressed = false;

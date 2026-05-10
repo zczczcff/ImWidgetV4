@@ -3,6 +3,8 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 
 using namespace ImWidgetV4;
@@ -18,6 +20,50 @@ void ResetLocalization()
 }
 
 } // namespace
+
+TEST(LocalizationTest, CheckBoxLabelUsesLocalizedTextAndKeepsDefaultSerializable)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Option.Enabled"] = "Enabled-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImCheckBox checkBox;
+    checkBox.SetLabel(FText::FromKey("Option.Enabled", "Enabled"));
+
+    EXPECT_EQ(checkBox.GetLabel(), "Enabled-Pseudo");
+    EXPECT_EQ(checkBox.ToJson()["Properties"]["ImCheckBox::Label"], "Enabled");
+
+    ImCheckBox restored;
+    restored.FromJson(checkBox.ToJson());
+    EXPECT_EQ(restored.GetLabel(), "Enabled");
+}
+
+TEST(LocalizationTest, TabViewTitleUsesLocalizedTextAndKeepsDefaultTitle)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Tab.Settings"] = "Settings-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    auto content = std::make_shared<ImTextBlock>();
+    ImTabView tabView;
+    const int tabIndex = tabView.AddTab(FText::FromKey("Tab.Settings", "Settings"), content);
+
+    ASSERT_EQ(tabIndex, 0);
+    ASSERT_NE(tabView.GetTab(0), nullptr);
+    EXPECT_EQ(tabView.GetTab(0)->Title, "Settings");
+    EXPECT_EQ(tabView.GetTab(0)->TitleText.Resolve(), "Settings-Pseudo");
+
+    ASSERT_TRUE(tabView.SetTabTitle(0, FText::FromKey("Tab.Settings", "Settings")));
+    EXPECT_EQ(tabView.GetTab(0)->TitleText.Resolve(), "Settings-Pseudo");
+}
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)
 {

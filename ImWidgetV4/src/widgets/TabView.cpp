@@ -56,23 +56,48 @@ ImTabView::ImTabView()
 
 int ImTabView::AddTab(const std::string& title, const std::shared_ptr<ImWidget>& content)
 {
-    return InsertTab(static_cast<int>(Tabs_.size()), title, FImageBrush(), content);
+    return AddTab(FText::FromString(title), content);
 }
 
 int ImTabView::AddTab(const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
+{
+    return AddTab(FText::FromString(title), icon, content);
+}
+
+int ImTabView::AddTab(const FText& title, const std::shared_ptr<ImWidget>& content)
+{
+    return InsertTab(static_cast<int>(Tabs_.size()), title, FImageBrush(), content);
+}
+
+int ImTabView::AddTab(const FText& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
 {
     return InsertTab(static_cast<int>(Tabs_.size()), title, icon, content);
 }
 
 int ImTabView::InsertTab(int index, const std::string& title, const std::shared_ptr<ImWidget>& content)
 {
-    return InsertTab(index, title, FImageBrush(), content);
+    return InsertTab(index, FText::FromString(title), content);
 }
 
 int ImTabView::InsertTab(int index, const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
 {
+    return InsertTab(index, FText::FromString(title), icon, content);
+}
+
+int ImTabView::InsertTab(int index, const FText& title, const std::shared_ptr<ImWidget>& content)
+{
+    return InsertTab(index, title, FImageBrush(), content);
+}
+
+int ImTabView::InsertTab(int index, const FText& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content)
+{
     FTabViewItem item;
-    item.Title = title;
+    item.TitleText = title;
+    if (title.IsLocalized()) {
+        item.Title = title.GetDefaultText().empty() ? title.GetKey() : title.GetDefaultText();
+    } else {
+        item.Title = title.GetInvariantText();
+    }
     item.Icon = icon;
     item.Content = content;
     const int insertIndex = std::clamp(index, 0, static_cast<int>(Tabs_.size()));
@@ -333,16 +358,26 @@ bool ImTabView::IsTabDirty(int index) const
 
 bool ImTabView::SetTabTitle(int index, const std::string& title)
 {
+    return SetTabTitle(index, FText::FromString(title));
+}
+
+bool ImTabView::SetTabTitle(int index, const FText& title)
+{
     if (!IsValidIndex(index)) {
         return false;
     }
 
     FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
-    if (item.Title == title) {
+    if (item.TitleText == title) {
         return true;
     }
 
-    item.Title = title;
+    item.TitleText = title;
+    if (title.IsLocalized()) {
+        item.Title = title.GetDefaultText().empty() ? title.GetKey() : title.GetDefaultText();
+    } else {
+        item.Title = title.GetInvariantText();
+    }
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
     return true;
@@ -418,6 +453,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
 
         for (const FTabGeometry& tabGeometry : VisibleTabGeometries_) {
             const FTabViewItem& item = Tabs_[static_cast<std::size_t>(tabGeometry.Index)];
+            const std::string title = ResolveTabTitle(item);
             paintContext.DrawContext_.DrawRectFilled(
                 tabGeometry.Geometry.GetMin(),
                 tabGeometry.Geometry.GetMax(),
@@ -468,7 +504,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
             }
 
-            const float textWidth = MeasureTextWidth(item.Title);
+            const float textWidth = MeasureTextWidth(title);
             const float textLaneWidth = std::max(0.0f, tabGeometry.TextClipMaxX - contentX);
             const float textDrawX = SnapToPixel(contentX + (textLaneWidth - textWidth) * 0.5f);
             const float textY = SnapToPixel(
@@ -481,7 +517,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             paintContext.DrawContext_.DrawText(
                 FVector2(textDrawX, textY),
                 contentColor,
-                item.Title,
+                title,
                 Style_.FontSize);
             paintContext.DrawContext_.PopClipRect();
 
@@ -838,6 +874,7 @@ void ImTabView::Relayout()
 
     for (int index = 0; index < static_cast<int>(Tabs_.size()); ++index) {
         const FTabViewItem& item = Tabs_[static_cast<std::size_t>(index)];
+        const std::string title = ResolveTabTitle(item);
         const float exactTabStartX = cursorX;
         const float exactTabMaxX = exactTabStartX + naturalTabWidths[static_cast<std::size_t>(index)] * widthScale;
         const float tabMinX = SnapToPixel(exactTabStartX);
@@ -862,7 +899,7 @@ void ImTabView::Relayout()
                 : 0.0f;
             const float iconWidth = item.Icon.IsValid() ? (iconSize + 6.0f) : 0.0f;
             const float dirtyWidth = item.bDirty ? (Style_.DirtyMarkerRadius * 2.0f + 6.0f) : 0.0f;
-            const float textWidth = MeasureTextWidth(item.Title);
+            const float textWidth = MeasureTextWidth(title);
             const float closeSize = geometry.bShowsCloseButton
                 ? std::min(
                     Style_.CloseButtonSize,
@@ -898,7 +935,7 @@ void ImTabView::Relayout()
             const float visibleTextClipMinX = std::max(contentX, geometry.Geometry.Position.X);
             geometry.TextClipMaxX = std::max(visibleTextClipMinX, std::min(textClipMaxX, geometry.Geometry.GetMax().X));
             geometry.bTitleClipped =
-                MeasureTextWidth(item.Title) > std::max(0.0f, geometry.TextClipMaxX - visibleTextClipMinX) + 0.5f;
+                textWidth > std::max(0.0f, geometry.TextClipMaxX - visibleTextClipMinX) + 0.5f;
             VisibleTabGeometries_.push_back(geometry);
         }
 
@@ -951,7 +988,7 @@ void ImTabView::UpdateHoveredTitleToolTip()
     for (const FTabGeometry& geometry : VisibleTabGeometries_) {
         if (geometry.Index == HoveredTabIndex_) {
             if (geometry.bTitleClipped && IsValidIndex(geometry.Index)) {
-                SetToolTipText(Tabs_[static_cast<std::size_t>(geometry.Index)].Title);
+                SetToolTipText(Tabs_[static_cast<std::size_t>(geometry.Index)].TitleText);
             } else {
                 ClearToolTip();
             }
@@ -1169,6 +1206,11 @@ float ImTabView::MeasureTextWidth(const std::string& text) const
     return static_cast<float>(text.size()) * Style_.FontSize * 0.55f;
 }
 
+std::string ImTabView::ResolveTabTitle(const FTabViewItem& item) const
+{
+    return item.TitleText.Resolve();
+}
+
 float ImTabView::MeasureTextHeight() const
 {
     if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
@@ -1301,10 +1343,10 @@ void ImTabView::EnsureTabVisible(int index, float viewportWidth)
 
 float ImTabView::ComputeTabWidth(const FTabViewItem& item) const
 {
-    float tabWidth = Style_.TabPadding.Left + Style_.TabPadding.Right + MeasureTextWidth(item.Title);
-    if (item.Icon.IsValid()) {
-        tabWidth += Style_.IconSize + 6.0f;
-    }
+    float tabWidth = Style_.TabPadding.Left + Style_.TabPadding.Right + MeasureTextWidth(ResolveTabTitle(item));
+        if (item.Icon.IsValid()) {
+            tabWidth += Style_.IconSize + 6.0f;
+        }
     if (item.bDirty) {
         tabWidth += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
     }

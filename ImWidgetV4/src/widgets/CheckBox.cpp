@@ -37,12 +37,26 @@ ImCheckBox::ImCheckBox()
 }
 
 void ImCheckBox::SetLabel(const std::string& label) {
-    if (m_Label == label) {
+    SetLabel(FText::FromString(label));
+}
+
+void ImCheckBox::SetLabel(const FText& label) {
+    if (m_LabelText == label) {
         return;
     }
 
-    m_Label = label;
+    m_LabelText = label;
+    if (label.IsLocalized()) {
+        m_Label = label.GetDefaultText().empty() ? label.GetKey() : label.GetDefaultText();
+    } else {
+        m_Label = label.GetInvariantText();
+    }
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+std::string ImCheckBox::GetLabel() const
+{
+    return ResolveLabel();
 }
 
 void ImCheckBox::SetChecked(bool bChecked) {
@@ -125,7 +139,8 @@ void ImCheckBox::Paint(const FPaintContext& paintContext) {
         paintContext.DrawContext_.DrawLine(checkB, checkC, m_Style.CheckMarkColor, 2.0f);
     }
 
-    if (!m_Label.empty()) {
+    const std::string label = ResolveLabel();
+    if (!label.empty()) {
         const FVector2 labelPosition(
             indicatorMax.X + m_Style.LabelSpacing,
             m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - labelSize.Y) * 0.5f));
@@ -136,13 +151,13 @@ void ImCheckBox::Paint(const FPaintContext& paintContext) {
                 m_Style.FontSize,
                 labelPosition.ToImVec2(),
                 (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor).ToImU32(),
-                m_Label.c_str()
+                label.c_str()
             );
         } else {
             paintContext.DrawContext_.DrawText(
                 labelPosition,
                 m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor,
-                m_Label,
+                label,
                 m_Style.FontSize
             );
         }
@@ -150,9 +165,10 @@ void ImCheckBox::Paint(const FPaintContext& paintContext) {
 }
 
 FVector2 ImCheckBox::GetMinSize() const {
+    const std::string label = ResolveLabel();
     const FVector2 labelSize = MeasureLabelSize();
     const float contentWidth = m_Style.Padding.Left + m_Style.IndicatorSize +
-        (m_Label.empty() ? 0.0f : (m_Style.LabelSpacing + labelSize.X)) +
+        (label.empty() ? 0.0f : (m_Style.LabelSpacing + labelSize.X)) +
         m_Style.Padding.Right;
     const float contentHeight = m_Style.Padding.Top +
         std::max(m_Style.IndicatorSize, labelSize.Y) +
@@ -249,7 +265,18 @@ void ImCheckBox::SetHovered(bool bHovered) {
 }
 
 FVector2 ImCheckBox::MeasureLabelSize() const {
-    return MeasureText(m_Label, m_Style.FontSize);
+    return MeasureText(ResolveLabel(), m_Style.FontSize);
+}
+
+std::string ImCheckBox::ResolveLabel() const
+{
+    return m_LabelText.Resolve();
+}
+
+void ImCheckBox::FromJson(const json& j)
+{
+    ImWidget::FromJson(j);
+    m_LabelText = FText::FromString(m_Label);
 }
 
 } // namespace ImWidgetV4

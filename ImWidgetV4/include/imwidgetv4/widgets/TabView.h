@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <memory>
@@ -97,6 +98,7 @@ public:
 
 struct FTabViewItem {
     std::string Title;
+    FText TitleText;
     FImageBrush Icon;
     std::shared_ptr<ImWidget> Content;
     bool bEnabled = true;
@@ -140,8 +142,12 @@ public:
 
     int AddTab(const std::string& title, const std::shared_ptr<ImWidget>& content);
     int AddTab(const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
+    int AddTab(const FText& title, const std::shared_ptr<ImWidget>& content);
+    int AddTab(const FText& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
     int InsertTab(int index, const std::string& title, const std::shared_ptr<ImWidget>& content);
     int InsertTab(int index, const std::string& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
+    int InsertTab(int index, const FText& title, const std::shared_ptr<ImWidget>& content);
+    int InsertTab(int index, const FText& title, const FImageBrush& icon, const std::shared_ptr<ImWidget>& content);
     bool RemoveTab(int index);
     void ClearTabs();
     int GetTabCount() const { return static_cast<int>(Tabs_.size()); }
@@ -156,6 +162,7 @@ public:
     bool SetTabDirty(int index, bool bDirty);
     bool IsTabDirty(int index) const;
     bool SetTabTitle(int index, const std::string& title);
+    bool SetTabTitle(int index, const FText& title);
     bool SetTabIcon(int index, const FImageBrush& icon);
     void SetCloseActivationPolicy(ETabCloseActivationPolicy policy);
     ETabCloseActivationPolicy GetCloseActivationPolicy() const { return CloseActivationPolicy_; }
@@ -217,6 +224,7 @@ private:
     int FindMostRecentlyActiveTab() const;
     int ResolveReplacementActiveIndex(int removedIndex) const;
     float MeasureTextWidth(const std::string& text) const;
+    std::string ResolveTabTitle(const FTabViewItem& item) const;
     float MeasureTextHeight() const;
     FGeometry GetInnerGeometry() const;
     FColor ResolveTabBackgroundColor(int index) const;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/widgets/ButtonStyle.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <string>
@@ -25,6 +26,7 @@ public:
     ImPaddingSlot* GetContentSlot();
 
     void SetText(const std::string& text);
+    void SetText(const FText& text);
     std::string GetText() const;
 
     void SetStyle(const FButtonStyle& style);

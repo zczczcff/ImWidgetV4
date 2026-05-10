@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/DragDrop.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Reply.h>
 #include <imwidgetv4/core/Types.h>
@@ -50,7 +51,9 @@ public:
     bool HasKeyboardFocus() const { return m_bHasKeyboardFocus; }
 
     void SetToolTipText(const std::string& toolTipText);
-    const std::string& GetToolTipText() const { return m_ToolTipText; }
+    void SetToolTipText(const FText& toolTipText);
+    std::string GetToolTipText() const;
+    const FText& GetToolTip() const { return m_ToolTipText; }
     void SetToolTipWidget(const Ptr& toolTipWidget);
     const Ptr& GetToolTipWidget() const { return m_ToolTipWidget; }
     void ClearToolTip();
@@ -102,7 +105,7 @@ protected:
     std::vector<Ptr> m_Children;
     std::weak_ptr<ImWidget> m_Parent;
     ImApplication* m_Application = nullptr;
-    std::string m_ToolTipText;
+    FText m_ToolTipText;
     Ptr m_ToolTipWidget;
 };
 

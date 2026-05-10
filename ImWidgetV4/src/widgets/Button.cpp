@@ -54,6 +54,10 @@ ImPaddingSlot* ImButton::GetContentSlot() {
 }
 
 void ImButton::SetText(const std::string& text) {
+    SetText(FText::FromString(text));
+}
+
+void ImButton::SetText(const FText& text) {
     auto content = GetContent();
     auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(content);
 

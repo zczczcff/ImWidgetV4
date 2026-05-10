@@ -9,6 +9,7 @@ namespace ImWidgetV4 {
 ImTextBlock::ImTextBlock()
     : ImWidget()
     , m_Text("")
+    , m_TextValue(FText::FromString(""))
     , m_TextColor(FColor::White)
     , m_FontSize(16.0f)
     , m_TextAlignment(ETextAlignment::Center)
@@ -20,12 +21,26 @@ ImTextBlock::ImTextBlock()
 }
 
 void ImTextBlock::SetText(const std::string& text) {
-    if (m_Text == text) {
+    SetText(FText::FromString(text));
+}
+
+void ImTextBlock::SetText(const FText& text) {
+    if (m_TextValue == text) {
         return;
     }
 
-    m_Text = text;
+    m_TextValue = text;
+    if (text.IsLocalized()) {
+        m_Text = text.GetDefaultText().empty() ? text.GetKey() : text.GetDefaultText();
+    } else {
+        m_Text = text.GetInvariantText();
+    }
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+std::string ImTextBlock::GetText() const
+{
+    return ResolveText();
 }
 
 void ImTextBlock::SetTextColor(const FColor& color) {
@@ -99,7 +114,8 @@ int& ImTextBlock::GetVerticalAlignmentProperty() {
 }
 
 void ImTextBlock::Paint(const FPaintContext& paintContext) {
-    if (!m_bVisible || m_Text.empty()) {
+    const std::string text = ResolveText();
+    if (!m_bVisible || text.empty()) {
         ClearToolTip();
         return;
     }
@@ -113,7 +129,7 @@ void ImTextBlock::Paint(const FPaintContext& paintContext) {
     paintContext.DrawContext_.DrawText(
         textPos,
         m_TextColor,
-        m_Text,
+        text,
         m_FontSize
     );
     paintContext.DrawContext_.PopClipRect();
@@ -134,13 +150,14 @@ FReply ImTextBlock::OnInputEvent(const FInputEvent& event)
 }
 
 FVector2 ImTextBlock::CalculateTextSize() const {
-    if (m_Text.empty()) {
+    const std::string text = ResolveText();
+    if (text.empty()) {
         return FVector2(0.0f, m_FontSize);
     }
 
     if (ImGui::GetCurrentContext() == nullptr || ImGui::GetFont() == nullptr) {
         return FVector2(
-            m_FontSize * 0.55f * static_cast<float>(m_Text.size()),
+            m_FontSize * 0.55f * static_cast<float>(text.size()),
             m_FontSize);
     }
 
@@ -149,11 +166,16 @@ FVector2 ImTextBlock::CalculateTextSize() const {
         m_FontSize,
         FLT_MAX,
         0.0f,
-        m_Text.c_str(),
+        text.c_str(),
         nullptr,
         nullptr);
 
     return FVector2(size.x, size.y);
+}
+
+std::string ImTextBlock::ResolveText() const
+{
+    return m_TextValue.Resolve();
 }
 
 FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
@@ -188,7 +210,7 @@ FVector2 ImTextBlock::CalculateTextPosition(const FVector2& textSize) const {
 
 bool ImTextBlock::IsTextClipped() const
 {
-    if (m_Text.empty() || m_Geometry.Size.X <= 0.0f || m_Geometry.Size.Y <= 0.0f) {
+    if (ResolveText().empty() || m_Geometry.Size.X <= 0.0f || m_Geometry.Size.Y <= 0.0f) {
         return false;
     }
 
@@ -199,11 +221,18 @@ bool ImTextBlock::IsTextClipped() const
 
 void ImTextBlock::UpdateOverflowToolTip()
 {
+    const std::string text = ResolveText();
     if (IsTextClipped()) {
-        SetToolTipText(m_Text);
-    } else if (GetToolTipText() == m_Text && GetToolTipWidget() == nullptr) {
+        SetToolTipText(m_TextValue);
+    } else if (GetToolTipText() == text && GetToolTipWidget() == nullptr) {
         ClearToolTip();
     }
+}
+
+void ImTextBlock::FromJson(const json& j)
+{
+    ImWidget::FromJson(j);
+    m_TextValue = FText::FromString(m_Text);
 }
 
 } // namespace ImWidgetV4

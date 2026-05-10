@@ -134,11 +134,21 @@ void ImWidget::Invalidate(EInvalidateReason reason)
 
 void ImWidget::SetToolTipText(const std::string& toolTipText)
 {
+    SetToolTipText(FText::FromString(toolTipText));
+}
+
+void ImWidget::SetToolTipText(const FText& toolTipText)
+{
     if (m_ToolTipText == toolTipText) {
         return;
     }
 
     m_ToolTipText = toolTipText;
+}
+
+std::string ImWidget::GetToolTipText() const
+{
+    return m_ToolTipText.Resolve();
 }
 
 void ImWidget::SetToolTipWidget(const Ptr& toolTipWidget)
@@ -152,13 +162,13 @@ void ImWidget::SetToolTipWidget(const Ptr& toolTipWidget)
 
 void ImWidget::ClearToolTip()
 {
-    m_ToolTipText.clear();
+    m_ToolTipText = FText();
     m_ToolTipWidget.reset();
 }
 
 bool ImWidget::HasToolTip() const
 {
-    return !m_ToolTipText.empty() || m_ToolTipWidget != nullptr;
+    return !GetToolTipText().empty() || m_ToolTipWidget != nullptr;
 }
 
 void ImWidget::NotifyFocusChanged(bool bHasFocus)

@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <locale>
 #include <string>
+#include <utility>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -805,6 +806,48 @@ void ImApplication::SetToolTipStyle(const FToolTipStyle& style)
 const FToolTipStyle& ImApplication::GetToolTipStyle() const
 {
     return ToolTipStyle_;
+}
+
+bool ImApplication::SetCulture(const std::string& culture)
+{
+    const bool bChanged = FLocalizationManager::Get().SetCulture(culture);
+    if (bChanged) {
+        DismissToolTip();
+        if (const std::shared_ptr<ImWidget>& rootWidget = GetRootWidget()) {
+            rootWidget->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+        }
+    }
+    return bChanged;
+}
+
+const std::string& ImApplication::GetCulture() const
+{
+    return FLocalizationManager::Get().GetCulture();
+}
+
+void ImApplication::SetDefaultCulture(const std::string& culture)
+{
+    FLocalizationManager::Get().SetDefaultCulture(culture);
+}
+
+const std::string& ImApplication::GetDefaultCulture() const
+{
+    return FLocalizationManager::Get().GetDefaultCulture();
+}
+
+bool ImApplication::LoadStringTable(const std::filesystem::path& path, std::string* outError)
+{
+    return FLocalizationManager::Get().LoadStringTableFromFile(path, outError);
+}
+
+void ImApplication::RegisterStringTable(FStringTable table)
+{
+    FLocalizationManager::Get().RegisterStringTable(std::move(table));
+}
+
+std::string ImApplication::ResolveText(const FText& text) const
+{
+    return FLocalizationManager::Get().Resolve(text);
 }
 
 void ImApplication::SetIniSettingsPath(const std::filesystem::path& path)

@@ -12,6 +12,18 @@ target_link_libraries(button_test PRIVATE
 # 添加测试
 add_test(NAME ButtonTest COMMAND button_test)
 
+add_executable(localization_test
+    localization_test.cpp
+)
+
+target_link_libraries(localization_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME LocalizationTest COMMAND localization_test)
+
 add_executable(widget_reflection_test
     widget_reflection_test.cpp
 )

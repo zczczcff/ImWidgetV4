@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/Widget.h>
 #include <string>
@@ -46,7 +47,9 @@ public:
     virtual ~ImTextBlock() = default;
 
     void SetText(const std::string& text);
-    const std::string& GetText() const { return m_Text; }
+    void SetText(const FText& text);
+    std::string GetText() const;
+    const FText& GetTextValue() const { return m_TextValue; }
 
     void SetTextColor(const FColor& color);
     const FColor& GetTextColor() const { return m_TextColor; }
@@ -66,6 +69,7 @@ public:
     void Paint(const FPaintContext& paintContext) override;
     FVector2 GetMinSize() const override;
     FReply OnInputEvent(const FInputEvent& event) override;
+    void FromJson(const json& j) override;
 
 private:
     void SetTextAlignmentProperty(int& value);
@@ -74,11 +78,13 @@ private:
     int& GetVerticalAlignmentProperty();
 
     FVector2 CalculateTextSize() const;
+    std::string ResolveText() const;
     FVector2 CalculateTextPosition(const FVector2& textSize) const;
     bool IsTextClipped() const;
     void UpdateOverflowToolTip();
 
     std::string m_Text;
+    FText m_TextValue;
     FColor m_TextColor;
     float m_FontSize;
     ETextAlignment m_TextAlignment;

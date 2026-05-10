@@ -89,6 +89,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/DragDrop.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/FileDialog.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/Localization.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/PropertyType_temp.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/ReflectableObject.h
@@ -151,6 +152,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Application.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIconData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/DrawContext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Localization.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/ReflectableObject.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Slot.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Types.cpp
@@ -428,6 +430,7 @@ if(IMWIDGETV4_BUILD_TESTS)
     imwidgetv4_set_target_folder(snapshot_test "Tests/Snapshot")
     imwidgetv4_set_target_folder(drag_drop_test "Tests/Core")
     imwidgetv4_set_target_folder(button_test "Tests/Widgets")
+    imwidgetv4_set_target_folder(localization_test "Tests/Widgets")
     imwidgetv4_set_target_folder(widget_reflection_test "Tests/Widgets")
     imwidgetv4_set_target_folder(checkbox_test "Tests/Widgets")
     imwidgetv4_set_target_folder(color_picker_test "Tests/Widgets")

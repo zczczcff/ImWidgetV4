@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/CoreIcon.h>
 #include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/core/FileDialog.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Types.h>
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/core/Widget.h>
@@ -76,6 +77,13 @@ public:
     ImApplicationBackend* GetBackend() const;
     void SetToolTipStyle(const FToolTipStyle& style);
     const FToolTipStyle& GetToolTipStyle() const;
+    bool SetCulture(const std::string& culture);
+    const std::string& GetCulture() const;
+    void SetDefaultCulture(const std::string& culture);
+    const std::string& GetDefaultCulture() const;
+    bool LoadStringTable(const std::filesystem::path& path, std::string* outError = nullptr);
+    void RegisterStringTable(FStringTable table);
+    std::string ResolveText(const FText& text) const;
 
     void AdvanceFrame(const FFrameContext& frameContext);
     FSnapshotImage CaptureSnapshot(const FFrameContext& frameContext, const FSnapshotOptions& options);

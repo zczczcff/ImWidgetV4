@@ -51,6 +51,7 @@ set(IMWIDGETV4_EDITOR_SOURCES
     src/editor/EditorShellHost.cpp
     src/editor/InputDialog.cpp
     src/editor/NewAppProjectDialog.cpp
+    src/editor/ProjectSettingsDialog.cpp
     src/editor/EditorSession.cpp
     src/editor/EditorWorkspaceController.cpp
     src/editor/LogicalWidgetTree.cpp
@@ -91,6 +92,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/editor/EditorShellHost.cpp
         src/editor/InputDialog.cpp
         src/editor/NewAppProjectDialog.cpp
+        src/editor/ProjectSettingsDialog.cpp
         src/editor/EditorSession.cpp
         src/editor/EditorWorkspaceController.cpp
         src/editor/LogicalWidgetTree.cpp

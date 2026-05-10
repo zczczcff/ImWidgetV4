@@ -37,6 +37,7 @@ class EditorSession;
 class EditorShellHost;
 class InputDialog;
 class NewAppProjectDialog;
+class ProjectSettingsDialog;
 class ReflectionDetailsView;
 
 class EditorWorkspaceController : public std::enable_shared_from_this<EditorWorkspaceController> {
@@ -66,6 +67,7 @@ public:
     bool OpenDocumentFromPath(const std::filesystem::path& filePath);
     bool NewAppProject(ImWidgetV4::ImApplication& app);
     bool OpenAppProject(ImWidgetV4::ImApplication& app);
+    bool OpenProjectSettings(ImWidgetV4::ImApplication& app);
     bool OpenAppProjectAt(const std::filesystem::path& projectRoot);
     bool ConfigureProject();
     bool BuildProject();
@@ -187,6 +189,7 @@ private:
     void OpenCreateAppProjectDialog(
         ImWidgetV4::ImApplication& app,
         const std::filesystem::path& parentDirectory);
+    void OpenProjectSettingsDialog(ImWidgetV4::ImApplication& app);
     void OpenCreateFolderDialog(
         ImWidgetV4::ImApplication& app,
         const std::filesystem::path& directoryPath);
@@ -238,6 +241,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImWindow> m_ProjectItemContextMenuWindow;
     std::shared_ptr<InputDialog> m_PendingInputDialog;
     std::shared_ptr<NewAppProjectDialog> m_PendingNewAppProjectDialog;
+    std::shared_ptr<ProjectSettingsDialog> m_PendingProjectSettingsDialog;
     std::shared_ptr<ImWidgetV4::ImApplication> m_ExitPromptAppLock;
     std::filesystem::path m_PendingProjectRootChange;
     std::filesystem::path m_PendingCreateProjectParentPath;

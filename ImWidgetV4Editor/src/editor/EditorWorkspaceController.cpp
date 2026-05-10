@@ -5,11 +5,13 @@
 #include "EditorShellHost.h"
 #include "InputDialog.h"
 #include "NewAppProjectDialog.h"
+#include "ProjectSettingsDialog.h"
 #include "../build/BuildController.h"
 #include "../project/EditorProject.h"
 #include "../templates/ProjectScaffolder.h"
 #include "../inspector/ReflectionDetailsView.h"
 #include "../inspector/PropertyEditorWidgets.h"
+#include "../toolchains/EnvironmentProbe.h"
 
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
@@ -958,6 +960,17 @@ bool EditorWorkspaceController::OpenAppProject(ImApplication& app)
     }
 
     return OpenAppProjectAt(dialogResult.Path);
+}
+
+bool EditorWorkspaceController::OpenProjectSettings(ImApplication& app)
+{
+    if (!m_Project) {
+        AppendOutputLine("Project settings unavailable: no active project.");
+        return false;
+    }
+
+    OpenProjectSettingsDialog(app);
+    return m_PendingProjectSettingsDialog != nullptr && m_PendingProjectSettingsDialog->IsOpen();
 }
 
 bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& projectRoot)
@@ -2036,6 +2049,45 @@ void EditorWorkspaceController::OpenCreateAppProjectDialog(
     m_CloseConfirmMenu.reset();
 }
 
+void EditorWorkspaceController::OpenProjectSettingsDialog(ImApplication& app)
+{
+    if (!m_Project) {
+        return;
+    }
+
+    const FEditorBuildProfile* activeProfile = m_Project->GetActiveBuildProfile();
+    FEnvironmentProbeReport probeReport;
+    if (activeProfile != nullptr) {
+        probeReport = EnvironmentProbe::Probe(*activeProfile);
+    }
+
+    FProjectSettingsDialogOptions dialogOptions;
+    dialogOptions.ProjectName = m_Project->GetProjectName();
+    dialogOptions.NamespaceName = m_Project->GetNamespaceName();
+    dialogOptions.StartupDocument = m_Project->GetStartupDocumentRelativePath().generic_string();
+    dialogOptions.BuildProfileNames = GetBuildProfileNames();
+    dialogOptions.ActiveBuildProfileName = m_Project->GetActiveBuildProfileName();
+    dialogOptions.ProbeReport = probeReport;
+    dialogOptions.OnConfirm = [weakThis = weak_from_this()](const std::string& profileName) {
+        if (auto self = weakThis.lock()) {
+            return self->SetActiveBuildProfile(profileName);
+        }
+        return false;
+    };
+    dialogOptions.Position = FVector2(240.0f, 120.0f);
+    if (m_ProjectView) {
+        const FGeometry geometry = m_ProjectView->GetGeometry();
+        dialogOptions.Position = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.25f),
+            geometry.Position.Y + 42.0f);
+    }
+
+    m_PendingProjectSettingsDialog = std::make_shared<ProjectSettingsDialog>();
+    m_PendingProjectSettingsDialog->Open(app, dialogOptions);
+    m_CloseConfirmWindow = m_PendingProjectSettingsDialog->GetWindow();
+    m_CloseConfirmMenu.reset();
+}
+
 void EditorWorkspaceController::OpenCreateFolderDialog(
     ImApplication& app,
     const std::filesystem::path& directoryPath)
@@ -2174,6 +2226,7 @@ void EditorWorkspaceController::ClosePendingPrompt()
     m_CloseConfirmWindow.reset();
     m_PendingInputDialog.reset();
     m_PendingNewAppProjectDialog.reset();
+    m_PendingProjectSettingsDialog.reset();
     m_PendingCloseDocumentIndex = -1;
     m_PendingProjectRootChange.clear();
     m_PendingCreateProjectParentPath.clear();

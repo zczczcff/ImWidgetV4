@@ -662,6 +662,12 @@ std::vector<FPopupMenuItem> BuildProjectMenuItems(
                 workspaceController->SelectProjectRoot(app);
             }
         }},
+        FPopupMenuItem {"Project Settings...", {}, {}, workspaceController && workspaceController->GetProject(), false, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->OpenProjectSettings(app);
+            }
+        }},
+        FPopupMenuItem {"", {}, {}, true, true, {}},
         FPopupMenuItem {"Generate C++...", {}, {}, true, false, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->GenerateActiveDocumentCpp(app);

@@ -50,6 +50,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
+    std::shared_ptr<ImTextList> BuildOverviewText;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextList> OutputText;
     std::shared_ptr<ImImage> TitleBarIcon;
@@ -297,6 +298,15 @@ std::shared_ptr<ImWidget> BuildWidgetTreePanel()
     return outline;
 }
 
+std::shared_ptr<ImTextList> BuildBuildOverviewPanel()
+{
+    return MakePanelTextList({
+        "No project loaded.",
+        "",
+        "Build/Toolchain overview will appear here."
+    });
+}
+
 std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 {
     auto canvas = std::make_shared<ImCanvasPanel>();
@@ -359,6 +369,8 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs()
     tabView->AddTab("Controls", BuildControlPalettePanel());
     auto projectView = BuildProjectViewPanel();
     tabView->AddTab("Project", projectView);
+    auto buildOverview = BuildBuildOverviewPanel();
+    tabView->AddTab("Build", buildOverview);
     tabView->AddTab("Widget Tree", BuildWidgetTreePanel());
     tabView->SetActiveTab(0);
     return tabView;
@@ -423,7 +435,8 @@ FEditorShellWidgets BuildEditorShell()
 
     auto leftDock = BuildLeftDockTabs();
     auto projectView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(1)->Content);
-    auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(2)->Content);
+    auto buildOverviewText = std::dynamic_pointer_cast<ImTextList>(leftDock->GetTab(2)->Content);
+    auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(3)->Content);
 
     auto documentTabs = std::make_shared<ImTabView>();
     documentTabs->SetSupportsKeyboardFocus(true);
@@ -466,6 +479,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.DocumentTabs = documentTabs;
     shell.ProjectView = projectView;
     shell.WidgetTreeView = widgetTreeView;
+    shell.BuildOverviewText = buildOverviewText;
     shell.DetailsView = detailsView;
     shell.OutputText = outputText;
     shell.TitleBarIcon = titleIcon;
@@ -927,6 +941,59 @@ void UpdateEditorTitleBarActions(
     }
 }
 
+void UpdateBuildOverviewPanel(
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    if (!shell.BuildOverviewText) {
+        return;
+    }
+
+    std::vector<std::string> lines;
+    if (!workspaceController || !workspaceController->GetProject()) {
+        lines = {
+            "No project loaded.",
+            "",
+            "Open or create an app project to inspect toolchain readiness."
+        };
+        shell.BuildOverviewText->SetItems(lines);
+        return;
+    }
+
+    const std::string activeProfileName = workspaceController->GetActiveBuildProfileName();
+    const FEnvironmentProbeReport probeReport = workspaceController->GetActiveBuildProfileProbeReport();
+    lines.push_back("Active Profile: " + (activeProfileName.empty() ? std::string("None") : activeProfileName));
+    lines.push_back("Build Status: " + (workspaceController->IsBuildTaskRunning()
+        ? workspaceController->GetBuildTaskStatusText()
+        : std::string("Idle")));
+    lines.push_back("Probe Ready: " + std::string(probeReport.bReady ? "Yes" : "No"));
+    lines.push_back("");
+
+    if (probeReport.Items.empty()) {
+        lines.push_back("No probe data available.");
+    } else {
+        lines.push_back("Environment Probe:");
+        for (const FEnvironmentProbeItem& item : probeReport.Items) {
+            lines.push_back("  " + item.Label + " [" + ToDisplayString(item.Status) + "]");
+            if (!item.Details.empty()) {
+                lines.push_back("    " + item.Details);
+            }
+        }
+    }
+
+    const std::vector<std::string> outputLines = workspaceController->GetOutputLines();
+    if (!outputLines.empty()) {
+        lines.push_back("");
+        lines.push_back("Recent Output:");
+        const std::size_t previewCount = std::min<std::size_t>(5, outputLines.size());
+        for (std::size_t index = outputLines.size() - previewCount; index < outputLines.size(); ++index) {
+            lines.push_back("  " + outputLines[index]);
+        }
+    }
+
+    shell.BuildOverviewText->SetItems(lines);
+}
+
 } // namespace
 
 class FEditorApplicationHostDelegate : public IApplicationHostDelegate
@@ -962,6 +1029,7 @@ public:
             }
 
             RebuildEditorTitleBar(*appPtr, Shell_, lockedWorkspace);
+            UpdateBuildOverviewPanel(Shell_, lockedWorkspace);
         });
         WorkspaceController_->SetOnExitRequested([appPtr = &app]() {
             if (appPtr == nullptr) {
@@ -1003,6 +1071,7 @@ public:
         }
         RebuildEditorTitleBar(app, Shell_, WorkspaceController_);
         UpdateEditorTitleBarActions(app, Shell_, WorkspaceController_);
+        UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
         app.SetRootWidget(Shell_.Root);
     }
 
@@ -1022,6 +1091,7 @@ public:
             if (BoundApplication_ != nullptr) {
                 UpdateEditorTitleBarActions(*BoundApplication_, Shell_, WorkspaceController_);
             }
+            UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
         }
     }
 

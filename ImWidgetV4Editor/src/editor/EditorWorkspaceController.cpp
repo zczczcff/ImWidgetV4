@@ -1116,6 +1116,21 @@ std::string EditorWorkspaceController::GetActiveBuildProfileName() const
     return m_Project ? m_Project->GetActiveBuildProfileName() : std::string();
 }
 
+FEnvironmentProbeReport EditorWorkspaceController::GetActiveBuildProfileProbeReport() const
+{
+    FEnvironmentProbeReport report;
+    if (!m_Project) {
+        return report;
+    }
+
+    const FEditorBuildProfile* profile = m_Project->GetActiveBuildProfile();
+    if (profile == nullptr) {
+        return report;
+    }
+
+    return EnvironmentProbe::Probe(*profile);
+}
+
 std::vector<std::string> EditorWorkspaceController::GetBuildProfileNames() const
 {
     std::vector<std::string> names;
@@ -1383,6 +1398,11 @@ std::shared_ptr<EditorSession> EditorWorkspaceController::GetActiveSession() con
     }
 
     return m_Documents[static_cast<std::size_t>(m_ActiveDocumentIndex)].Session;
+}
+
+std::vector<std::string> EditorWorkspaceController::GetOutputLines() const
+{
+    return m_OutputText ? m_OutputText->GetItems() : std::vector<std::string>();
 }
 
 std::shared_ptr<EditorSession> EditorWorkspaceController::CreateSession() const

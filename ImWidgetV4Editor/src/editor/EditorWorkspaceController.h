@@ -77,6 +77,7 @@ public:
     bool IsBuildTaskRunning() const;
     std::string GetBuildTaskStatusText() const;
     std::string GetActiveBuildProfileName() const;
+    FEnvironmentProbeReport GetActiveBuildProfileProbeReport() const;
     std::vector<std::string> GetBuildProfileNames() const;
     bool SetActiveBuildProfile(const std::string& profileName);
     bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
@@ -111,6 +112,7 @@ public:
     bool LoadWorkspaceState(const std::filesystem::path& filePath);
     int GetDocumentCount() const { return static_cast<int>(m_Documents.size()); }
     int GetActiveDocumentIndex() const { return m_ActiveDocumentIndex; }
+    std::vector<std::string> GetOutputLines() const;
 
     std::shared_ptr<EditorSession> GetActiveSession() const;
     std::shared_ptr<EditorProject> GetProject() const { return m_Project; }

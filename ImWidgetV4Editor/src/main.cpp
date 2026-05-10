@@ -4,6 +4,7 @@
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "palette/WidgetPaletteView.h"
+#include "toolchains/EnvironmentProbe.h"
 #include "tree/DocumentTreeViewBinder.h"
 
 #include <imwidgetv4/app/ApplicationHost.h>
@@ -566,7 +567,7 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
             {}
         },
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Configure Project", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        FApplicationMenuItem {"Configure Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->ConfigureProject();
             }
@@ -591,20 +592,97 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
             {}
         });
 
-        const std::vector<std::string> profileNames = workspaceController->GetBuildProfileNames();
-        for (const std::string& profileName : profileNames) {
-            items.push_back(FApplicationMenuItem {
-                (profileName == activeProfileName ? "[x] " : "[ ] ") + profileName,
-                {},
-                {},
-                !bBuildRunning,
-                false,
-                [workspaceController, profileName]() {
-                    if (workspaceController) {
-                        workspaceController->SetActiveBuildProfile(profileName);
+        const std::shared_ptr<EditorProject> project =
+            workspaceController ? workspaceController->GetProject() : nullptr;
+        if (project) {
+            for (const FEditorBuildProfile& profile : project->GetBuildProfiles()) {
+                const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(profile);
+                const std::string readinessLabel = probeReport.bReady ? "Ready" : "Needs Setup";
+                std::vector<FApplicationMenuItem> profileSubItems = {
+                    FApplicationMenuItem {
+                        profile.Name == activeProfileName ? "Active Profile" : "Set Active Profile",
+                        {},
+                        {},
+                        !bBuildRunning,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->SetActiveBuildProfile(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {
+                        "Configure This Profile",
+                        {},
+                        {},
+                        !bBuildRunning,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->ConfigureProject(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {
+                        "Build This Profile",
+                        {},
+                        {},
+                        !bBuildRunning,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->BuildProject(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {
+                        "Reveal Build Folder",
+                        {},
+                        {},
+                        true,
+                        false,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->RevealProjectBuildDirectory(profileName);
+                            }
+                        }
+                    },
+                    FApplicationMenuItem {"", {}, {}, true, true, {}},
+                    FApplicationMenuItem {
+                        "Target: " + GetTargetPlatformDisplayName(profile.TargetPlatform),
+                        {},
+                        {},
+                        false,
+                        false,
+                        {}
+                    },
+                    FApplicationMenuItem {
+                        "Configuration: " + profile.Configuration,
+                        {},
+                        {},
+                        false,
+                        false,
+                        {}
+                    },
+                    FApplicationMenuItem {
+                        "Probe: " + readinessLabel,
+                        {},
+                        {},
+                        false,
+                        false,
+                        {}
                     }
-                }
-            });
+                };
+
+                items.push_back(FApplicationMenuItem {
+                    (profile.Name == activeProfileName ? "[x] " : "[ ] ") + profile.Name + " [" + readinessLabel + "]",
+                    {},
+                    std::move(profileSubItems),
+                    true,
+                    false,
+                    {}
+                });
+            }
         }
 
         items.push_back(FApplicationMenuItem {"", {}, {}, true, true, {}});

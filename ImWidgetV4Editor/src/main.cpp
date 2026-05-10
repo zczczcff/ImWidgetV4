@@ -15,6 +15,7 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
+#include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
@@ -58,11 +59,18 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImComboBox> BuildAndroidAbiComboBox;
     std::shared_ptr<ImComboBox> BuildAndroidApiComboBox;
     std::shared_ptr<ImComboBox> BuildAndroidStlComboBox;
+    std::shared_ptr<ImEditableText> BuildAndroidSdkRootEditor;
+    std::shared_ptr<ImEditableText> BuildAndroidNdkRootEditor;
     std::shared_ptr<ImButton> BuildConfigureButton;
     std::shared_ptr<ImButton> BuildRunButton;
     std::shared_ptr<ImButton> BuildApplyProfileButton;
+    std::shared_ptr<ImButton> BuildReprobeButton;
     std::shared_ptr<ImButton> BuildSettingsButton;
     std::shared_ptr<ImButton> BuildRevealButton;
+    std::shared_ptr<ImButton> BuildAndroidSdkBrowseButton;
+    std::shared_ptr<ImButton> BuildAndroidSdkClearButton;
+    std::shared_ptr<ImButton> BuildAndroidNdkBrowseButton;
+    std::shared_ptr<ImButton> BuildAndroidNdkClearButton;
     std::shared_ptr<ImVerticalBox> BuildWindowsSettingsGroup;
     std::shared_ptr<ImVerticalBox> BuildAndroidSettingsGroup;
     std::shared_ptr<ImTextList> BuildOverviewText;
@@ -78,6 +86,8 @@ struct FEditorShellWidgets {
     std::string BuildDraftAndroidAbi;
     std::string BuildDraftAndroidApi;
     std::string BuildDraftAndroidStl;
+    std::string BuildDraftAndroidSdkRoot;
+    std::string BuildDraftAndroidNdkRoot;
     bool bBuildProfileDraftDirty = false;
     bool bBuildProfileDraftSyncing = false;
 };
@@ -358,6 +368,19 @@ std::vector<std::string> GetBuildDockAndroidStlOptions()
     return {"c++_shared", "c++_static"};
 }
 
+std::shared_ptr<ImHorizontalBox> MakeBuildDockPathEditorRow(
+    const std::shared_ptr<ImEditableText>& editor,
+    const std::shared_ptr<ImButton>& browseButton,
+    const std::shared_ptr<ImButton>& clearButton)
+{
+    auto row = std::make_shared<ImHorizontalBox>();
+    row->SetSpacing(6.0f);
+    row->AddChildFill(editor, 1.0f, FMargin(0.0f));
+    row->AddChild(browseButton, FMargin(0.0f));
+    row->AddChild(clearButton, FMargin(0.0f));
+    return row;
+}
+
 int FindStringOptionIndex(const std::vector<std::string>& options, const std::string& value)
 {
     for (int index = 0; index < static_cast<int>(options.size()); ++index) {
@@ -376,6 +399,8 @@ void SyncBuildDockDraftFromProfile(FEditorShellWidgets& shell, const FEditorBuil
     shell.BuildDraftAndroidAbi = profile ? profile->AndroidSettings.Abi : std::string();
     shell.BuildDraftAndroidApi = profile ? std::to_string(profile->AndroidSettings.ApiLevel) : std::string();
     shell.BuildDraftAndroidStl = profile ? profile->AndroidSettings.Stl : std::string();
+    shell.BuildDraftAndroidSdkRoot = profile ? profile->AndroidSettings.SdkRootOverride.string() : std::string();
+    shell.BuildDraftAndroidNdkRoot = profile ? profile->AndroidSettings.NdkRootOverride.string() : std::string();
     shell.bBuildProfileDraftDirty = false;
 }
 
@@ -436,6 +461,13 @@ void ApplyBuildDockDraftToWidgets(FEditorShellWidgets& shell, const FEditorBuild
         }
     }
 
+    if (shell.BuildAndroidSdkRootEditor) {
+        shell.BuildAndroidSdkRootEditor->SetText(shell.BuildDraftAndroidSdkRoot);
+    }
+    if (shell.BuildAndroidNdkRootEditor) {
+        shell.BuildAndroidNdkRootEditor->SetText(shell.BuildDraftAndroidNdkRoot);
+    }
+
     const bool bShowWindowsSettings =
         profile != nullptr && profile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop;
     const bool bShowAndroidSettings =
@@ -474,8 +506,31 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     ApplyInspectorComboBoxStyle(*androidStlComboBox);
     androidStlComboBox->SetItems(GetBuildDockAndroidStlOptions());
 
+    auto androidSdkRootEditor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*androidSdkRootEditor, false);
+    androidSdkRootEditor->SetHintText("Override Android SDK root");
+
+    auto androidSdkBrowseButton = std::make_shared<ImButton>();
+    androidSdkBrowseButton->SetText("Browse");
+
+    auto androidSdkClearButton = std::make_shared<ImButton>();
+    androidSdkClearButton->SetText("Clear");
+
+    auto androidNdkRootEditor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*androidNdkRootEditor, false);
+    androidNdkRootEditor->SetHintText("Override Android NDK root");
+
+    auto androidNdkBrowseButton = std::make_shared<ImButton>();
+    androidNdkBrowseButton->SetText("Browse");
+
+    auto androidNdkClearButton = std::make_shared<ImButton>();
+    androidNdkClearButton->SetText("Clear");
+
     auto applyProfileButton = std::make_shared<ImButton>();
     applyProfileButton->SetText("Apply");
+
+    auto reprobeButton = std::make_shared<ImButton>();
+    reprobeButton->SetText("Re-Probe");
 
     auto configureButton = std::make_shared<ImButton>();
     configureButton->SetText("Configure");
@@ -506,10 +561,21 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     androidSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow("STL", androidStlComboBox),
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(
+            "Android SDK Root",
+            MakeBuildDockPathEditorRow(androidSdkRootEditor, androidSdkBrowseButton, androidSdkClearButton)),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    androidSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(
+            "Android NDK Root",
+            MakeBuildDockPathEditorRow(androidNdkRootEditor, androidNdkBrowseButton, androidNdkClearButton)),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
 
     auto profileActionRow = std::make_shared<ImHorizontalBox>();
     profileActionRow->SetSpacing(6.0f);
     profileActionRow->AddChildFill(applyProfileButton, 1.0f, FMargin(0.0f));
+    profileActionRow->AddChildFill(reprobeButton, 1.0f, FMargin(0.0f));
     profileActionRow->AddChildFill(settingsButton, 1.0f, FMargin(0.0f));
 
     auto buttonRow = std::make_shared<ImHorizontalBox>();
@@ -536,11 +602,18 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     shell.BuildAndroidAbiComboBox = androidAbiComboBox;
     shell.BuildAndroidApiComboBox = androidApiComboBox;
     shell.BuildAndroidStlComboBox = androidStlComboBox;
+    shell.BuildAndroidSdkRootEditor = androidSdkRootEditor;
+    shell.BuildAndroidNdkRootEditor = androidNdkRootEditor;
     shell.BuildConfigureButton = configureButton;
     shell.BuildRunButton = buildButton;
     shell.BuildApplyProfileButton = applyProfileButton;
+    shell.BuildReprobeButton = reprobeButton;
     shell.BuildSettingsButton = settingsButton;
     shell.BuildRevealButton = revealButton;
+    shell.BuildAndroidSdkBrowseButton = androidSdkBrowseButton;
+    shell.BuildAndroidSdkClearButton = androidSdkClearButton;
+    shell.BuildAndroidNdkBrowseButton = androidNdkBrowseButton;
+    shell.BuildAndroidNdkClearButton = androidNdkClearButton;
     shell.BuildWindowsSettingsGroup = windowsSettingsGroup;
     shell.BuildAndroidSettingsGroup = androidSettingsGroup;
     shell.BuildOverviewText = overviewText;
@@ -1356,9 +1429,54 @@ void UpdateBuildDockActions(
             !bBuildRunning;
         shell.BuildAndroidStlComboBox->SetDisabled(!bEnable);
     }
+    if (shell.BuildAndroidSdkRootEditor) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidSdkRootEditor->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidNdkRootEditor) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidNdkRootEditor->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidSdkBrowseButton) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidSdkBrowseButton->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidSdkClearButton) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidSdkClearButton->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidNdkBrowseButton) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidNdkBrowseButton->SetDisabled(!bEnable);
+    }
+    if (shell.BuildAndroidNdkClearButton) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::Android &&
+            !bBuildRunning;
+        shell.BuildAndroidNdkClearButton->SetDisabled(!bEnable);
+    }
     if (shell.BuildApplyProfileButton) {
         shell.BuildApplyProfileButton->SetDisabled(
             !bHasProject || activeProfile == nullptr || bBuildRunning || !shell.bBuildProfileDraftDirty);
+    }
+    if (shell.BuildReprobeButton) {
+        shell.BuildReprobeButton->SetDisabled(!bHasProject || activeProfile == nullptr || bBuildRunning);
     }
     if (shell.BuildConfigureButton) {
         shell.BuildConfigureButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
@@ -1493,6 +1611,26 @@ public:
                 }
             });
         }
+        if (Shell_.BuildAndroidSdkRootEditor) {
+            Shell_.BuildAndroidSdkRootEditor->OnTextCommitted.AddLambda([this](ImEditableText&, const std::string& text) {
+                if (!Shell_.bBuildProfileDraftSyncing) {
+                    Shell_.BuildDraftAndroidSdkRoot = text.empty()
+                        ? std::string()
+                        : std::filesystem::path(text).lexically_normal().string();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
+        if (Shell_.BuildAndroidNdkRootEditor) {
+            Shell_.BuildAndroidNdkRootEditor->OnTextCommitted.AddLambda([this](ImEditableText&, const std::string& text) {
+                if (!Shell_.bBuildProfileDraftSyncing) {
+                    Shell_.BuildDraftAndroidNdkRoot = text.empty()
+                        ? std::string()
+                        : std::filesystem::path(text).lexically_normal().string();
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
         if (Shell_.BuildApplyProfileButton) {
             Shell_.BuildApplyProfileButton->OnClicked.AddLambda(
                 [this](ImButton&) {
@@ -1528,12 +1666,110 @@ public:
                         if (!Shell_.BuildDraftAndroidStl.empty()) {
                             updatedProfile.AndroidSettings.Stl = Shell_.BuildDraftAndroidStl;
                         }
+                        updatedProfile.AndroidSettings.SdkRootOverride =
+                            Shell_.BuildDraftAndroidSdkRoot.empty()
+                                ? std::filesystem::path()
+                                : std::filesystem::path(Shell_.BuildDraftAndroidSdkRoot).lexically_normal();
+                        updatedProfile.AndroidSettings.NdkRootOverride =
+                            Shell_.BuildDraftAndroidNdkRoot.empty()
+                                ? std::filesystem::path()
+                                : std::filesystem::path(Shell_.BuildDraftAndroidNdkRoot).lexically_normal();
                     }
 
                     if (WorkspaceController_->UpdateBuildProfile(updatedProfile, true)) {
                         Shell_.bBuildProfileDraftDirty = false;
                     }
                 });
+        }
+        if (Shell_.BuildReprobeButton) {
+            Shell_.BuildReprobeButton->OnClicked.AddLambda([this](ImButton&) {
+                if (BoundApplication_ != nullptr && WorkspaceController_) {
+                    UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
+                    UpdateBuildDockActions(Shell_, *BoundApplication_, WorkspaceController_);
+                }
+            });
+        }
+        if (Shell_.BuildAndroidSdkBrowseButton) {
+            Shell_.BuildAndroidSdkBrowseButton->OnClicked.AddLambda([this, appPtr = &app](ImButton&) {
+                if (appPtr == nullptr || !WorkspaceController_) {
+                    return;
+                }
+
+                FOpenFolderDialogOptions options;
+                options.Title = "Select Android SDK Root";
+                if (!Shell_.BuildDraftAndroidSdkRoot.empty()) {
+                    options.InitialDirectory = std::filesystem::path(Shell_.BuildDraftAndroidSdkRoot);
+                } else if (const std::shared_ptr<EditorProject> project = WorkspaceController_->GetProject()) {
+                    if (const FEditorBuildProfile* activeProfile =
+                            project->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())) {
+                        options.InitialDirectory = ResolveAndroidSdkRootForProfile(*activeProfile);
+                    }
+                }
+
+                const FPathDialogResult dialogResult = appPtr->OpenFolderDialog(options);
+                if (dialogResult.IsAccepted()) {
+                    Shell_.BuildDraftAndroidSdkRoot = dialogResult.Path.lexically_normal().string();
+                    Shell_.bBuildProfileDraftDirty = true;
+                    ApplyBuildDockDraftToWidgets(
+                        Shell_,
+                        WorkspaceController_->GetProject()
+                            ? WorkspaceController_->GetProject()->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())
+                            : nullptr);
+                }
+            });
+        }
+        if (Shell_.BuildAndroidSdkClearButton) {
+            Shell_.BuildAndroidSdkClearButton->OnClicked.AddLambda([this](ImButton&) {
+                Shell_.BuildDraftAndroidSdkRoot.clear();
+                Shell_.bBuildProfileDraftDirty = true;
+                ApplyBuildDockDraftToWidgets(
+                    Shell_,
+                    WorkspaceController_ && WorkspaceController_->GetProject()
+                        ? WorkspaceController_->GetProject()->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())
+                        : nullptr);
+            });
+        }
+        if (Shell_.BuildAndroidNdkBrowseButton) {
+            Shell_.BuildAndroidNdkBrowseButton->OnClicked.AddLambda([this, appPtr = &app](ImButton&) {
+                if (appPtr == nullptr || !WorkspaceController_) {
+                    return;
+                }
+
+                FOpenFolderDialogOptions options;
+                options.Title = "Select Android NDK Root";
+                if (!Shell_.BuildDraftAndroidNdkRoot.empty()) {
+                    options.InitialDirectory = std::filesystem::path(Shell_.BuildDraftAndroidNdkRoot);
+                } else if (const std::shared_ptr<EditorProject> project = WorkspaceController_->GetProject()) {
+                    if (const FEditorBuildProfile* activeProfile =
+                            project->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())) {
+                        options.InitialDirectory = ResolveAndroidNdkRootForProfile(
+                            *activeProfile,
+                            ResolveAndroidSdkRootForProfile(*activeProfile));
+                    }
+                }
+
+                const FPathDialogResult dialogResult = appPtr->OpenFolderDialog(options);
+                if (dialogResult.IsAccepted()) {
+                    Shell_.BuildDraftAndroidNdkRoot = dialogResult.Path.lexically_normal().string();
+                    Shell_.bBuildProfileDraftDirty = true;
+                    ApplyBuildDockDraftToWidgets(
+                        Shell_,
+                        WorkspaceController_->GetProject()
+                            ? WorkspaceController_->GetProject()->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())
+                            : nullptr);
+                }
+            });
+        }
+        if (Shell_.BuildAndroidNdkClearButton) {
+            Shell_.BuildAndroidNdkClearButton->OnClicked.AddLambda([this](ImButton&) {
+                Shell_.BuildDraftAndroidNdkRoot.clear();
+                Shell_.bBuildProfileDraftDirty = true;
+                ApplyBuildDockDraftToWidgets(
+                    Shell_,
+                    WorkspaceController_ && WorkspaceController_->GetProject()
+                        ? WorkspaceController_->GetProject()->FindBuildProfile(WorkspaceController_->GetActiveBuildProfileName())
+                        : nullptr);
+            });
         }
         if (Shell_.BuildConfigureButton) {
             Shell_.BuildConfigureButton->OnClicked.AddLambda(

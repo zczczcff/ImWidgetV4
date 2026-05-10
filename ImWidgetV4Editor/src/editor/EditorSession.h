@@ -36,6 +36,8 @@ class ReflectionDetailsView;
 class SelectionModel;
 
 class EditorSession : public std::enable_shared_from_this<EditorSession> {
+    friend class RemoveWidgetCommand;
+
 public:
     explicit EditorSession(std::function<std::shared_ptr<ImWidgetV4::ImWidget>()> createDefaultDocumentRoot);
 

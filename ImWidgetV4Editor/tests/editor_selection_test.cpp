@@ -803,6 +803,79 @@ TEST(EditorSelectionTest, RemoveWidgetCommandRestoresTreeOnUndoRedo)
     EXPECT_EQ(root->GetChildren().back(), child);
 }
 
+TEST(EditorSelectionTest, RemoveWidgetCommandRestoresCanvasSlotOnUndo)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto canvas = std::make_shared<ImCanvasPanel>();
+        canvas->SetName("CanvasRoot");
+        canvas->SetDesiredSize(FVector2(640.0f, 480.0f));
+
+        auto child = std::make_shared<DesignerTestWidget>(FVector2(80.0f, 40.0f));
+        child->SetName("CanvasChild");
+
+        auto* slot = canvas->AddChildAt(child, FVector2(0.25f, 0.35f), FVector2(0.40f, 0.30f));
+        slot->SetAutoSize(false);
+        return canvas;
+    });
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+    ASSERT_TRUE(canvas);
+    ASSERT_EQ(canvas->GetChildren().size(), 1u);
+    auto child = canvas->GetChildren().front();
+
+    RemoveWidgetCommand command(
+        session,
+        "Delete Widget",
+        child,
+        canvas,
+        canvas,
+        false,
+        true);
+
+    ASSERT_TRUE(command.Execute());
+    EXPECT_TRUE(canvas->GetChildren().empty());
+
+    ASSERT_TRUE(command.Undo());
+    ASSERT_EQ(canvas->GetChildren().size(), 1u);
+    EXPECT_EQ(canvas->GetChildren().front(), child);
+
+    auto* restoredSlot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(child));
+    ASSERT_NE(restoredSlot, nullptr);
+    EXPECT_FLOAT_EQ(restoredSlot->GetRelativePosition().X, 0.25f);
+    EXPECT_FLOAT_EQ(restoredSlot->GetRelativePosition().Y, 0.35f);
+    EXPECT_FLOAT_EQ(restoredSlot->GetRelativeSize().X, 0.40f);
+    EXPECT_FLOAT_EQ(restoredSlot->GetRelativeSize().Y, 0.30f);
+    EXPECT_FALSE(restoredSlot->GetAutoSize());
+}
+
+TEST(EditorSelectionTest, RemoveWidgetCommandRestoresRootCanvasOnUndo)
+{
+    auto session = std::make_shared<EditorSession>(BuildDesignerCanvasDocumentRoot);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    BindEditorSessionForTests(session, designerSurface);
+
+    auto root = session->GetDocument()->GetRootWidget();
+    ASSERT_TRUE(root);
+
+    RemoveWidgetCommand command(
+        session,
+        "Delete Widget",
+        root,
+        nullptr,
+        nullptr,
+        false,
+        true);
+
+    ASSERT_TRUE(command.Execute());
+    EXPECT_EQ(session->GetDocument()->GetRootWidget(), nullptr);
+
+    ASSERT_TRUE(command.Undo());
+    EXPECT_EQ(session->GetDocument()->GetRootWidget(), root);
+    EXPECT_EQ(designerSurface->GetContentRoot(), root);
+}
+
 TEST(EditorSelectionTest, MoveWidgetCommandRestoresOrderOnUndoRedo)
 {
     auto session = std::make_shared<EditorSession>(BuildDocumentRoot);

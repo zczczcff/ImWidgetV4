@@ -1276,20 +1276,20 @@ bool EditorSession::DeleteSelectedWidget()
 
     auto reinsertionTarget = m_Document ? m_Document->FindLogicalParent(selectedWidget) : nullptr;
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
-    const bool bRemoved = ApplyWidgetRemoval(selectedWidget, reinsertionTarget, true);
-    if (!bRemoved) {
-        LogStatus("Delete failed for current selection.");
-        return false;
-    }
-
-    m_CommandStack.PushExecuted(std::make_unique<RemoveWidgetCommand>(
+    auto command = std::make_unique<RemoveWidgetCommand>(
         shared_from_this(),
         "Delete Widget",
         selectedWidget,
         reinsertionTarget,
         reinsertionTarget,
         bBeforeDirty,
-        true));
+        true);
+    if (!command->Execute()) {
+        LogStatus("Delete failed for current selection.");
+        return false;
+    }
+
+    m_CommandStack.PushExecuted(std::move(command));
     LogStatus("Deleted " + label);
     return true;
 }

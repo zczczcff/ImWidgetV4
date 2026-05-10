@@ -3,6 +3,7 @@
 #include "editor/EditorPaths.h"
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
+#include "inspector/PropertyEditorWidgets.h"
 #include "palette/WidgetPaletteView.h"
 #include "toolchains/EnvironmentProbe.h"
 #include "tree/DocumentTreeViewBinder.h"
@@ -12,6 +13,7 @@
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/Image.h>
@@ -50,6 +52,11 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
+    std::shared_ptr<ImComboBox> BuildProfileComboBox;
+    std::shared_ptr<ImButton> BuildConfigureButton;
+    std::shared_ptr<ImButton> BuildRunButton;
+    std::shared_ptr<ImButton> BuildSettingsButton;
+    std::shared_ptr<ImButton> BuildRevealButton;
     std::shared_ptr<ImTextList> BuildOverviewText;
     std::shared_ptr<ReflectionDetailsView> DetailsView;
     std::shared_ptr<ImTextList> OutputText;
@@ -307,6 +314,52 @@ std::shared_ptr<ImTextList> BuildBuildOverviewPanel()
     });
 }
 
+std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
+{
+    using namespace ImWidgetV4Editor::PropertyEditorWidgets;
+
+    auto profileComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*profileComboBox);
+    profileComboBox->SetItems({});
+
+    auto configureButton = std::make_shared<ImButton>();
+    configureButton->SetText("Configure");
+
+    auto buildButton = std::make_shared<ImButton>();
+    buildButton->SetText("Build");
+
+    auto settingsButton = std::make_shared<ImButton>();
+    settingsButton->SetText("Settings");
+
+    auto revealButton = std::make_shared<ImButton>();
+    revealButton->SetText("Reveal");
+
+    auto buttonRow = std::make_shared<ImHorizontalBox>();
+    buttonRow->SetSpacing(6.0f);
+    buttonRow->AddChildFill(configureButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(settingsButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(revealButton, 1.0f, FMargin(0.0f));
+
+    auto overviewText = BuildBuildOverviewPanel();
+
+    auto panel = std::make_shared<ImVerticalBox>();
+    panel->SetSpacing(8.0f);
+    panel->AddChild(MakePanelTitle("Build"), FMargin(10.0f, 10.0f, 10.0f, 0.0f));
+    panel->AddChild(MakePanelBody("Toolchain readiness, active profile, and recent build output."), FMargin(10.0f, 0.0f, 10.0f, 0.0f));
+    panel->AddChild(MakeInspectorVerticalPropertyRow("Active Profile", profileComboBox), FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    panel->AddChild(buttonRow, FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    panel->AddChildFill(overviewText, 1.0f, FMargin(0.0f));
+
+    shell.BuildProfileComboBox = profileComboBox;
+    shell.BuildConfigureButton = configureButton;
+    shell.BuildRunButton = buildButton;
+    shell.BuildSettingsButton = settingsButton;
+    shell.BuildRevealButton = revealButton;
+    shell.BuildOverviewText = overviewText;
+    return panel;
+}
+
 std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 {
     auto canvas = std::make_shared<ImCanvasPanel>();
@@ -343,7 +396,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
     return canvas;
 }
 
-std::shared_ptr<ImTabView> BuildLeftDockTabs()
+std::shared_ptr<ImTabView> BuildLeftDockTabs(FEditorShellWidgets& shell)
 {
     auto tabView = std::make_shared<ImTabView>();
     tabView->SetSupportsKeyboardFocus(true);
@@ -369,8 +422,7 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs()
     tabView->AddTab("Controls", BuildControlPalettePanel());
     auto projectView = BuildProjectViewPanel();
     tabView->AddTab("Project", projectView);
-    auto buildOverview = BuildBuildOverviewPanel();
-    tabView->AddTab("Build", buildOverview);
+    tabView->AddTab("Build", BuildBuildDockPanel(shell));
     tabView->AddTab("Widget Tree", BuildWidgetTreePanel());
     tabView->SetActiveTab(0);
     return tabView;
@@ -433,7 +485,7 @@ FEditorShellWidgets BuildEditorShell()
     verticalStyle.ActiveColor = FColor::FromBytes(103, 177, 255);
     verticalShell->SetSplitterStyle(verticalStyle);
 
-    auto leftDock = BuildLeftDockTabs();
+    auto leftDock = BuildLeftDockTabs(shell);
     auto projectView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(1)->Content);
     auto buildOverviewText = std::dynamic_pointer_cast<ImTextList>(leftDock->GetTab(2)->Content);
     auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(3)->Content);
@@ -994,6 +1046,49 @@ void UpdateBuildOverviewPanel(
     shell.BuildOverviewText->SetItems(lines);
 }
 
+void UpdateBuildDockActions(
+    FEditorShellWidgets& shell,
+    ImApplication& app,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    const bool bHasProject = workspaceController && workspaceController->GetProject();
+    const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
+    const std::string activeProfileName =
+        workspaceController ? workspaceController->GetActiveBuildProfileName() : std::string();
+
+    if (shell.BuildProfileComboBox) {
+        const std::vector<std::string> profileNames =
+            workspaceController ? workspaceController->GetBuildProfileNames() : std::vector<std::string>();
+        shell.BuildProfileComboBox->SetItems(profileNames);
+
+        int selectedIndex = -1;
+        for (int index = 0; index < static_cast<int>(profileNames.size()); ++index) {
+            if (profileNames[static_cast<std::size_t>(index)] == activeProfileName) {
+                selectedIndex = index;
+                break;
+            }
+        }
+
+        if (selectedIndex >= 0) {
+            shell.BuildProfileComboBox->SetSelectedIndex(selectedIndex);
+        }
+        shell.BuildProfileComboBox->SetDisabled(!bHasProject || bBuildRunning);
+    }
+
+    if (shell.BuildConfigureButton) {
+        shell.BuildConfigureButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
+    if (shell.BuildRunButton) {
+        shell.BuildRunButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
+    if (shell.BuildSettingsButton) {
+        shell.BuildSettingsButton->SetDisabled(!bHasProject);
+    }
+    if (shell.BuildRevealButton) {
+        shell.BuildRevealButton->SetDisabled(!bHasProject || activeProfileName.empty());
+    }
+}
+
 } // namespace
 
 class FEditorApplicationHostDelegate : public IApplicationHostDelegate
@@ -1030,6 +1125,7 @@ public:
 
             RebuildEditorTitleBar(*appPtr, Shell_, lockedWorkspace);
             UpdateBuildOverviewPanel(Shell_, lockedWorkspace);
+            UpdateBuildDockActions(Shell_, *appPtr, lockedWorkspace);
         });
         WorkspaceController_->SetOnExitRequested([appPtr = &app]() {
             if (appPtr == nullptr) {
@@ -1069,9 +1165,52 @@ public:
                 }
             });
         }
+        if (Shell_.BuildProfileComboBox) {
+            Shell_.BuildProfileComboBox->OnSelectionChanged.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImComboBox& comboBox, int) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        if (comboBox.HasSelection()) {
+                            lockedWorkspace->SetActiveBuildProfile(comboBox.GetSelectedText());
+                        }
+                    }
+                });
+        }
+        if (Shell_.BuildConfigureButton) {
+            Shell_.BuildConfigureButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->ConfigureProject();
+                    }
+                });
+        }
+        if (Shell_.BuildRunButton) {
+            Shell_.BuildRunButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->BuildProject();
+                    }
+                });
+        }
+        if (Shell_.BuildSettingsButton) {
+            Shell_.BuildSettingsButton->OnClicked.AddLambda(
+                [this, appPtr = &app](ImButton&) {
+                    if (WorkspaceController_ && appPtr != nullptr) {
+                        WorkspaceController_->OpenProjectSettings(*appPtr);
+                    }
+                });
+        }
+        if (Shell_.BuildRevealButton) {
+            Shell_.BuildRevealButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RevealProjectBuildDirectory();
+                    }
+                });
+        }
         RebuildEditorTitleBar(app, Shell_, WorkspaceController_);
         UpdateEditorTitleBarActions(app, Shell_, WorkspaceController_);
         UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
+        UpdateBuildDockActions(Shell_, app, WorkspaceController_);
         app.SetRootWidget(Shell_.Root);
     }
 
@@ -1090,6 +1229,7 @@ public:
             // The title text is updated on project state changes via RebuildEditorTitleBar.
             if (BoundApplication_ != nullptr) {
                 UpdateEditorTitleBarActions(*BoundApplication_, Shell_, WorkspaceController_);
+                UpdateBuildDockActions(Shell_, *BoundApplication_, WorkspaceController_);
             }
             UpdateBuildOverviewPanel(Shell_, WorkspaceController_);
         }

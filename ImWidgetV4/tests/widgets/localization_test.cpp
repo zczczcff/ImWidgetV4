@@ -4,6 +4,7 @@
 #include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -91,6 +92,38 @@ TEST(LocalizationTest, PopupMenuItemUsesLocalizedTextAndKeepsDefaultText)
     FLocalizationManager::Get().SetCulture("en-US");
     const float fallbackWidth = menu.GetMinSize().X;
     EXPECT_GE(localizedWidth, fallbackWidth);
+}
+
+TEST(LocalizationTest, ComboBoxUsesLocalizedItemsAndPlaceholder)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Combo.Placeholder"] = "Pick-Pseudo";
+    pseudo.Entries["Combo.First"] = "First-Pseudo";
+    pseudo.Entries["Combo.Second"] = "Second-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImComboBox comboBox;
+    comboBox.SetPlaceholderText(FText::FromKey("Combo.Placeholder", "Pick"));
+    comboBox.SetItems({
+        FText::FromKey("Combo.First", "First"),
+        FText::FromKey("Combo.Second", "Second")
+    });
+    comboBox.SetSelectedIndex(1);
+
+    EXPECT_EQ(comboBox.GetPlaceholderText(), "Pick");
+    EXPECT_EQ(comboBox.GetPlaceholderTextValue().Resolve(), "Pick-Pseudo");
+    EXPECT_EQ(comboBox.GetItems()[0], "First");
+    EXPECT_EQ(comboBox.GetSelectedText(), "Second-Pseudo");
+    EXPECT_EQ(comboBox.ToJson()["Properties"]["ImComboBox::PlaceholderText"], "Pick");
+
+    ImComboBox restored;
+    restored.FromJson(comboBox.ToJson());
+    restored.SetSelectedIndex(1);
+    EXPECT_EQ(restored.GetSelectedText(), "Second");
 }
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)

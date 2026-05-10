@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <memory>
 #include <string>
@@ -102,8 +103,10 @@ public:
     virtual ~ImComboBox();
 
     void SetItems(const std::vector<std::string>& items);
+    void SetItems(const std::vector<FText>& items);
     const std::vector<std::string>& GetItems() const { return m_Items; }
     void AddItem(const std::string& item);
+    void AddItem(const FText& item);
     void ClearItems();
 
     void SetSelectedIndex(int index);
@@ -113,7 +116,9 @@ public:
     void ClearSelection();
 
     void SetPlaceholderText(const std::string& text);
+    void SetPlaceholderText(const FText& text);
     const std::string& GetPlaceholderText() const { return m_PlaceholderText; }
+    const FText& GetPlaceholderTextValue() const { return m_PlaceholderTextValue; }
 
     void SetMaxVisibleItems(int count);
     int GetMaxVisibleItems() const { return m_MaxVisibleItems; }
@@ -166,13 +171,18 @@ private:
     void CommitHighlightedItem();
     void SetPopupHighlightedIndex(int index);
     void ClampPopupScrollOffset();
+    std::string ResolveItemText(int index) const;
+    std::string ResolvePlaceholderText() const;
+    void SyncLocalizedItemsFromSerializableItems();
     float MeasureTextWidth(const std::string& text) const;
     float ResolvePopupHeight() const;
     float ResolvePopupContentHeight() const;
 
     FComboBoxStyle m_Style;
     std::vector<std::string> m_Items;
+    std::vector<FText> m_ItemTexts;
     std::string m_PlaceholderText = "Select an option";
+    FText m_PlaceholderTextValue = FText::FromString("Select an option");
     std::shared_ptr<ImWindow> m_PopupWindow;
     std::shared_ptr<ImComboPopupList> m_PopupList;
     int m_SelectedIndex = -1;

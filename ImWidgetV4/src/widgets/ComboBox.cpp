@@ -111,7 +111,7 @@ public:
             paintContext.DrawContext_.DrawText(
                 FVector2(rowMin.X + style.Padding.Left, textY),
                 style.TextColor,
-                owner->m_Items[static_cast<std::size_t>(index)],
+                owner->ResolveItemText(index),
                 style.FontSize);
         }
         paintContext.DrawContext_.PopClipRect();
@@ -240,6 +240,29 @@ ImComboBox::~ImComboBox()
 void ImComboBox::SetItems(const std::vector<std::string>& items)
 {
     m_Items = items;
+    SyncLocalizedItemsFromSerializableItems();
+    if (m_SelectedIndex >= static_cast<int>(m_Items.size())) {
+        m_SelectedIndex = InvalidComboIndex;
+    }
+    if (m_HighlightedIndex >= static_cast<int>(m_Items.size())) {
+        m_HighlightedIndex = m_SelectedIndex >= 0 ? m_SelectedIndex : (m_Items.empty() ? InvalidComboIndex : 0);
+    }
+    m_PopupScrollOffset = 0.0f;
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetItems(const std::vector<FText>& items)
+{
+    m_Items.clear();
+    m_ItemTexts = items;
+    m_Items.reserve(items.size());
+    for (const FText& item : items) {
+        m_Items.push_back(item.IsLocalized()
+            ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
+            : item.GetInvariantText());
+    }
+
     if (m_SelectedIndex >= static_cast<int>(m_Items.size())) {
         m_SelectedIndex = InvalidComboIndex;
     }
@@ -254,6 +277,20 @@ void ImComboBox::SetItems(const std::vector<std::string>& items)
 void ImComboBox::AddItem(const std::string& item)
 {
     m_Items.push_back(item);
+    m_ItemTexts.push_back(FText::FromString(item));
+    if (m_HighlightedIndex == InvalidComboIndex) {
+        m_HighlightedIndex = 0;
+    }
+    RefreshPopupWindowContent();
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::AddItem(const FText& item)
+{
+    m_ItemTexts.push_back(item);
+    m_Items.push_back(item.IsLocalized()
+        ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
+        : item.GetInvariantText());
     if (m_HighlightedIndex == InvalidComboIndex) {
         m_HighlightedIndex = 0;
     }
@@ -264,6 +301,7 @@ void ImComboBox::AddItem(const std::string& item)
 void ImComboBox::ClearItems()
 {
     m_Items.clear();
+    m_ItemTexts.clear();
     m_SelectedIndex = InvalidComboIndex;
     m_HighlightedIndex = InvalidComboIndex;
     m_HoveredPopupIndex = InvalidComboIndex;
@@ -285,7 +323,7 @@ std::string ImComboBox::GetSelectedText() const
         return {};
     }
 
-    return m_Items[static_cast<std::size_t>(m_SelectedIndex)];
+    return ResolveItemText(m_SelectedIndex);
 }
 
 void ImComboBox::ClearSelection()
@@ -300,6 +338,20 @@ void ImComboBox::SetPlaceholderText(const std::string& text)
     }
 
     m_PlaceholderText = text;
+    m_PlaceholderTextValue = FText::FromString(text);
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImComboBox::SetPlaceholderText(const FText& text)
+{
+    if (m_PlaceholderTextValue == text) {
+        return;
+    }
+
+    m_PlaceholderTextValue = text;
+    m_PlaceholderText = text.IsLocalized()
+        ? (text.GetDefaultText().empty() ? text.GetKey() : text.GetDefaultText())
+        : text.GetInvariantText();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -432,7 +484,7 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
     }
 
     const FColor outline = HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor;
-    const std::string displayText = HasSelection() ? GetSelectedText() : m_PlaceholderText;
+    const std::string displayText = HasSelection() ? GetSelectedText() : ResolvePlaceholderText();
     const FColor textColor = HasSelection()
         ? (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor)
         : m_Style.PlaceholderTextColor;
@@ -482,9 +534,9 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
 
 FVector2 ImComboBox::GetMinSize() const
 {
-    float longestTextWidth = MeasureTextWidth(m_PlaceholderText);
-    for (const std::string& item : m_Items) {
-        longestTextWidth = std::max(longestTextWidth, MeasureTextWidth(item));
+    float longestTextWidth = MeasureTextWidth(ResolvePlaceholderText());
+    for (int index = 0; index < static_cast<int>(m_Items.size()); ++index) {
+        longestTextWidth = std::max(longestTextWidth, MeasureTextWidth(ResolveItemText(index)));
     }
 
     const float borderInset = ResolveContentInset(m_Style.BorderThickness);
@@ -754,6 +806,41 @@ void ImComboBox::SetPopupHighlightedIndex(int index)
 float ImComboBox::MeasureTextWidth(const std::string& text) const
 {
     return MeasureTextWidthWithFont(text, m_Style.FontSize);
+}
+
+std::string ImComboBox::ResolveItemText(int index) const
+{
+    if (index < 0 || index >= static_cast<int>(m_Items.size())) {
+        return {};
+    }
+
+    const std::size_t itemIndex = static_cast<std::size_t>(index);
+    if (itemIndex < m_ItemTexts.size()) {
+        const FText& itemText = m_ItemTexts[itemIndex];
+        if (itemText.IsLocalized() || !itemText.GetInvariantText().empty()) {
+            return itemText.Resolve();
+        }
+    }
+
+    return m_Items[itemIndex];
+}
+
+std::string ImComboBox::ResolvePlaceholderText() const
+{
+    if (m_PlaceholderTextValue.IsLocalized() || !m_PlaceholderTextValue.GetInvariantText().empty()) {
+        return m_PlaceholderTextValue.Resolve();
+    }
+
+    return m_PlaceholderText;
+}
+
+void ImComboBox::SyncLocalizedItemsFromSerializableItems()
+{
+    m_ItemTexts.clear();
+    m_ItemTexts.reserve(m_Items.size());
+    for (const std::string& item : m_Items) {
+        m_ItemTexts.push_back(FText::FromString(item));
+    }
 }
 
 float ImComboBox::ResolvePopupHeight() const

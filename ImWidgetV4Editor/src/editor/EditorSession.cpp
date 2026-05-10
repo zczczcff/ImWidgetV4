@@ -844,6 +844,7 @@ void EditorSession::BindDocumentWidgets(
             });
     }
     ApplyDocumentToUi();
+    TickDeferredRefreshes();
     LogStatus("Ready.");
 }
 

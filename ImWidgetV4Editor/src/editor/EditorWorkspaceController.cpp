@@ -895,6 +895,9 @@ void EditorWorkspaceController::Bind(
     }
 
     BeginBatchUiUpdate();
+    if (m_Documents.empty()) {
+        AddSession(CreateSession(), true);
+    }
     if (!m_Documents.empty()) {
         ActivateDocumentTab(m_DocumentTabs ? m_DocumentTabs->GetActiveTabIndex() : 0);
     }

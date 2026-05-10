@@ -4,6 +4,7 @@
 #include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 
@@ -63,6 +64,33 @@ TEST(LocalizationTest, TabViewTitleUsesLocalizedTextAndKeepsDefaultTitle)
 
     ASSERT_TRUE(tabView.SetTabTitle(0, FText::FromKey("Tab.Settings", "Settings")));
     EXPECT_EQ(tabView.GetTab(0)->TitleText.Resolve(), "Settings-Pseudo");
+}
+
+TEST(LocalizationTest, PopupMenuItemUsesLocalizedTextAndKeepsDefaultText)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Menu.Open"] = "Open-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    FPopupMenuItem item;
+    item.Text = "Open";
+    item.TextValue = FText::FromKey("Menu.Open", "Open");
+
+    ImPopupMenu menu;
+    menu.SetItems({item});
+
+    ASSERT_EQ(menu.GetItems().size(), 1u);
+    EXPECT_EQ(menu.GetItems().front().Text, "Open");
+    EXPECT_EQ(menu.GetItems().front().TextValue.Resolve(), "Open-Pseudo");
+
+    const float localizedWidth = menu.GetMinSize().X;
+    FLocalizationManager::Get().SetCulture("en-US");
+    const float fallbackWidth = menu.GetMinSize().X;
+    EXPECT_GE(localizedWidth, fallbackWidth);
 }
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)

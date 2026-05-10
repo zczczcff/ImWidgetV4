@@ -96,6 +96,7 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
             continue;
         }
 
+        const std::string itemText = ResolveItemText(item);
         const FGeometry rowGeometry(
             FVector2(contentGeometry.Position.X + Style_.OuterPaddingX, rowY),
             FVector2(rowWidth, Style_.RowHeight));
@@ -146,7 +147,7 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
                 contentX,
                 rowGeometry.Position.Y + std::max(0.0f, (Style_.RowHeight - Style_.FontSize) * 0.5f)),
             item.bEnabled ? Style_.TextColor : Style_.DisabledTextColor,
-            item.Text,
+            itemText,
             Style_.FontSize);
         paintContext.DrawContext_.PopClipRect();
 
@@ -334,6 +335,15 @@ float ImPopupMenu::MeasureTextWidth(const std::string& text) const
     return Style_.FontSize * 0.55f * static_cast<float>(text.size());
 }
 
+std::string ImPopupMenu::ResolveItemText(const FPopupMenuItem& item) const
+{
+    if (item.TextValue.IsLocalized() || !item.TextValue.GetInvariantText().empty()) {
+        return item.TextValue.Resolve();
+    }
+
+    return item.Text;
+}
+
 float ImPopupMenu::ResolveSubmenuIndicatorWidth() const
 {
     return std::max(8.0f, Style_.FontSize * 0.55f);
@@ -347,7 +357,7 @@ ImPopupMenu::FMenuMetrics ImPopupMenu::ComputeMetrics() const
             continue;
         }
 
-        metrics.MaxTextWidth = std::max(metrics.MaxTextWidth, MeasureTextWidth(item.Text));
+        metrics.MaxTextWidth = std::max(metrics.MaxTextWidth, MeasureTextWidth(ResolveItemText(item)));
         metrics.bHasAnyIcon = metrics.bHasAnyIcon || item.Icon.IsValid();
         metrics.bHasAnySubMenu = metrics.bHasAnySubMenu || item.HasSubMenu();
     }

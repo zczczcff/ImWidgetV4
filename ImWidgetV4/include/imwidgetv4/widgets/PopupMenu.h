@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <functional>
@@ -16,6 +17,7 @@ struct FPopupMenuItem {
     bool bEnabled = true;
     bool bIsSeparator = false;
     std::function<void()> OnInvoked;
+    FText TextValue;
 
     bool HasSubMenu() const { return !SubItems.empty(); }
 };
@@ -75,6 +77,7 @@ private:
     bool HasSubMenuAt(int index) const;
     bool IsInteractiveIndex(int index) const;
     float MeasureTextWidth(const std::string& text) const;
+    std::string ResolveItemText(const FPopupMenuItem& item) const;
     float ResolveSubmenuIndicatorWidth() const;
     FMenuMetrics ComputeMetrics() const;
     void SyncChildSubmenuState();

@@ -2045,6 +2045,60 @@ TEST(EditorSelectionTest, EditorProjectPersistsActiveBuildProfileChanges)
     std::filesystem::remove_all(tempRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, EditorProjectPersistsBuildProfileOverrides)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_profile_overrides";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "ProfileOverrideProject",
+        "ProfileOverrideProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+
+    FEditorBuildProfile* windowsProfile = project.FindBuildProfile("Windows Debug");
+    ASSERT_NE(windowsProfile, nullptr);
+    windowsProfile->Generator = "Ninja";
+
+    FEditorBuildProfile* androidProfile = project.FindBuildProfile("Android Debug");
+    ASSERT_NE(androidProfile, nullptr);
+    androidProfile->AndroidSettings.Abi = "x86_64";
+    androidProfile->AndroidSettings.ApiLevel = 29;
+    androidProfile->AndroidSettings.Stl = "c++_static";
+    androidProfile->AndroidSettings.SdkRootOverride = std::filesystem::path("E:/Android/Sdk");
+    androidProfile->AndroidSettings.NdkRootOverride = std::filesystem::path("E:/Android/Sdk/ndk/26.1.10909125");
+
+    std::string saveError;
+    ASSERT_TRUE(project.Save(&saveError)) << saveError;
+
+    EditorProject restoredProject;
+    std::string loadError;
+    ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
+
+    const FEditorBuildProfile* restoredWindowsProfile = restoredProject.FindBuildProfile("Windows Debug");
+    ASSERT_NE(restoredWindowsProfile, nullptr);
+    EXPECT_EQ(restoredWindowsProfile->Generator, "Ninja");
+
+    const FEditorBuildProfile* restoredAndroidProfile = restoredProject.FindBuildProfile("Android Debug");
+    ASSERT_NE(restoredAndroidProfile, nullptr);
+    EXPECT_EQ(restoredAndroidProfile->AndroidSettings.Abi, "x86_64");
+    EXPECT_EQ(restoredAndroidProfile->AndroidSettings.ApiLevel, 29);
+    EXPECT_EQ(restoredAndroidProfile->AndroidSettings.Stl, "c++_static");
+    EXPECT_EQ(
+        restoredAndroidProfile->AndroidSettings.SdkRootOverride.lexically_normal(),
+        std::filesystem::path("E:/Android/Sdk").lexically_normal());
+    EXPECT_EQ(
+        restoredAndroidProfile->AndroidSettings.NdkRootOverride.lexically_normal(),
+        std::filesystem::path("E:/Android/Sdk/ndk/26.1.10909125").lexically_normal());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
 {
     auto shellHost = std::make_shared<EditorShellHost>();
@@ -2183,6 +2237,78 @@ TEST(EditorSelectionTest, BuildControllerUsesProjectRootBuildDirectoryConvention
     EXPECT_EQ(
         BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::Android, "Debug").lexically_normal(),
         (projectRoot / "build" / "android-debug").lexically_normal());
+}
+
+class BuildControllerTestAccess : public BuildController {
+public:
+    using BuildController::BuildConfigureArguments;
+};
+
+TEST(EditorSelectionTest, BuildControllerConfigureArgumentsIncludeAndroidOverrides)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_build_controller_android_args";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "AndroidArgsProject",
+        "AndroidArgsProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+
+    FEditorBuildProfile* profile = project.FindBuildProfile("Android Debug");
+    ASSERT_NE(profile, nullptr);
+    profile->Generator = "Ninja";
+    profile->AndroidSettings.Abi = "arm64-v8a";
+    profile->AndroidSettings.ApiLevel = 28;
+    profile->AndroidSettings.Stl = "c++_shared";
+    profile->ExtraConfigureArguments = {"-DIMWIDGETV4_SAMPLE=ON"};
+
+    FEnvironmentProbeReport probeReport;
+    probeReport.TargetPlatform = EEditorTargetPlatform::Android;
+    probeReport.bReady = true;
+    probeReport.AndroidSdkRoot = std::filesystem::path("E:/Android/Sdk");
+    probeReport.AndroidNdkRoot = std::filesystem::path("E:/Android/Sdk/ndk/26.1.10909125");
+    probeReport.AndroidToolchainFile =
+        probeReport.AndroidNdkRoot / "build" / "cmake" / "android.toolchain.cmake";
+
+    const std::vector<std::string> arguments =
+        BuildControllerTestAccess::BuildConfigureArguments(project, *profile, probeReport);
+
+    EXPECT_NE(std::find(arguments.begin(), arguments.end(), std::string("-G")), arguments.end());
+    EXPECT_NE(
+        std::find(arguments.begin(), arguments.end(), std::string("Ninja")),
+        arguments.end());
+    EXPECT_NE(
+        std::find(
+            arguments.begin(),
+            arguments.end(),
+            std::string("-DCMAKE_TOOLCHAIN_FILE=") + probeReport.AndroidToolchainFile.string()),
+        arguments.end());
+    EXPECT_NE(
+        std::find(
+            arguments.begin(),
+            arguments.end(),
+            std::string("-DANDROID_SDK_ROOT=") + probeReport.AndroidSdkRoot.string()),
+        arguments.end());
+    EXPECT_NE(
+        std::find(
+            arguments.begin(),
+            arguments.end(),
+            std::string("-DANDROID_NDK=") + probeReport.AndroidNdkRoot.string()),
+        arguments.end());
+    EXPECT_NE(
+        std::find(arguments.begin(), arguments.end(), std::string("-DANDROID_PLATFORM=android-28")),
+        arguments.end());
+    EXPECT_NE(
+        std::find(arguments.begin(), arguments.end(), std::string("-DIMWIDGETV4_SAMPLE=ON")),
+        arguments.end());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerCreateFolderAtPathCreatesDirectory)

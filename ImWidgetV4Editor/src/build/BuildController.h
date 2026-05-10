@@ -44,6 +44,10 @@ public:
         const EditorProject& project,
         const std::string& profileName,
         const FOutputCallback& outputCallback) const;
+    static std::vector<std::string> BuildConfigureArguments(
+        const EditorProject& project,
+        const FEditorBuildProfile& profile,
+        const FEnvironmentProbeReport& probeReport);
 
 private:
     static void EmitEnvironmentProbeReport(

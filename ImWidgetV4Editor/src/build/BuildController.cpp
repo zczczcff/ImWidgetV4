@@ -97,37 +97,7 @@ FBuildResult BuildController::ConfigureProject(
         return BuildEnvironmentFailureResult(*profile, project.GetProjectRoot(), probeReport);
     }
 
-    const std::filesystem::path libraryRoot = GetDefaultLibraryRoot();
-    std::vector<std::string> arguments = {
-        "cmake",
-        "-S", project.GetProjectRoot().string(),
-        "-B", result.BuildDirectory.string(),
-        "-DIMWIDGETV4_ROOT=" + libraryRoot.string()
-    };
-
-    if (!profile->Generator.empty()) {
-        arguments.push_back("-G");
-        arguments.push_back(profile->Generator);
-    }
-
-    if (profile->TargetPlatform == EEditorTargetPlatform::Android) {
-        arguments.push_back("-DCMAKE_TOOLCHAIN_FILE=" + probeReport.AndroidToolchainFile.string());
-        arguments.push_back("-DANDROID_ABI=" + profile->AndroidSettings.Abi);
-        arguments.push_back("-DANDROID_PLATFORM=android-" + std::to_string(profile->AndroidSettings.ApiLevel));
-        arguments.push_back("-DANDROID_STL=" + profile->AndroidSettings.Stl);
-        if (!probeReport.AndroidSdkRoot.empty()) {
-            arguments.push_back("-DANDROID_SDK_ROOT=" + probeReport.AndroidSdkRoot.string());
-        }
-        if (!probeReport.AndroidNdkRoot.empty()) {
-            arguments.push_back("-DANDROID_NDK=" + probeReport.AndroidNdkRoot.string());
-        }
-    }
-
-    for (const std::string& extraArgument : profile->ExtraConfigureArguments) {
-        if (!extraArgument.empty()) {
-            arguments.push_back(extraArgument);
-        }
-    }
+    std::vector<std::string> arguments = BuildConfigureArguments(project, *profile, probeReport);
 
     if (outputCallback) {
         outputCallback(
@@ -168,6 +138,47 @@ FBuildResult BuildController::BuildProject(
             ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
     }
     return RunProcess(project.GetProjectRoot(), arguments, buildDirectory, outputCallback);
+}
+
+std::vector<std::string> BuildController::BuildConfigureArguments(
+    const EditorProject& project,
+    const FEditorBuildProfile& profile,
+    const FEnvironmentProbeReport& probeReport)
+{
+    const std::filesystem::path libraryRoot = GetDefaultLibraryRoot();
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), profile);
+    std::vector<std::string> arguments = {
+        "cmake",
+        "-S", project.GetProjectRoot().string(),
+        "-B", buildDirectory.string(),
+        "-DIMWIDGETV4_ROOT=" + libraryRoot.string()
+    };
+
+    if (!profile.Generator.empty()) {
+        arguments.push_back("-G");
+        arguments.push_back(profile.Generator);
+    }
+
+    if (profile.TargetPlatform == EEditorTargetPlatform::Android) {
+        arguments.push_back("-DCMAKE_TOOLCHAIN_FILE=" + probeReport.AndroidToolchainFile.string());
+        arguments.push_back("-DANDROID_ABI=" + profile.AndroidSettings.Abi);
+        arguments.push_back("-DANDROID_PLATFORM=android-" + std::to_string(profile.AndroidSettings.ApiLevel));
+        arguments.push_back("-DANDROID_STL=" + profile.AndroidSettings.Stl);
+        if (!probeReport.AndroidSdkRoot.empty()) {
+            arguments.push_back("-DANDROID_SDK_ROOT=" + probeReport.AndroidSdkRoot.string());
+        }
+        if (!probeReport.AndroidNdkRoot.empty()) {
+            arguments.push_back("-DANDROID_NDK=" + probeReport.AndroidNdkRoot.string());
+        }
+    }
+
+    for (const std::string& extraArgument : profile.ExtraConfigureArguments) {
+        if (!extraArgument.empty()) {
+            arguments.push_back(extraArgument);
+        }
+    }
+
+    return arguments;
 }
 
 void BuildController::EmitEnvironmentProbeReport(

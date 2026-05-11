@@ -238,6 +238,13 @@ TEST(EditorSelectionTest, EditorLocalizationRegistersEnglishAndChineseTables)
     ASSERT_TRUE(FLocalizationManager::Get().SetCulture("zh-CN"));
     EXPECT_EQ(EditorText("TitleBar.File", "File").Resolve(), "文件");
     EXPECT_EQ(EditorText("Dock.WidgetTree", "Widget Tree").Resolve(), "控件树");
+    EXPECT_EQ(EditorText("NewProject.ProjectName", "Project Name").Resolve(), "项目名称");
+    EXPECT_EQ(EditorText("ProjectSettings.EnvironmentProbe", "Environment Probe").Resolve(), "环境探测");
+    EXPECT_EQ(EditorText("Details.Type", "Type").Resolve(), "类型");
+    EXPECT_EQ(EditorText("Menu.NewUIDocument", "New UI Document...").Resolve(), "新建 UI 文档...");
+    EXPECT_EQ(EditorText("Workspace.SelectProjectRoot", "Select Project Root").Resolve(), "选择项目根目录");
+    EXPECT_EQ(EditorText("Menu.OpenAppProject", "Open App Project...").Resolve(), "打开应用项目...");
+    EXPECT_EQ(EditorText("Build.ConfigureActiveProfile", "Configure Active Profile").Resolve(), "配置当前配置");
 
     FLocalizationManager::Get().SetCulture("en-US");
 }

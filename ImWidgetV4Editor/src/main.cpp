@@ -30,6 +30,7 @@
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include "../samples/DemoPaths.h"
 #include <algorithm>
+#include <fstream>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -46,6 +47,55 @@ std::filesystem::path GetEditorWorkspaceStatePath()
     std::error_code errorCode;
     std::filesystem::create_directories(directory, errorCode);
     return directory / "workspace_state.json";
+}
+
+std::string LoadSavedEditorCulture(const std::filesystem::path& workspaceStatePath)
+{
+    if (workspaceStatePath.empty() || !std::filesystem::exists(workspaceStatePath)) {
+        return {};
+    }
+
+    try {
+        std::ifstream stream(workspaceStatePath);
+        if (!stream) {
+            return {};
+        }
+
+        nlohmann::ordered_json workspaceState;
+        stream >> workspaceState;
+        return workspaceState.value("Culture", std::string());
+    } catch (...) {
+        return {};
+    }
+}
+
+void SaveEditorCulture(const std::filesystem::path& workspaceStatePath, const std::string& culture)
+{
+    if (workspaceStatePath.empty() || culture.empty()) {
+        return;
+    }
+
+    try {
+        nlohmann::ordered_json workspaceState = nlohmann::ordered_json::object();
+        if (std::filesystem::exists(workspaceStatePath)) {
+            std::ifstream input(workspaceStatePath);
+            if (input) {
+                input >> workspaceState;
+            }
+        }
+
+        workspaceState["Culture"] = culture;
+        if (const std::filesystem::path parentPath = workspaceStatePath.parent_path(); !parentPath.empty()) {
+            std::error_code errorCode;
+            std::filesystem::create_directories(parentPath, errorCode);
+        }
+
+        std::ofstream output(workspaceStatePath);
+        if (output) {
+            output << workspaceState.dump(2);
+        }
+    } catch (...) {
+    }
 }
 
 struct FEditorShellWidgets {
@@ -204,6 +254,33 @@ std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush
     }
     button->SetToolTipText(tooltip);
     return button;
+}
+
+FApplicationMenuItem MakeEditorMenuItem(
+    const std::string& key,
+    const std::string& defaultText,
+    bool bEnabled,
+    std::function<void()> onInvoked)
+{
+    FApplicationMenuItem item;
+    item.Text = defaultText;
+    item.TextValue = EditorText(key, defaultText);
+    item.bEnabled = bEnabled;
+    item.OnInvoked = std::move(onInvoked);
+    return item;
+}
+
+FApplicationMenuItem MakeEditorMenuItem(
+    const FText& text,
+    bool bEnabled,
+    std::function<void()> onInvoked)
+{
+    FApplicationMenuItem item;
+    item.Text = text.GetInvariantText();
+    item.TextValue = text;
+    item.bEnabled = bEnabled;
+    item.OnInvoked = std::move(onInvoked);
+    return item;
 }
 
 void BindPopupMenuButton(
@@ -824,82 +901,116 @@ std::vector<FApplicationMenuItem> BuildFileMenuItems(
     const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     return {
-        FApplicationMenuItem {"New", {}, {}, true, false, [workspaceController]() {
+        MakeEditorMenuItem("Menu.New", "New", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->NewDocument();
             }
-        }},
-        FApplicationMenuItem {"Open...", {}, {}, true, false, [&app, workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.OpenEllipsis", "Open...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->OpenDocument(app);
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Save", {}, {}, true, false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Menu.Save", "Save", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->SaveDocument(app);
             }
-        }},
-        FApplicationMenuItem {"Save As...", {}, {}, true, false, [&app, workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.SaveAs", "Save As...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->SaveDocumentAs(app);
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Close", {}, {}, true, false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Common.Close", "Close", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->CloseActiveDocument(app);
             }
-        }}
+        })
     };
 }
 
 std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuName)
 {
     std::vector<FApplicationMenuItem> items;
-    items.push_back(FApplicationMenuItem {menuName + " Action", FImageBrush(), {}, true, false, []() {}});
+    items.push_back(MakeEditorMenuItem(FText::FromString(menuName + " Action"), true, []() {}));
     items.push_back(FApplicationMenuItem {"", FImageBrush(), {}, true, true, {}});
-    items.push_back(FApplicationMenuItem {"Coming Soon", FImageBrush(), {}, false, false, {}});
+    items.push_back(MakeEditorMenuItem("Menu.ComingSoon", "Coming Soon", false, {}));
     return items;
+}
+
+std::vector<FApplicationMenuItem> BuildViewMenuItems(
+    ImApplication& app,
+    const std::function<void()>& onCultureChanged)
+{
+    auto makeCultureItem =
+        [&app, onCultureChanged](const std::string& culture, const FText& label) {
+            return MakeEditorMenuItem(
+                label,
+                true,
+                [&app, culture, onCultureChanged]() {
+                    if (app.SetCulture(culture) && onCultureChanged) {
+                        onCultureChanged();
+                    }
+                });
+        };
+
+    std::vector<FApplicationMenuItem> languageItems = {
+        makeCultureItem("en-US", EditorText("Language.English", "English")),
+        makeCultureItem("zh-CN", EditorText("Language.ChineseSimplified", "Chinese (Simplified)"))
+    };
+
+    FApplicationMenuItem languageItem;
+    languageItem.Text = "Language";
+    languageItem.TextValue = EditorText("Menu.Language", "Language");
+    languageItem.SubItems = std::move(languageItems);
+    languageItem.bEnabled = true;
+
+    return {
+        languageItem,
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        MakeEditorMenuItem("Menu.ComingSoon", "Coming Soon", false, {})
+    };
 }
 
 std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     return {
-        FApplicationMenuItem {"Cut", {}, {}, true, false, [workspaceController]() {
+        MakeEditorMenuItem("Menu.Cut", "Cut", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->CutSelectedWidget();
             }
-        }},
-        FApplicationMenuItem {"Copy", {}, {}, true, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.Copy", "Copy", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->CopySelectedWidget();
             }
-        }},
-        FApplicationMenuItem {"Paste", {}, {}, true, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.Paste", "Paste", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->PasteCopiedWidget();
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Undo", {}, {}, true, false, [workspaceController]() {
+        MakeEditorMenuItem("TitleBar.Undo", "Undo", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->Undo();
             }
-        }},
-        FApplicationMenuItem {"Redo", {}, {}, true, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("TitleBar.Redo", "Redo", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->Redo();
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Duplicate", {}, {}, true, false, [workspaceController]() {
+        MakeEditorMenuItem("Menu.Duplicate", "Duplicate", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->DuplicateSelectedWidget();
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Coming Soon", {}, {}, false, false, {}}
+        MakeEditorMenuItem("Menu.ComingSoon", "Coming Soon", false, {})
     };
 }
 
@@ -911,8 +1022,9 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
     std::vector<FApplicationMenuItem> items = {
         FApplicationMenuItem {
             bBuildRunning
-                ? std::string("Status: ") + (buildStatus.empty() ? "Running..." : buildStatus)
-                : std::string("Status: Idle"),
+                ? EditorText("Build.Status", "Status").Resolve() + ": " +
+                    (buildStatus.empty() ? EditorText("Build.Running", "Running...").Resolve() : buildStatus)
+                : EditorText("Build.Status", "Status").Resolve() + ": " + EditorText("Build.Idle", "Idle").Resolve(),
             {},
             {},
             false,
@@ -920,26 +1032,26 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
             {}
         },
         FApplicationMenuItem {"", {}, {}, true, true, {}},
-        FApplicationMenuItem {"Configure Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        MakeEditorMenuItem("Build.ConfigureActiveProfile", "Configure Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->ConfigureProject();
             }
-        }},
-        FApplicationMenuItem {"Build Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Build.BuildActiveProfile", "Build Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->BuildProject();
             }
-        }},
-        FApplicationMenuItem {"Clean Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Build.CleanActiveProfile", "Clean Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->CleanProject();
             }
-        }},
-        FApplicationMenuItem {"Rebuild Active Profile", {}, {}, bHasProject && !bBuildRunning, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Build.RebuildActiveProfile", "Rebuild Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RebuildProject();
             }
-        }},
+        }),
         FApplicationMenuItem {"", {}, {}, true, true, {}}
     };
 
@@ -947,7 +1059,7 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
         workspaceController ? workspaceController->GetActiveBuildProfileName() : std::string();
     if (!activeProfileName.empty()) {
         items.push_back(FApplicationMenuItem {
-            std::string("Active Profile: ") + activeProfileName,
+            EditorText("Build.ActiveProfile", "Active Profile").Resolve() + ": " + activeProfileName,
             {},
             {},
             false,
@@ -965,84 +1077,71 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                 const bool bProbeRefreshing =
                     workspaceController->IsBuildProfileProbeRefreshing(profile.Name);
                 const std::string readinessLabel = bHasProbeReport
-                    ? (probeReport.bReady ? "Ready" : "Needs Setup")
-                    : (bProbeRefreshing ? "Refreshing" : "Unknown");
+                    ? (probeReport.bReady
+                        ? EditorText("Build.Ready", "Ready").Resolve()
+                        : EditorText("Build.NeedsSetup", "Needs Setup").Resolve())
+                    : (bProbeRefreshing
+                        ? EditorText("Build.Refreshing", "Refreshing").Resolve()
+                        : EditorText("Build.Unknown", "Unknown").Resolve());
                 std::vector<FApplicationMenuItem> profileSubItems = {
-                    FApplicationMenuItem {
-                        profile.Name == activeProfileName ? "Active Profile" : "Set Active Profile",
-                        {},
-                        {},
+                    MakeEditorMenuItem(
+                        profile.Name == activeProfileName
+                            ? EditorText("Menu.ActiveProfile", "Active Profile")
+                            : EditorText("Menu.SetActiveProfile", "Set Active Profile"),
                         !bBuildRunning,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->SetActiveBuildProfile(profileName);
                             }
-                        }
-                    },
-                    FApplicationMenuItem {
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.ConfigureThisProfile",
                         "Configure This Profile",
-                        {},
-                        {},
                         !bBuildRunning,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->ConfigureProject(profileName);
                             }
-                        }
-                    },
-                    FApplicationMenuItem {
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.BuildThisProfile",
                         "Build This Profile",
-                        {},
-                        {},
                         !bBuildRunning,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->BuildProject(profileName);
                             }
-                        }
-                    },
-                    FApplicationMenuItem {
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.CleanThisProfile",
                         "Clean This Profile",
-                        {},
-                        {},
                         !bBuildRunning,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->CleanProject(profileName);
                             }
-                        }
-                    },
-                    FApplicationMenuItem {
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.RebuildThisProfile",
                         "Rebuild This Profile",
-                        {},
-                        {},
                         !bBuildRunning,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->RebuildProject(profileName);
                             }
-                        }
-                    },
-                    FApplicationMenuItem {
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.RevealBuildFolder",
                         "Reveal Build Folder",
-                        {},
-                        {},
                         true,
-                        false,
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->RevealProjectBuildDirectory(profileName);
                             }
-                        }
-                    },
+                        }),
                     FApplicationMenuItem {"", {}, {}, true, true, {}},
                     FApplicationMenuItem {
-                        "Target: " + GetTargetPlatformDisplayName(profile.TargetPlatform),
+                        EditorText("ProjectSettings.ProbeTarget", "Target").Resolve() + ": " + GetTargetPlatformDisplayName(profile.TargetPlatform),
                         {},
                         {},
                         false,
@@ -1050,7 +1149,7 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                         {}
                     },
                     FApplicationMenuItem {
-                        "Configuration: " + profile.Configuration,
+                        EditorText("Build.Configuration", "Configuration").Resolve() + ": " + profile.Configuration,
                         {},
                         {},
                         false,
@@ -1058,7 +1157,7 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                         {}
                     },
                     FApplicationMenuItem {
-                        "Probe: " + readinessLabel,
+                        EditorText("ProjectSettings.EnvironmentProbe", "Environment Probe").Resolve() + ": " + readinessLabel,
                         {},
                         {},
                         false,
@@ -1081,17 +1180,17 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
         items.push_back(FApplicationMenuItem {"", {}, {}, true, true, {}});
     }
 
-    items.push_back(FApplicationMenuItem {"Reveal Build Folder", {}, {}, bHasProject, false, [workspaceController]() {
+    items.push_back(MakeEditorMenuItem("Menu.RevealBuildFolder", "Reveal Build Folder", bHasProject, [workspaceController]() {
         if (workspaceController) {
             workspaceController->RevealProjectBuildDirectory();
         }
-    }});
+    }));
 
     items.push_back(FApplicationMenuItem {"", {}, {}, true, true, {}});
     items.push_back(FApplicationMenuItem {
         bHasProject && !activeProfileName.empty()
-            ? std::string("Profile: ") + activeProfileName
-            : std::string("No active build profile"),
+            ? EditorText("Build.Profile", "Profile").Resolve() + ": " + activeProfileName
+            : EditorText("Build.NoActiveBuildProfile", "No active build profile").Resolve(),
         {},
         {},
         false,
@@ -1100,8 +1199,8 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
     });
     items.push_back(FApplicationMenuItem {
         bHasProject
-            ? std::string("Build workflow uses saved project profile settings")
-            : std::string("Build directory not available"),
+            ? EditorText("Build.WorkflowUsesSavedProjectProfileSettings", "Build workflow uses saved project profile settings").Resolve()
+            : EditorText("Build.DirectoryNotAvailable", "Build directory not available").Resolve(),
         {},
         {},
         false,
@@ -1117,59 +1216,59 @@ std::vector<FPopupMenuItem> BuildProjectMenuItems(
     const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     return {
-        FPopupMenuItem {"New App Project...", {}, {}, true, false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Menu.NewAppProject", "New App Project...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->NewAppProject(app);
             }
-        }},
-        FPopupMenuItem {"Open App Project...", {}, {}, true, false, [&app, workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.OpenAppProject", "Open App Project...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->OpenAppProject(app);
             }
-        }},
+        }),
         FPopupMenuItem {"", {}, {}, true, true, {}},
-        FPopupMenuItem {"Open Project Root...", {}, {}, true, false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Menu.OpenProjectRoot", "Open Project Root...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->SelectProjectRoot(app);
             }
-        }},
-        FPopupMenuItem {"Project Settings...", {}, {}, workspaceController && workspaceController->GetProject(), false, [&app, workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.ProjectSettings", "Project Settings...", workspaceController && workspaceController->GetProject(), [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->OpenProjectSettings(app);
             }
-        }},
+        }),
         FPopupMenuItem {"", {}, {}, true, true, {}},
-        FPopupMenuItem {"Generate C++...", {}, {}, true, false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Menu.GenerateCpp", "Generate C++...", true, [&app, workspaceController]() {
             if (workspaceController) {
                 workspaceController->GenerateActiveDocumentCpp(app);
             }
-        }},
+        }),
         FPopupMenuItem {"", {}, {}, true, true, {}},
-        FPopupMenuItem {"New UI Document...", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+        MakeEditorMenuItem("Menu.NewUIDocument", "New UI Document...", workspaceController && !workspaceController->GetProjectRoot().empty(), [&app, workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->CreateDocumentInDirectory(app, workspaceController->GetProjectRoot());
             }
-        }},
-        FPopupMenuItem {"New Folder", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [&app, workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.NewFolder", "New Folder", workspaceController && !workspaceController->GetProjectRoot().empty(), [&app, workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->CreateFolderInDirectory(app, workspaceController->GetProjectRoot());
             }
-        }},
-        FPopupMenuItem {"Refresh Project Tree", {}, {}, true, false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.RefreshProjectTree", "Refresh Project Tree", true, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RefreshProjectTree();
             }
-        }},
-        FPopupMenuItem {"Reveal Project Root", {}, {}, workspaceController && !workspaceController->GetProjectRoot().empty(), false, [workspaceController]() {
+        }),
+        MakeEditorMenuItem("Menu.RevealProjectRoot", "Reveal Project Root", workspaceController && !workspaceController->GetProjectRoot().empty(), [workspaceController]() {
             if (workspaceController && !workspaceController->GetProjectRoot().empty()) {
                 workspaceController->RevealProjectItemInExplorer(workspaceController->GetProjectRoot());
             }
-        }},
+        }),
         FPopupMenuItem {"", {}, {}, true, true, {}},
         FPopupMenuItem {
             workspaceController && !workspaceController->GetProjectRoot().empty()
                 ? workspaceController->GetProjectRoot().string()
-                : std::string("Project root not configured"),
+                : EditorText("Project.WorkspaceRootNotConfigured", "Workspace root not configured").Resolve(),
             {},
             {},
             false,
@@ -1178,6 +1277,11 @@ std::vector<FPopupMenuItem> BuildProjectMenuItems(
         }
     };
 }
+
+void RefreshLocalizedEditorShell(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController);
 
 void RebuildEditorTitleBar(
     ImApplication& app,
@@ -1199,7 +1303,7 @@ void RebuildEditorTitleBar(
     if (shell.TitleBarText) {
         const std::string projectLabel = workspaceController && !workspaceController->GetProjectRoot().empty()
             ? workspaceController->GetProjectRoot().filename().string()
-            : std::string("ImWidgetV4 Editor");
+            : EditorText("App.Title", "ImWidgetV4 Editor").Resolve();
         shell.TitleBarText->SetText(projectLabel);
         shell.TitleBar->AddLeadingItem(shell.TitleBarText);
     }
@@ -1233,8 +1337,12 @@ void RebuildEditorTitleBar(
     shell.TitleBar->AddLeadingItem(buildButton);
 
     auto viewButton = MakeTitleBarTextButton(EditorText("TitleBar.View", "View"));
-    BindPopupMenuButton(app, viewButton, []() {
-        return BuildSimpleMenuItems("View");
+    BindPopupMenuButton(app, viewButton, [&app, &shell, workspaceController]() {
+        return BuildViewMenuItems(
+            app,
+            [&app, &shell, workspaceController]() {
+                RefreshLocalizedEditorShell(app, shell, workspaceController);
+            });
     });
     shell.TitleBar->AddLeadingItem(viewButton);
 
@@ -1281,7 +1389,7 @@ void UpdateEditorTitleBarActions(
     }
 
     if (shell.TitleBarProfileStatusText) {
-        std::string statusText = "No active build profile";
+        std::string statusText = EditorText("Build.NoActiveBuildProfile", "No active build profile").Resolve();
         FColor statusColor = FColor::FromBytes(150, 160, 172);
 
         if (workspaceController) {
@@ -1290,20 +1398,20 @@ void UpdateEditorTitleBarActions(
                 statusText = activeProfileName;
                 if (workspaceController->IsBuildTaskRunning()) {
                     const std::string buildStatus = workspaceController->GetBuildTaskStatusText();
-                    statusText += " | " + (buildStatus.empty() ? std::string("Running") : buildStatus);
+                    statusText += " | " + (buildStatus.empty() ? EditorText("Build.Running", "Running...").Resolve() : buildStatus);
                     statusColor = FColor::FromBytes(103, 177, 255);
                 } else {
                     FEnvironmentProbeReport probeReport;
                     if (workspaceController->TryGetBuildProfileProbeReport(activeProfileName, probeReport)) {
                         if (probeReport.bReady) {
-                            statusText += " | Ready";
+                            statusText += " | " + EditorText("Build.Ready", "Ready").Resolve();
                             statusColor = FColor::FromBytes(125, 204, 138);
                         } else {
-                            statusText += " | Needs Setup";
+                            statusText += " | " + EditorText("Build.NeedsSetup", "Needs Setup").Resolve();
                             statusColor = FColor::FromBytes(230, 184, 104);
                         }
                     } else if (workspaceController->IsBuildProfileProbeRefreshing(activeProfileName)) {
-                        statusText += " | Checking...";
+                        statusText += " | " + EditorText("Build.Checking", "Checking...").Resolve();
                         statusColor = FColor::FromBytes(103, 177, 255);
                     }
                 }
@@ -1335,9 +1443,9 @@ void UpdateBuildOverviewPanel(
     std::vector<std::string> lines;
     if (!workspaceController || !workspaceController->GetProject()) {
         lines = {
-            "No project loaded.",
+            EditorText("Build.NoProjectLoaded", "No project loaded.").Resolve(),
             "",
-            "Open or create an app project to inspect toolchain readiness."
+            EditorText("Build.OpenOrCreateProjectHint", "Open or create an app project to inspect toolchain readiness.").Resolve()
         };
         shell.BuildOverviewText->SetItems(lines);
         return;
@@ -1349,35 +1457,38 @@ void UpdateBuildOverviewPanel(
     const std::shared_ptr<EditorProject> project = workspaceController->GetProject();
     const FEditorBuildProfile* activeProfile =
         (project && !activeProfileName.empty()) ? project->FindBuildProfile(activeProfileName) : nullptr;
-    lines.push_back("Active Profile: " + (activeProfileName.empty() ? std::string("None") : activeProfileName));
-    lines.push_back("Build Status: " + (workspaceController->IsBuildTaskRunning()
+    lines.push_back(EditorText("Build.ActiveProfile", "Active Profile").Resolve() + ": " +
+        (activeProfileName.empty() ? EditorText("Common.None", "None").Resolve() : activeProfileName));
+    lines.push_back(EditorText("Build.Status", "Status").Resolve() + ": " + (workspaceController->IsBuildTaskRunning()
         ? workspaceController->GetBuildTaskStatusText()
-        : std::string("Idle")));
+        : EditorText("Build.Idle", "Idle").Resolve()));
     if (bProbeRefreshing) {
-        lines.push_back("Probe Ready: Refreshing...");
+        lines.push_back(EditorText("Build.ProbeReady", "Probe Ready").Resolve() + ": " + EditorText("Build.Refreshing", "Refreshing").Resolve() + "...");
     } else if (!probeReport.Items.empty()) {
-        lines.push_back("Probe Ready: " + std::string(probeReport.bReady ? "Yes" : "No"));
+        lines.push_back(EditorText("Build.ProbeReady", "Probe Ready").Resolve() + ": " +
+            (probeReport.bReady ? EditorText("Common.Yes", "Yes").Resolve() : EditorText("Common.No", "No").Resolve()));
     } else {
-        lines.push_back("Probe Ready: Unknown");
+        lines.push_back(EditorText("Build.ProbeReady", "Probe Ready").Resolve() + ": " + EditorText("Build.Unknown", "Unknown").Resolve());
     }
     lines.push_back("");
 
     if (activeProfile != nullptr) {
-        lines.push_back("Profile Details:");
-        lines.push_back("  Target: " + GetTargetPlatformDisplayName(activeProfile->TargetPlatform));
-        lines.push_back("  Configuration: " + activeProfile->Configuration);
-        lines.push_back("  Generator: " + (activeProfile->Generator.empty() ? std::string("Default") : activeProfile->Generator));
-        lines.push_back("  Build Directory: " + ResolveBuildDirectoryPath(project->GetProjectRoot(), *activeProfile).string());
+        lines.push_back(EditorText("Build.ProfileDetails", "Profile Details").Resolve() + ":");
+        lines.push_back("  " + EditorText("ProjectSettings.ProbeTarget", "Target").Resolve() + ": " + GetTargetPlatformDisplayName(activeProfile->TargetPlatform));
+        lines.push_back("  " + EditorText("Build.Configuration", "Configuration").Resolve() + ": " + activeProfile->Configuration);
+        lines.push_back("  " + EditorText("Build.Generator", "Generator").Resolve() + ": " +
+            (activeProfile->Generator.empty() ? EditorText("Common.Default", "Default").Resolve() : activeProfile->Generator));
+        lines.push_back("  " + EditorText("Build.Directory", "Build Directory").Resolve() + ": " + ResolveBuildDirectoryPath(project->GetProjectRoot(), *activeProfile).string());
 
         if (activeProfile->TargetPlatform == EEditorTargetPlatform::Android) {
             lines.push_back("  Android ABI: " + activeProfile->AndroidSettings.Abi);
             lines.push_back("  Android API: " + std::to_string(activeProfile->AndroidSettings.ApiLevel));
             lines.push_back("  Android STL: " + activeProfile->AndroidSettings.Stl);
             if (!activeProfile->AndroidSettings.SdkRootOverride.empty()) {
-                lines.push_back("  SDK Override: " + activeProfile->AndroidSettings.SdkRootOverride.string());
+                lines.push_back("  " + EditorText("Build.SdkOverride", "SDK Override").Resolve() + ": " + activeProfile->AndroidSettings.SdkRootOverride.string());
             }
             if (!activeProfile->AndroidSettings.NdkRootOverride.empty()) {
-                lines.push_back("  NDK Override: " + activeProfile->AndroidSettings.NdkRootOverride.string());
+                lines.push_back("  " + EditorText("Build.NdkOverride", "NDK Override").Resolve() + ": " + activeProfile->AndroidSettings.NdkRootOverride.string());
             }
         }
 
@@ -1385,10 +1496,10 @@ void UpdateBuildOverviewPanel(
     }
 
     if (bProbeRefreshing) {
-        lines.push_back("Environment Probe:");
-        lines.push_back("  Refreshing toolchain status...");
+        lines.push_back(EditorText("ProjectSettings.EnvironmentProbe", "Environment Probe").Resolve() + ":");
+        lines.push_back("  " + EditorText("Build.RefreshingToolchainStatus", "Refreshing toolchain status...").Resolve());
     } else if (probeReport.Items.empty()) {
-        lines.push_back("No probe data available.");
+        lines.push_back(EditorText("Build.NoProbeDataAvailable", "No probe data available.").Resolve());
     } else {
         std::vector<std::string> missingItems;
         for (const FEnvironmentProbeItem& item : probeReport.Items) {
@@ -1398,15 +1509,15 @@ void UpdateBuildOverviewPanel(
         }
 
         if (!missingItems.empty()) {
-            lines.push_back("Setup Needed:");
+            lines.push_back(EditorText("Build.SetupNeeded", "Setup Needed").Resolve() + ":");
             for (const std::string& missingItem : missingItems) {
-                lines.push_back("  Missing " + missingItem);
+                lines.push_back("  " + EditorText("Build.Missing", "Missing").Resolve() + " " + missingItem);
             }
-            lines.push_back("  Use Settings to update this profile and re-probe.");
+            lines.push_back("  " + EditorText("Build.UseSettingsToUpdateProfile", "Use Settings to update this profile and re-probe.").Resolve());
             lines.push_back("");
         }
 
-        lines.push_back("Environment Probe:");
+        lines.push_back(EditorText("ProjectSettings.EnvironmentProbe", "Environment Probe").Resolve() + ":");
         for (const FEnvironmentProbeItem& item : probeReport.Items) {
             lines.push_back("  " + item.Label + " [" + ToDisplayString(item.Status) + "]");
             if (!item.Details.empty()) {
@@ -1418,7 +1529,7 @@ void UpdateBuildOverviewPanel(
     const std::vector<std::string> outputLines = workspaceController->GetOutputLines();
     if (!outputLines.empty()) {
         lines.push_back("");
-        lines.push_back("Recent Output:");
+        lines.push_back(EditorText("Build.RecentOutput", "Recent Output").Resolve() + ":");
         const std::size_t previewCount = std::min<std::size_t>(5, outputLines.size());
         for (std::size_t index = outputLines.size() - previewCount; index < outputLines.size(); ++index) {
             lines.push_back("  " + outputLines[index]);
@@ -1579,6 +1690,24 @@ void UpdateBuildDockActions(
     }
 }
 
+void RefreshLocalizedEditorShell(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    app.SetApplicationTitle(EditorText("App.Title", "ImWidgetV4 Editor").Resolve());
+    RebuildEditorTitleBar(app, shell, workspaceController);
+    UpdateEditorTitleBarActions(app, shell, workspaceController);
+    UpdateBuildOverviewPanel(shell, workspaceController);
+    UpdateBuildDockActions(shell, app, workspaceController);
+    if (workspaceController) {
+        workspaceController->RefreshProjectTree();
+    }
+    if (shell.DetailsView) {
+        shell.DetailsView->RebuildPreservingViewState();
+    }
+}
+
 } // namespace
 
 class FEditorApplicationHostDelegate : public IApplicationHostDelegate
@@ -1604,6 +1733,9 @@ public:
         std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
 
         WorkspaceStatePath_ = GetEditorWorkspaceStatePath();
+        if (const std::string savedCulture = LoadSavedEditorCulture(WorkspaceStatePath_); !savedCulture.empty()) {
+            app.SetCulture(savedCulture);
+        }
 
         Shell_ = BuildEditorShell();
         WorkspaceController_ = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
@@ -1781,7 +1913,7 @@ public:
                 }
 
                 FOpenFolderDialogOptions options;
-                options.Title = "Select Android SDK Root";
+                options.Title = EditorText("ProjectSettings.SelectAndroidSdkRoot", "Select Android SDK Root").Resolve();
                 if (!Shell_.BuildDraftAndroidSdkRoot.empty()) {
                     options.InitialDirectory = std::filesystem::path(Shell_.BuildDraftAndroidSdkRoot);
                 } else if (const std::shared_ptr<EditorProject> project = WorkspaceController_->GetProject()) {
@@ -1821,7 +1953,7 @@ public:
                 }
 
                 FOpenFolderDialogOptions options;
-                options.Title = "Select Android NDK Root";
+                options.Title = EditorText("ProjectSettings.SelectAndroidNdkRoot", "Select Android NDK Root").Resolve();
                 if (!Shell_.BuildDraftAndroidNdkRoot.empty()) {
                     options.InitialDirectory = std::filesystem::path(Shell_.BuildDraftAndroidNdkRoot);
                 } else if (const std::shared_ptr<EditorProject> project = WorkspaceController_->GetProject()) {
@@ -1940,11 +2072,12 @@ public:
         return WorkspaceController_->RequestApplicationClose(app);
     }
 
-    void OnShutdown(ImApplication&) override
+    void OnShutdown(ImApplication& app) override
     {
         if (WorkspaceController_) {
             WorkspaceController_->SaveWorkspaceState(WorkspaceStatePath_);
         }
+        SaveEditorCulture(WorkspaceStatePath_, app.GetCulture());
     }
 
 private:
@@ -1960,6 +2093,9 @@ private:
             WorkspaceController_->SetProjectRoot(defaultWorkspaceDirectory);
         }
         WorkspaceController_->EnsureAtLeastOneSession();
+        if (BoundApplication_ != nullptr) {
+            RefreshLocalizedEditorShell(*BoundApplication_, Shell_, WorkspaceController_);
+        }
     }
 
     FEditorShellWidgets Shell_;

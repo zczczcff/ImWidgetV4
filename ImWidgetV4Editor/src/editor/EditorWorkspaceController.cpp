@@ -398,6 +398,33 @@ std::vector<std::string> GetAvailableProjectTemplateNames()
     return {"Blank App"};
 }
 
+FPopupMenuItem MakeEditorMenuItem(
+    const std::string& key,
+    const std::string& defaultText,
+    bool bEnabled,
+    std::function<void()> onInvoked)
+{
+    FPopupMenuItem item;
+    item.Text = defaultText;
+    item.TextValue = EditorText(key, defaultText);
+    item.bEnabled = bEnabled;
+    item.OnInvoked = std::move(onInvoked);
+    return item;
+}
+
+FPopupMenuItem MakeEditorMenuItem(
+    const FText& text,
+    bool bEnabled,
+    std::function<void()> onInvoked)
+{
+    FPopupMenuItem item;
+    item.Text = text.GetInvariantText();
+    item.TextValue = text;
+    item.bEnabled = bEnabled;
+    item.OnInvoked = std::move(onInvoked);
+    return item;
+}
+
 std::string BuildBackgroundTaskDisplayName(int kind)
 {
     switch (kind) {
@@ -602,15 +629,15 @@ void EditorWorkspaceController::EndBatchUiUpdate(bool bForceRefresh)
 bool EditorWorkspaceController::SelectProjectRoot(ImApplication& app)
 {
     FOpenFolderDialogOptions options;
-    options.Title = "Select Project Root";
+    options.Title = EditorText("Workspace.SelectProjectRoot", "Select Project Root").Resolve();
     options.InitialDirectory = m_ProjectRoot.empty() ? GetDefaultEditorWorkspaceDirectory() : m_ProjectRoot;
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
-            m_OutputText->SetItems({"Select project root is unsupported by the active platform backend."});
+            m_OutputText->SetItems({EditorText("Workspace.SelectProjectRootUnsupported", "Select project root is unsupported by the active platform backend.")});
         } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
-            m_OutputText->SetItems({"Select project root failed: " + dialogResult.ErrorMessage});
+            m_OutputText->SetItems({FText::FromString(EditorText("Workspace.SelectProjectRootFailed", "Select project root failed").Resolve() + ": " + dialogResult.ErrorMessage)});
         }
         return false;
     }
@@ -652,7 +679,7 @@ bool EditorWorkspaceController::RequestProjectRootChange(
 
     SetProjectRoot(normalizedTarget);
     if (m_OutputText) {
-        m_OutputText->SetItems({"Project root: " + normalizedTarget.string()});
+        m_OutputText->SetItems({FText::FromString(EditorText("Workspace.ProjectRoot", "Project root").Resolve() + ": " + normalizedTarget.string())});
     }
     return true;
 }
@@ -967,15 +994,15 @@ bool EditorWorkspaceController::NewAppProject(ImApplication& app)
     }
 
     FOpenFolderDialogOptions options;
-    options.Title = "Select New Project Parent Directory";
+    options.Title = EditorText("NewProject.SelectParentDirectory", "Select New Project Parent Directory").Resolve();
     options.InitialDirectory = m_ProjectRoot.empty() ? GetDefaultEditorWorkspaceDirectory() : m_ProjectRoot;
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
-            m_OutputText->SetItems({"Create project is unsupported by the active platform backend."});
+            m_OutputText->SetItems({EditorText("NewProject.Unsupported", "Create project is unsupported by the active platform backend.")});
         } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
-            m_OutputText->SetItems({"Create project failed: " + dialogResult.ErrorMessage});
+            m_OutputText->SetItems({FText::FromString(EditorText("NewProject.CreateFailed", "Create project failed").Resolve() + ": " + dialogResult.ErrorMessage)});
         }
         return false;
     }
@@ -994,15 +1021,15 @@ bool EditorWorkspaceController::OpenAppProject(ImApplication& app)
     }
 
     FOpenFolderDialogOptions options;
-    options.Title = "Select App Project Root";
+    options.Title = EditorText("Project.SelectAppProjectRoot", "Select App Project Root").Resolve();
     options.InitialDirectory = m_ProjectRoot.empty() ? GetDefaultEditorWorkspaceDirectory() : m_ProjectRoot;
 
     const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported && m_OutputText) {
-            m_OutputText->SetItems({"Open project is unsupported by the active platform backend."});
+            m_OutputText->SetItems({EditorText("Project.OpenUnsupported", "Open project is unsupported by the active platform backend.")});
         } else if (dialogResult.Code == EPathDialogResultCode::Error && m_OutputText) {
-            m_OutputText->SetItems({"Open project failed: " + dialogResult.ErrorMessage});
+            m_OutputText->SetItems({FText::FromString(EditorText("Project.OpenFailed", "Open project failed").Resolve() + ": " + dialogResult.ErrorMessage)});
         }
         return false;
     }
@@ -1013,7 +1040,7 @@ bool EditorWorkspaceController::OpenAppProject(ImApplication& app)
 bool EditorWorkspaceController::OpenProjectSettings(ImApplication& app)
 {
     if (!m_Project) {
-        AppendOutputLine("Project settings unavailable: no active project.");
+        AppendOutputLine(EditorText("ProjectSettings.UnavailableNoActiveProject", "Project settings unavailable: no active project.").Resolve());
         return false;
     }
 
@@ -1044,7 +1071,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
     std::string manifestError;
     if (!project->Load(EditorProject::BuildManifestFilePath(resolvedRoot), &manifestError)) {
         if (m_OutputText) {
-            m_OutputText->SetItems({"Open project failed: " + manifestError});
+            m_OutputText->SetItems({FText::FromString(EditorText("Project.OpenFailed", "Open project failed").Resolve() + ": " + manifestError)});
         }
         return false;
     }
@@ -1058,7 +1085,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
         std::shared_ptr<EditorSession> session = CreateSession();
         if (!session || !session->OpenDocumentFromPath(startupDocumentPath) || !AddSession(session, true)) {
             if (m_OutputText) {
-                m_OutputText->SetItems({"Project opened, but startup document could not be loaded."});
+                m_OutputText->SetItems({EditorText("Project.OpenedStartupLoadFailed", "Project opened, but startup document could not be loaded.")});
             }
             RebuildProjectView();
             NotifyProjectStateChanged();
@@ -1073,7 +1100,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
     RebuildProjectView();
     NotifyProjectStateChanged();
     if (m_OutputText) {
-        m_OutputText->SetItems({"Opened app project " + project->GetProjectName()});
+        m_OutputText->SetItems({FText::FromString(EditorText("Project.OpenedAppProject", "Opened app project").Resolve() + " " + project->GetProjectName())});
     }
     return true;
 }
@@ -1081,7 +1108,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
 bool EditorWorkspaceController::ConfigureProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Configure failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.ConfigureFailedProjectRootNotConfigured", "Configure failed: project root not configured.").Resolve());
         return false;
     }
 
@@ -1091,14 +1118,14 @@ bool EditorWorkspaceController::ConfigureProject()
 bool EditorWorkspaceController::ConfigureProject(const std::string& profileName)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Configure failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.ConfigureFailedProjectRootNotConfigured", "Configure failed: project root not configured.").Resolve());
         return false;
     }
 
     const std::string resolvedProfileName =
         profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
-        AppendOutputLine("Configure failed: build profile not found.");
+        AppendOutputLine(EditorText("Build.ConfigureFailedProfileNotFound", "Configure failed: build profile not found.").Resolve());
         return false;
     }
 
@@ -1108,7 +1135,7 @@ bool EditorWorkspaceController::ConfigureProject(const std::string& profileName)
 bool EditorWorkspaceController::BuildProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Build failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.BuildFailedProjectRootNotConfigured", "Build failed: project root not configured.").Resolve());
         return false;
     }
 
@@ -1118,14 +1145,14 @@ bool EditorWorkspaceController::BuildProject()
 bool EditorWorkspaceController::BuildProject(const std::string& profileName)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Build failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.BuildFailedProjectRootNotConfigured", "Build failed: project root not configured.").Resolve());
         return false;
     }
 
     const std::string resolvedProfileName =
         profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
-        AppendOutputLine("Build failed: build profile not found.");
+        AppendOutputLine(EditorText("Build.BuildFailedProfileNotFound", "Build failed: build profile not found.").Resolve());
         return false;
     }
 
@@ -1135,7 +1162,7 @@ bool EditorWorkspaceController::BuildProject(const std::string& profileName)
 bool EditorWorkspaceController::CleanProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Clean failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.CleanFailedProjectRootNotConfigured", "Clean failed: project root not configured.").Resolve());
         return false;
     }
 
@@ -1145,14 +1172,14 @@ bool EditorWorkspaceController::CleanProject()
 bool EditorWorkspaceController::CleanProject(const std::string& profileName)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Clean failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.CleanFailedProjectRootNotConfigured", "Clean failed: project root not configured.").Resolve());
         return false;
     }
 
     const std::string resolvedProfileName =
         profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
-        AppendOutputLine("Clean failed: build profile not found.");
+        AppendOutputLine(EditorText("Build.CleanFailedProfileNotFound", "Clean failed: build profile not found.").Resolve());
         return false;
     }
 
@@ -1162,7 +1189,7 @@ bool EditorWorkspaceController::CleanProject(const std::string& profileName)
 bool EditorWorkspaceController::RebuildProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Rebuild failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.RebuildFailedProjectRootNotConfigured", "Rebuild failed: project root not configured.").Resolve());
         return false;
     }
 
@@ -1172,14 +1199,14 @@ bool EditorWorkspaceController::RebuildProject()
 bool EditorWorkspaceController::RebuildProject(const std::string& profileName)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
-        AppendOutputLine("Rebuild failed: project root not configured.");
+        AppendOutputLine(EditorText("Build.RebuildFailedProjectRootNotConfigured", "Rebuild failed: project root not configured.").Resolve());
         return false;
     }
 
     const std::string resolvedProfileName =
         profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
-        AppendOutputLine("Rebuild failed: build profile not found.");
+        AppendOutputLine(EditorText("Build.RebuildFailedProfileNotFound", "Rebuild failed: build profile not found.").Resolve());
         return false;
     }
 
@@ -2191,10 +2218,12 @@ void EditorWorkspaceController::OpenRenameProjectItemDialog(
     auto weakThis = weak_from_this();
     FInputDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "RenameProjectItemDialog";
-    dialogOptions.HeadingText = std::filesystem::is_directory(path) ? "Rename Folder" : "Rename File";
+    dialogOptions.HeadingText = std::filesystem::is_directory(path)
+        ? EditorText("Project.RenameFolder", "Rename Folder").Resolve()
+        : EditorText("Project.RenameFile", "Rename File").Resolve();
     dialogOptions.InitialText = path.filename().string();
-    dialogOptions.ConfirmText = "Rename";
-    dialogOptions.CancelText = "Cancel";
+    dialogOptions.ConfirmText = EditorText("Project.Rename", "Rename").Resolve();
+    dialogOptions.CancelText = EditorText("Common.Cancel", "Cancel").Resolve();
     dialogOptions.Size = FVector2(360.0f, 116.0f);
     dialogOptions.bSelectAllOnOpen = true;
     dialogOptions.OnConfirm = [weakThis](const std::string& newName) {
@@ -2239,12 +2268,12 @@ void EditorWorkspaceController::OpenCreateDocumentDialog(
         BuildUniqueChildFilePath(directoryPath, "NewWidget", ".ui.json");
     FInputDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "CreateDocumentDialog";
-    dialogOptions.HeadingText = "Create UI Document";
+    dialogOptions.HeadingText = EditorText("Project.CreateUIDocument", "Create UI Document").Resolve();
     dialogOptions.InitialText = defaultDocumentPath.empty()
         ? std::string("NewWidget.ui.json")
         : defaultDocumentPath.filename().string();
-    dialogOptions.ConfirmText = "Create";
-    dialogOptions.CancelText = "Cancel";
+    dialogOptions.ConfirmText = EditorText("Project.Create", "Create").Resolve();
+    dialogOptions.CancelText = EditorText("Common.Cancel", "Cancel").Resolve();
     dialogOptions.Size = FVector2(400.0f, 116.0f);
     dialogOptions.bSelectAllOnOpen = true;
     dialogOptions.OnConfirm = [weakThis, directoryPath](const std::string& fileName) {
@@ -2294,7 +2323,7 @@ void EditorWorkspaceController::OpenCreateAppProjectDialog(
         BuildUniqueChildPath(parentDirectory, "NewAppProject");
     FNewAppProjectDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "CreateAppProjectDialog";
-    dialogOptions.HeadingText = "Create App Project";
+    dialogOptions.HeadingText = EditorText("NewProject.CreateAppProject", "Create App Project").Resolve();
     dialogOptions.ParentDirectory = parentDirectory;
     dialogOptions.InitialOptions.ProjectName = defaultProjectPath.empty()
         ? std::string("NewAppProject")
@@ -2305,8 +2334,8 @@ void EditorWorkspaceController::OpenCreateAppProjectDialog(
     dialogOptions.InitialOptions.TemplateName = "Blank App";
     dialogOptions.TemplateOptions = GetAvailableProjectTemplateNames();
     dialogOptions.InitialTemplateIndex = 0;
-    dialogOptions.ConfirmText = "Create";
-    dialogOptions.CancelText = "Cancel";
+    dialogOptions.ConfirmText = EditorText("Project.Create", "Create").Resolve();
+    dialogOptions.CancelText = EditorText("Common.Cancel", "Cancel").Resolve();
     dialogOptions.Size = FVector2(520.0f, 316.0f);
     dialogOptions.OnConfirm = [weakThis, parentDirectory](const FCreateAppProjectOptions& options) {
         if (auto self = weakThis.lock()) {
@@ -2380,12 +2409,12 @@ void EditorWorkspaceController::OpenCreateFolderDialog(
     const std::filesystem::path defaultFolderPath = BuildUniqueChildPath(directoryPath, "NewFolder");
     FInputDialogOptions dialogOptions;
     dialogOptions.PopupTitle = "CreateFolderDialog";
-    dialogOptions.HeadingText = "Create Folder";
+    dialogOptions.HeadingText = EditorText("Project.CreateFolder", "Create Folder").Resolve();
     dialogOptions.InitialText = defaultFolderPath.empty()
         ? std::string("NewFolder")
         : defaultFolderPath.filename().string();
-    dialogOptions.ConfirmText = "Create";
-    dialogOptions.CancelText = "Cancel";
+    dialogOptions.ConfirmText = EditorText("Project.Create", "Create").Resolve();
+    dialogOptions.CancelText = EditorText("Common.Cancel", "Cancel").Resolve();
     dialogOptions.Size = FVector2(360.0f, 116.0f);
     dialogOptions.bSelectAllOnOpen = true;
     dialogOptions.OnConfirm = [weakThis, directoryPath](const std::string& folderName) {
@@ -2653,25 +2682,20 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Menu.Activate",
         "Activate",
-        {},
-        {},
         true,
-        false,
         [weakThis, index]() {
             if (auto self = weakThis.lock()) {
                 self->ActivateDocumentAt(index);
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeEditorMenuItem(
+        "Menu.Save",
         "Save",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app, index]() {
             if (auto self = weakThis.lock()) {
                 self->ActivateDocumentAt(index);
@@ -2680,14 +2704,11 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
                 }
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeEditorMenuItem(
+        "Menu.SaveAs",
         "Save As...",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app, index]() {
             if (auto self = weakThis.lock()) {
                 self->ActivateDocumentAt(index);
@@ -2696,15 +2717,12 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
                 }
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
+        }));
     items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Common.Close",
         "Close",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app, index]() {
             if (auto self = weakThis.lock()) {
                 self->ActivateDocumentAt(index);
@@ -2713,14 +2731,11 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
                 }
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeEditorMenuItem(
+        "Menu.CloseOthers",
         "Close Others",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app, index]() {
             if (auto self = weakThis.lock()) {
                 self->ActivateDocumentAt(index);
@@ -2729,14 +2744,11 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
                 }
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeEditorMenuItem(
+        "Menu.CloseAll",
         "Close All",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app]() {
             if (auto self = weakThis.lock()) {
                 if (application) {
@@ -2744,8 +2756,7 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
                 }
                 self->CloseDocumentTabContextMenu();
             }
-        }
-    });
+        }));
     popupMenu->SetItems(std::move(items));
     popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
         if (auto self = weakThis.lock()) {
@@ -2805,26 +2816,21 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
     std::vector<FPopupMenuItem> items;
 
     if (binding.Kind == EProjectItemKind::OpenDocument) {
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.Activate",
             "Activate",
-            {},
-            {},
             true,
-            false,
             [weakThis, index = binding.Index]() {
                 if (auto self = weakThis.lock()) {
                     self->ActivateDocumentAt(index);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
 
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.Save",
             "Save",
-            {},
-            {},
             true,
-            false,
             [weakThis, index = binding.Index, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     self->ActivateDocumentAt(index);
@@ -2833,15 +2839,12 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
 
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.SaveAs",
             "Save As...",
-            {},
-            {},
             true,
-            false,
             [weakThis, index = binding.Index, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     self->ActivateDocumentAt(index);
@@ -2850,15 +2853,12 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
 
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Common.Close",
             "Close",
-            {},
-            {},
             true,
-            false,
             [weakThis, index = binding.Index, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     self->ActivateDocumentAt(index);
@@ -2867,90 +2867,73 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
     }
 
     if (binding.Kind == EProjectItemKind::RecentFile ||
         binding.Kind == EProjectItemKind::WorkspaceFile) {
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.Open",
             "Open",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path]() {
                 if (auto self = weakThis.lock()) {
                     self->OpenDocumentFromPath(path);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
     }
 
     if (binding.Kind == EProjectItemKind::BuildProfile) {
         const bool bBuildRunning = IsBuildTaskRunning();
         const bool bIsActiveProfile = m_Project && binding.ProfileName == m_Project->GetActiveBuildProfileName();
 
-        items.push_back(FPopupMenuItem {
-            bIsActiveProfile ? "Active Profile" : "Set Active Profile",
-            {},
-            {},
+        items.push_back(MakeEditorMenuItem(
+            bIsActiveProfile
+                ? EditorText("Menu.ActiveProfile", "Active Profile")
+                : EditorText("Menu.SetActiveProfile", "Set Active Profile"),
             !bBuildRunning && !binding.ProfileName.empty(),
-            false,
             [weakThis, profileName = binding.ProfileName]() {
                 if (auto self = weakThis.lock()) {
                     self->SetActiveBuildProfile(profileName);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
-        items.push_back(FPopupMenuItem {
+            }));
+        items.push_back(MakeEditorMenuItem(
+            "Menu.ConfigureThisProfile",
             "Configure This Profile",
-            {},
-            {},
             !bBuildRunning && !binding.ProfileName.empty(),
-            false,
             [weakThis, profileName = binding.ProfileName]() {
                 if (auto self = weakThis.lock()) {
                     self->ConfigureProject(profileName);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
-        items.push_back(FPopupMenuItem {
+            }));
+        items.push_back(MakeEditorMenuItem(
+            "Menu.BuildThisProfile",
             "Build This Profile",
-            {},
-            {},
             !bBuildRunning && !binding.ProfileName.empty(),
-            false,
             [weakThis, profileName = binding.ProfileName]() {
                 if (auto self = weakThis.lock()) {
                     self->BuildProject(profileName);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
-        items.push_back(FPopupMenuItem {
+            }));
+        items.push_back(MakeEditorMenuItem(
+            "Menu.RevealBuildFolder",
             "Reveal Build Folder",
-            {},
-            {},
             !binding.ProfileName.empty(),
-            false,
             [weakThis, profileName = binding.ProfileName]() {
                 if (auto self = weakThis.lock()) {
                     self->RevealProjectBuildDirectory(profileName);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
         items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.ProjectSettings",
             "Project Settings...",
-            {},
-            {},
             true,
-            false,
             [weakThis, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
@@ -2958,18 +2941,15 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
     }
 
     if (binding.Kind == EProjectItemKind::WorkspaceDirectory ||
         binding.Kind == EProjectItemKind::WorkspaceFile) {
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.SetAsProjectRoot",
             "Set As Project Root",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path, kind = binding.Kind, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
@@ -2979,17 +2959,14 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
     }
 
     if (binding.Kind == EProjectItemKind::WorkspaceDirectory) {
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.NewUIDocument",
             "New UI Document...",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
@@ -2997,15 +2974,12 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
 
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.NewFolder",
             "New Folder",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
@@ -3013,84 +2987,68 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
                     }
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
 
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.RefreshThisFolder",
             "Refresh This Folder",
-            {},
-            {},
             true,
-            false,
             [weakThis]() {
                 if (auto self = weakThis.lock()) {
                     self->RefreshProjectTree();
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
+            }));
     }
 
     if (binding.Kind == EProjectItemKind::WorkspaceDirectory ||
         binding.Kind == EProjectItemKind::WorkspaceFile) {
         items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-        items.push_back(FPopupMenuItem {
+        items.push_back(MakeEditorMenuItem(
+            "Menu.Rename",
             "Rename...",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
                         self->OpenRenameProjectItemDialog(*application, path);
                     }
                 }
-            }
-        });
-        items.push_back(FPopupMenuItem {
-            "Reveal in Explorer",
-            {},
-            {},
+            }));
+        items.push_back(MakeEditorMenuItem(
+            "Menu.RevealInFileManager",
+            "Reveal in File Manager",
             true,
-            false,
             [weakThis, path = binding.Path]() {
                 if (auto self = weakThis.lock()) {
                     self->RevealProjectItemInExplorer(path);
                     self->CloseProjectItemContextMenu();
                 }
-            }
-        });
-        items.push_back(FPopupMenuItem {
+            }));
+        items.push_back(MakeEditorMenuItem(
+            "Menu.Delete",
             "Delete",
-            {},
-            {},
             true,
-            false,
             [weakThis, path = binding.Path, application = &app]() {
                 if (auto self = weakThis.lock()) {
                     if (application) {
                         self->PromptDeleteProjectItem(*application, path);
                     }
                 }
-            }
-        });
+            }));
     }
 
     items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Menu.RefreshProjectTree",
         "Refresh Project Tree",
-        {},
-        {},
         true,
-        false,
         [weakThis]() {
             if (auto self = weakThis.lock()) {
                 self->RefreshProjectTree();
                 self->CloseProjectItemContextMenu();
             }
-        }
-    });
+        }));
 
     popupMenu->SetItems(std::move(items));
     popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {

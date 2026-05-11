@@ -1,5 +1,6 @@
 #include "ProjectSettingsDialog.h"
 
+#include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
 #include <imwidgetv4/core/WindowManager.h>
@@ -34,8 +35,11 @@ FVector2 MaxSize(const FVector2& left, const FVector2& right)
 std::vector<std::string> BuildProbeLines(const FEnvironmentProbeReport& report)
 {
     std::vector<std::string> lines;
-    lines.push_back("Target: " + GetTargetPlatformDisplayName(report.TargetPlatform));
-    lines.push_back(std::string("Ready: ") + (report.bReady ? "Yes" : "No"));
+    lines.push_back(EditorText("ProjectSettings.ProbeTarget", "Target").Resolve() + ": " + GetTargetPlatformDisplayName(report.TargetPlatform));
+    lines.push_back(EditorText("ProjectSettings.ProbeReady", "Ready").Resolve() + ": " +
+        (report.bReady
+            ? EditorText("Common.Yes", "Yes").Resolve()
+            : EditorText("Common.No", "No").Resolve()));
     lines.push_back("");
     for (const FEnvironmentProbeItem& item : report.Items) {
         lines.push_back(item.Label + " [" + ToDisplayString(item.Status) + "]");
@@ -75,7 +79,7 @@ std::vector<std::string> GetWindowsGeneratorOptions()
 
 std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
 {
-    return generator.empty() ? std::string("Default") : generator;
+    return generator.empty() ? EditorText("Common.Default", "Default").Resolve() : generator;
 }
 
 std::shared_ptr<ImHorizontalBox> MakePathOverrideEditorRow(
@@ -133,45 +137,45 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
 
     auto androidSdkRootEditor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*androidSdkRootEditor, false);
-    androidSdkRootEditor->SetHintText("Override Android SDK root");
+    androidSdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidSdkRoot", "Override Android SDK root"));
 
     auto androidSdkBrowseButton = std::make_shared<ImButton>();
     androidSdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
-    androidSdkBrowseButton->SetText("Browse");
+    androidSdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidSdkClearButton = std::make_shared<ImButton>();
     androidSdkClearButton->SetStyle(MakeDialogButtonStyle(false));
-    androidSdkClearButton->SetText("Clear");
+    androidSdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto androidNdkRootEditor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*androidNdkRootEditor, false);
-    androidNdkRootEditor->SetHintText("Override Android NDK root");
+    androidNdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidNdkRoot", "Override Android NDK root"));
 
     auto androidNdkBrowseButton = std::make_shared<ImButton>();
     androidNdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
-    androidNdkBrowseButton->SetText("Browse");
+    androidNdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidNdkClearButton = std::make_shared<ImButton>();
     androidNdkClearButton->SetStyle(MakeDialogButtonStyle(false));
-    androidNdkClearButton->SetText("Clear");
+    androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(8.0f);
-    windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Windows Generator", windowsGeneratorComboBox), FMargin(0.0f));
+    windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.WindowsGenerator", "Windows Generator").Resolve(), windowsGeneratorComboBox), FMargin(0.0f));
 
     auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
     androidSettingsGroup->SetSpacing(8.0f);
-    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android ABI", androidAbiComboBox), FMargin(0.0f));
-    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android API Level", androidApiLevelEditor), FMargin(0.0f));
-    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow("Android STL", androidStlComboBox), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.AndroidAbi", "Android ABI").Resolve(), androidAbiComboBox), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.AndroidApiLevel", "Android API Level").Resolve(), androidApiLevelEditor), FMargin(0.0f));
+    androidSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.AndroidStl", "Android STL").Resolve(), androidStlComboBox), FMargin(0.0f));
     androidSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow(
-            "Android SDK Root",
+            EditorText("Build.AndroidSdkRoot", "Android SDK Root").Resolve(),
             MakePathOverrideEditorRow(androidSdkRootEditor, androidSdkBrowseButton, androidSdkClearButton)),
         FMargin(0.0f));
     androidSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow(
-            "Android NDK Root",
+            EditorText("Build.AndroidNdkRoot", "Android NDK Root").Resolve(),
             MakePathOverrideEditorRow(androidNdkRootEditor, androidNdkBrowseButton, androidNdkClearButton)),
         FMargin(0.0f));
 
@@ -199,25 +203,25 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
 
     auto confirmButton = std::make_shared<ImButton>();
     confirmButton->SetStyle(MakeDialogButtonStyle(true));
-    confirmButton->SetText("Apply");
+    confirmButton->SetText(EditorText("Build.Apply", "Apply"));
 
     auto reprobeButton = std::make_shared<ImButton>();
     reprobeButton->SetStyle(MakeDialogButtonStyle(false));
-    reprobeButton->SetText("Re-Probe");
+    reprobeButton->SetText(EditorText("Build.ReProbe", "Re-Probe"));
 
     auto cancelButton = std::make_shared<ImButton>();
     cancelButton->SetStyle(MakeDialogButtonStyle(false));
-    cancelButton->SetText("Close");
+    cancelButton->SetText(EditorText("Common.Close", "Close"));
 
     auto fields = std::make_shared<ImVerticalBox>();
     fields->SetSpacing(8.0f);
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Project", projectNameField), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Namespace", namespaceField), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Startup UI", startupField), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Active Build Profile", profileComboBox), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("TitleBar.Project", "Project").Resolve(), projectNameField), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.Namespace", "Namespace").Resolve(), namespaceField), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.StartupUI", "Startup UI").Resolve(), startupField), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.ActiveBuildProfile", "Active Build Profile").Resolve(), profileComboBox), FMargin(0.0f));
     fields->AddChild(windowsSettingsGroup, FMargin(0.0f));
     fields->AddChild(androidSettingsGroup, FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Environment Probe", probeText), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.EnvironmentProbe", "Environment Probe").Resolve(), probeText), FMargin(0.0f));
     fields->AddChild(errorText, FMargin(2.0f, 0.0f, 2.0f, 0.0f));
 
     auto buttonRow = std::make_shared<ImHorizontalBox>();
@@ -267,7 +271,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
 
             FEditorBuildProfile* selectedProfile = self->GetSelectedProfile();
             if (selectedProfile == nullptr) {
-                self->SetErrorMessage("Select a build profile.");
+                self->SetErrorMessage(EditorText("ProjectSettings.SelectBuildProfile", "Select a build profile.").Resolve());
                 return;
             }
 
@@ -304,7 +308,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             self->SetErrorMessage("");
 
             FOpenFolderDialogOptions options;
-            options.Title = "Select Android SDK Root";
+            options.Title = EditorText("ProjectSettings.SelectAndroidSdkRoot", "Select Android SDK Root").Resolve();
             if (self->m_AndroidSdkRootEditor && !self->m_AndroidSdkRootEditor->GetText().empty()) {
                 options.InitialDirectory = std::filesystem::path(self->m_AndroidSdkRootEditor->GetText());
             } else if (const FEditorBuildProfile* selectedProfile = self->GetSelectedProfile()) {
@@ -324,9 +328,9 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             }
 
             if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
-                self->SetErrorMessage("Folder selection is unsupported by the active platform backend.");
+                self->SetErrorMessage(EditorText("ProjectSettings.FolderSelectionUnsupported", "Folder selection is unsupported by the active platform backend.").Resolve());
             } else if (dialogResult.Code == EPathDialogResultCode::Error) {
-                self->SetErrorMessage("Android SDK root selection failed: " + dialogResult.ErrorMessage);
+                self->SetErrorMessage(EditorText("ProjectSettings.AndroidSdkRootSelectionFailed", "Android SDK root selection failed").Resolve() + ": " + dialogResult.ErrorMessage);
             }
         }
     });
@@ -351,7 +355,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             self->SetErrorMessage("");
 
             FOpenFolderDialogOptions options;
-            options.Title = "Select Android NDK Root";
+            options.Title = EditorText("ProjectSettings.SelectAndroidNdkRoot", "Select Android NDK Root").Resolve();
             if (self->m_AndroidNdkRootEditor && !self->m_AndroidNdkRootEditor->GetText().empty()) {
                 options.InitialDirectory = std::filesystem::path(self->m_AndroidNdkRootEditor->GetText());
             } else if (const FEditorBuildProfile* selectedProfile = self->GetSelectedProfile()) {
@@ -372,9 +376,9 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             }
 
             if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
-                self->SetErrorMessage("Folder selection is unsupported by the active platform backend.");
+                self->SetErrorMessage(EditorText("ProjectSettings.FolderSelectionUnsupported", "Folder selection is unsupported by the active platform backend.").Resolve());
             } else if (dialogResult.Code == EPathDialogResultCode::Error) {
-                self->SetErrorMessage("Android NDK root selection failed: " + dialogResult.ErrorMessage);
+                self->SetErrorMessage(EditorText("ProjectSettings.AndroidNdkRootSelectionFailed", "Android NDK root selection failed").Resolve() + ": " + dialogResult.ErrorMessage);
             }
         }
     });
@@ -563,7 +567,7 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
     FEditorBuildProfile* selectedProfile = GetSelectedProfile();
     if (selectedProfile == nullptr) {
         if (outError) {
-            *outError = "Select a build profile.";
+            *outError = EditorText("ProjectSettings.SelectBuildProfile", "Select a build profile.").Resolve();
         }
         return false;
     }
@@ -571,7 +575,7 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
     if (selectedProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop) {
         if (!m_WindowsGeneratorComboBox || !m_WindowsGeneratorComboBox->HasSelection()) {
             if (outError) {
-                *outError = "Select a Windows generator.";
+                *outError = EditorText("ProjectSettings.SelectWindowsGenerator", "Select a Windows generator.").Resolve();
             }
             return false;
         }
@@ -580,7 +584,7 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
         const auto generatorOptions = GetWindowsGeneratorOptions();
         if (selectedIndex < 0 || selectedIndex >= static_cast<int>(generatorOptions.size())) {
             if (outError) {
-                *outError = "Select a valid Windows generator.";
+                *outError = EditorText("ProjectSettings.SelectValidWindowsGenerator", "Select a valid Windows generator.").Resolve();
             }
             return false;
         }
@@ -595,14 +599,14 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
 
     if (!m_AndroidAbiComboBox || !m_AndroidAbiComboBox->HasSelection()) {
         if (outError) {
-            *outError = "Select an Android ABI.";
+            *outError = EditorText("ProjectSettings.SelectAndroidAbi", "Select an Android ABI.").Resolve();
         }
         return false;
     }
 
     if (!m_AndroidStlComboBox || !m_AndroidStlComboBox->HasSelection()) {
         if (outError) {
-            *outError = "Select an Android STL.";
+            *outError = EditorText("ProjectSettings.SelectAndroidStl", "Select an Android STL.").Resolve();
         }
         return false;
     }
@@ -619,7 +623,7 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
 
     if (apiLevel < 21) {
         if (outError) {
-            *outError = "Android API Level must be 21 or higher.";
+            *outError = EditorText("ProjectSettings.AndroidApiLevelTooLow", "Android API Level must be 21 or higher.").Resolve();
         }
         return false;
     }

@@ -1,4 +1,5 @@
 #include "ReflectionDetailsView.h"
+#include "../editor/EditorLocalization.h"
 #include "PropertyEditorWidgets.h"
 
 #include <imwidgetv4/widgets/CheckBox.h>
@@ -281,7 +282,7 @@ std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget
     rows->SetSpacing(6.0f);
 
     const FGeometry geometry = widget->GetGeometry();
-    std::string parentLabel = "<root>";
+    std::string parentLabel = EditorText("Details.RootParent", "<root>").Resolve();
     if (auto parent = widget->GetParent()) {
         parentLabel = parent->GetTypeName();
         if (!parent->GetName().empty()) {
@@ -289,13 +290,13 @@ std::shared_ptr<ImWidget> BuildWidgetMetadataRows(const std::shared_ptr<ImWidget
         }
     }
 
-    rows->AddChild(MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(widget->GetTypeName())));
+    rows->AddChild(MakeInspectorPropertyRow(EditorText("Details.Type", "Type").Resolve(), MakeInspectorReadOnlyField(widget->GetTypeName())));
     rows->AddChild(MakeInspectorPropertyRow(
-        "Name",
-        MakeInspectorReadOnlyField(widget->GetName().empty() ? "<unnamed>" : widget->GetName())));
-    rows->AddChild(MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
-    rows->AddChild(MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
-    rows->AddChild(MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
+        EditorText("Details.Name", "Name").Resolve(),
+        MakeInspectorReadOnlyField(widget->GetName().empty() ? EditorText("Details.Unnamed", "<unnamed>").Resolve() : widget->GetName())));
+    rows->AddChild(MakeInspectorPropertyRow(EditorText("Details.Position", "Position").Resolve(), MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
+    rows->AddChild(MakeInspectorPropertyRow(EditorText("Details.Size", "Size").Resolve(), MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
+    rows->AddChild(MakeInspectorPropertyRow(EditorText("Details.Parent", "Parent").Resolve(), MakeInspectorReadOnlyField(parentLabel)));
     return rows;
 }
 
@@ -405,13 +406,13 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
     if (m_Target) {
         if (auto widget = std::dynamic_pointer_cast<ImWidget>(m_Target)) {
             BuildCommonSection(*outlineView, widget);
-            BuildObjectSection(*outlineView, m_Target, "Properties");
+            BuildObjectSection(*outlineView, m_Target, EditorText("Details.Properties", "Properties").Resolve());
         } else {
             BuildObjectSection(*outlineView, m_Target, m_Target->GetTypeName());
         }
     }
     if (m_SlotTarget) {
-        BuildObjectSection(*outlineView, m_SlotTarget, "Slot");
+        BuildObjectSection(*outlineView, m_SlotTarget, EditorText("Details.Slot", "Slot").Resolve());
     }
 
     return outlineView;
@@ -426,13 +427,13 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
     style.CornerRadius = 0.0f;
     outlineView->SetStyle(style);
 
-    ImOutlineItem* rootItem = outlineView->AddRootItem(MakeSectionLabelWidget("Details"));
+    ImOutlineItem* rootItem = outlineView->AddRootItem(MakeSectionLabelWidget(EditorText("Details.Title", "Details").Resolve()));
     if (rootItem) {
         rootItem->Expanded = true;
         outlineView->AddChildItem(
             rootItem,
             MakeText(
-                "Select a widget in the designer surface to inspect its reflected properties.",
+                EditorText("Details.EmptyHint", "Select a widget in the designer surface to inspect its reflected properties.").Resolve(),
                 13.0f,
                 FColor::FromBytes(178, 188, 201)));
     }
@@ -447,13 +448,18 @@ void ReflectionDetailsView::BuildCommonSection(
         return;
     }
 
-    ImOutlineItem* sectionItem = AddTrackedGroupItem(outlineView, nullptr, "Common", "Common", true);
+    ImOutlineItem* sectionItem = AddTrackedGroupItem(
+        outlineView,
+        nullptr,
+        "Common",
+        EditorText("Details.Common", "Common").Resolve(),
+        true);
     if (!sectionItem) {
         return;
     }
 
     const FGeometry geometry = widget->GetGeometry();
-    std::string parentLabel = "<root>";
+    std::string parentLabel = EditorText("Details.RootParent", "<root>").Resolve();
     if (auto parent = widget->GetParent()) {
         parentLabel = parent->GetTypeName();
         if (!parent->GetName().empty()) {
@@ -461,10 +467,10 @@ void ReflectionDetailsView::BuildCommonSection(
         }
     }
 
-    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Type", MakeInspectorReadOnlyField(widget->GetTypeName())));
-    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Position", MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
-    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Size", MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
-    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow("Parent", MakeInspectorReadOnlyField(parentLabel)));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(EditorText("Details.Type", "Type").Resolve(), MakeInspectorReadOnlyField(widget->GetTypeName())));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(EditorText("Details.Position", "Position").Resolve(), MakeInspectorReadOnlyField(FormatVec2(geometry.Position))));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(EditorText("Details.Size", "Size").Resolve(), MakeInspectorReadOnlyField(FormatVec2(geometry.Size))));
+    outlineView.AddChildItem(sectionItem, MakeInspectorPropertyRow(EditorText("Details.Parent", "Parent").Resolve(), MakeInspectorReadOnlyField(parentLabel)));
 }
 
 void ReflectionDetailsView::BuildObjectSection(
@@ -884,7 +890,9 @@ std::string ReflectionDetailsView::DescribePropertyValue(
         return JsonValueToString(it.value());
     }
 
-    return property.GetType() == PropertyType::Struct ? "{...}" : "<unavailable>";
+    return property.GetType() == PropertyType::Struct
+        ? EditorText("Details.StructPlaceholder", "{...}").Resolve()
+        : EditorText("Details.Unavailable", "<unavailable>").Resolve();
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildStructPropertyEditorRow(

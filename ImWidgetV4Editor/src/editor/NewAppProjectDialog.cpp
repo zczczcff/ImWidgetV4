@@ -1,4 +1,5 @@
 #include "NewAppProjectDialog.h"
+#include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
 #include <imwidgetv4/core/WindowManager.h>
@@ -157,11 +158,11 @@ bool NewAppProjectDialog::Open(ImApplication& app, const FNewAppProjectDialogOpt
 
     auto fields = std::make_shared<ImVerticalBox>();
     fields->SetSpacing(8.0f);
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Parent Directory", parentDirectoryField), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Project Name", projectNameEditor), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Namespace", namespaceEditor), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Startup UI", startupDocumentEditor), FMargin(0.0f));
-    fields->AddChild(MakeInspectorVerticalPropertyRow("Template", templateComboBox), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.ParentDirectory", "Parent Directory").Resolve(), parentDirectoryField), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.ProjectName", "Project Name").Resolve(), projectNameEditor), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.Namespace", "Namespace").Resolve(), namespaceEditor), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.StartupUI", "Startup UI").Resolve(), startupDocumentEditor), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.Template", "Template").Resolve(), templateComboBox), FMargin(0.0f));
     fields->AddChild(errorText, FMargin(2.0f, 0.0f, 2.0f, 0.0f));
 
     auto buttonRow = std::make_shared<ImHorizontalBox>();

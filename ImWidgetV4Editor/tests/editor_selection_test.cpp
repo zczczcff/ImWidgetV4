@@ -250,6 +250,10 @@ TEST(EditorSelectionTest, EditorLocalizationRegistersEnglishAndChineseTables)
     EXPECT_NE(EditorText("Project.CreateDocumentFailed", "Create document failed").Resolve(), "Create document failed");
     EXPECT_NE(EditorText("Menu.SaveAllAndSwitch", "Save All and Switch").Resolve(), "Save All and Switch");
     EXPECT_NE(EditorText("NewProject.ProjectNamePathSeparator", "Create project failed").Resolve(), "Create project failed");
+    EXPECT_NE(EditorText("Menu.AddRoot", "Add Root").Resolve(), "Add Root");
+    EXPECT_NE(EditorText("Menu.PasteAsRoot", "Paste As Root").Resolve(), "Paste As Root");
+    EXPECT_NE(EditorText("Session.Ready", "Ready.").Resolve(), "Ready.");
+    EXPECT_NE(EditorText("Session.GenerateCppHeader", "Generate C++ Header").Resolve(), "Generate C++ Header");
     FLocalizationManager::Get().SetCulture("en-US");
 }
 

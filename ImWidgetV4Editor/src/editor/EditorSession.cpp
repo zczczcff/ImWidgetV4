@@ -1,4 +1,5 @@
 #include "EditorSession.h"
+#include "EditorLocalization.h"
 #include "EditorPaths.h"
 #include "LogicalWidgetTree.h"
 #include "../codegen/WidgetTreeToCppGenerator.h"
@@ -59,6 +60,42 @@ std::vector<std::string> SplitLinesPreserveOrder(const std::string& text)
     }
 
     return lines;
+}
+
+std::string LocalizedEditorString(
+    const std::string& key,
+    const std::string& defaultText,
+    const std::string& suffix = std::string())
+{
+    return EditorText(key, defaultText).Resolve() + suffix;
+}
+
+FPopupMenuItem MakeLocalizedMenuItem(
+    const std::string& key,
+    const std::string& defaultText,
+    bool bEnabled,
+    std::function<void()> onInvoked)
+{
+    FPopupMenuItem item;
+    item.Text = defaultText;
+    item.TextValue = EditorText(key, defaultText);
+    item.bEnabled = bEnabled;
+    item.OnInvoked = std::move(onInvoked);
+    return item;
+}
+
+FPopupMenuItem MakeLocalizedSubMenuItem(
+    const std::string& key,
+    const std::string& defaultText,
+    std::vector<FPopupMenuItem>&& subItems,
+    bool bEnabled = true)
+{
+    FPopupMenuItem item;
+    item.Text = defaultText;
+    item.TextValue = EditorText(key, defaultText);
+    item.SubItems = std::move(subItems);
+    item.bEnabled = bEnabled;
+    return item;
 }
 
 std::string NormalizeWidgetIdentifierBase(
@@ -712,13 +749,13 @@ void EditorSession::BindDocumentWidgets(
         m_WidgetTreeView->OnDeleteRequested.AddLambda(
             [this](ImTextOutlineView&, ImTextOutlineItem* item) {
                 if (!m_TreeBinder || item == nullptr) {
-                    LogStatus("Delete skipped: no tree item selected.");
+                    LogStatus(LocalizedEditorString("Session.DeleteSkippedNoTreeItem", "Delete skipped: no tree item selected."));
                     return;
                 }
 
                 auto widget = m_TreeBinder->ResolveWidget(item);
                 if (!widget) {
-                    LogStatus("Delete failed: tree item no longer maps to a widget.");
+                    LogStatus(LocalizedEditorString("Session.DeleteFailedTreeItemStale", "Delete failed: tree item no longer maps to a widget."));
                     return;
                 }
 
@@ -845,7 +882,7 @@ void EditorSession::BindDocumentWidgets(
     }
     ApplyDocumentToUi();
     TickDeferredRefreshes();
-    LogStatus("Ready.");
+    LogStatus(LocalizedEditorString("Session.Ready", "Ready."));
 }
 
 std::string EditorSession::GetDocumentTabTitle() const
@@ -859,7 +896,7 @@ bool EditorSession::NewDocument()
     m_Document = CreateDefaultDocument();
     m_CommandStack.Clear();
     ApplyDocumentToUi();
-    LogStatus("Created new document.");
+    LogStatus(LocalizedEditorString("Session.CreatedNewDocument", "Created new document."));
     return true;
 }
 
@@ -867,7 +904,7 @@ bool EditorSession::OpenDocument(ImApplication& app)
 {
     CancelReflectableGesture();
     FOpenFileDialogOptions options;
-    options.Title = "Open UI Document";
+    options.Title = EditorText("Session.OpenUIDocument", "Open UI Document").Resolve();
     options.InitialDirectory = ResolveDialogDirectory();
     options.Filters = BuildDocumentFilters();
     options.DefaultFilterIndex = 0;
@@ -875,9 +912,9 @@ bool EditorSession::OpenDocument(ImApplication& app)
     const FPathDialogResult dialogResult = app.OpenFileDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
-            LogStatus("Open failed: file open dialog is unsupported by the active platform backend.");
+            LogStatus(LocalizedEditorString("Session.OpenFailedDialogUnsupported", "Open failed: file open dialog is unsupported by the active platform backend."));
         } else if (dialogResult.Code == EPathDialogResultCode::Error) {
-            LogStatus("Open failed: " + dialogResult.ErrorMessage);
+            LogStatus(LocalizedEditorString("Session.OpenFailed", "Open failed", ": " + dialogResult.ErrorMessage));
         }
         return false;
     }
@@ -891,21 +928,21 @@ bool EditorSession::OpenDocumentFromPath(const std::filesystem::path& filePath)
     auto openedDocument = std::make_shared<EditorDocument>();
     std::string errorMessage;
     if (!openedDocument->Load(filePath, &errorMessage)) {
-        LogStatus("Open failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.OpenFailed", "Open failed", ": " + errorMessage));
         return false;
     }
 
     m_Document = std::move(openedDocument);
     m_CommandStack.Clear();
     ApplyDocumentToUi();
-    LogStatus("Opened " + filePath.filename().string());
+    LogStatus(LocalizedEditorString("Session.Opened", "Opened", " " + filePath.filename().string()));
     return true;
 }
 
 bool EditorSession::SaveDocument(ImApplication& app)
 {
     if (!m_Document) {
-        LogStatus("Save failed: no active document.");
+        LogStatus(LocalizedEditorString("Session.SaveFailedNoActiveDocument", "Save failed: no active document."));
         return false;
     }
 
@@ -915,24 +952,24 @@ bool EditorSession::SaveDocument(ImApplication& app)
 
     std::string errorMessage;
     if (!m_Document->Save(&errorMessage)) {
-        LogStatus("Save failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.SaveFailed", "Save failed", ": " + errorMessage));
         return false;
     }
 
     ApplyDocumentToUi();
-    LogStatus("Saved " + m_Document->GetFilePath().filename().string());
+    LogStatus(LocalizedEditorString("Session.Saved", "Saved", " " + m_Document->GetFilePath().filename().string()));
     return true;
 }
 
 bool EditorSession::SaveDocumentAs(ImApplication& app)
 {
     if (!m_Document) {
-        LogStatus("Save failed: no active document.");
+        LogStatus(LocalizedEditorString("Session.SaveFailedNoActiveDocument", "Save failed: no active document."));
         return false;
     }
 
     FSaveFileDialogOptions options;
-    options.Title = "Save UI Document";
+    options.Title = EditorText("Session.SaveUIDocument", "Save UI Document").Resolve();
     options.InitialDirectory = ResolveDialogDirectory();
     options.DefaultFileName = GetDocumentTabTitle();
     options.DefaultExtension = "json";
@@ -943,33 +980,33 @@ bool EditorSession::SaveDocumentAs(ImApplication& app)
     const FPathDialogResult dialogResult = app.SaveFileDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
-            LogStatus("Save failed: save dialog is unsupported by the active platform backend.");
+            LogStatus(LocalizedEditorString("Session.SaveFailedDialogUnsupported", "Save failed: save dialog is unsupported by the active platform backend."));
         } else if (dialogResult.Code == EPathDialogResultCode::Error) {
-            LogStatus("Save failed: " + dialogResult.ErrorMessage);
+            LogStatus(LocalizedEditorString("Session.SaveFailed", "Save failed", ": " + dialogResult.ErrorMessage));
         }
         return false;
     }
 
     std::string errorMessage;
     if (!m_Document->SaveAs(dialogResult.Path, &errorMessage)) {
-        LogStatus("Save failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.SaveFailed", "Save failed", ": " + errorMessage));
         return false;
     }
 
     ApplyDocumentToUi();
-    LogStatus("Saved " + dialogResult.Path.filename().string());
+    LogStatus(LocalizedEditorString("Session.Saved", "Saved", " " + dialogResult.Path.filename().string()));
     return true;
 }
 
 bool EditorSession::GenerateCppFiles(ImApplication& app)
 {
     if (!m_Document || !m_Document->GetRootWidget()) {
-        LogStatus("Generate C++ failed: no active document.");
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailedNoActiveDocument", "Generate C++ failed: no active document."));
         return false;
     }
 
     FSaveFileDialogOptions options;
-    options.Title = "Generate C++ Header";
+    options.Title = EditorText("Session.GenerateCppHeader", "Generate C++ Header").Resolve();
     options.InitialDirectory = ResolveDialogDirectory();
     options.DefaultFileName = BuildGeneratedClassName(m_Document) + ".h";
     options.DefaultExtension = "h";
@@ -983,9 +1020,9 @@ bool EditorSession::GenerateCppFiles(ImApplication& app)
     const FPathDialogResult dialogResult = app.SaveFileDialog(options);
     if (!dialogResult.IsAccepted()) {
         if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
-            LogStatus("Generate C++ failed: save dialog is unsupported by the active platform backend.");
+            LogStatus(LocalizedEditorString("Session.GenerateCppFailedDialogUnsupported", "Generate C++ failed: save dialog is unsupported by the active platform backend."));
         } else if (dialogResult.Code == EPathDialogResultCode::Error) {
-            LogStatus("Generate C++ failed: " + dialogResult.ErrorMessage);
+            LogStatus(LocalizedEditorString("Session.GenerateCppFailed", "Generate C++ failed", ": " + dialogResult.ErrorMessage));
         }
         return false;
     }
@@ -998,12 +1035,12 @@ bool EditorSession::GenerateCppFilesAt(
     const std::string& namespaceName)
 {
     if (!m_Document || !m_Document->GetRootWidget()) {
-        LogStatus("Generate C++ failed: no active document.");
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailedNoActiveDocument", "Generate C++ failed: no active document."));
         return false;
     }
 
     if (headerFilePath.empty()) {
-        LogStatus("Generate C++ failed: header output path is empty.");
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailedHeaderPathEmpty", "Generate C++ failed: header output path is empty."));
         return false;
     }
 
@@ -1024,7 +1061,7 @@ bool EditorSession::GenerateCppFilesAt(
         const std::string errorMessage = generatedCode.ErrorMessage.empty()
             ? std::string("code generation failed.")
             : generatedCode.ErrorMessage;
-        LogStatus("Generate C++ failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailed", "Generate C++ failed", ": " + errorMessage));
         return false;
     }
 
@@ -1033,18 +1070,18 @@ bool EditorSession::GenerateCppFilesAt(
 
     std::string errorMessage;
     if (!WriteGeneratedTextFile(resolvedHeaderPath, generatedCode.Files.HeaderText, errorMessage)) {
-        LogStatus("Generate C++ failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailed", "Generate C++ failed", ": " + errorMessage));
         return false;
     }
 
     if (!WriteGeneratedTextFile(sourceFilePath, generatedCode.Files.SourceText, errorMessage)) {
-        LogStatus("Generate C++ failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.GenerateCppFailed", "Generate C++ failed", ": " + errorMessage));
         return false;
     }
 
     LogStatus(
-        "Generated " + resolvedHeaderPath.filename().string() +
-        " and " + sourceFilePath.filename().string());
+        LocalizedEditorString("Session.Generated", "Generated", " " + resolvedHeaderPath.filename().string()) +
+        " " + EditorText("Session.And", "and").Resolve() + " " + sourceFilePath.filename().string());
     return true;
 }
 
@@ -1056,14 +1093,14 @@ bool EditorSession::CreatePaletteWidgetAtTreeTarget(
 {
     auto widget = CreatePaletteWidget(widgetTypeName);
     if (!widget) {
-        LogStatus("Create failed: unsupported widget type " + widgetTypeName);
+        LogStatus(LocalizedEditorString("Session.CreateFailedUnsupportedWidgetType", "Create failed: unsupported widget type", " " + widgetTypeName));
         return false;
     }
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool bHandled = ApplyWidgetInsertionAtTreeTarget(widget, targetWidget, zone, widget, true);
     if (!bHandled) {
-        LogStatus("Create rejected by target container.");
+        LogStatus(LocalizedEditorString("Session.CreateRejectedByTargetContainer", "Create rejected by target container."));
         return false;
     }
 
@@ -1079,7 +1116,7 @@ bool EditorSession::CreatePaletteWidgetAtTreeTarget(
         bBeforeDirty,
         true));
     RefreshDocumentViews(widget);
-    LogStatus("Created " + label);
+    LogStatus(LocalizedEditorString("Session.Created", "Created", " " + label));
     return true;
 }
 
@@ -1088,20 +1125,20 @@ bool EditorSession::CreatePaletteWidgetAsRoot(
     const std::string& label)
 {
     if (!CanCreateRootWidget()) {
-        LogStatus("Create rejected: document already has a root widget.");
+        LogStatus(LocalizedEditorString("Session.CreateRejectedDocumentHasRoot", "Create rejected: document already has a root widget."));
         return false;
     }
 
     auto widget = CreatePaletteWidget(widgetTypeName);
     if (!widget) {
-        LogStatus("Create failed: unsupported widget type " + widgetTypeName);
+        LogStatus(LocalizedEditorString("Session.CreateFailedUnsupportedWidgetType", "Create failed: unsupported widget type", " " + widgetTypeName));
         return false;
     }
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool bHandled = ApplyWidgetInsertion(widget, nullptr, FVector2(24.0f, 24.0f), widget, true);
     if (!bHandled) {
-        LogStatus("Create failed: could not assign document root.");
+        LogStatus(LocalizedEditorString("Session.CreateFailedAssignRoot", "Create failed: could not assign document root."));
         return false;
     }
 
@@ -1116,7 +1153,7 @@ bool EditorSession::CreatePaletteWidgetAsRoot(
         widget,
         bBeforeDirty,
         true));
-    LogStatus("Created root " + label);
+    LogStatus(LocalizedEditorString("Session.CreatedRoot", "Created root", " " + label));
     return true;
 }
 
@@ -1125,15 +1162,18 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
     ETextOutlineDropZone zone)
 {
     if (!m_bHasCopiedWidget || m_CopiedWidgetJson.is_null()) {
-        LogStatus("Paste skipped: clipboard is empty.");
+        LogStatus(LocalizedEditorString("Session.PasteSkippedClipboardEmpty", "Paste skipped: clipboard is empty."));
         return false;
     }
 
     FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
     if (!cloneResult.bSuccess || !cloneResult.Widget) {
-        LogStatus("Paste failed: " + (cloneResult.ErrorMessage.empty()
-            ? std::string("clipboard widget could not be restored.")
-            : cloneResult.ErrorMessage));
+        LogStatus(LocalizedEditorString(
+            "Session.PasteFailed",
+            "Paste failed",
+            ": " + (cloneResult.ErrorMessage.empty()
+                ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
+                : cloneResult.ErrorMessage)));
         return false;
     }
 
@@ -1147,7 +1187,7 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
         cloneResult.Widget,
         true);
     if (!pasted) {
-        LogStatus("Paste failed: target container cannot accept the copied widget.");
+        LogStatus(LocalizedEditorString("Session.PasteFailedTargetRejectsWidget", "Paste failed: target container cannot accept the copied widget."));
         return false;
     }
 
@@ -1162,27 +1202,30 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
         cloneResult.Widget,
         bBeforeDirty,
         true));
-    LogStatus("Pasted " + cloneResult.Widget->GetTypeName());
+    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneResult.Widget->GetTypeName()));
     return true;
 }
 
 bool EditorSession::PasteCopiedWidgetAsRoot()
 {
     if (!CanCreateRootWidget()) {
-        LogStatus("Paste rejected: document already has a root widget.");
+        LogStatus(LocalizedEditorString("Session.PasteRejectedDocumentHasRoot", "Paste rejected: document already has a root widget."));
         return false;
     }
 
     if (!m_bHasCopiedWidget || m_CopiedWidgetJson.is_null()) {
-        LogStatus("Paste skipped: clipboard is empty.");
+        LogStatus(LocalizedEditorString("Session.PasteSkippedClipboardEmpty", "Paste skipped: clipboard is empty."));
         return false;
     }
 
     FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
     if (!cloneResult.bSuccess || !cloneResult.Widget) {
-        LogStatus("Paste failed: " + (cloneResult.ErrorMessage.empty()
-            ? std::string("clipboard widget could not be restored.")
-            : cloneResult.ErrorMessage));
+        LogStatus(LocalizedEditorString(
+            "Session.PasteFailed",
+            "Paste failed",
+            ": " + (cloneResult.ErrorMessage.empty()
+                ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
+                : cloneResult.ErrorMessage)));
         return false;
     }
 
@@ -1196,7 +1239,7 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
         cloneResult.Widget,
         true);
     if (!pasted) {
-        LogStatus("Paste failed: could not assign document root.");
+        LogStatus(LocalizedEditorString("Session.PasteFailedAssignRoot", "Paste failed: could not assign document root."));
         return false;
     }
 
@@ -1211,7 +1254,10 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
         cloneResult.Widget,
         bBeforeDirty,
         true));
-    LogStatus("Pasted " + cloneResult.Widget->GetTypeName() + " as root");
+    LogStatus(LocalizedEditorString(
+        "Session.Pasted",
+        "Pasted",
+        " " + cloneResult.Widget->GetTypeName() + " " + EditorText("Session.AsRoot", "as root").Resolve()));
     return true;
 }
 
@@ -1265,7 +1311,7 @@ bool EditorSession::DeleteSelectedWidget()
     CancelReflectableGesture();
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
-        LogStatus("Delete skipped: no widget selected.");
+        LogStatus(LocalizedEditorString("Session.DeleteSkippedNoWidgetSelected", "Delete skipped: no widget selected."));
         return false;
     }
 
@@ -1285,12 +1331,12 @@ bool EditorSession::DeleteSelectedWidget()
         bBeforeDirty,
         true);
     if (!command->Execute()) {
-        LogStatus("Delete failed for current selection.");
+        LogStatus(LocalizedEditorString("Session.DeleteFailedCurrentSelection", "Delete failed for current selection."));
         return false;
     }
 
     m_CommandStack.PushExecuted(std::move(command));
-    LogStatus("Deleted " + label);
+    LogStatus(LocalizedEditorString("Session.Deleted", "Deleted", " " + label));
     return true;
 }
 
@@ -1298,7 +1344,7 @@ bool EditorSession::CutSelectedWidget()
 {
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
-        LogStatus("Cut skipped: no widget selected.");
+        LogStatus(LocalizedEditorString("Session.CutSkippedNoWidgetSelected", "Cut skipped: no widget selected."));
         return false;
     }
 
@@ -1310,11 +1356,14 @@ bool EditorSession::CutSelectedWidget()
     }
 
     if (!DeleteSelectedWidget()) {
-        LogStatus("Cut failed: copied " + label + " but could not remove it.");
+        LogStatus(LocalizedEditorString(
+            "Session.CutFailedCopiedButCouldNotRemove",
+            "Cut failed: copied",
+            " " + label + " " + EditorText("Session.ButCouldNotRemoveIt", "but could not remove it.").Resolve()));
         return false;
     }
 
-    LogStatus("Cut " + label);
+    LogStatus(LocalizedEditorString("Session.Cut", "Cut", " " + label));
     return true;
 }
 
@@ -1322,36 +1371,39 @@ bool EditorSession::CopySelectedWidget()
 {
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
-        LogStatus("Copy skipped: no widget selected.");
+        LogStatus(LocalizedEditorString("Session.CopySkippedNoWidgetSelected", "Copy skipped: no widget selected."));
         return false;
     }
 
     m_CopiedWidgetJson = WidgetSerializer::SerializeWidgetTree(selectedWidget);
     m_bHasCopiedWidget = !m_CopiedWidgetJson.is_null();
     if (!m_bHasCopiedWidget) {
-        LogStatus("Copy failed: selected widget could not be serialized.");
+        LogStatus(LocalizedEditorString("Session.CopyFailedSerialize", "Copy failed: selected widget could not be serialized."));
         return false;
     }
 
     const std::string label = selectedWidget->GetName().empty()
         ? selectedWidget->GetTypeName()
         : selectedWidget->GetTypeName() + " [" + selectedWidget->GetName() + "]";
-    LogStatus("Copied " + label);
+    LogStatus(LocalizedEditorString("Session.Copied", "Copied", " " + label));
     return true;
 }
 
 bool EditorSession::PasteCopiedWidget()
 {
     if (!m_bHasCopiedWidget || m_CopiedWidgetJson.is_null()) {
-        LogStatus("Paste skipped: clipboard is empty.");
+        LogStatus(LocalizedEditorString("Session.PasteSkippedClipboardEmpty", "Paste skipped: clipboard is empty."));
         return false;
     }
 
     FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
     if (!cloneResult.bSuccess || !cloneResult.Widget) {
-        LogStatus("Paste failed: " + (cloneResult.ErrorMessage.empty()
-            ? std::string("clipboard widget could not be restored.")
-            : cloneResult.ErrorMessage));
+        LogStatus(LocalizedEditorString(
+            "Session.PasteFailed",
+            "Paste failed",
+            ": " + (cloneResult.ErrorMessage.empty()
+                ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
+                : cloneResult.ErrorMessage)));
         return false;
     }
 
@@ -1375,7 +1427,7 @@ bool EditorSession::PasteCopiedWidget()
         cloneResult.Widget,
         true);
     if (!pasted) {
-        LogStatus("Paste failed: current selection cannot accept the copied widget.");
+        LogStatus(LocalizedEditorString("Session.PasteFailedCurrentSelectionRejectsWidget", "Paste failed: current selection cannot accept the copied widget."));
         return false;
     }
 
@@ -1390,7 +1442,7 @@ bool EditorSession::PasteCopiedWidget()
         cloneResult.Widget,
         bBeforeDirty,
         true));
-    LogStatus("Pasted " + cloneResult.Widget->GetTypeName());
+    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneResult.Widget->GetTypeName()));
     return true;
 }
 
@@ -1398,20 +1450,20 @@ bool EditorSession::DuplicateSelectedWidget()
 {
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
-        LogStatus("Duplicate skipped: no widget selected.");
+        LogStatus(LocalizedEditorString("Session.DuplicateSkippedNoWidgetSelected", "Duplicate skipped: no widget selected."));
         return false;
     }
 
     auto parent = selectedWidget->GetParent();
     if (!parent) {
-        LogStatus("Duplicate skipped: document root cannot be duplicated in place.");
+        LogStatus(LocalizedEditorString("Session.DuplicateSkippedRoot", "Duplicate skipped: document root cannot be duplicated in place."));
         return false;
     }
 
     std::string cloneError;
     std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTree(selectedWidget, cloneError);
     if (!cloneWidget) {
-        LogStatus("Duplicate failed: " + cloneError);
+        LogStatus(LocalizedEditorString("Session.DuplicateFailed", "Duplicate failed", ": " + cloneError));
         return false;
     }
 
@@ -1428,7 +1480,7 @@ bool EditorSession::DuplicateSelectedWidget()
         cloneWidget,
         true);
     if (!duplicated) {
-        LogStatus("Duplicate failed: unsupported parent container.");
+        LogStatus(LocalizedEditorString("Session.DuplicateFailedUnsupportedParent", "Duplicate failed: unsupported parent container."));
         return false;
     }
 
@@ -1443,41 +1495,45 @@ bool EditorSession::DuplicateSelectedWidget()
         cloneWidget,
         bBeforeDirty,
         true));
-    LogStatus("Duplicated " + sourceLabel);
+    LogStatus(LocalizedEditorString("Session.Duplicated", "Duplicated", " " + sourceLabel));
     return true;
 }
 
 bool EditorSession::Undo()
 {
     if (!m_CommandStack.CanUndo()) {
-        LogStatus("Undo unavailable.");
+        LogStatus(LocalizedEditorString("Session.UndoUnavailable", "Undo unavailable."));
         return false;
     }
 
     const std::string label = m_CommandStack.GetUndoLabel();
     if (!m_CommandStack.Undo()) {
-        LogStatus("Undo failed.");
+        LogStatus(LocalizedEditorString("Session.UndoFailed", "Undo failed."));
         return false;
     }
 
-    LogStatus(label.empty() ? "Undo complete." : "Undo: " + label);
+    LogStatus(label.empty()
+        ? LocalizedEditorString("Session.UndoComplete", "Undo complete.")
+        : LocalizedEditorString("Session.Undo", "Undo", ": " + label));
     return true;
 }
 
 bool EditorSession::Redo()
 {
     if (!m_CommandStack.CanRedo()) {
-        LogStatus("Redo unavailable.");
+        LogStatus(LocalizedEditorString("Session.RedoUnavailable", "Redo unavailable."));
         return false;
     }
 
     const std::string label = m_CommandStack.GetRedoLabel();
     if (!m_CommandStack.Redo()) {
-        LogStatus("Redo failed.");
+        LogStatus(LocalizedEditorString("Session.RedoFailed", "Redo failed."));
         return false;
     }
 
-    LogStatus(label.empty() ? "Redo complete." : "Redo: " + label);
+    LogStatus(label.empty()
+        ? LocalizedEditorString("Session.RedoComplete", "Redo complete.")
+        : LocalizedEditorString("Session.Redo", "Redo", ": " + label));
     return true;
 }
 
@@ -1604,7 +1660,7 @@ void EditorSession::HandleDesignerSelectionChanged(
     SyncSelectionState(selectedWidget);
 
     if (!selectedWidget) {
-        LogStatus("Selection cleared.");
+        LogStatus(LocalizedEditorString("Session.SelectionCleared", "Selection cleared."));
         return;
     }
 
@@ -1612,7 +1668,7 @@ void EditorSession::HandleDesignerSelectionChanged(
     if (!selectedWidget->GetName().empty()) {
         label += " [" + selectedWidget->GetName() + "]";
     }
-    LogStatus("Selected " + label);
+    LogStatus(LocalizedEditorString("Session.Selected", "Selected", " " + label));
 }
 
 void EditorSession::HandleDesignerDrop(
@@ -1628,20 +1684,20 @@ void EditorSession::HandleDesignerDrop(
     if (auto palettePayload = std::dynamic_pointer_cast<WidgetPalettePayload>(operation->Payload)) {
         auto widget = CreatePaletteWidget(palettePayload->WidgetTypeName);
         if (!widget) {
-            LogStatus("Create failed: unsupported widget type " + palettePayload->WidgetTypeName);
+            LogStatus(LocalizedEditorString("Session.CreateFailedUnsupportedWidgetType", "Create failed: unsupported widget type", " " + palettePayload->WidgetTypeName));
             return;
         }
 
         std::shared_ptr<ImWidget> insertionTarget;
         if (!ResolveDesignerInsertionTargetForWidget(widget, position, insertionTarget)) {
-            LogStatus("Drop rejected by current document root.");
+            LogStatus(LocalizedEditorString("Session.DropRejectedByCurrentRoot", "Drop rejected by current document root."));
             return;
         }
 
         const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
         bHandled = ApplyWidgetInsertion(widget, insertionTarget, position, widget, true);
         if (!bHandled) {
-            LogStatus("Drop rejected by current document root.");
+            LogStatus(LocalizedEditorString("Session.DropRejectedByCurrentRoot", "Drop rejected by current document root."));
             return;
         }
 
@@ -1657,7 +1713,7 @@ void EditorSession::HandleDesignerDrop(
             bBeforeDirty,
             true));
         RefreshDocumentViews(widget);
-        LogStatus("Created " + palettePayload->Label);
+        LogStatus(LocalizedEditorString("Session.Created", "Created", " " + palettePayload->Label));
         return;
     }
 
@@ -1673,20 +1729,20 @@ void EditorSession::HandleDesignerDrop(
 
     std::shared_ptr<ImWidget> insertionTarget;
     if (!ResolveDesignerInsertionTargetForWidget(sourceWidget, position, insertionTarget)) {
-        LogStatus("Drop rejected by current document root.");
+        LogStatus(LocalizedEditorString("Session.DropRejectedByCurrentRoot", "Drop rejected by current document root."));
         return;
     }
 
     const FDocumentSnapshot beforeSnapshot = CaptureDocumentSnapshot();
     bHandled = MoveWidgetInDocumentAtTarget(sourceWidget, insertionTarget, position);
     if (!bHandled) {
-        LogStatus("Drop rejected by current document root.");
+        LogStatus(LocalizedEditorString("Session.DropRejectedByCurrentRoot", "Drop rejected by current document root."));
         return;
     }
 
     RefreshDocumentViews(sourceWidget);
     PushDocumentSnapshotCommand("Move Widget", beforeSnapshot, sourceWidget);
-    LogStatus("Moved " + treePayload->Label);
+    LogStatus(LocalizedEditorString("Session.Moved", "Moved", " " + treePayload->Label));
 }
 
 void EditorSession::HandleDesignerDropTest(
@@ -1759,7 +1815,7 @@ void EditorSession::HandleWidgetTreeItemDropped(
     }
 
     if (sourceWidget == targetWidget || IsLogicalAncestorOf(m_Document, sourceWidget, targetWidget)) {
-        LogStatus("Move rejected: cannot move a widget into itself or its descendants.");
+        LogStatus(LocalizedEditorString("Session.MoveRejectedIntoSelf", "Move rejected: cannot move a widget into itself or its descendants."));
         return;
     }
 
@@ -1767,12 +1823,12 @@ void EditorSession::HandleWidgetTreeItemDropped(
 
     bHandled = ApplyWidgetMoveAtTreeTarget(sourceWidget, targetWidget, zone, sourceWidget, true);
     if (!bHandled) {
-        LogStatus("Move rejected by target container.");
+        LogStatus(LocalizedEditorString("Session.MoveRejectedByTargetContainer", "Move rejected by target container."));
         return;
     }
 
     PushDocumentSnapshotCommand("Move Widget", beforeSnapshot, sourceWidget);
-    LogStatus("Moved " + payload->Label);
+    LogStatus(LocalizedEditorString("Session.Moved", "Moved", " " + payload->Label));
 }
 
 void EditorSession::UpdateSelectionDetails(const std::shared_ptr<ImWidget>& selectedWidget)
@@ -1831,7 +1887,7 @@ void EditorSession::HandlePropertyValueCommitted(
             committedValue = resolvedName;
 
             if (resolvedName != TrimCopy(desiredName)) {
-                LogStatus("Widget name adjusted to " + resolvedName + ".");
+                LogStatus(LocalizedEditorString("Session.WidgetNameAdjusted", "Widget name adjusted to", " " + resolvedName + "."));
             }
         }
     }
@@ -1865,10 +1921,10 @@ bool EditorSession::ApplyReflectablePropertyChange(
     try {
         owner->FromJson(objectJson);
     } catch (const std::exception& error) {
-        LogStatus(std::string("Property apply failed: ") + error.what());
+        LogStatus(LocalizedEditorString("Session.PropertyApplyFailed", "Property apply failed", std::string(": ") + error.what()));
         return false;
     } catch (...) {
-        LogStatus("Property apply failed.");
+        LogStatus(LocalizedEditorString("Session.PropertyApplyFailedWithPeriod", "Property apply failed."));
         return false;
     }
 
@@ -2027,7 +2083,7 @@ bool EditorSession::ApplyDocumentSnapshot(
 
     std::string errorMessage;
     if (!m_Document->ImportDocumentJson(documentJson, &errorMessage)) {
-        LogStatus("Snapshot restore failed: " + errorMessage);
+        LogStatus(LocalizedEditorString("Session.SnapshotRestoreFailed", "Snapshot restore failed", ": " + errorMessage));
         return false;
     }
 
@@ -2740,7 +2796,7 @@ void EditorSession::RefreshPreview()
     if (!previewResult.bSuccess) {
         m_PreviewHost->SetContent(nullptr);
         if (!previewResult.ErrorMessage.empty()) {
-            LogStatus("Preview refresh failed: " + previewResult.ErrorMessage);
+            LogStatus(LocalizedEditorString("Session.PreviewRefreshFailed", "Preview refresh failed", ": " + previewResult.ErrorMessage));
         }
         return;
     }
@@ -2768,9 +2824,9 @@ void EditorSession::RefreshSchemaView()
         const json documentJson = m_Document->ExportDocumentJson();
         m_SchemaText->SetItems({documentJson.dump(2)});
     } catch (const std::exception& error) {
-        m_SchemaText->SetItems({std::string("Schema export failed: ") + error.what()});
+        m_SchemaText->SetItems({LocalizedEditorString("Session.SchemaExportFailed", "Schema export failed", ": " + std::string(error.what()))});
     } catch (...) {
-        m_SchemaText->SetItems({"Schema export failed."});
+        m_SchemaText->SetItems({EditorText("Session.SchemaExportFailedWithPeriod", "Schema export failed.")});
     }
 }
 
@@ -2789,10 +2845,10 @@ void EditorSession::RefreshGeneratedCodePreview()
 
     if (!m_Document || !m_Document->GetRootWidget()) {
         if (m_HeaderPreviewText) {
-            m_HeaderPreviewText->SetItems({"// No document loaded."});
+            m_HeaderPreviewText->SetItems({EditorText("Session.NoDocumentLoadedComment", "// No document loaded.")});
         }
         if (m_SourcePreviewText) {
-            m_SourcePreviewText->SetItems({"// No document loaded."});
+            m_SourcePreviewText->SetItems({EditorText("Session.NoDocumentLoadedComment", "// No document loaded.")});
         }
         return;
     }
@@ -2800,8 +2856,8 @@ void EditorSession::RefreshGeneratedCodePreview()
     FCodeGenResult result;
     if (!BuildGeneratedCode(BuildGeneratedClassName(m_Document), std::string(), result)) {
         const std::string errorText = result.ErrorMessage.empty()
-            ? std::string("Code generation preview failed.")
-            : std::string("Code generation preview failed: ") + result.ErrorMessage;
+            ? EditorText("Session.CodeGenerationPreviewFailedWithPeriod", "Code generation preview failed.").Resolve()
+            : LocalizedEditorString("Session.CodeGenerationPreviewFailed", "Code generation preview failed", ": " + result.ErrorMessage);
         if (m_HeaderPreviewText) {
             m_HeaderPreviewText->SetItems({errorText});
         }
@@ -3011,20 +3067,17 @@ void EditorSession::OpenStructureContextMenu(
         }
 
         std::vector<FPopupMenuItem> items;
-        items.push_back(FPopupMenuItem {"Add Root", FImageBrush(), std::move(rootItems), true, false, {}});
+        items.push_back(MakeLocalizedSubMenuItem("Menu.AddRoot", "Add Root", std::move(rootItems)));
         if (m_bHasCopiedWidget && !m_CopiedWidgetJson.is_null()) {
             items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
-            items.push_back(FPopupMenuItem {
+            items.push_back(MakeLocalizedMenuItem(
+                "Menu.PasteAsRoot",
                 "Paste As Root",
-                FImageBrush(),
-                {},
                 true,
-                false,
                 [this]() {
                     PasteCopiedWidgetAsRoot();
                     CloseWidgetTreeContextMenu();
-                }
-            });
+                }));
         }
 
         popupMenu->SetItems(std::move(items));
@@ -3102,124 +3155,100 @@ void EditorSession::OpenStructureContextMenu(
     }
 
     if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::OnItem)) {
-        pasteItems.push_back(FPopupMenuItem {
+        pasteItems.push_back(MakeLocalizedMenuItem(
+            "Menu.PasteInto",
             "Paste Into",
-            FImageBrush(),
-            {},
             true,
-            false,
             [this, targetWidget]() {
                 PasteCopiedWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::OnItem);
                 CloseWidgetTreeContextMenu();
-            }
-        });
+            }));
     }
     if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::BeforeItem)) {
-        pasteItems.push_back(FPopupMenuItem {
+        pasteItems.push_back(MakeLocalizedMenuItem(
+            "Menu.PasteBefore",
             "Paste Before",
-            FImageBrush(),
-            {},
             true,
-            false,
             [this, targetWidget]() {
                 PasteCopiedWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::BeforeItem);
                 CloseWidgetTreeContextMenu();
-            }
-        });
+            }));
     }
     if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::AfterItem)) {
-        pasteItems.push_back(FPopupMenuItem {
+        pasteItems.push_back(MakeLocalizedMenuItem(
+            "Menu.PasteAfter",
             "Paste After",
-            FImageBrush(),
-            {},
             true,
-            false,
             [this, targetWidget]() {
                 PasteCopiedWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::AfterItem);
                 CloseWidgetTreeContextMenu();
-            }
-        });
+            }));
     }
     const bool bHasPasteTargets = !pasteItems.empty();
 
     if (!addChildItems.empty()) {
-        items.push_back(FPopupMenuItem {"Add Child", FImageBrush(), std::move(addChildItems), true, false, {}});
+        items.push_back(MakeLocalizedSubMenuItem("Menu.AddChild", "Add Child", std::move(addChildItems)));
     }
     if (!insertBeforeItems.empty()) {
-        items.push_back(FPopupMenuItem {"Insert Before", FImageBrush(), std::move(insertBeforeItems), true, false, {}});
+        items.push_back(MakeLocalizedSubMenuItem("Menu.InsertBefore", "Insert Before", std::move(insertBeforeItems)));
     }
     if (!insertAfterItems.empty()) {
-        items.push_back(FPopupMenuItem {"Insert After", FImageBrush(), std::move(insertAfterItems), true, false, {}});
+        items.push_back(MakeLocalizedSubMenuItem("Menu.InsertAfter", "Insert After", std::move(insertAfterItems)));
     }
     if (!items.empty()) {
         items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
     }
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeLocalizedMenuItem(
+        "Menu.Cut",
         "Cut",
-        FImageBrush(),
-        {},
         true,
-        false,
         [this, targetWidget]() {
             if (m_DesignerSurface) {
                 m_DesignerSurface->SetSelectedWidget(targetWidget);
             }
             CutSelectedWidget();
             CloseWidgetTreeContextMenu();
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeLocalizedMenuItem(
+        "Menu.Copy",
         "Copy",
-        FImageBrush(),
-        {},
         true,
-        false,
         [this, targetWidget]() {
             if (m_DesignerSurface) {
                 m_DesignerSurface->SetSelectedWidget(targetWidget);
             }
             CopySelectedWidget();
             CloseWidgetTreeContextMenu();
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeLocalizedSubMenuItem(
+        "Menu.Paste",
         "Paste",
-        FImageBrush(),
         std::move(pasteItems),
-        m_bHasCopiedWidget && !m_CopiedWidgetJson.is_null() && bHasPasteTargets,
-        false,
-        {}
-    });
+        m_bHasCopiedWidget && !m_CopiedWidgetJson.is_null() && bHasPasteTargets));
     items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeLocalizedMenuItem(
+        "Menu.Duplicate",
         "Duplicate",
-        FImageBrush(),
-        {},
         true,
-        false,
         [this, targetWidget]() {
             if (m_DesignerSurface) {
                 m_DesignerSurface->SetSelectedWidget(targetWidget);
             }
             DuplicateSelectedWidget();
             CloseWidgetTreeContextMenu();
-        }
-    });
+        }));
     items.push_back(FPopupMenuItem {"", FImageBrush(), {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeLocalizedMenuItem(
+        "Menu.Delete",
         "Delete",
-        FImageBrush(),
-        {},
         true,
-        false,
         [this, targetWidget]() {
             if (m_DesignerSurface) {
                 m_DesignerSurface->SetSelectedWidget(targetWidget);
             }
             DeleteSelectedWidget();
             CloseWidgetTreeContextMenu();
-        }
-    });
+        }));
 
     popupMenu->SetItems(std::move(items));
     popupMenu->OnItemInvoked.AddLambda([this](ImPopupMenu&, int) {

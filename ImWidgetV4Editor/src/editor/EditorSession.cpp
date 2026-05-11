@@ -3070,17 +3070,16 @@ void EditorSession::OpenStructureContextMenu(
         std::vector<FPopupMenuItem> rootItems;
         for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
             const std::string label = ResolvePaletteEntryLabel(entry);
-            rootItems.push_back(FPopupMenuItem {
-                label,
-                FImageBrush(),
-                {},
-                true,
-                false,
-                [this, typeName = entry.TypeName, label]() {
-                    CreatePaletteWidgetAsRoot(typeName, label);
-                    CloseWidgetTreeContextMenu();
-                }
-            });
+            FPopupMenuItem item;
+            item.Text = label;
+            item.TextValue = entry.LabelText;
+            item.bEnabled = true;
+            item.bIsSeparator = false;
+            item.OnInvoked = [this, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetAsRoot(typeName, label);
+                CloseWidgetTreeContextMenu();
+            };
+            rootItems.push_back(std::move(item));
         }
 
         std::vector<FPopupMenuItem> items;
@@ -3130,45 +3129,42 @@ void EditorSession::OpenStructureContextMenu(
     for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
         const std::string label = ResolvePaletteEntryLabel(entry);
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::OnItem)) {
-            addChildItems.push_back(FPopupMenuItem {
-                label,
-                FImageBrush(),
-                {},
-                true,
-                false,
-                [this, targetWidget, typeName = entry.TypeName, label]() {
-                    CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::OnItem);
-                    CloseWidgetTreeContextMenu();
-                }
-            });
+            FPopupMenuItem item;
+            item.Text = label;
+            item.TextValue = entry.LabelText;
+            item.bEnabled = true;
+            item.bIsSeparator = false;
+            item.OnInvoked = [this, targetWidget, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::OnItem);
+                CloseWidgetTreeContextMenu();
+            };
+            addChildItems.push_back(std::move(item));
         }
 
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::BeforeItem)) {
-            insertBeforeItems.push_back(FPopupMenuItem {
-                label,
-                FImageBrush(),
-                {},
-                true,
-                false,
-                [this, targetWidget, typeName = entry.TypeName, label]() {
-                    CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::BeforeItem);
-                    CloseWidgetTreeContextMenu();
-                }
-            });
+            FPopupMenuItem item;
+            item.Text = label;
+            item.TextValue = entry.LabelText;
+            item.bEnabled = true;
+            item.bIsSeparator = false;
+            item.OnInvoked = [this, targetWidget, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::BeforeItem);
+                CloseWidgetTreeContextMenu();
+            };
+            insertBeforeItems.push_back(std::move(item));
         }
 
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::AfterItem)) {
-            insertAfterItems.push_back(FPopupMenuItem {
-                label,
-                FImageBrush(),
-                {},
-                true,
-                false,
-                [this, targetWidget, typeName = entry.TypeName, label]() {
-                    CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::AfterItem);
-                    CloseWidgetTreeContextMenu();
-                }
-            });
+            FPopupMenuItem item;
+            item.Text = label;
+            item.TextValue = entry.LabelText;
+            item.bEnabled = true;
+            item.bIsSeparator = false;
+            item.OnInvoked = [this, targetWidget, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::AfterItem);
+                CloseWidgetTreeContextMenu();
+            };
+            insertAfterItems.push_back(std::move(item));
         }
     }
 

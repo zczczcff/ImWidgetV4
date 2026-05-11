@@ -82,7 +82,7 @@ void WidgetPaletteItemButton::EnsureVisualContent()
     row->AddChild(m_IconImage);
 
     m_LabelText = std::make_shared<ImTextBlock>();
-    m_LabelText->SetText(ResolvePaletteLabel(m_Entry));
+    m_LabelText->SetText(m_Entry.LabelText);
     m_LabelText->SetFontSize(14.0f);
     m_LabelText->SetWrapText(false);
     m_LabelText->SetTextColor(FColor::Black);

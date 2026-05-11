@@ -21,6 +21,12 @@ std::shared_ptr<ImTextBlock> MakePreviewText(const std::string& text)
     return preview;
 }
 
+std::string ResolvePaletteLabel(const FWidgetPaletteEntry& entry)
+{
+    const std::string resolved = entry.LabelText.Resolve();
+    return resolved.empty() ? entry.Label : resolved;
+}
+
 std::shared_ptr<ImWidget> MakePreviewContent(const FImageBrush& iconBrush, const std::string& text)
 {
     auto row = std::make_shared<ImHorizontalBox>();
@@ -76,7 +82,7 @@ void WidgetPaletteItemButton::EnsureVisualContent()
     row->AddChild(m_IconImage);
 
     m_LabelText = std::make_shared<ImTextBlock>();
-    m_LabelText->SetText(m_Entry.Label);
+    m_LabelText->SetText(ResolvePaletteLabel(m_Entry));
     m_LabelText->SetFontSize(14.0f);
     m_LabelText->SetWrapText(false);
     m_LabelText->SetTextColor(FColor::Black);
@@ -119,12 +125,12 @@ std::shared_ptr<FDragDropOperation> WidgetPaletteItemButton::OnDragDetected(cons
     auto operation = std::make_shared<FDragDropOperation>();
     auto payload = std::make_shared<WidgetPalettePayload>();
     payload->WidgetTypeName = m_Entry.TypeName;
-    payload->Label = m_Entry.Label;
+    payload->Label = ResolvePaletteLabel(m_Entry);
     operation->Payload = payload;
     const FImageBrush iconBrush = GetApplication() != nullptr
         ? GetApplication()->GetCoreIconBrush(m_Entry.Icon, FColor::Black)
         : FImageBrush();
-    operation->PreviewWidget = MakePreviewContent(iconBrush, m_Entry.Label);
+    operation->PreviewWidget = MakePreviewContent(iconBrush, payload->Label);
     operation->PreviewOffset = FVector2(14.0f, 16.0f);
     return operation;
 }

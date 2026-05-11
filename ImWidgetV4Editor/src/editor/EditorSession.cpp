@@ -70,6 +70,12 @@ std::string LocalizedEditorString(
     return EditorText(key, defaultText).Resolve() + suffix;
 }
 
+std::string ResolvePaletteEntryLabel(const FWidgetPaletteEntry& entry)
+{
+    const std::string resolved = entry.LabelText.Resolve();
+    return resolved.empty() ? entry.Label : resolved;
+}
+
 FPopupMenuItem MakeLocalizedMenuItem(
     const std::string& key,
     const std::string& defaultText,
@@ -678,7 +684,9 @@ bool TryDuplicateInParent(
             return false;
         }
 
-        int duplicatedIndex = tabView->AddTab(sourceTab->Title + " Copy", cloneWidget);
+        int duplicatedIndex = tabView->AddTab(
+            sourceTab->Title + " " + EditorText("Session.Copied", "Copied").Resolve(),
+            cloneWidget);
         if (duplicatedIndex < 0) {
             return false;
         }
@@ -817,8 +825,8 @@ void EditorSession::BindDocumentWidgets(
                 EDesignerTransformHandle handle) {
                 const std::string commandLabel =
                     handle == EDesignerTransformHandle::Move
-                        ? "Move Widget"
-                        : "Resize Widget";
+                        ? EditorText("Session.Command.MoveWidget", "Move Widget").Resolve()
+                        : EditorText("Session.Command.ResizeWidget", "Resize Widget").Resolve();
                 std::shared_ptr<ReflectableObject> gestureOwner = widget;
                 if (m_Document) {
                     if (auto parent = m_Document->FindLogicalParent(widget)) {
@@ -1106,7 +1114,7 @@ bool EditorSession::CreatePaletteWidgetAtTreeTarget(
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Add Widget",
+        EditorText("Session.Command.AddWidget", "Add Widget").Resolve(),
         widget,
         targetWidget,
         FVector2(0.0f, 0.0f),
@@ -1144,7 +1152,7 @@ bool EditorSession::CreatePaletteWidgetAsRoot(
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Add Root Widget",
+        EditorText("Session.Command.AddRootWidget", "Add Root Widget").Resolve(),
         widget,
         nullptr,
         FVector2(24.0f, 24.0f),
@@ -1193,7 +1201,7 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Paste Widget",
+        EditorText("Session.Command.PasteWidget", "Paste Widget").Resolve(),
         cloneResult.Widget,
         targetWidget,
         FVector2(0.0f, 0.0f),
@@ -1245,7 +1253,7 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Paste Root Widget",
+        EditorText("Session.Command.PasteRootWidget", "Paste Root Widget").Resolve(),
         cloneResult.Widget,
         nullptr,
         FVector2(24.0f, 24.0f),
@@ -1324,7 +1332,7 @@ bool EditorSession::DeleteSelectedWidget()
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     auto command = std::make_unique<RemoveWidgetCommand>(
         shared_from_this(),
-        "Delete Widget",
+        EditorText("Session.Command.DeleteWidget", "Delete Widget").Resolve(),
         selectedWidget,
         reinsertionTarget,
         reinsertionTarget,
@@ -1433,7 +1441,7 @@ bool EditorSession::PasteCopiedWidget()
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Paste Widget",
+        EditorText("Session.Command.PasteWidget", "Paste Widget").Resolve(),
         cloneResult.Widget,
         selectedWidget,
         pastePosition,
@@ -1486,7 +1494,7 @@ bool EditorSession::DuplicateSelectedWidget()
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
-        "Duplicate Widget",
+        EditorText("Session.Command.DuplicateWidget", "Duplicate Widget").Resolve(),
         cloneWidget,
         selectedWidget,
         selectedWidget->GetGeometry().Position,
@@ -1703,7 +1711,7 @@ void EditorSession::HandleDesignerDrop(
 
         m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
             shared_from_this(),
-            "Add Widget",
+            EditorText("Session.Command.AddWidget", "Add Widget").Resolve(),
             widget,
             insertionTarget,
             position,
@@ -1741,7 +1749,10 @@ void EditorSession::HandleDesignerDrop(
     }
 
     RefreshDocumentViews(sourceWidget);
-    PushDocumentSnapshotCommand("Move Widget", beforeSnapshot, sourceWidget);
+    PushDocumentSnapshotCommand(
+        EditorText("Session.Command.MoveWidget", "Move Widget").Resolve(),
+        beforeSnapshot,
+        sourceWidget);
     LogStatus(LocalizedEditorString("Session.Moved", "Moved", " " + treePayload->Label));
 }
 
@@ -1827,7 +1838,10 @@ void EditorSession::HandleWidgetTreeItemDropped(
         return;
     }
 
-    PushDocumentSnapshotCommand("Move Widget", beforeSnapshot, sourceWidget);
+    PushDocumentSnapshotCommand(
+        EditorText("Session.Command.MoveWidget", "Move Widget").Resolve(),
+        beforeSnapshot,
+        sourceWidget);
     LogStatus(LocalizedEditorString("Session.Moved", "Moved", " " + payload->Label));
 }
 
@@ -1900,7 +1914,7 @@ void EditorSession::HandlePropertyValueCommitted(
     m_CommandStack.PushExecuted(std::make_unique<ReflectablePropertyCommand>(
         shared_from_this(),
         owner,
-        "Edit " + propertyName,
+        EditorText("Session.Command.Edit", "Edit").Resolve() + " " + propertyName,
         std::move(beforeJson),
         std::move(afterJson),
         selectedWidget,
@@ -2992,7 +3006,9 @@ bool EditorSession::CommitReflectableGesture(const std::shared_ptr<ImWidget>& pr
     m_CommandStack.PushExecuted(std::make_unique<ReflectablePropertyCommand>(
         shared_from_this(),
         owner,
-        m_PendingGestureLabel.empty() ? "Edit Widget" : m_PendingGestureLabel,
+        m_PendingGestureLabel.empty()
+            ? EditorText("Session.Command.EditWidget", "Edit Widget").Resolve()
+            : m_PendingGestureLabel,
         m_PendingReflectableGestureSnapshot->BeforeJson,
         afterJson,
         selection,
@@ -3053,13 +3069,14 @@ void EditorSession::OpenStructureContextMenu(
 
         std::vector<FPopupMenuItem> rootItems;
         for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
+            const std::string label = ResolvePaletteEntryLabel(entry);
             rootItems.push_back(FPopupMenuItem {
-                entry.Label,
+                label,
                 FImageBrush(),
                 {},
                 true,
                 false,
-                [this, typeName = entry.TypeName, label = entry.Label]() {
+                [this, typeName = entry.TypeName, label]() {
                     CreatePaletteWidgetAsRoot(typeName, label);
                     CloseWidgetTreeContextMenu();
                 }
@@ -3111,14 +3128,15 @@ void EditorSession::OpenStructureContextMenu(
     std::vector<FPopupMenuItem> insertAfterItems;
     std::vector<FPopupMenuItem> pasteItems;
     for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
+        const std::string label = ResolvePaletteEntryLabel(entry);
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::OnItem)) {
             addChildItems.push_back(FPopupMenuItem {
-                entry.Label,
+                label,
                 FImageBrush(),
                 {},
                 true,
                 false,
-                [this, targetWidget, typeName = entry.TypeName, label = entry.Label]() {
+                [this, targetWidget, typeName = entry.TypeName, label]() {
                     CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::OnItem);
                     CloseWidgetTreeContextMenu();
                 }
@@ -3127,12 +3145,12 @@ void EditorSession::OpenStructureContextMenu(
 
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::BeforeItem)) {
             insertBeforeItems.push_back(FPopupMenuItem {
-                entry.Label,
+                label,
                 FImageBrush(),
                 {},
                 true,
                 false,
-                [this, targetWidget, typeName = entry.TypeName, label = entry.Label]() {
+                [this, targetWidget, typeName = entry.TypeName, label]() {
                     CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::BeforeItem);
                     CloseWidgetTreeContextMenu();
                 }
@@ -3141,12 +3159,12 @@ void EditorSession::OpenStructureContextMenu(
 
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::AfterItem)) {
             insertAfterItems.push_back(FPopupMenuItem {
-                entry.Label,
+                label,
                 FImageBrush(),
                 {},
                 true,
                 false,
-                [this, targetWidget, typeName = entry.TypeName, label = entry.Label]() {
+                [this, targetWidget, typeName = entry.TypeName, label]() {
                     CreatePaletteWidgetAtTreeTarget(typeName, label, targetWidget, ETextOutlineDropZone::AfterItem);
                     CloseWidgetTreeContextMenu();
                 }

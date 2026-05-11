@@ -131,7 +131,7 @@ std::shared_ptr<ImTextList> CreateCodePreviewText()
     style.FontSize = 14.0f;
     style.LineSpacing = 1.1f;
     previewText->SetStyle(style);
-    previewText->SetItems({"// Code preview unavailable."});
+    previewText->SetItems({EditorText("Session.NoDocumentLoadedComment", "// No document loaded.")});
     return previewText;
 }
 

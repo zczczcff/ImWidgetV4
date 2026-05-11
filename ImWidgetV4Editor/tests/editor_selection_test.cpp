@@ -254,6 +254,8 @@ TEST(EditorSelectionTest, EditorLocalizationRegistersEnglishAndChineseTables)
     EXPECT_NE(EditorText("Menu.PasteAsRoot", "Paste As Root").Resolve(), "Paste As Root");
     EXPECT_NE(EditorText("Session.Ready", "Ready.").Resolve(), "Ready.");
     EXPECT_NE(EditorText("Session.GenerateCppHeader", "Generate C++ Header").Resolve(), "Generate C++ Header");
+    EXPECT_NE(EditorText("Palette.Button", "Button").Resolve(), "Button");
+    EXPECT_NE(EditorText("Session.Command.MoveWidget", "Move Widget").Resolve(), "Move Widget");
     FLocalizationManager::Get().SetCulture("en-US");
 }
 
@@ -1543,11 +1545,11 @@ TEST(EditorSelectionTest, DesignerMoveHandleTakesPriorityOverButtonTextChild)
 
 TEST(EditorSelectionTest, WidgetPaletteItemButtonClearsPressedStateWhenGlobalDragStartsAndEnds)
 {
-    FWidgetPaletteEntry entry {
-        "Button",
-        "ImButton",
-        ECoreIcon::Button
-    };
+    FWidgetPaletteEntry entry;
+    entry.Label = "Button";
+    entry.LabelText = FText::FromString("Button");
+    entry.TypeName = "ImButton";
+    entry.Icon = ECoreIcon::Button;
 
     auto paletteButton = std::make_shared<WidgetPaletteItemButton>(entry);
     paletteButton->SetGeometry(FGeometry(FVector2(0.0f, 0.0f), FVector2(160.0f, 40.0f)));

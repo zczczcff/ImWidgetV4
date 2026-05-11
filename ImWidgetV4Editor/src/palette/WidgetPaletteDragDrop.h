@@ -2,6 +2,7 @@
 
 #include "../serialization/WidgetFactory.h"
 
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/DragDrop.h>
 #include <imwidgetv4/core/CoreIcon.h>
 #include <memory>
@@ -12,6 +13,7 @@ namespace ImWidgetV4Editor {
 
 struct FWidgetPaletteEntry {
     std::string Label;
+    ImWidgetV4::FText LabelText;
     std::string TypeName;
     ImWidgetV4::ECoreIcon Icon = ImWidgetV4::ECoreIcon::View;
 };

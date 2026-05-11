@@ -1,5 +1,6 @@
 #include "EditorWorkspaceController.h"
 
+#include "EditorLocalization.h"
 #include "EditorSession.h"
 #include "EditorPaths.h"
 #include "EditorShellHost.h"
@@ -1608,9 +1609,9 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
     widgets.WorkspaceTabs = std::make_shared<ImTabView>();
     widgets.WorkspaceTabs->SetSupportsKeyboardFocus(true);
     widgets.WorkspaceTabs->SetStyle(CreateWorkspaceTabStyle());
-    widgets.WorkspaceTabs->AddTab("Designer", widgets.DocumentHost);
-    widgets.WorkspaceTabs->AddTab("Preview", widgets.PreviewHost);
-    widgets.WorkspaceTabs->AddTab("Schema", widgets.SchemaText);
+    widgets.WorkspaceTabs->AddTab(EditorText("Workspace.Designer", "Designer"), widgets.DocumentHost);
+    widgets.WorkspaceTabs->AddTab(EditorText("Workspace.Preview", "Preview"), widgets.PreviewHost);
+    widgets.WorkspaceTabs->AddTab(EditorText("Workspace.Schema", "Schema"), widgets.SchemaText);
     widgets.WorkspaceTabs->AddTab(".h", widgets.HeaderPreviewText);
     widgets.WorkspaceTabs->AddTab(".cpp", widgets.SourcePreviewText);
 
@@ -1759,7 +1760,7 @@ void EditorWorkspaceController::HandleDocumentTabClosed(ImTabView&, int closedIn
             m_DetailsView->SetTargets(nullptr, nullptr);
         }
         if (m_OutputText) {
-            m_OutputText->SetItems({"No open documents."});
+            m_OutputText->SetItems({EditorText("Output.NoOpenDocuments", "No open documents.")});
         }
         return;
     }
@@ -3883,7 +3884,7 @@ void EditorWorkspaceController::RebuildProjectView()
     m_ProjectItemBindings.clear();
     m_ProjectView->ClearItems();
 
-    ImTextOutlineItem* openRootItem = m_ProjectView->AddRootItem("Open Documents");
+    ImTextOutlineItem* openRootItem = m_ProjectView->AddRootItem(EditorText("Project.OpenDocuments", "Open Documents"));
     if (!openRootItem) {
         return;
     }
@@ -3910,20 +3911,20 @@ void EditorWorkspaceController::RebuildProjectView()
     }
 
     if (m_Documents.empty()) {
-        ImTextOutlineItem* emptyItem = m_ProjectView->AddChildItem(openRootItem, "No open documents");
+        ImTextOutlineItem* emptyItem = m_ProjectView->AddChildItem(openRootItem, EditorText("Project.NoOpenDocuments", "No open documents"));
         if (emptyItem) {
             m_ProjectView->SetSelectedItem(emptyItem);
         }
     }
 
-    ImTextOutlineItem* recentRootItem = m_ProjectView->AddRootItem("Recent Files");
+    ImTextOutlineItem* recentRootItem = m_ProjectView->AddRootItem(EditorText("Project.RecentFiles", "Recent Files"));
     if (!recentRootItem) {
         return;
     }
 
     recentRootItem->Expanded = true;
     if (m_RecentFiles.empty()) {
-        m_ProjectView->AddChildItem(recentRootItem, "No recent files");
+        m_ProjectView->AddChildItem(recentRootItem, EditorText("Project.NoRecentFiles", "No recent files"));
     } else {
         for (const std::filesystem::path& filePath : m_RecentFiles) {
             const std::string label = filePath.filename().string() + "  [" + filePath.string() + "]";
@@ -3938,7 +3939,7 @@ void EditorWorkspaceController::RebuildProjectView()
 
     const std::string workspaceRootLabel = m_Project
         ? "Project: " + m_Project->GetProjectName()
-        : std::string("Workspace");
+        : EditorText("Project.Workspace", "Workspace").Resolve();
     ImTextOutlineItem* workspaceRootItem = m_ProjectView->AddRootItem(workspaceRootLabel);
     if (!workspaceRootItem) {
         return;
@@ -3946,7 +3947,7 @@ void EditorWorkspaceController::RebuildProjectView()
 
     workspaceRootItem->Expanded = true;
     if (m_ProjectRoot.empty() || !std::filesystem::exists(m_ProjectRoot)) {
-        m_ProjectView->AddChildItem(workspaceRootItem, "Workspace root not configured");
+        m_ProjectView->AddChildItem(workspaceRootItem, EditorText("Project.WorkspaceRootNotConfigured", "Workspace root not configured"));
         return;
     }
 
@@ -3976,7 +3977,7 @@ void EditorWorkspaceController::RebuildProjectView()
         }
         if (!m_Project->GetBuildProfiles().empty()) {
             ImTextOutlineItem* profilesRootItem =
-                m_ProjectView->AddChildItem(workspaceRootItem, "Build Profiles");
+                m_ProjectView->AddChildItem(workspaceRootItem, EditorText("Project.BuildProfiles", "Build Profiles"));
             if (profilesRootItem) {
                 profilesRootItem->Expanded = true;
                 for (const FEditorBuildProfile& profile : m_Project->GetBuildProfiles()) {
@@ -4014,7 +4015,9 @@ void EditorWorkspaceController::RebuildProjectView()
                     } else {
                         m_ProjectView->AddChildItem(
                             profileItem,
-                            bRefreshingProbe ? "Refreshing environment probe..." : "Probe data unavailable");
+                            bRefreshingProbe
+                                ? EditorText("Project.RefreshingEnvironmentProbe", "Refreshing environment probe...")
+                                : EditorText("Project.ProbeDataUnavailable", "Probe data unavailable"));
                     }
                 }
             }
@@ -4080,7 +4083,7 @@ void EditorWorkspaceController::RebuildProjectView()
     addWorkspaceEntries(workspaceRootItem, m_ProjectRoot, 0);
 
     if (!bAddedWorkspaceChild) {
-        m_ProjectView->AddChildItem(workspaceRootItem, "No supported files");
+        m_ProjectView->AddChildItem(workspaceRootItem, EditorText("Project.NoSupportedFiles", "No supported files"));
     }
 }
 

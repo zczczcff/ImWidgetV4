@@ -7,6 +7,7 @@
 #include "../src/commands/RemoveWidgetCommand.h"
 #include "../src/build/BuildController.h"
 #include "../src/editor/EditorDocument.h"
+#include "../src/editor/EditorLocalization.h"
 #include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/EditorWorkspaceController.h"
@@ -224,6 +225,22 @@ std::shared_ptr<EditorWorkspaceController> CreateBoundWorkspaceController(
 }
 
 } // namespace
+
+TEST(EditorSelectionTest, EditorLocalizationRegistersEnglishAndChineseTables)
+{
+    FLocalizationManager::Get().ClearStringTables();
+    FLocalizationManager::Get().SetDefaultCulture("en-US");
+    FLocalizationManager::Get().SetCulture("en-US");
+
+    RegisterEditorDefaultStringTables();
+
+    EXPECT_EQ(EditorText("TitleBar.File", "File").Resolve(), "File");
+    ASSERT_TRUE(FLocalizationManager::Get().SetCulture("zh-CN"));
+    EXPECT_EQ(EditorText("TitleBar.File", "File").Resolve(), "文件");
+    EXPECT_EQ(EditorText("Dock.WidgetTree", "Widget Tree").Resolve(), "控件树");
+
+    FLocalizationManager::Get().SetCulture("en-US");
+}
 
 TEST(EditorSelectionTest, SelectionModelResolvesStableWidgetId)
 {

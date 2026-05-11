@@ -189,7 +189,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     probeStyle.FontSize = 13.0f;
     probeStyle.LineSpacing = 1.1f;
     probeText->SetStyle(probeStyle);
-    probeText->SetItems({});
+    probeText->SetItems(std::vector<std::string>{});
 
     auto errorText = std::make_shared<ImTextBlock>();
     errorText->SetText("");

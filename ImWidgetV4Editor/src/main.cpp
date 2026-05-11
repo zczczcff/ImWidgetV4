@@ -1,5 +1,6 @@
 #include "editor/EditorSession.h"
 #include "editor/EditorShellHost.h"
+#include "editor/EditorLocalization.h"
 #include "editor/EditorPaths.h"
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
@@ -174,7 +175,7 @@ std::shared_ptr<ImImage> MakeTitleBarIcon(const FImageBrush& brush, float size =
     return image;
 }
 
-std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const std::string& text)
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const FText& text)
 {
     auto button = std::make_shared<FCompactTitleBarButton>();
     button->SetStyle(MakeTitleBarButtonStyle());
@@ -189,7 +190,7 @@ std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const std::string
     return button;
 }
 
-std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const std::string& tooltip)
+std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const FText& tooltip)
 {
     auto button = std::make_shared<FCompactTitleBarButton>();
     button->SetStyle(MakeTitleBarIconButtonStyle());
@@ -264,7 +265,7 @@ std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSi
     return body;
 }
 
-std::shared_ptr<ImTextList> MakePanelTextList(const std::vector<std::string>& items)
+std::shared_ptr<ImTextList> MakePanelTextList(const std::vector<FText>& items)
 {
     auto list = std::make_shared<ImTextList>();
     FTextListStyle style = list->GetStyle();
@@ -339,9 +340,9 @@ std::shared_ptr<ImWidget> BuildWidgetTreePanel()
 std::shared_ptr<ImTextList> BuildBuildOverviewPanel()
 {
     return MakePanelTextList({
-        "No project loaded.",
-        "",
-        "Build/Toolchain overview will appear here."
+        EditorText("Build.NoProjectLoaded", "No project loaded."),
+        FText::FromString(""),
+        EditorText("Build.OverviewHint", "Build/Toolchain overview will appear here.")
     });
 }
 
@@ -494,7 +495,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
 
     auto profileComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*profileComboBox);
-    profileComboBox->SetItems({});
+    profileComboBox->SetItems(std::vector<std::string>{});
 
     auto windowsGeneratorComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*windowsGeneratorComboBox);
@@ -514,52 +515,52 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
 
     auto androidSdkRootEditor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*androidSdkRootEditor, false);
-    androidSdkRootEditor->SetHintText("Override Android SDK root");
+    androidSdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidSdkRoot", "Override Android SDK root"));
 
     auto androidSdkBrowseButton = std::make_shared<ImButton>();
-    androidSdkBrowseButton->SetText("Browse");
+    androidSdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidSdkClearButton = std::make_shared<ImButton>();
-    androidSdkClearButton->SetText("Clear");
+    androidSdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto androidNdkRootEditor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*androidNdkRootEditor, false);
-    androidNdkRootEditor->SetHintText("Override Android NDK root");
+    androidNdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidNdkRoot", "Override Android NDK root"));
 
     auto androidNdkBrowseButton = std::make_shared<ImButton>();
-    androidNdkBrowseButton->SetText("Browse");
+    androidNdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidNdkClearButton = std::make_shared<ImButton>();
-    androidNdkClearButton->SetText("Clear");
+    androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto applyProfileButton = std::make_shared<ImButton>();
-    applyProfileButton->SetText("Apply");
+    applyProfileButton->SetText(EditorText("Build.Apply", "Apply"));
 
     auto reprobeButton = std::make_shared<ImButton>();
-    reprobeButton->SetText("Re-Probe");
+    reprobeButton->SetText(EditorText("Build.ReProbe", "Re-Probe"));
 
     auto configureButton = std::make_shared<ImButton>();
-    configureButton->SetText("Configure");
+    configureButton->SetText(EditorText("Build.Configure", "Configure"));
 
     auto buildButton = std::make_shared<ImButton>();
-    buildButton->SetText("Build");
+    buildButton->SetText(EditorText("Build.Build", "Build"));
 
     auto cleanButton = std::make_shared<ImButton>();
-    cleanButton->SetText("Clean");
+    cleanButton->SetText(EditorText("Build.Clean", "Clean"));
 
     auto rebuildButton = std::make_shared<ImButton>();
-    rebuildButton->SetText("Rebuild");
+    rebuildButton->SetText(EditorText("Build.Rebuild", "Rebuild"));
 
     auto settingsButton = std::make_shared<ImButton>();
-    settingsButton->SetText("Settings");
+    settingsButton->SetText(EditorText("Build.Settings", "Settings"));
 
     auto revealButton = std::make_shared<ImButton>();
-    revealButton->SetText("Reveal");
+    revealButton->SetText(EditorText("Build.Reveal", "Reveal"));
 
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(6.0f);
     windowsSettingsGroup->AddChild(
-        MakeInspectorVerticalPropertyRow("Generator", windowsGeneratorComboBox),
+        MakeInspectorVerticalPropertyRow(EditorText("Build.Generator", "Generator").Resolve(), windowsGeneratorComboBox),
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
 
     auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
@@ -575,12 +576,12 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
     androidSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow(
-            "Android SDK Root",
+            EditorText("Build.AndroidSdkRoot", "Android SDK Root").Resolve(),
             MakeBuildDockPathEditorRow(androidSdkRootEditor, androidSdkBrowseButton, androidSdkClearButton)),
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
     androidSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow(
-            "Android NDK Root",
+            EditorText("Build.AndroidNdkRoot", "Android NDK Root").Resolve(),
             MakeBuildDockPathEditorRow(androidNdkRootEditor, androidNdkBrowseButton, androidNdkClearButton)),
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
 
@@ -602,9 +603,9 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
 
     auto panel = std::make_shared<ImVerticalBox>();
     panel->SetSpacing(8.0f);
-    panel->AddChild(MakePanelTitle("Build"), FMargin(10.0f, 10.0f, 10.0f, 0.0f));
-    panel->AddChild(MakePanelBody("Toolchain readiness, active profile, and recent build output."), FMargin(10.0f, 0.0f, 10.0f, 0.0f));
-    panel->AddChild(MakeInspectorVerticalPropertyRow("Active Profile", profileComboBox), FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    panel->AddChild(MakePanelTitle(EditorText("Build.PanelTitle", "Build").Resolve()), FMargin(10.0f, 10.0f, 10.0f, 0.0f));
+    panel->AddChild(MakePanelBody(EditorText("Build.PanelBody", "Toolchain readiness, active profile, and recent build output.").Resolve()), FMargin(10.0f, 0.0f, 10.0f, 0.0f));
+    panel->AddChild(MakeInspectorVerticalPropertyRow(EditorText("Build.ActiveProfile", "Active Profile").Resolve(), profileComboBox), FMargin(8.0f, 0.0f, 8.0f, 0.0f));
     panel->AddChild(windowsSettingsGroup, FMargin(0.0f));
     panel->AddChild(androidSettingsGroup, FMargin(0.0f));
     panel->AddChild(profileActionRow, FMargin(8.0f, 0.0f, 8.0f, 0.0f));
@@ -644,7 +645,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 
     auto title = std::make_shared<ImTextBlock>();
     title->SetName("TitleText");
-    title->SetText("ImWidgetV4 Editor");
+    title->SetText(EditorText("App.Title", "ImWidgetV4 Editor"));
     title->SetFontSize(32.0f);
     title->SetWrapText(false);
     title->SetTextColor(FColor::FromBytes(235, 240, 248));
@@ -654,7 +655,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 
     auto hint = std::make_shared<ImTextBlock>();
     hint->SetName("HintText");
-    hint->SetText("Drag widgets from the left palette into the designer surface.");
+    hint->SetText(EditorText("App.InitialHint", "Drag widgets from the left palette into the designer surface."));
     hint->SetFontSize(18.0f);
     hint->SetWrapText(false);
     hint->SetTextColor(FColor::FromBytes(162, 175, 191));
@@ -664,7 +665,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
 
     auto button = std::make_shared<ImButton>();
     button->SetName("PrimaryButton");
-    button->SetText("Action");
+    button->SetText(EditorText("App.Action", "Action"));
     if (ImCanvasPanelSlot* slot = canvas->AddChildAt(button, FVector2(0.08f, 0.28f))) {
         slot->SetAutoSize(true);
     }
@@ -695,11 +696,11 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs(FEditorShellWidgets& shell)
     style.ActiveTabColor = FColor::FromBytes(66, 94, 134);
     tabView->SetStyle(style);
 
-    tabView->AddTab("Controls", BuildControlPalettePanel());
+    tabView->AddTab(EditorText("Dock.Controls", "Controls"), BuildControlPalettePanel());
     auto projectView = BuildProjectViewPanel();
-    tabView->AddTab("Project", projectView);
-    tabView->AddTab("Build", BuildBuildDockPanel(shell));
-    tabView->AddTab("Widget Tree", BuildWidgetTreePanel());
+    tabView->AddTab(EditorText("Dock.Project", "Project"), projectView);
+    tabView->AddTab(EditorText("Dock.Build", "Build"), BuildBuildDockPanel(shell));
+    tabView->AddTab(EditorText("Dock.WidgetTree", "Widget Tree"), BuildWidgetTreePanel());
     tabView->SetActiveTab(0);
     return tabView;
 }
@@ -722,7 +723,7 @@ FEditorShellWidgets BuildEditorShell()
 
     auto titleIcon = MakeTitleBarIcon(FImageBrush(), 18.0f);
     auto titleText = std::make_shared<ImTextBlock>();
-    titleText->SetText("ImWidgetV4 Editor");
+    titleText->SetText(EditorText("App.Title", "ImWidgetV4 Editor"));
     titleText->SetFontSize(16.0f);
     titleText->SetWrapText(false);
     titleText->SetTextColor(FColor::FromBytes(238, 242, 247));
@@ -737,8 +738,8 @@ FEditorShellWidgets BuildEditorShell()
     titleBar->AddLeadingItem(titleText);
     titleBar->AddLeadingItem(titleBarProfileStatusText);
 
-    auto undoButton = MakeTitleBarIconButton(FImageBrush(), "Undo");
-    auto redoButton = MakeTitleBarIconButton(FImageBrush(), "Redo");
+    auto undoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Undo", "Undo"));
+    auto redoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Redo", "Redo"));
 
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
@@ -791,7 +792,7 @@ FEditorShellWidgets BuildEditorShell()
 
     auto bottomDock = std::make_shared<ImVerticalBox>();
     bottomDock->SetSpacing(0.0f);
-    auto outputText = MakePanelTextList({"Booting editor session..."});
+    auto outputText = MakePanelTextList({EditorText("Output.Booting", "Booting editor session...")});
     bottomDock->AddChildFill(outputText, 1.0f, FMargin(0.0f, 0.0f, 0.0f, 0.0f));
 
     verticalShell->AddPart(topWorkspace, 0.78f, 360.0f);
@@ -1207,31 +1208,31 @@ void RebuildEditorTitleBar(
         shell.TitleBar->AddLeadingItem(shell.TitleBarProfileStatusText);
     }
 
-    auto fileButton = MakeTitleBarTextButton("File");
+    auto fileButton = MakeTitleBarTextButton(EditorText("TitleBar.File", "File"));
     BindPopupMenuButton(app, fileButton, [&app, workspaceController]() {
         return BuildFileMenuItems(app, workspaceController);
     });
     shell.TitleBar->AddLeadingItem(fileButton);
 
-    auto editButton = MakeTitleBarTextButton("Edit");
+    auto editButton = MakeTitleBarTextButton(EditorText("TitleBar.Edit", "Edit"));
     BindPopupMenuButton(app, editButton, [workspaceController]() {
         return BuildEditMenuItems(workspaceController);
     });
     shell.TitleBar->AddLeadingItem(editButton);
 
-    auto projectButton = MakeTitleBarTextButton("Project");
+    auto projectButton = MakeTitleBarTextButton(EditorText("TitleBar.Project", "Project"));
     BindPopupMenuButton(app, projectButton, [&app, workspaceController]() {
         return BuildProjectMenuItems(app, workspaceController);
     });
     shell.TitleBar->AddLeadingItem(projectButton);
 
-    auto buildButton = MakeTitleBarTextButton("Build");
+    auto buildButton = MakeTitleBarTextButton(EditorText("TitleBar.Build", "Build"));
     BindPopupMenuButton(app, buildButton, [workspaceController]() {
         return BuildBuildMenuItems(workspaceController);
     });
     shell.TitleBar->AddLeadingItem(buildButton);
 
-    auto viewButton = MakeTitleBarTextButton("View");
+    auto viewButton = MakeTitleBarTextButton(EditorText("TitleBar.View", "View"));
     BindPopupMenuButton(app, viewButton, []() {
         return BuildSimpleMenuItems("View");
     });
@@ -1246,7 +1247,9 @@ void RebuildEditorTitleBar(
         shell.TitleBar->AddLeadingItem(shell.RedoButton);
     }
 
-    auto searchButton = MakeTitleBarIconButton(app.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(210, 219, 232)), "Search");
+    auto searchButton = MakeTitleBarIconButton(
+        app.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(210, 219, 232)),
+        EditorText("TitleBar.Search", "Search"));
     BindPopupMenuButton(app, searchButton, []() {
         return BuildSimpleMenuItems("Search");
     });
@@ -1595,6 +1598,7 @@ public:
     void ConfigureApplication(ImApplication& app) override
     {
         BoundApplication_ = &app;
+        RegisterEditorDefaultStringTables();
         const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
         std::error_code currentPathError;
         std::filesystem::current_path(defaultWorkspaceDirectory, currentPathError);
@@ -1632,10 +1636,10 @@ public:
             Shell_.OutputText);
         bWorkspaceRestoreCompleted_ = false;
 
-        app.SetApplicationTitle("ImWidgetV4 Editor");
+        app.SetApplicationTitle(EditorText("App.Title", "ImWidgetV4 Editor").Resolve());
         app.SetApplicationIcon(app.GetCoreIconBrush(ECoreIcon::Settings));
         if (Shell_.UndoButton) {
-            Shell_.UndoButton->SetToolTipText("Undo");
+            Shell_.UndoButton->SetToolTipText(EditorText("TitleBar.Undo", "Undo"));
             Shell_.UndoButton->OnClicked.AddLambda([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                 if (auto lockedWorkspace = weakWorkspace.lock()) {
                     lockedWorkspace->Undo();
@@ -1643,7 +1647,7 @@ public:
             });
         }
         if (Shell_.RedoButton) {
-            Shell_.RedoButton->SetToolTipText("Redo");
+            Shell_.RedoButton->SetToolTipText(EditorText("TitleBar.Redo", "Redo"));
             Shell_.RedoButton->OnClicked.AddLambda([weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                 if (auto lockedWorkspace = weakWorkspace.lock()) {
                     lockedWorkspace->Redo();

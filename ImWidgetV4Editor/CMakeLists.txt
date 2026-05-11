@@ -48,6 +48,7 @@ set(IMWIDGETV4_EDITOR_SOURCES
     src/commands/ReflectablePropertyCommand.cpp
     src/editor/EditorDocument.cpp
     src/editor/EditorPaths.cpp
+    src/editor/EditorLocalization.cpp
     src/editor/EditorShellHost.cpp
     src/editor/InputDialog.cpp
     src/editor/NewAppProjectDialog.cpp
@@ -89,6 +90,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/commands/ReflectablePropertyCommand.cpp
         src/editor/EditorDocument.cpp
         src/editor/EditorPaths.cpp
+        src/editor/EditorLocalization.cpp
         src/editor/EditorShellHost.cpp
         src/editor/InputDialog.cpp
         src/editor/NewAppProjectDialog.cpp

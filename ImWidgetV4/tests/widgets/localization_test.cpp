@@ -6,9 +6,11 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/ListView.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 
 using namespace ImWidgetV4;
@@ -201,6 +203,50 @@ TEST(LocalizationTest, TextOutlineItemUsesLocalizedTextAndKeepsDefaultText)
     ImTextOutlineItem plainItem;
     plainItem.Text = "Plain";
     EXPECT_EQ(plainItem.ToJson()["Properties"]["ImTextOutlineItem::Text"], "Plain");
+}
+
+TEST(LocalizationTest, TextListUsesLocalizedItemsAndKeepsDefaultItems)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["Log.Ready"] = "Ready-Pseudo";
+    pseudo.Entries["Log.Done"] = "Done-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImTextList textList;
+    textList.SetItems({
+        FText::FromKey("Log.Ready", "Ready"),
+        FText::FromKey("Log.Done", "Done")
+    });
+
+    EXPECT_EQ(textList.GetItems()[0], "Ready");
+    EXPECT_EQ(textList.GetItems()[1], "Done");
+
+    textList.ModifyItem(1, FText::FromKey("Log.Ready", "Ready"));
+    EXPECT_EQ(textList.GetItems()[1], "Ready");
+    EXPECT_EQ(textList.ToJson()["Properties"]["ImTextList::Items"][1], "Ready");
+}
+
+TEST(LocalizationTest, ListViewDefaultEmptyTextCanBeLocalized)
+{
+    ResetLocalization();
+
+    FStringTable pseudo;
+    pseudo.Culture = "pseudo";
+    pseudo.Entries["List.Empty"] = "Nothing-Pseudo";
+    FLocalizationManager::Get().RegisterStringTable(std::move(pseudo));
+    FLocalizationManager::Get().SetCulture("pseudo");
+
+    ImListView listView;
+    listView.SetDefaultEmptyText(FText::FromKey("List.Empty", "Nothing"));
+
+    auto emptyTextBlock = std::dynamic_pointer_cast<ImTextBlock>(listView.GetEmptyContent());
+    ASSERT_TRUE(emptyTextBlock);
+    EXPECT_EQ(emptyTextBlock->GetText(), "Nothing-Pseudo");
+    EXPECT_EQ(listView.GetDefaultEmptyText().Resolve(), "Nothing-Pseudo");
 }
 
 TEST(LocalizationTest, TextResolvesThroughCurrentCultureAndFallback)

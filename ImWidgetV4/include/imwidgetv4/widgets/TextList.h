@@ -1,5 +1,6 @@
 #pragma once
 
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <string>
 #include <vector>
@@ -102,10 +103,13 @@ public:
     virtual ~ImTextList() = default;
 
     void SetItems(const std::vector<std::string>& items);
+    void SetItems(const std::vector<FText>& items);
     const std::vector<std::string>& GetItems() const { return m_Items; }
     void AddItem(const std::string& item);
+    void AddItem(const FText& item);
     void ClearItems();
     void ModifyItem(int index, const std::string& item);
+    void ModifyItem(int index, const FText& item);
     void RemoveItem(int index);
 
     void SetStyle(const FTextListStyle& style);
@@ -159,9 +163,12 @@ private:
     bool IsNavigationShortcut(const FInputEvent& event) const;
     float ResolveWrappedLineHeight() const;
     float ResolveLineStride(float lineHeight) const;
+    std::string ResolveItemText(int index) const;
+    void SyncLocalizedItemsFromSerializableItems();
 
     FTextListStyle m_Style;
     std::vector<std::string> m_Items;
+    std::vector<FText> m_ItemTexts;
     std::vector<FColor> m_ItemColors;
     std::vector<FTextLine> m_Lines;
     std::vector<FItemLayout> m_ItemLayouts;

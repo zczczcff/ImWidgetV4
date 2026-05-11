@@ -184,6 +184,20 @@ void ImListView::SetEmptyContent(const std::shared_ptr<ImWidget>& widget)
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
+void ImListView::SetDefaultEmptyText(const FText& text)
+{
+    if (DefaultEmptyText_ == text) {
+        return;
+    }
+
+    DefaultEmptyText_ = text;
+    if (auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(DefaultEmptyContent_)) {
+        textBlock->SetText(text);
+    }
+    bLayoutDirty_ = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
 std::shared_ptr<ImWidget> ImListView::GetEmptyContent() const
 {
     return EmptyContent_ ? EmptyContent_ : DefaultEmptyContent_;
@@ -722,7 +736,7 @@ void ImListView::EnsureDefaultEmptyContent()
     }
 
     auto text = std::make_shared<ImTextBlock>();
-    text->SetText("No items");
+    text->SetText(DefaultEmptyText_);
     text->SetTextColor(FColor::FromBytes(164, 171, 181));
     text->SetHitTestVisible(false);
     DefaultEmptyContent_ = text;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Delegate.h>
+#include <imwidgetv4/core/Localization.h>
 #include <imwidgetv4/core/Widget.h>
 #include <functional>
 #include <limits>
@@ -106,6 +107,8 @@ public:
 
     void SetEmptyContent(const std::shared_ptr<ImWidget>& widget);
     std::shared_ptr<ImWidget> GetEmptyContent() const;
+    void SetDefaultEmptyText(const FText& text);
+    const FText& GetDefaultEmptyText() const { return DefaultEmptyText_; }
 
     void SetStyle(const FListViewStyle& style);
     const FListViewStyle& GetStyle() const { return Style_; }
@@ -169,6 +172,7 @@ private:
     FOnGenerateRow OnGenerateRow_;
     std::shared_ptr<ImWidget> EmptyContent_;
     std::shared_ptr<ImWidget> DefaultEmptyContent_;
+    FText DefaultEmptyText_ = FText::FromString("No items");
     std::vector<float> RowHeightCache_;
     std::unordered_map<int, std::shared_ptr<ImWidget>> RealizedRows_;
     std::vector<FVisibleEntry> VisibleEntries_;

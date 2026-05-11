@@ -205,6 +205,25 @@ ImTextList::ImTextList()
 void ImTextList::SetItems(const std::vector<std::string>& items)
 {
     m_Items = items;
+    SyncLocalizedItemsFromSerializableItems();
+    m_ItemColors.assign(m_Items.size(), m_Style.TextColor);
+    ClearSelection();
+    m_bLayoutDirty = true;
+    m_LastLayoutWrapWidth = -1.0f;
+    m_LastLayoutHeight = -1.0f;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTextList::SetItems(const std::vector<FText>& items)
+{
+    m_Items.clear();
+    m_ItemTexts = items;
+    m_Items.reserve(items.size());
+    for (const FText& item : items) {
+        m_Items.push_back(item.IsLocalized()
+            ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
+            : item.GetInvariantText());
+    }
     m_ItemColors.assign(m_Items.size(), m_Style.TextColor);
     ClearSelection();
     m_bLayoutDirty = true;
@@ -216,6 +235,19 @@ void ImTextList::SetItems(const std::vector<std::string>& items)
 void ImTextList::AddItem(const std::string& item)
 {
     m_Items.push_back(item);
+    m_ItemTexts.push_back(FText::FromString(item));
+    m_ItemColors.push_back(m_Style.TextColor);
+    m_bLayoutDirty = true;
+    m_LastLayoutWrapWidth = -1.0f;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTextList::AddItem(const FText& item)
+{
+    m_ItemTexts.push_back(item);
+    m_Items.push_back(item.IsLocalized()
+        ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
+        : item.GetInvariantText());
     m_ItemColors.push_back(m_Style.TextColor);
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -225,6 +257,7 @@ void ImTextList::AddItem(const std::string& item)
 void ImTextList::ClearItems()
 {
     m_Items.clear();
+    m_ItemTexts.clear();
     m_ItemColors.clear();
     m_Lines.clear();
     m_ItemLayouts.clear();
@@ -245,6 +278,27 @@ void ImTextList::ModifyItem(int index, const std::string& item)
     }
 
     m_Items[static_cast<std::size_t>(index)] = item;
+    if (static_cast<std::size_t>(index) < m_ItemTexts.size()) {
+        m_ItemTexts[static_cast<std::size_t>(index)] = FText::FromString(item);
+    }
+    ClearSelection();
+    m_bLayoutDirty = true;
+    m_LastLayoutWrapWidth = -1.0f;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTextList::ModifyItem(int index, const FText& item)
+{
+    if (index < 0 || index >= static_cast<int>(m_Items.size())) {
+        return;
+    }
+
+    const std::size_t itemIndex = static_cast<std::size_t>(index);
+    m_ItemTexts.resize(m_Items.size());
+    m_ItemTexts[itemIndex] = item;
+    m_Items[itemIndex] = item.IsLocalized()
+        ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
+        : item.GetInvariantText();
     ClearSelection();
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -258,6 +312,9 @@ void ImTextList::RemoveItem(int index)
     }
 
     m_Items.erase(m_Items.begin() + index);
+    if (index < static_cast<int>(m_ItemTexts.size())) {
+        m_ItemTexts.erase(m_ItemTexts.begin() + index);
+    }
     m_ItemColors.erase(m_ItemColors.begin() + index);
     ClearSelection();
     m_bLayoutDirty = true;
@@ -717,7 +774,7 @@ void ImTextList::RebuildLayout(float wrapWidth)
         layout.Top = cursorY;
 
         std::size_t start = 0;
-        const std::string& item = m_Items[itemIndex];
+        const std::string item = ResolveItemText(static_cast<int>(itemIndex));
         while (start <= item.size()) {
             const std::size_t end = item.find('\n', start);
             const std::size_t count = (end == std::string::npos ? item.size() : end) - start;
@@ -899,6 +956,32 @@ float ImTextList::ResolveWrappedLineHeight() const
 float ImTextList::ResolveLineStride(float lineHeight) const
 {
     return std::max(lineHeight, lineHeight * std::max(0.0f, m_Style.LineSpacing));
+}
+
+std::string ImTextList::ResolveItemText(int index) const
+{
+    if (index < 0 || index >= static_cast<int>(m_Items.size())) {
+        return {};
+    }
+
+    const std::size_t itemIndex = static_cast<std::size_t>(index);
+    if (itemIndex < m_ItemTexts.size()) {
+        const FText& itemText = m_ItemTexts[itemIndex];
+        if (itemText.IsLocalized() || !itemText.GetInvariantText().empty()) {
+            return itemText.Resolve();
+        }
+    }
+
+    return m_Items[itemIndex];
+}
+
+void ImTextList::SyncLocalizedItemsFromSerializableItems()
+{
+    m_ItemTexts.clear();
+    m_ItemTexts.reserve(m_Items.size());
+    for (const std::string& item : m_Items) {
+        m_ItemTexts.push_back(FText::FromString(item));
+    }
 }
 
 } // namespace ImWidgetV4

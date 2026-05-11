@@ -63,6 +63,14 @@ std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const s
     return panel;
 }
 
+std::string LocalizedEditorString(
+    const std::string& key,
+    const std::string& defaultText,
+    const std::string& suffix = std::string())
+{
+    return EditorText(key, defaultText).Resolve() + suffix;
+}
+
 std::shared_ptr<ImScrollBox> CreateDocumentHost()
 {
     auto documentHost = std::make_shared<ImScrollBox>();
@@ -429,15 +437,15 @@ std::string BuildBackgroundTaskDisplayName(int kind)
 {
     switch (kind) {
     case 0:
-        return "Configure";
+        return EditorText("Build.Configure", "Configure").Resolve();
     case 1:
-        return "Build";
+        return EditorText("Build.Build", "Build").Resolve();
     case 2:
-        return "Clean";
+        return EditorText("Build.Clean", "Clean").Resolve();
     case 3:
-        return "Rebuild";
+        return EditorText("Build.Rebuild", "Rebuild").Resolve();
     default:
-        return "Build";
+        return EditorText("Build.Build", "Build").Resolve();
     }
 }
 
@@ -713,17 +721,13 @@ bool EditorWorkspaceController::CreateAppProjectAt(
     const std::string trimmedProjectName = TrimWhitespaceCopy(options.ProjectName);
     const std::filesystem::path folderNamePath = std::filesystem::path(trimmedProjectName).filename();
     if (parentDirectory.empty() || trimmedProjectName.empty() || folderNamePath != trimmedProjectName) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project failed: project name must not contain path separators."});
-        }
+        SetLocalizedOutputLine("NewProject.ProjectNamePathSeparator", "Create project failed: project name must not contain path separators.");
         return false;
     }
 
     const std::string trimmedNamespaceName = TrimWhitespaceCopy(options.NamespaceName);
     if (trimmedNamespaceName.empty()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project failed: namespace must not be empty."});
-        }
+        SetLocalizedOutputLine("NewProject.NamespaceEmpty", "Create project failed: namespace must not be empty.");
         return false;
     }
 
@@ -732,9 +736,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
     if (normalizedStartupDocumentFileName.empty() ||
         ContainsPathSeparators(normalizedStartupDocumentFileName) ||
         std::filesystem::path(normalizedStartupDocumentFileName).filename().string() != normalizedStartupDocumentFileName) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project failed: startup UI name must not contain path separators."});
-        }
+        SetLocalizedOutputLine("NewProject.StartupUIPathSeparator", "Create project failed: startup UI name must not contain path separators.");
         return false;
     }
 
@@ -743,18 +745,14 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         : TrimWhitespaceCopy(options.TemplateName);
 
     if (HasDirtyDocuments()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project blocked: save or discard dirty documents first."});
-        }
+        SetLocalizedOutputLine("Project.CreateBlockedDirtyDocuments", "Create project blocked: save or discard dirty documents first.");
         return false;
     }
 
     try {
         const std::filesystem::path projectRoot = (parentDirectory / folderNamePath).lexically_normal();
         if (std::filesystem::exists(projectRoot)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: target folder already exists."});
-            }
+            SetLocalizedOutputLine("NewProject.TargetFolderExists", "Create project failed: target folder already exists.");
             return false;
         }
 
@@ -772,9 +770,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             BuildStartupWidgetClassName(normalizedStartupDocumentFileName);
         std::shared_ptr<EditorSession> bootstrapSession = CreateSession();
         if (!bootstrapSession || !bootstrapSession->GetDocument()) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: could not create startup document session."});
-            }
+            SetLocalizedOutputLine("NewProject.StartupSessionCreateFailed", "Create project failed: could not create startup document session.");
             return false;
         }
 
@@ -782,9 +778,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             GetDocumentDisplayTitleFromFileName(normalizedStartupDocumentFileName));
         std::string documentError;
         if (!bootstrapSession->GetDocument()->SaveAs(startupDocumentPath, &documentError)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: " + documentError});
-            }
+            SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + documentError);
             return false;
         }
 
@@ -798,9 +792,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
         const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
         if (!scaffoldResult.bSuccess) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: " + scaffoldResult.ErrorMessage});
-            }
+            SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + scaffoldResult.ErrorMessage);
             return false;
         }
 
@@ -811,17 +803,13 @@ bool EditorWorkspaceController::CreateAppProjectAt(
                 trimmedNamespaceName,
                 startupDocumentRelativePath,
                 trimmedTemplateName)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: invalid project metadata."});
-            }
+            SetLocalizedOutputLine("NewProject.InvalidMetadata", "Create project failed: invalid project metadata.");
             return false;
         }
 
         std::string manifestError;
         if (!project->Save(&manifestError)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create project failed: " + manifestError});
-            }
+            SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + manifestError);
             return false;
         }
 
@@ -832,9 +820,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
 
         std::shared_ptr<EditorSession> session = CreateSession();
         if (!session || !session->OpenDocumentFromPath(startupDocumentPath) || !AddSession(session, true)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Project created, but opening the startup document failed."});
-            }
+            SetLocalizedOutputLine("Project.OpenedStartupLoadFailed", "Project created, but opening the startup document failed.");
             RebuildProjectView();
             NotifyProjectStateChanged();
             return false;
@@ -842,19 +828,13 @@ bool EditorWorkspaceController::CreateAppProjectAt(
 
         RebuildProjectView();
         NotifyProjectStateChanged();
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Created app project " + trimmedProjectName + " [" + trimmedTemplateName + "]"});
-        }
+        SetLocalizedOutputLine("NewProject.CreatedAppProject", "Created app project", " " + trimmedProjectName + " [" + trimmedTemplateName + "]");
         return true;
     } catch (const std::exception& error) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project failed: " + std::string(error.what())});
-        }
+        SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + std::string(error.what()));
         return false;
     } catch (...) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project failed."});
-        }
+        SetLocalizedOutputLine("NewProject.CreateFailedWithPeriod", "Create project failed.");
         return false;
     }
 }
@@ -949,9 +929,10 @@ bool EditorWorkspaceController::OpenDocument(ImApplication& app)
         const int existingIndex = FindDocumentIndexByPath(openedDocument->GetFilePath());
         if (existingIndex >= 0) {
             ActivateDocumentAt(existingIndex);
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Switched to already open document: " + openedDocument->GetFilePath().filename().string()});
-            }
+            SetLocalizedOutputLine(
+                "Project.SwitchedToAlreadyOpenDocument",
+                "Switched to already open document",
+                ": " + openedDocument->GetFilePath().filename().string());
             RememberRecentFile(openedDocument->GetFilePath());
             RebuildProjectView();
             return true;
@@ -987,9 +968,7 @@ bool EditorWorkspaceController::OpenDocumentFromPath(const std::filesystem::path
 bool EditorWorkspaceController::NewAppProject(ImApplication& app)
 {
     if (HasDirtyDocuments()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create project blocked: save or discard dirty documents first."});
-        }
+        SetLocalizedOutputLine("Project.CreateBlockedDirtyDocuments", "Create project blocked: save or discard dirty documents first.");
         return false;
     }
 
@@ -1014,9 +993,7 @@ bool EditorWorkspaceController::NewAppProject(ImApplication& app)
 bool EditorWorkspaceController::OpenAppProject(ImApplication& app)
 {
     if (HasDirtyDocuments()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Open project blocked: save or discard dirty documents first."});
-        }
+        SetLocalizedOutputLine("Project.OpenBlockedDirtyDocuments", "Open project blocked: save or discard dirty documents first.");
         return false;
     }
 
@@ -1055,9 +1032,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
     }
 
     if (HasDirtyDocuments()) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Open project blocked: save or discard dirty documents first."});
-        }
+        SetLocalizedOutputLine("Project.OpenBlockedDirtyDocuments", "Open project blocked: save or discard dirty documents first.");
         return false;
     }
 
@@ -1359,7 +1334,10 @@ bool EditorWorkspaceController::SetActiveBuildProfile(const std::string& profile
 
     std::string saveError;
     if (!m_Project->Save(&saveError)) {
-        AppendOutputLine("Failed to save active build profile: " + saveError);
+        AppendOutputLine(LocalizedEditorString(
+            "Build.SaveActiveProfileFailed",
+            "Failed to save active build profile",
+            ": " + saveError));
     }
     if (m_BuildProfileProbeReports.find(profileName) == m_BuildProfileProbeReports.end()) {
         RequestBuildProfileProbeRefresh();
@@ -1386,7 +1364,10 @@ bool EditorWorkspaceController::UpdateBuildProfile(const FEditorBuildProfile& pr
 
     std::string saveError;
     if (!m_Project->Save(&saveError)) {
-        AppendOutputLine("Failed to save build profile changes: " + saveError);
+        AppendOutputLine(LocalizedEditorString(
+            "Build.SaveProfileChangesFailed",
+            "Failed to save build profile changes",
+            ": " + saveError));
         return false;
     }
 
@@ -2108,12 +2089,10 @@ void EditorWorkspaceController::PromptProjectRootChangeWithDirtyDocuments(
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Menu.SaveAllAndSwitch",
         "Save All and Switch",
-        {},
-        {},
         true,
-        false,
         [weakThis, application = &app]() {
             if (auto self = weakThis.lock()) {
                 for (int index = 0; index < static_cast<int>(self->m_Documents.size()); ++index) {
@@ -2132,45 +2111,34 @@ void EditorWorkspaceController::PromptProjectRootChangeWithDirtyDocuments(
                 const std::filesystem::path pendingProjectRoot = self->m_PendingProjectRootChange;
                 self->m_PendingProjectRootChange.clear();
                 self->SetProjectRoot(pendingProjectRoot);
-                if (self->m_OutputText) {
-                    self->m_OutputText->SetItems({"Project root: " + pendingProjectRoot.string()});
-                }
+                self->SetLocalizedOutputLine("Workspace.ProjectRoot", "Project root", ": " + pendingProjectRoot.string());
                 self->ClosePendingPrompt();
             }
-        }
-    });
-    items.push_back(FPopupMenuItem {
+        }));
+    items.push_back(MakeEditorMenuItem(
+        "Menu.DiscardChangesAndSwitch",
         "Discard Changes and Switch",
-        {},
-        {},
         true,
-        false,
         [weakThis]() {
             if (auto self = weakThis.lock()) {
                 const std::filesystem::path pendingProjectRoot = self->m_PendingProjectRootChange;
                 self->m_PendingProjectRootChange.clear();
                 self->SetProjectRoot(pendingProjectRoot);
-                if (self->m_OutputText) {
-                    self->m_OutputText->SetItems({"Project root: " + pendingProjectRoot.string()});
-                }
+                self->SetLocalizedOutputLine("Workspace.ProjectRoot", "Project root", ": " + pendingProjectRoot.string());
                 self->ClosePendingPrompt();
             }
-        }
-    });
+        }));
     items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Common.Cancel",
         "Cancel",
-        {},
-        {},
         true,
-        false,
         [weakThis]() {
             if (auto self = weakThis.lock()) {
                 self->m_PendingProjectRootChange.clear();
                 self->ClosePendingPrompt();
             }
-        }
-    });
+        }));
     popupMenu->SetItems(std::move(items));
     popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
         if (auto self = weakThis.lock()) {
@@ -2280,9 +2248,7 @@ void EditorWorkspaceController::OpenCreateDocumentDialog(
         if (auto self = weakThis.lock()) {
             const std::filesystem::path trimmedName = std::filesystem::path(fileName).filename();
             if (trimmedName.empty() || trimmedName != fileName) {
-                if (self->m_OutputText) {
-                    self->m_OutputText->SetItems({"Create document failed: file name must not contain path separators."});
-                }
+                self->SetLocalizedOutputLine("Project.CreateDocumentFileNamePathSeparator", "Create document failed: file name must not contain path separators.");
                 return false;
             }
 
@@ -2421,9 +2387,7 @@ void EditorWorkspaceController::OpenCreateFolderDialog(
         if (auto self = weakThis.lock()) {
             const std::filesystem::path trimmedName = std::filesystem::path(folderName).filename();
             if (trimmedName.empty() || trimmedName != folderName) {
-                if (self->m_OutputText) {
-                    self->m_OutputText->SetItems({"Create folder failed: folder name must not contain path separators."});
-                }
+                self->SetLocalizedOutputLine("Project.CreateFolderNamePathSeparator", "Create folder failed: folder name must not contain path separators.");
                 return false;
             }
 
@@ -2465,12 +2429,10 @@ void EditorWorkspaceController::PromptDeleteProjectItem(
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        std::filesystem::is_directory(path) ? "Menu.DeleteFolder" : "Menu.DeleteFile",
         std::filesystem::is_directory(path) ? "Delete Folder" : "Delete File",
-        {},
-        {},
         true,
-        false,
         [weakThis]() {
             if (auto self = weakThis.lock()) {
                 const std::filesystem::path pendingPath = self->m_PendingDeleteProjectItemPath;
@@ -2478,22 +2440,18 @@ void EditorWorkspaceController::PromptDeleteProjectItem(
                 self->DeleteProjectItem(pendingPath);
                 self->ClosePendingPrompt();
             }
-        }
-    });
+        }));
     items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
-    items.push_back(FPopupMenuItem {
+    items.push_back(MakeEditorMenuItem(
+        "Common.Cancel",
         "Cancel",
-        {},
-        {},
         true,
-        false,
         [weakThis]() {
             if (auto self = weakThis.lock()) {
                 self->m_PendingDeleteProjectItemPath.clear();
                 self->ClosePendingPrompt();
             }
-        }
-    });
+        }));
     popupMenu->SetItems(std::move(items));
     popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
         if (auto self = weakThis.lock()) {
@@ -3108,16 +3066,14 @@ bool EditorWorkspaceController::CreateAndOpenDocumentAtPath(const std::filesyste
     document->SetDisplayTitle(normalizedPath.stem().string());
     std::string errorMessage;
     if (!document->SaveAs(normalizedPath, &errorMessage)) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create document failed: " + errorMessage});
-        }
+        SetLocalizedOutputLine("Project.CreateDocumentFailed", "Create document failed", ": " + errorMessage);
         return false;
     }
 
     RememberRecentFile(normalizedPath);
     const bool bAdded = AddSession(session, true);
-    if (bAdded && m_OutputText) {
-        m_OutputText->SetItems({"Created " + normalizedPath.filename().string()});
+    if (bAdded) {
+        SetLocalizedOutputLine("Project.Created", "Created", " " + normalizedPath.filename().string());
     }
     return bAdded;
 }
@@ -3130,9 +3086,11 @@ bool EditorWorkspaceController::CreateFolderAtPath(const std::filesystem::path& 
 
     try {
         if (std::filesystem::exists(directoryPath)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create folder skipped: " + directoryPath.filename().string() + " already exists."});
-            }
+            SetLocalizedOutputLine(
+                "Project.CreateFolderSkippedAlreadyExists",
+                "Create folder skipped",
+                ": " + directoryPath.filename().string() + " " +
+                    EditorText("Project.AlreadyExists", "already exists.").Resolve());
             return false;
         }
 
@@ -3142,27 +3100,19 @@ bool EditorWorkspaceController::CreateFolderAtPath(const std::filesystem::path& 
         }
 
         if (!std::filesystem::create_directory(directoryPath)) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Create folder failed: unable to create " + directoryPath.filename().string()});
-            }
+            SetLocalizedOutputLine("Project.CreateFolderUnableToCreate", "Create folder failed: unable to create", " " + directoryPath.filename().string());
             return false;
         }
     } catch (const std::exception& exception) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create folder failed: " + std::string(exception.what())});
-        }
+        SetLocalizedOutputLine("Project.CreateFolderFailed", "Create folder failed", ": " + std::string(exception.what()));
         return false;
     } catch (...) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Create folder failed."});
-        }
+        SetLocalizedOutputLine("Project.CreateFolderFailedWithPeriod", "Create folder failed.");
         return false;
     }
 
     RefreshProjectTree();
-    if (m_OutputText) {
-        m_OutputText->SetItems({"Created folder " + directoryPath.filename().string()});
-    }
+    SetLocalizedOutputLine("Project.CreatedFolder", "Created folder", " " + directoryPath.filename().string());
     NotifyProjectStateChanged();
     return true;
 }
@@ -3175,9 +3125,7 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
 
     const std::filesystem::path trimmedName = std::filesystem::path(newName).filename();
     if (trimmedName.empty() || trimmedName != newName) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Rename failed: name must not contain path separators."});
-        }
+        SetLocalizedOutputLine("Project.RenameNamePathSeparator", "Rename failed: name must not contain path separators.");
         return false;
     }
 
@@ -3187,9 +3135,7 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
     }
 
     if (std::filesystem::exists(targetPath)) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Rename failed: target already exists."});
-        }
+        SetLocalizedOutputLine("Project.RenameTargetExists", "Rename failed: target already exists.");
         return false;
     }
 
@@ -3201,9 +3147,7 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
         const std::filesystem::path documentPath = entry.Session->GetDocument()->GetFilePath();
         if ((AreEquivalentPaths(documentPath, path) || IsPathWithinRoot(documentPath, path)) &&
             entry.Session->GetDocument()->IsDirty()) {
-            if (m_OutputText) {
-                m_OutputText->SetItems({"Rename blocked: save or discard dirty documents under the selected path first."});
-            }
+            SetLocalizedOutputLine("Project.RenameBlockedDirtyDocuments", "Rename blocked: save or discard dirty documents under the selected path first.");
             return false;
         }
     }
@@ -3211,14 +3155,10 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
     try {
         std::filesystem::rename(path, targetPath);
     } catch (const std::exception& exception) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Rename failed: " + std::string(exception.what())});
-        }
+        SetLocalizedOutputLine("Project.RenameFailed", "Rename failed", ": " + std::string(exception.what()));
         return false;
     } catch (...) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Rename failed."});
-        }
+        SetLocalizedOutputLine("Project.RenameFailedWithPeriod", "Rename failed.");
         return false;
     }
 
@@ -3230,9 +3170,10 @@ bool EditorWorkspaceController::RenameProjectItem(const std::filesystem::path& p
     }
 
     RefreshProjectTree();
-    if (m_OutputText) {
-        m_OutputText->SetItems({"Renamed " + path.filename().string() + " to " + targetPath.filename().string()});
-    }
+    SetLocalizedOutputLine(
+        "Project.Renamed",
+        "Renamed",
+        " " + path.filename().string() + " " + EditorText("Project.To", "to").Resolve() + " " + targetPath.filename().string());
     NotifyProjectStateChanged();
     return true;
 }
@@ -3245,8 +3186,8 @@ bool EditorWorkspaceController::DeleteProjectItem(const std::filesystem::path& p
 
     bool bBlockedByDirtyDocument = false;
     if (!CloseOpenDocumentsUnderPath(path, &bBlockedByDirtyDocument)) {
-        if (bBlockedByDirtyDocument && m_OutputText) {
-            m_OutputText->SetItems({"Delete blocked: save or discard dirty documents under the selected path first."});
+        if (bBlockedByDirtyDocument) {
+            SetLocalizedOutputLine("Project.DeleteBlockedDirtyDocuments", "Delete blocked: save or discard dirty documents under the selected path first.");
         }
         return false;
     }
@@ -3259,21 +3200,15 @@ bool EditorWorkspaceController::DeleteProjectItem(const std::filesystem::path& p
             std::filesystem::remove(path);
         }
     } catch (const std::exception& exception) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Delete failed: " + std::string(exception.what())});
-        }
+        SetLocalizedOutputLine("Project.DeleteFailed", "Delete failed", ": " + std::string(exception.what()));
         return false;
     } catch (...) {
-        if (m_OutputText) {
-            m_OutputText->SetItems({"Delete failed."});
-        }
+        SetLocalizedOutputLine("Project.DeleteFailedWithPeriod", "Delete failed.");
         return false;
     }
 
     RefreshProjectTree();
-    if (m_OutputText) {
-        m_OutputText->SetItems({"Deleted " + path.filename().string()});
-    }
+    SetLocalizedOutputLine("Project.Deleted", "Deleted", " " + path.filename().string());
     NotifyProjectStateChanged();
     return true;
 }
@@ -3308,6 +3243,23 @@ void EditorWorkspaceController::NotifyProjectStateChanged() const
     if (m_OnProjectStateChanged) {
         m_OnProjectStateChanged();
     }
+}
+
+void EditorWorkspaceController::SetOutputLine(const std::string& text) const
+{
+    if (!m_OutputText) {
+        return;
+    }
+
+    m_OutputText->SetItems({text});
+}
+
+void EditorWorkspaceController::SetLocalizedOutputLine(
+    const std::string& key,
+    const std::string& defaultText,
+    const std::string& suffix) const
+{
+    SetOutputLine(LocalizedEditorString(key, defaultText, suffix));
 }
 
 void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
@@ -3432,7 +3384,7 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     }
 
     if (IsBuildTaskRunning()) {
-        AppendOutputLine("Build request ignored: another background build task is already running.");
+        AppendOutputLine(LocalizedEditorString("Build.RequestIgnoredTaskRunning", "Build request ignored: another background build task is already running."));
         return false;
     }
 
@@ -3447,14 +3399,14 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     task->Kind = kind;
     task->ProfileName = profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
     const std::string taskDisplayName = BuildBackgroundTaskDisplayName(static_cast<int>(kind));
-    task->StatusText = taskDisplayName + " queued...";
+    task->StatusText = taskDisplayName + " " + EditorText("Build.Queued", "queued...").Resolve();
     task->bStatusDirty = true;
     m_BackgroundBuildTask = task;
 
     AppendOutputLine("========================================");
     AppendOutputLine(
         taskDisplayName +
-        " started in background [" + task->ProfileName + "].");
+        " " + EditorText("Build.StartedInBackground", "started in background").Resolve() + " [" + task->ProfileName + "].");
     NotifyProjectStateChanged();
 
     task->Worker = std::thread([task, project]() {
@@ -3497,8 +3449,8 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
         UpdateBackgroundBuildTaskStatus(
             task,
             task->Result.bSuccess
-                ? (completedTaskDisplayName + " finished.")
-                : (completedTaskDisplayName + " failed."));
+                ? (completedTaskDisplayName + " " + EditorText("Build.Finished", "finished.").Resolve())
+                : (completedTaskDisplayName + " " + EditorText("Build.Failed", "failed.").Resolve()));
     });
 
     return true;
@@ -3532,7 +3484,7 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
     }
 
     if (!statusLine.empty()) {
-        AppendOutputLine("[status] " + statusLine);
+        AppendOutputLine("[" + EditorText("Build.Status", "status").Resolve() + "] " + statusLine);
         NotifyProjectStateChanged();
     }
 
@@ -3553,14 +3505,14 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
             BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         AppendOutputLine(
             completedTaskDisplayName +
-            " complete: " + result.BuildDirectory.string());
+            " " + EditorText("Build.Complete", "complete").Resolve() + ": " + result.BuildDirectory.string());
     } else {
         const std::string completedTaskDisplayName =
             BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         AppendOutputLine(
-            completedTaskDisplayName + " failed: " +
+            completedTaskDisplayName + " " + EditorText("Build.FailedWithoutPeriod", "failed").Resolve() + ": " +
             (result.ErrorMessage.empty()
-                ? ("Process exited with code " + std::to_string(result.ExitCode) + ".")
+                ? (EditorText("Build.ProcessExitedWithCode", "Process exited with code").Resolve() + " " + std::to_string(result.ExitCode) + ".")
                 : result.ErrorMessage));
     }
 
@@ -3720,8 +3672,8 @@ bool EditorWorkspaceController::LoadProjectManifestAtRoot(
     auto project = std::make_shared<EditorProject>();
     std::string errorMessage;
     if (!project->Load(manifestPath, &errorMessage)) {
-        if (bLogErrors && m_OutputText) {
-            m_OutputText->SetItems({"Project manifest load failed: " + errorMessage});
+        if (bLogErrors) {
+            SetLocalizedOutputLine("Project.ManifestLoadFailed", "Project manifest load failed", ": " + errorMessage);
         }
         return false;
     }

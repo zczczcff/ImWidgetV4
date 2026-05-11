@@ -231,6 +231,11 @@ private:
     void OpenProjectItemContextMenu(ImWidgetV4::ImApplication& app, ImWidgetV4::ImTextOutlineItem* item, ImWidgetV4::FVector2 position);
     void CloseProjectItemContextMenu();
     void NotifyProjectStateChanged() const;
+    void SetOutputLine(const std::string& text) const;
+    void SetLocalizedOutputLine(
+        const std::string& key,
+        const std::string& defaultText,
+        const std::string& suffix = std::string()) const;
     void AppendOutputLine(const std::string& text) const;
     bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& profileName);
     void TickBackgroundBuildTask();

@@ -246,6 +246,10 @@ TEST(EditorSelectionTest, EditorLocalizationRegistersEnglishAndChineseTables)
     EXPECT_EQ(EditorText("Menu.OpenAppProject", "Open App Project...").Resolve(), "打开应用项目...");
     EXPECT_EQ(EditorText("Build.ConfigureActiveProfile", "Configure Active Profile").Resolve(), "配置当前配置");
 
+    EXPECT_NE(EditorText("Build.RequestIgnoredTaskRunning", "Build request ignored").Resolve(), "Build request ignored");
+    EXPECT_NE(EditorText("Project.CreateDocumentFailed", "Create document failed").Resolve(), "Create document failed");
+    EXPECT_NE(EditorText("Menu.SaveAllAndSwitch", "Save All and Switch").Resolve(), "Save All and Switch");
+    EXPECT_NE(EditorText("NewProject.ProjectNamePathSeparator", "Create project failed").Resolve(), "Create project failed");
     FLocalizationManager::Get().SetCulture("en-US");
 }
 

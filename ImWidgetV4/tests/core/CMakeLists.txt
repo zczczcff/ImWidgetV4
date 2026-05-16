@@ -20,3 +20,14 @@ target_link_libraries(delegate_test
 )
 
 add_test(NAME delegate_test COMMAND delegate_test)
+
+add_executable(named_action_test
+    named_action_test.cpp
+)
+
+target_link_libraries(named_action_test
+    imwidgetv4_core
+    gtest_main
+)
+
+add_test(NAME named_action_test COMMAND named_action_test)

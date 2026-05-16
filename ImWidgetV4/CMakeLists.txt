@@ -90,6 +90,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/DrawContext.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/FileDialog.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/Localization.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/NamedAction.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/PropertyType.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/PropertyType_temp.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/ReflectableObject.h

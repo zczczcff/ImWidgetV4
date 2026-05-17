@@ -913,6 +913,7 @@ void ImApplication::EnsureDefaultFontConfigured()
     fontConfig.OversampleH = 2;
     fontConfig.OversampleV = 1;
     fontConfig.PixelSnapH = false;
+    const ImWchar* glyphRanges = io.Fonts->GetGlyphRangesChineseFull();
 
     ImFont* loadedFont = nullptr;
     if (!PreferredDefaultFontData_.empty()) {
@@ -924,7 +925,7 @@ void ImApplication::EnsureDefaultFontConfigured()
                 static_cast<int>(PreferredDefaultFontData_.size()),
                 18.0f,
                 &fontConfig,
-                io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+                glyphRanges);
         }
     }
 
@@ -944,7 +945,7 @@ void ImApplication::EnsureDefaultFontConfigured()
             utf8Path.c_str(),
             18.0f,
             &fontConfig,
-            io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+            glyphRanges);
         if (loadedFont != nullptr) {
             break;
         }

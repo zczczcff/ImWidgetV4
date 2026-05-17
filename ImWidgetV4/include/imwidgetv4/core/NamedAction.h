@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -73,6 +74,9 @@ struct TNamedActionHandle {
 
 using FNamedActionHandle = TNamedActionHandle<std::string>;
 
+template<typename T>
+using TNamedActionCanonicalArg = std::remove_cv_t<std::remove_reference_t<T>>;
+
 template<typename KeyType, bool bAllowOverload = false>
 class TNamedActionSystem;
 
@@ -96,14 +100,20 @@ public:
         return ActionKey_;
     }
 
-    FNamedActionResult Execute(Args... args) const {
+    template<typename... CallArgs>
+    FNamedActionResult Execute(CallArgs&&... args) const {
+        static_assert(sizeof...(CallArgs) == sizeof...(Args),
+            "Invoker argument count must match the acquired action signature.");
+        static_assert((std::is_same_v<TNamedActionCanonicalArg<CallArgs>, Args> && ...),
+            "Invoker argument types must match the acquired canonical action signature.");
+
         if (System_ == nullptr) {
             FNamedActionResult result;
             result.ErrorMessage = "Named action invoker is not bound to a system.";
             return result;
         }
 
-        return System_->template ExecuteInvoker<Args...>(*this, std::forward<Args>(args)...);
+        return System_->template ExecuteInvoker<Args...>(*this, std::forward<CallArgs>(args)...);
     }
 
 private:
@@ -121,6 +131,9 @@ using FNamedActionInvoker = TNamedActionInvoker<std::string, false, Args...>;
 
 namespace Private {
 
+template<typename T>
+using TCanonicalArg = TNamedActionCanonicalArg<T>;
+
 template<typename Callable>
 struct TFunctionTraits : public TFunctionTraits<decltype(&std::remove_reference_t<Callable>::operator())> {
 };
@@ -128,8 +141,8 @@ struct TFunctionTraits : public TFunctionTraits<decltype(&std::remove_reference_
 template<typename ResultType, typename... Args>
 struct TFunctionTraits<ResultType(Args...)> {
     using ReturnType = ResultType;
-    using ArgumentTuple = std::tuple<std::decay_t<Args>...>;
-    using StdFunctionType = std::function<ResultType(std::decay_t<Args>...)>;
+    using ArgumentTuple = std::tuple<Args...>;
+    using StdFunctionType = std::function<ResultType(Args...)>;
 };
 
 template<typename ResultType, typename... Args>
@@ -155,14 +168,116 @@ typename TFunctionTraits<std::decay_t<Callable>>::StdFunctionType MakeStdFunctio
 }
 
 template<typename... Args>
-std::string MakeSignatureId() {
+std::string MakeCanonicalSignatureId() {
     std::ostringstream stream;
     stream << sizeof...(Args);
     (([&stream]() {
-        const auto typeName = uectti::type_name<std::decay_t<Args>>();
+        const auto typeName = uectti::type_name<TCanonicalArg<Args>>();
         stream << "|" << std::string(typeName.begin(), typeName.end());
     }()), ...);
     return stream.str();
+}
+
+template<typename... Args>
+std::string MakeHandlerSignatureId() {
+    std::ostringstream stream;
+    stream << sizeof...(Args);
+    (([&stream]() {
+        const auto typeName = uectti::type_name_with_cvr<Args>();
+        stream << "|" << std::string(typeName.begin(), typeName.end());
+    }()), ...);
+    return stream.str();
+}
+
+template<typename HandlerArg>
+constexpr bool IsSupportedBorrowStageArgV =
+    !std::is_rvalue_reference_v<HandlerArg>
+    && (!std::is_lvalue_reference_v<HandlerArg> || std::is_const_v<std::remove_reference_t<HandlerArg>>);
+
+template<typename HandlerArg, typename SourceArg>
+HandlerArg ConvertBorrowStageArg(const SourceArg& sourceArg) {
+    static_assert(IsSupportedBorrowStageArgV<HandlerArg>,
+        "Borrow stages only support value parameters or const lvalue references.");
+    static_assert(std::is_same_v<TCanonicalArg<HandlerArg>, TCanonicalArg<SourceArg>>,
+        "Borrow stage parameter types must match the canonical action payload types.");
+
+    if constexpr (std::is_lvalue_reference_v<HandlerArg>) {
+        return sourceArg;
+    } else {
+        static_assert(std::is_constructible_v<HandlerArg, const SourceArg&>,
+            "Borrow stage value parameters must be copy-constructible from const references.");
+        return sourceArg;
+    }
+}
+
+template<typename T>
+class TFinalArgDispatch {
+public:
+    template<typename SourceArg>
+    explicit TFinalArgDispatch(SourceArg&& sourceArg)
+        : Ptr_(const_cast<T*>(std::addressof(sourceArg)))
+        , bMutable_(!std::is_const_v<std::remove_reference_t<SourceArg>>)
+        , bCanMove_(!std::is_lvalue_reference_v<SourceArg&&> && !std::is_const_v<std::remove_reference_t<SourceArg>>) {
+    }
+
+    const T& AsConstRef() const {
+        return *Ptr_;
+    }
+
+    T& AsMutableRef() const {
+        if (!bMutable_) {
+            throw std::runtime_error("Final handler requires a mutable argument, but the action was executed with a const source.");
+        }
+
+        return *Ptr_;
+    }
+
+    T&& AsRvalueRef() const {
+        if (!bMutable_) {
+            throw std::runtime_error("Final handler requires an rvalue argument, but the action was executed with a const source.");
+        }
+
+        if (!bCanMove_) {
+            throw std::runtime_error("Final handler requires an rvalue argument, but the action was executed with an lvalue source.");
+        }
+
+        return std::move(*Ptr_);
+    }
+
+    T MakeValue() const {
+        if (bMutable_ && bCanMove_) {
+            return std::move(*Ptr_);
+        }
+
+        return *Ptr_;
+    }
+
+private:
+    T* Ptr_ = nullptr;
+    bool bMutable_ = false;
+    bool bCanMove_ = false;
+};
+
+template<typename HandlerArg, typename T>
+HandlerArg ConvertFinalStageArg(const TFinalArgDispatch<T>& sourceArg) {
+    static_assert(std::is_same_v<TCanonicalArg<HandlerArg>, T>,
+        "Final handler parameter types must match the canonical action payload types.");
+
+    if constexpr (std::is_rvalue_reference_v<HandlerArg>) {
+        if constexpr (std::is_const_v<std::remove_reference_t<HandlerArg>>) {
+            return std::move(sourceArg.AsConstRef());
+        } else {
+            return sourceArg.AsRvalueRef();
+        }
+    } else if constexpr (std::is_lvalue_reference_v<HandlerArg>) {
+        if constexpr (std::is_const_v<std::remove_reference_t<HandlerArg>>) {
+            return sourceArg.AsConstRef();
+        } else {
+            return sourceArg.AsMutableRef();
+        }
+    } else {
+        return sourceArg.MakeValue();
+    }
 }
 
 template<typename KeyType>
@@ -194,10 +309,43 @@ public:
 template<typename KeyType, typename... Args>
 class TActionVariant : public IActionVariant<KeyType> {
 public:
-    using FValidatorFunction = std::function<bool(Args...)>;
-    using FHandlerFunction = std::function<void(Args...)>;
-    using FValidatorEntry = TTypedHandlerEntry<KeyType, FValidatorFunction>;
-    using FHandlerEntry = TTypedHandlerEntry<KeyType, FHandlerFunction>;
+    using FBorrowValidatorFunction = std::function<bool(const Args&...)>;
+    using FBorrowHandlerFunction = std::function<void(const Args&...)>;
+    using FValidatorEntry = TTypedHandlerEntry<KeyType, FBorrowValidatorFunction>;
+    using FHandlerEntry = TTypedHandlerEntry<KeyType, FBorrowHandlerFunction>;
+
+    class IFinalHandlerInvoker {
+    public:
+        virtual ~IFinalHandlerInvoker() = default;
+        virtual void Invoke(TFinalArgDispatch<Args>... args) const = 0;
+        virtual const std::string& GetHandlerSignatureId() const = 0;
+    };
+
+    template<typename... HandlerArgs>
+    class TFinalHandlerInvoker final : public IFinalHandlerInvoker {
+    public:
+        using FFunctionType = std::function<void(HandlerArgs...)>;
+
+        explicit TFinalHandlerInvoker(FFunctionType function)
+            : Function_(std::move(function)) {
+        }
+
+        void Invoke(TFinalArgDispatch<Args>... args) const override {
+            Function_(ConvertFinalStageArg<HandlerArgs>(args)...);
+        }
+
+        const std::string& GetHandlerSignatureId() const override {
+            return HandlerSignatureId_;
+        }
+
+    private:
+        FFunctionType Function_;
+        std::string HandlerSignatureId_ = MakeHandlerSignatureId<HandlerArgs...>();
+    };
+
+    struct FFinalHandlerEntry : public THandlerBaseEntry<KeyType> {
+        std::unique_ptr<IFinalHandlerInvoker> Invoker;
+    };
 
     const std::string& GetSignatureId() const override {
         return SignatureId_;
@@ -207,63 +355,89 @@ public:
         return sizeof...(Args);
     }
 
-    void AddValidator(const TNamedActionHandle<KeyType>& handle, FValidatorFunction validator, const std::string& description, int priority) {
+    template<typename... HandlerArgs>
+    void AddValidator(const TNamedActionHandle<KeyType>& handle, std::function<bool(HandlerArgs...)> validator, const std::string& description, int priority) {
         if (!validator) {
             return;
         }
 
+        static_assert(sizeof...(HandlerArgs) == sizeof...(Args),
+            "Validator parameter count must match the action payload count.");
+        static_assert((IsSupportedBorrowStageArgV<HandlerArgs> && ...),
+            "Validators only support value parameters or const lvalue references.");
+
         Validators_.push_back({
             { handle, description, priority },
-            [validator = std::move(validator)](Args... args) {
-                return validator(args...);
+            [validator = std::move(validator)](const Args&... args) {
+                return validator(ConvertBorrowStageArg<HandlerArgs>(args)...);
             }
         });
         SortByPriority(Validators_);
     }
 
-    void AddSequentialHandler(const TNamedActionHandle<KeyType>& handle, FHandlerFunction handler, const std::string& description, int priority) {
+    template<typename... HandlerArgs>
+    void AddSequentialHandler(const TNamedActionHandle<KeyType>& handle, std::function<void(HandlerArgs...)> handler, const std::string& description, int priority) {
         if (!handler) {
             return;
         }
 
+        static_assert(sizeof...(HandlerArgs) == sizeof...(Args),
+            "Sequential handler parameter count must match the action payload count.");
+        static_assert((IsSupportedBorrowStageArgV<HandlerArgs> && ...),
+            "Sequential handlers only support value parameters or const lvalue references.");
+
         SequentialHandlers_.push_back({
             { handle, description, priority },
-            [handler = std::move(handler)](Args... args) {
-                handler(args...);
+            [handler = std::move(handler)](const Args&... args) {
+                handler(ConvertBorrowStageArg<HandlerArgs>(args)...);
             }
         });
         SortByPriority(SequentialHandlers_);
     }
 
-    void SetFinalHandler(const TNamedActionHandle<KeyType>& handle, FHandlerFunction handler, const std::string& description, int priority) {
+    template<typename... HandlerArgs>
+    void SetFinalHandler(const TNamedActionHandle<KeyType>& handle, std::function<void(HandlerArgs...)> handler, const std::string& description, int priority) {
         if (!handler) {
             FinalHandler_.reset();
             return;
         }
 
-        FinalHandler_ = FHandlerEntry {
+        static_assert(sizeof...(HandlerArgs) == sizeof...(Args),
+            "Final handler parameter count must match the action payload count.");
+
+        FinalHandler_ = FFinalHandlerEntry {
             { handle, description, priority },
-            [handler = std::move(handler)](Args... args) {
-                handler(args...);
-            }
+            std::make_unique<TFinalHandlerInvoker<HandlerArgs...>>(std::move(handler))
         };
     }
 
-    void AddCompletionListener(const TNamedActionHandle<KeyType>& handle, FHandlerFunction listener, const std::string& description, int priority) {
+    template<typename... HandlerArgs>
+    void AddCompletionListener(const TNamedActionHandle<KeyType>& handle, std::function<void(HandlerArgs...)> listener, const std::string& description, int priority) {
         if (!listener) {
             return;
         }
 
+        static_assert(sizeof...(HandlerArgs) == sizeof...(Args),
+            "Completion listener parameter count must match the action payload count.");
+        static_assert((IsSupportedBorrowStageArgV<HandlerArgs> && ...),
+            "Completion listeners only support value parameters or const lvalue references.");
+
         CompletionListeners_.push_back({
             { handle, description, priority },
-            [listener = std::move(listener)](Args... args) {
-                listener(args...);
+            [listener = std::move(listener)](const Args&... args) {
+                listener(ConvertBorrowStageArg<HandlerArgs>(args)...);
             }
         });
         SortByPriority(CompletionListeners_);
     }
 
-    FNamedActionResult Execute(Args... args) const {
+    template<typename... CallArgs>
+    FNamedActionResult ExecuteWithArgs(CallArgs&&... args) const {
+        static_assert(sizeof...(CallArgs) == sizeof...(Args),
+            "Execution argument count must match the registered action payload count.");
+        static_assert((std::is_same_v<TCanonicalArg<CallArgs>, Args> && ...),
+            "Execution argument types must match the registered action payload types.");
+
         FNamedActionResult result;
         result.TotalValidators = Validators_.size();
         result.TotalHandlers = SequentialHandlers_.size() + (FinalHandler_.has_value() ? 1u : 0u);
@@ -271,7 +445,7 @@ public:
 
         for (const FValidatorEntry& validatorEntry : Validators_) {
             try {
-                if (!validatorEntry.Invoke(args...)) {
+                if (!validatorEntry.Invoke(static_cast<const Args&>(args)...)) {
                     result.bValidationPassed = false;
                     result.ErrorMessage = validatorEntry.Description.empty()
                         ? "Named action validation failed."
@@ -295,7 +469,7 @@ public:
 
         for (const FHandlerEntry& handlerEntry : SequentialHandlers_) {
             try {
-                handlerEntry.Invoke(args...);
+                handlerEntry.Invoke(static_cast<const Args&>(args)...);
                 ++result.ExecutedHandlers;
             } catch (const std::exception& exception) {
                 result.ErrorMessage = "Sequential handler error: " + std::string(exception.what());
@@ -308,20 +482,20 @@ public:
 
         if (FinalHandler_.has_value()) {
             try {
-                FinalHandler_->Invoke(args...);
+                FinalHandler_->Invoker->Invoke(TFinalArgDispatch<Args>(std::forward<CallArgs>(args))...);
                 ++result.ExecutedHandlers;
             } catch (const std::exception& exception) {
-                result.ErrorMessage = "Final handler error: " + std::string(exception.what());
+                result.ErrorMessage = "Final handler error (" + FinalHandler_->Invoker->GetHandlerSignatureId() + "): " + std::string(exception.what());
                 return result;
             } catch (...) {
-                result.ErrorMessage = "Final handler error: unknown exception.";
+                result.ErrorMessage = "Final handler error (" + FinalHandler_->Invoker->GetHandlerSignatureId() + "): unknown exception.";
                 return result;
             }
         }
 
         for (const FHandlerEntry& listenerEntry : CompletionListeners_) {
             try {
-                listenerEntry.Invoke(args...);
+                listenerEntry.Invoke(static_cast<const Args&>(args)...);
                 ++result.ExecutedListeners;
             } catch (const std::exception& exception) {
                 result.ErrorMessage = "Completion listener error: " + std::string(exception.what());
@@ -422,10 +596,10 @@ private:
         return true;
     }
 
-    const std::string SignatureId_ = MakeSignatureId<Args...>();
+    const std::string SignatureId_ = MakeCanonicalSignatureId<Args...>();
     std::vector<FValidatorEntry> Validators_;
     std::vector<FHandlerEntry> SequentialHandlers_;
-    std::optional<FHandlerEntry> FinalHandler_;
+    std::optional<FFinalHandlerEntry> FinalHandler_;
     std::vector<FHandlerEntry> CompletionListeners_;
 };
 
@@ -529,24 +703,24 @@ public:
 
     template<typename... Args>
     FNamedActionResult Execute(const KeyType& actionKey, Args&&... args) const {
-        using FVariantType = Private::TActionVariant<KeyType, std::decay_t<Args>...>;
+        using FVariantType = Private::TActionVariant<KeyType, Private::TCanonicalArg<Args>...>;
 
         FNamedActionResult result;
-        const FVariantType* variant = ResolveVariant<std::decay_t<Args>...>(actionKey);
+        const FVariantType* variant = ResolveVariant<Private::TCanonicalArg<Args>...>(actionKey);
         if (variant == nullptr) {
             result.ErrorMessage = "No named action registered for the requested key/signature.";
             NotifyGlobalCompletionListeners(actionKey, result);
             return result;
         }
 
-        result = variant->Execute(std::forward<Args>(args)...);
+        result = variant->template ExecuteWithArgs<Args...>(std::forward<Args>(args)...);
         NotifyGlobalCompletionListeners(actionKey, result);
         return result;
     }
 
     template<typename... Args>
-    TNamedActionInvoker<KeyType, bAllowOverload, std::decay_t<Args>...> AcquireInvoker(const KeyType& actionKey) const {
-        return TNamedActionInvoker<KeyType, bAllowOverload, std::decay_t<Args>...>(this, actionKey);
+    TNamedActionInvoker<KeyType, bAllowOverload, Private::TCanonicalArg<Args>...> AcquireInvoker(const KeyType& actionKey) const {
+        return TNamedActionInvoker<KeyType, bAllowOverload, Private::TCanonicalArg<Args>...>(this, actionKey);
     }
 
     bool HasAction(const KeyType& actionKey) const {
@@ -556,7 +730,7 @@ public:
 
     template<typename... Args>
     bool HasActionWithArgs(const KeyType& actionKey) const {
-        return ResolveVariant<std::decay_t<Args>...>(actionKey) != nullptr;
+        return ResolveVariant<Private::TCanonicalArg<Args>...>(actionKey) != nullptr;
     }
 
     std::size_t GetActionVariantCount(const KeyType& actionKey) const {
@@ -648,17 +822,17 @@ private:
     template<typename, bool, typename...>
     friend class TNamedActionInvoker;
 
-    template<typename... Args>
+    template<typename... ActionArgs, typename... CallArgs>
     FNamedActionResult ExecuteInvoker(
-        const TNamedActionInvoker<KeyType, bAllowOverload, Args...>& invoker,
-        Args... args) const {
-        using FVariantType = Private::TActionVariant<KeyType, std::decay_t<Args>...>;
+        const TNamedActionInvoker<KeyType, bAllowOverload, ActionArgs...>& invoker,
+        CallArgs&&... args) const {
+        using FVariantType = Private::TActionVariant<KeyType, ActionArgs...>;
 
         const FVariantType* variant = nullptr;
         if (invoker.CachedVariant_ != nullptr && invoker.CachedMutationSerial_ == MutationSerial_) {
             variant = static_cast<const FVariantType*>(invoker.CachedVariant_);
         } else {
-            variant = ResolveVariant<std::decay_t<Args>...>(invoker.ActionKey_);
+            variant = ResolveVariant<ActionArgs...>(invoker.ActionKey_);
             invoker.CachedVariant_ = variant;
             invoker.CachedMutationSerial_ = MutationSerial_;
         }
@@ -670,7 +844,7 @@ private:
             return result;
         }
 
-        result = variant->Execute(std::forward<Args>(args)...);
+        result = variant->template ExecuteWithArgs<CallArgs...>(std::forward<CallArgs>(args)...);
         NotifyGlobalCompletionListeners(invoker.ActionKey_, result);
         return result;
     }
@@ -687,7 +861,7 @@ private:
     template<typename... Args>
     Private::TActionVariant<KeyType, Args...>* GetOrCreateVariant(const KeyType& actionKey) {
         std::vector<std::unique_ptr<Private::IActionVariant<KeyType>>>& variants = Actions_[actionKey];
-        const std::string signatureId = Private::MakeSignatureId<Args...>();
+        const std::string signatureId = Private::MakeCanonicalSignatureId<Args...>();
 
         for (std::unique_ptr<Private::IActionVariant<KeyType>>& variant : variants) {
             if (variant->GetSignatureId() == signatureId) {
@@ -712,7 +886,7 @@ private:
             return nullptr;
         }
 
-        const std::string signatureId = Private::MakeSignatureId<Args...>();
+        const std::string signatureId = Private::MakeCanonicalSignatureId<Args...>();
         for (const std::unique_ptr<Private::IActionVariant<KeyType>>& variant : it->second) {
             if (variant->GetSignatureId() == signatureId) {
                 return static_cast<const Private::TActionVariant<KeyType, Args...>*>(variant.get());
@@ -728,13 +902,13 @@ private:
             return {};
         }
 
-        auto* variant = GetOrCreateVariant<Args...>(actionKey);
+        auto* variant = GetOrCreateVariant<Private::TCanonicalArg<Args>...>(actionKey);
         if (variant == nullptr) {
             return {};
         }
 
-        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::Validator, Private::MakeSignatureId<Args...>());
-        variant->AddValidator(handle, std::move(validator), description, priority);
+        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::Validator, Private::MakeCanonicalSignatureId<Args...>());
+        variant->template AddValidator<Args...>(handle, std::move(validator), description, priority);
         ++MutationSerial_;
         return handle;
     }
@@ -745,13 +919,13 @@ private:
             return {};
         }
 
-        auto* variant = GetOrCreateVariant<Args...>(actionKey);
+        auto* variant = GetOrCreateVariant<Private::TCanonicalArg<Args>...>(actionKey);
         if (variant == nullptr) {
             return {};
         }
 
-        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::SequentialHandler, Private::MakeSignatureId<Args...>());
-        variant->AddSequentialHandler(handle, std::move(handler), description, priority);
+        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::SequentialHandler, Private::MakeCanonicalSignatureId<Args...>());
+        variant->template AddSequentialHandler<Args...>(handle, std::move(handler), description, priority);
         ++MutationSerial_;
         return handle;
     }
@@ -762,13 +936,13 @@ private:
             return {};
         }
 
-        auto* variant = GetOrCreateVariant<Args...>(actionKey);
+        auto* variant = GetOrCreateVariant<Private::TCanonicalArg<Args>...>(actionKey);
         if (variant == nullptr) {
             return {};
         }
 
-        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::FinalHandler, Private::MakeSignatureId<Args...>());
-        variant->SetFinalHandler(handle, std::move(handler), description, priority);
+        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::FinalHandler, Private::MakeCanonicalSignatureId<Args...>());
+        variant->template SetFinalHandler<Args...>(handle, std::move(handler), description, priority);
         ++MutationSerial_;
         return handle;
     }
@@ -779,13 +953,13 @@ private:
             return {};
         }
 
-        auto* variant = GetOrCreateVariant<Args...>(actionKey);
+        auto* variant = GetOrCreateVariant<Private::TCanonicalArg<Args>...>(actionKey);
         if (variant == nullptr) {
             return {};
         }
 
-        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::CompletionListener, Private::MakeSignatureId<Args...>());
-        variant->AddCompletionListener(handle, std::move(listener), description, priority);
+        FHandle handle = MakeHandle(actionKey, ENamedActionHandlerType::CompletionListener, Private::MakeCanonicalSignatureId<Args...>());
+        variant->template AddCompletionListener<Args...>(handle, std::move(listener), description, priority);
         ++MutationSerial_;
         return handle;
     }

@@ -327,7 +327,7 @@ TEST_F(ComboBoxTest, ExplicitStyleOverridesThemeAndPopupWindowStyle)
         }
     }
 
-    ComboBox->ClosePopup();
+    AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(260.0f, 180.0f))});
     EXPECT_FALSE(ComboBox->IsPopupOpen());
 }
 

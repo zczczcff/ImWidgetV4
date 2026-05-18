@@ -419,7 +419,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
             rootItem,
             MakeText(
                 EditorText("Details.EmptyHint", "Select a widget in the designer surface to inspect its reflected properties.").Resolve(),
-                13.0f,
+                12.0f,
                 GetEditorPanelBodyColor()));
     }
     return outlineView;

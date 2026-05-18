@@ -11,12 +11,12 @@ FColor GetEditorSurfaceBackgroundColor()
 
 FColor GetEditorSurfaceAltBackgroundColor()
 {
-    return FColor::FromBytes(27, 33, 41);
+    return FColor::FromBytes(30, 36, 44);
 }
 
 FColor GetEditorSurfaceTabStripColor()
 {
-    return FColor::FromBytes(27, 33, 41);
+    return FColor::FromBytes(24, 29, 36);
 }
 
 FColor GetEditorAccentColor()
@@ -36,7 +36,7 @@ FColor GetEditorPanelTitleColor()
 
 FColor GetEditorPanelBodyColor()
 {
-    return FColor::FromBytes(180, 190, 204);
+    return FColor::FromBytes(164, 174, 188);
 }
 
 FColor GetEditorTitleBarTextColor()
@@ -137,6 +137,29 @@ FButtonStyle MakeEditorTitleBarIconButtonStyle()
     return style;
 }
 
+FButtonStyle MakeEditorPaletteItemButtonStyle(const FButtonStyle& baseStyle)
+{
+    FButtonStyle style = baseStyle;
+    const FColor background = FColor::FromBytes(34, 40, 49);
+    const FColor hovered = FColor::FromBytes(43, 50, 61);
+    const FColor pressed = FColor::FromBytes(52, 61, 74);
+    const FColor selectedBorder = FColor::FromBytes(72, 104, 146);
+    const FColor border = FColor::FromBytes(20, 24, 30);
+    const FColor textColor = GetEditorPanelTitleColor();
+    style.Normal = FButtonStateStyle(background, border, textColor, 4.0f, 1.0f, false);
+    style.Hovered = FButtonStateStyle(hovered, selectedBorder, textColor, 4.0f, 1.0f, false);
+    style.Pressed = FButtonStateStyle(pressed, GetEditorAccentColor(), textColor, 4.0f, 1.0f, false);
+    style.Focused = style.Hovered;
+    style.Disabled = FButtonStateStyle(
+        FColor::FromBytes(42, 47, 55),
+        border,
+        FColor::FromBytes(128, 136, 146),
+        4.0f,
+        1.0f,
+        false);
+    return style;
+}
+
 FImageStyle MakeEditorPlainIconStyle(const FImageStyle& baseStyle)
 {
     FImageStyle style = baseStyle;
@@ -225,7 +248,7 @@ FSwitchStyle MakeEditorInspectorSwitchStyle(const FSwitchStyle& baseStyle)
 FScrollBoxStyle MakeEditorHostScrollStyle(const FScrollBoxStyle& baseStyle, const FMargin& padding)
 {
     FScrollBoxStyle style = baseStyle;
-    style.BackgroundColor = GetEditorSurfaceBackgroundColor();
+    style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
     style.BorderThickness = 0.0f;
     style.CornerRadius = 0.0f;
     style.Padding = padding;
@@ -241,7 +264,7 @@ FTextListStyle MakeEditorCodeTextListStyle(
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
     style.BorderColor = FColor::Transparent;
     style.FocusedOutlineColor = GetEditorAccentColor();
-    style.TextColor = FColor::FromBytes(196, 205, 217);
+    style.TextColor = FColor::FromBytes(188, 198, 210);
     style.SelectionBackgroundColor = GetEditorSelectionFillColor();
     style.Padding = padding;
     style.MinDesiredSize = minDesiredSize;
@@ -272,8 +295,14 @@ FTextListStyle MakeEditorInspectorProbeTextListStyle(const FTextListStyle& baseS
 FTextOutlineViewStyle MakeEditorDockOutlineStyle(const FTextOutlineViewStyle& baseStyle)
 {
     FTextOutlineViewStyle style = baseStyle;
-    style.Padding = FMargin(6.0f);
-    style.RowPadding = FMargin(5.0f, 6.0f, 3.0f, 3.0f);
+    style.Padding = FMargin(4.0f);
+    style.RowPadding = FMargin(6.0f, 6.0f, 4.0f, 4.0f);
+    style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
+    style.BorderColor = FColor::Transparent;
+    style.HoveredRowColor = FColor::FromBytes(43, 50, 61);
+    style.SelectedRowColor = FColor::FromBytes(60, 86, 122);
+    style.SelectedFocusedRowColor = FColor::FromBytes(74, 106, 150);
+    style.TextColor = GetEditorPanelTitleColor();
     style.MinDesiredSize = FVector2(220.0f, 180.0f);
     style.CornerRadius = 0.0f;
     style.BorderThickness = 0.0f;
@@ -289,7 +318,12 @@ FOutlineViewStyle MakeEditorInspectorOutlineStyle(const FOutlineViewStyle& baseS
     FOutlineViewStyle style = baseStyle;
     style.Padding = FMargin(0.0f);
     style.RowPadding = FMargin(6.0f, 8.0f, 4.0f, 4.0f);
-    style.BackgroundColor = FColor::FromBytes(24, 28, 34);
+    style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
+    style.BorderColor = FColor::Transparent;
+    style.FocusedOutlineColor = GetEditorAccentColor();
+    style.HoveredRowColor = FColor::FromBytes(43, 50, 61);
+    style.SelectedRowColor = FColor::FromBytes(60, 86, 122);
+    style.SelectedFocusedRowColor = FColor::FromBytes(74, 106, 150);
     style.BorderThickness = 1.0f;
     style.CornerRadius = 0.0f;
     style.IndentWidth = 16.0f;
@@ -311,7 +345,13 @@ FTabViewStyle MakeEditorWorkspaceTabStyle(const FTabViewStyle& baseStyle)
     style.CornerRadius = 0.0f;
     style.TabStripBackgroundColor = GetEditorSurfaceTabStripColor();
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
-    style.ActiveTabColor = FColor::FromBytes(63, 90, 128);
+    style.TabColor = FColor::FromBytes(33, 39, 47);
+    style.TabHoveredColor = FColor::FromBytes(43, 50, 60);
+    style.TabPressedColor = FColor::FromBytes(28, 34, 41);
+    style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
+    style.TextColor = FColor::FromBytes(180, 189, 201);
+    style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
+    style.DisabledTextColor = FColor::FromBytes(118, 126, 137);
     return style;
 }
 
@@ -328,10 +368,12 @@ FTabViewStyle MakeEditorDockTabStyle(const FTabViewStyle& baseStyle)
     style.CornerRadius = 0.0f;
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
     style.TabStripBackgroundColor = GetEditorSurfaceTabStripColor();
-    style.TabColor = FColor::FromBytes(39, 45, 54);
-    style.TabHoveredColor = FColor::FromBytes(52, 60, 71);
-    style.TabPressedColor = FColor::FromBytes(33, 39, 47);
-    style.ActiveTabColor = FColor::FromBytes(66, 94, 134);
+    style.TabColor = FColor::FromBytes(34, 40, 49);
+    style.TabHoveredColor = FColor::FromBytes(44, 51, 62);
+    style.TabPressedColor = FColor::FromBytes(30, 35, 43);
+    style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
+    style.TextColor = FColor::FromBytes(176, 186, 198);
+    style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
     return style;
 }
 

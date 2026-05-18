@@ -1,5 +1,7 @@
 #include "WidgetPaletteView.h"
 
+#include "../editor/EditorTheme.h"
+
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/Image.h>
@@ -16,7 +18,7 @@ std::shared_ptr<ImTextBlock> MakePreviewText(const std::string& text)
     auto preview = std::make_shared<ImTextBlock>();
     preview->SetText(text);
     preview->SetFontSize(14.0f);
-    preview->SetTextColor(FColor::Black);
+    preview->SetTextColor(GetEditorPanelTitleColor());
     preview->SetHitTestVisible(false);
     return preview;
 }
@@ -52,6 +54,7 @@ std::shared_ptr<ImWidget> MakePreviewContent(const FImageBrush& iconBrush, const
 WidgetPaletteItemButton::WidgetPaletteItemButton(const FWidgetPaletteEntry& entry)
     : m_Entry(entry)
 {
+    SetStyle(MakeEditorPaletteItemButtonStyle(GetStyle()));
     EnsureVisualContent();
 }
 
@@ -66,6 +69,7 @@ void WidgetPaletteItemButton::EnsureVisualContent()
     if (m_bVisualContentInitialized) {
         if (m_IconImage != nullptr && GetApplication() != nullptr) {
             m_IconImage->SetBrush(GetApplication()->GetCoreIconBrush(m_Entry.Icon, FColor::Black));
+            m_IconImage->SetBrush(GetApplication()->GetCoreIconBrush(m_Entry.Icon, GetEditorPanelTitleColor()));
         }
         return;
     }
@@ -85,7 +89,7 @@ void WidgetPaletteItemButton::EnsureVisualContent()
     m_LabelText->SetText(m_Entry.LabelText);
     m_LabelText->SetFontSize(14.0f);
     m_LabelText->SetWrapText(false);
-    m_LabelText->SetTextColor(FColor::Black);
+    m_LabelText->SetTextColor(GetEditorPanelTitleColor());
     m_LabelText->SetHitTestVisible(false);
     row->AddChild(m_LabelText);
 

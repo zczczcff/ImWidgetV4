@@ -39,6 +39,8 @@ ImWidgetV4::FColor GetEditorTreeIconColor();
 
 ImWidgetV4::FButtonStyle MakeEditorTitleBarButtonStyle(bool bHighlighted = false);
 ImWidgetV4::FButtonStyle MakeEditorTitleBarIconButtonStyle();
+ImWidgetV4::FButtonStyle MakeEditorPaletteItemButtonStyle(
+    const ImWidgetV4::FButtonStyle& baseStyle = ImWidgetV4::FButtonStyle());
 ImWidgetV4::FButtonStyle MakeEditorDialogButtonStyle(
     bool bPrimary,
     const ImWidgetV4::FButtonStyle& baseStyle = ImWidgetV4::FButtonStyle());

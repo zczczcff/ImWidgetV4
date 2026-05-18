@@ -81,6 +81,7 @@ endif()
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_executable(editor_selection_test
+        src/main.cpp
         src/build/BuildController.cpp
         src/codegen/WidgetTreeToCppGenerator.cpp
         src/commands/AddWidgetCommand.cpp
@@ -113,11 +114,13 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/serialization/WidgetSerializer.cpp
         src/tree/DocumentTreeViewBinder.cpp
         tests/codegen_test.cpp
+        tests/editor_snapshot_test.cpp
         tests/editor_selection_test.cpp
     )
 
     target_link_libraries(editor_selection_test PRIVATE
         imwidgetv4_core
+        ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
         gtest
         gtest_main
     )

@@ -845,7 +845,8 @@ std::vector<FApplicationMenuItem> BuildSimpleMenuItems(const std::string& menuNa
 
 std::vector<FApplicationMenuItem> BuildViewMenuItems(
     ImApplication& app,
-    const std::function<void()>& onCultureChanged)
+    const std::function<void()>& onCultureChanged,
+    const std::function<void()>& onThemeChanged)
 {
     auto makeCultureItem =
         [&app, onCultureChanged](const std::string& culture, const FText& label) {
@@ -859,10 +860,27 @@ std::vector<FApplicationMenuItem> BuildViewMenuItems(
                 });
         };
 
+    auto makeThemeItem =
+        [&app, onThemeChanged](const std::string& themeName) {
+            return MakeEditorMenuItem(
+                FText::FromString(themeName),
+                true,
+                [&app, themeName, onThemeChanged]() {
+                    if (app.SetActiveTheme(themeName) && onThemeChanged) {
+                        onThemeChanged();
+                    }
+                });
+        };
+
     std::vector<FApplicationMenuItem> languageItems = {
         makeCultureItem("en-US", EditorText("Language.English", "English")),
         makeCultureItem("zh-CN", EditorText("Language.ChineseSimplified", "Chinese (Simplified)"))
     };
+
+    std::vector<FApplicationMenuItem> themeItems;
+    for (const FThemePack& themePack : app.GetThemePacks()) {
+        themeItems.push_back(makeThemeItem(themePack.Name));
+    }
 
     FApplicationMenuItem languageItem;
     languageItem.Text = "Language";
@@ -870,8 +888,15 @@ std::vector<FApplicationMenuItem> BuildViewMenuItems(
     languageItem.SubItems = std::move(languageItems);
     languageItem.bEnabled = true;
 
+    FApplicationMenuItem themeItem;
+    themeItem.Text = "Theme";
+    themeItem.TextValue = EditorText("Menu.Theme", "Theme");
+    themeItem.SubItems = std::move(themeItems);
+    themeItem.bEnabled = !themeItem.SubItems.empty();
+
     return {
         languageItem,
+        themeItem,
         FApplicationMenuItem {"", {}, {}, true, true, {}},
         MakeEditorMenuItem("Menu.ComingSoon", "Coming Soon", false, {})
     };
@@ -1243,6 +1268,9 @@ void RebuildEditorTitleBar(
     BindPopupMenuButton(app, viewButton, [&app, &shell, workspaceController]() {
         return BuildViewMenuItems(
             app,
+            [&app, &shell, workspaceController]() {
+                RefreshLocalizedEditorShell(app, shell, workspaceController);
+            },
             [&app, &shell, workspaceController]() {
                 RefreshLocalizedEditorShell(app, shell, workspaceController);
             });
@@ -1669,6 +1697,9 @@ public:
             Shell_.WidgetTreeView,
             Shell_.DetailsView,
             Shell_.OutputText);
+        app.OnThemeChanged.AddLambda([this](ImApplication& application, const std::string&) {
+            RefreshLocalizedEditorShell(application, Shell_, WorkspaceController_);
+        });
         bWorkspaceRestoreCompleted_ = false;
 
         app.SetApplicationTitle(EditorText("App.Title", "ImWidgetV4 Editor").Resolve());

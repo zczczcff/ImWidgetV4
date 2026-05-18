@@ -196,6 +196,8 @@ TEST(EditorSnapshotTest, ExportsRealEditorShellSnapshotsForThemes)
     ExportEditorThemeSnapshot(outputDirectory, "Default", "editor_default_theme.png");
     ExportEditorThemeSnapshot(outputDirectory, "Dark", "editor_dark_theme.png");
     ExportEditorThemeSnapshot(outputDirectory, "Light", "editor_light_theme.png");
+    ExportEditorThemeSnapshot(outputDirectory, "Editor Blue Green", "editor_blue_green_theme.png");
+    ExportEditorThemeSnapshot(outputDirectory, "Editor Light Gray", "editor_light_gray_theme.png");
 }
 
 TEST(EditorSnapshotTest, PaletteButtonUsesEditorExplicitStyle)

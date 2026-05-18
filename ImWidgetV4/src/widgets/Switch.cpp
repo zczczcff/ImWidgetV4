@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 
 namespace ImWidgetV4 {
@@ -59,6 +60,7 @@ void ImSwitch::SetDisabled(bool bDisabled)
 void ImSwitch::SetStyle(const FSwitchStyle& style)
 {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -69,6 +71,7 @@ void ImSwitch::Paint(const FPaintContext& paintContext)
     }
 
     const FGeometry trackGeometry = GetTrackGeometry();
+    const FSwitchStyle& style = GetEffectiveStyle();
     const float trackRounding = std::max(0.0f, trackGeometry.Size.Y * 0.5f);
     const float thumbRadius = GetThumbRadius();
     const FVector2 thumbCenter = GetThumbCenter();
@@ -81,9 +84,9 @@ void ImSwitch::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         trackGeometry.GetMin(),
         trackGeometry.GetMax(),
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
         trackRounding,
-        m_Style.BorderThickness);
+        style.BorderThickness);
 
     paintContext.DrawContext_.DrawCircleFilled(
         thumbCenter,
@@ -92,14 +95,14 @@ void ImSwitch::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawCircle(
         thumbCenter,
         thumbRadius,
-        m_Style.BorderColor,
+        style.BorderColor,
         0,
-        m_Style.BorderThickness);
+        style.BorderThickness);
 }
 
 FVector2 ImSwitch::GetMinSize() const
 {
-    return m_Style.DesiredSize;
+    return GetEffectiveStyle().DesiredSize;
 }
 
 FReply ImSwitch::OnInputEvent(const FInputEvent& event)
@@ -189,43 +192,59 @@ void ImSwitch::SetPressed(bool bPressed)
     Invalidate(EInvalidateReason::Paint);
 }
 
+const FSwitchStyle& ImSwitch::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveSwitchStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
 FColor ImSwitch::ResolveTrackColor() const
 {
+    const FSwitchStyle& style = GetEffectiveStyle();
     if (m_bDisabled) {
-        return m_Style.DisabledTrackColor;
+        return style.DisabledTrackColor;
     }
 
     if (m_bChecked) {
         if (m_bPressed) {
-            return m_Style.OnTrackPressedColor;
+            return style.OnTrackPressedColor;
         }
         if (m_bHovered) {
-            return m_Style.OnTrackHoveredColor;
+            return style.OnTrackHoveredColor;
         }
-        return m_Style.OnTrackColor;
+        return style.OnTrackColor;
     }
 
     if (m_bPressed) {
-        return m_Style.OffTrackPressedColor;
+        return style.OffTrackPressedColor;
     }
     if (m_bHovered) {
-        return m_Style.OffTrackHoveredColor;
+        return style.OffTrackHoveredColor;
     }
-    return m_Style.OffTrackColor;
+    return style.OffTrackColor;
 }
 
 FColor ImSwitch::ResolveThumbColor() const
 {
+    const FSwitchStyle& style = GetEffectiveStyle();
     if (m_bDisabled) {
-        return m_Style.DisabledThumbColor;
+        return style.DisabledThumbColor;
     }
     if (m_bPressed) {
-        return m_Style.ThumbPressedColor;
+        return style.ThumbPressedColor;
     }
     if (m_bHovered) {
-        return m_Style.ThumbHoveredColor;
+        return style.ThumbHoveredColor;
     }
-    return m_Style.ThumbColor;
+    return style.ThumbColor;
 }
 
 FGeometry ImSwitch::GetTrackGeometry() const
@@ -237,10 +256,11 @@ FGeometry ImSwitch::GetTrackGeometry() const
 
 FVector2 ImSwitch::GetThumbCenter() const
 {
+    const FSwitchStyle& style = GetEffectiveStyle();
     const FGeometry trackGeometry = GetTrackGeometry();
     const float thumbRadius = GetThumbRadius();
-    const float minCenterX = trackGeometry.Position.X + m_Style.ThumbInset + thumbRadius;
-    const float maxCenterX = trackGeometry.Position.X + trackGeometry.Size.X - m_Style.ThumbInset - thumbRadius;
+    const float minCenterX = trackGeometry.Position.X + style.ThumbInset + thumbRadius;
+    const float maxCenterX = trackGeometry.Position.X + trackGeometry.Size.X - style.ThumbInset - thumbRadius;
     const float centerY = trackGeometry.Position.Y + trackGeometry.Size.Y * 0.5f;
 
     return FVector2(m_bChecked ? maxCenterX : minCenterX, centerY);
@@ -248,8 +268,9 @@ FVector2 ImSwitch::GetThumbCenter() const
 
 float ImSwitch::GetThumbRadius() const
 {
+    const FSwitchStyle& style = GetEffectiveStyle();
     const FGeometry trackGeometry = GetTrackGeometry();
-    return std::max(0.0f, (trackGeometry.Size.Y * 0.5f) - m_Style.ThumbInset);
+    return std::max(0.0f, (trackGeometry.Size.Y * 0.5f) - style.ThumbInset);
 }
 
 } // namespace ImWidgetV4

@@ -175,6 +175,28 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.PopupMenu.CornerRadius", 8.0f);
     styleSet.SetFloat("Float.PopupMenu.BorderThickness", 1.0f);
 
+    styleSet.SetFloat("Float.ScrollBox.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.ScrollBox.CornerRadius", 6.0f);
+    styleSet.SetFloat("Float.ScrollBox.ScrollbarThickness", 10.0f);
+    styleSet.SetFloat("Float.ScrollBox.ScrollbarPadding", 2.0f);
+    styleSet.SetFloat("Float.ScrollBox.ThumbMinLength", 28.0f);
+    styleSet.SetFloat("Float.ScrollBox.WheelScrollStep", 32.0f);
+
+    styleSet.SetFloat("Float.Switch.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.Switch.ThumbInset", 3.0f);
+    styleSet.SetVector2("Vector2.Switch.DesiredSize", FVector2(52.0f, 28.0f));
+
+    styleSet.SetFloat("Float.TabView.TabSpacing", 4.0f);
+    styleSet.SetFloat("Float.TabView.TabMinWidth", 96.0f);
+    styleSet.SetFloat("Float.TabView.TabHeight", 32.0f);
+    styleSet.SetFloat("Float.TabView.IconSize", 16.0f);
+    styleSet.SetFloat("Float.TabView.DirtyMarkerRadius", 4.0f);
+    styleSet.SetFloat("Float.TabView.CloseButtonSize", 12.0f);
+    styleSet.SetFloat("Float.TabView.OverflowButtonWidth", 24.0f);
+    styleSet.SetFloat("Float.TabView.FontSize", 14.0f);
+    styleSet.SetFloat("Float.TabView.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.TabView.CornerRadius", 6.0f);
+
     styleSet.SetFloat("Float.TitleBar.Height", 34.0f);
     styleSet.SetFloat("Float.TitleBar.DragRegionMinWidth", 34.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSize", 34.0f);
@@ -252,6 +274,48 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.PopupMenu.DisabledText", FColor::FromBytes(128, 134, 143));
     styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(57, 66, 80));
     styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(238, 242, 247));
+
+    styleSet.SetColor("Color.ScrollBox.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.ScrollBox.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
+
+    styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(57, 64, 75));
+    styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(73, 82, 95));
+    styleSet.SetColor("Color.Switch.OffTrackPressed", FColor::FromBytes(43, 49, 58));
+    styleSet.SetColor("Color.Switch.OnTrack", FColor::FromBytes(78, 126, 196));
+    styleSet.SetColor("Color.Switch.OnTrackHovered", FColor::FromBytes(96, 149, 221));
+    styleSet.SetColor("Color.Switch.OnTrackPressed", FColor::FromBytes(63, 108, 177));
+    styleSet.SetColor("Color.Switch.DisabledTrack", FColor::FromBytes(74, 79, 87));
+    styleSet.SetColor("Color.Switch.Thumb", FColor::FromBytes(248, 250, 252));
+    styleSet.SetColor("Color.Switch.ThumbHovered", FColor::White);
+    styleSet.SetColor("Color.Switch.ThumbPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Switch.DisabledThumb", FColor::FromBytes(170, 176, 184));
+    styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(19, 23, 29));
+    styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(103, 177, 255));
+
+    styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(20, 24, 30));
+    styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.TabView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TabView.TabStripBackground", FColor::FromBytes(26, 31, 39));
+    styleSet.SetColor("Color.TabView.Tab", FColor::FromBytes(44, 51, 61));
+    styleSet.SetColor("Color.TabView.TabHovered", FColor::FromBytes(56, 66, 80));
+    styleSet.SetColor("Color.TabView.TabPressed", FColor::FromBytes(35, 43, 52));
+    styleSet.SetColor("Color.TabView.ActiveTab", FColor::FromBytes(64, 88, 123));
+    styleSet.SetColor("Color.TabView.DisabledTab", FColor::FromBytes(39, 44, 51));
+    styleSet.SetColor("Color.TabView.Text", FColor::FromBytes(214, 222, 234));
+    styleSet.SetColor("Color.TabView.ActiveText", FColor::White);
+    styleSet.SetColor("Color.TabView.DisabledText", FColor::FromBytes(126, 132, 141));
+    styleSet.SetColor("Color.TabView.TabBorder", FColor::FromBytes(18, 22, 28));
+    styleSet.SetColor("Color.TabView.DirtyMarker", FColor::FromBytes(255, 196, 84));
+    styleSet.SetColor("Color.TabView.CloseButton", FColor::FromBytes(182, 190, 202));
+    styleSet.SetColor("Color.TabView.CloseButtonHovered", FColor::White);
+    styleSet.SetColor("Color.TabView.CloseButtonPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.TabView.OverflowButton", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.TabView.OverflowButtonHovered", FColor::FromBytes(122, 143, 168));
+    styleSet.SetColor("Color.TabView.OverflowButtonPressed", FColor::FromBytes(156, 182, 212));
+    styleSet.SetColor("Color.TabView.OverflowButtonDisabled", FColor::FromBytes(72, 78, 86));
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(28, 33, 41));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(16, 19, 24));
@@ -333,6 +397,48 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(72, 72, 72));
     styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(236, 236, 236));
 
+    styleSet.SetColor("Color.ScrollBox.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.ScrollBox.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarTrack", FColor::FromBytes(42, 42, 42));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
+
+    styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(66, 66, 66));
+    styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(82, 82, 82));
+    styleSet.SetColor("Color.Switch.OffTrackPressed", FColor::FromBytes(54, 54, 54));
+    styleSet.SetColor("Color.Switch.OnTrack", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.Switch.OnTrackHovered", FColor::FromBytes(103, 141, 205));
+    styleSet.SetColor("Color.Switch.OnTrackPressed", FColor::FromBytes(74, 108, 166));
+    styleSet.SetColor("Color.Switch.DisabledTrack", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.Switch.Thumb", FColor::FromBytes(244, 244, 244));
+    styleSet.SetColor("Color.Switch.ThumbHovered", FColor::White);
+    styleSet.SetColor("Color.Switch.ThumbPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Switch.DisabledThumb", FColor::FromBytes(144, 144, 144));
+    styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(103, 177, 255));
+
+    styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(24, 24, 24));
+    styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(52, 52, 52));
+    styleSet.SetColor("Color.TabView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TabView.TabStripBackground", FColor::FromBytes(32, 32, 32));
+    styleSet.SetColor("Color.TabView.Tab", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.TabView.TabHovered", FColor::FromBytes(62, 62, 62));
+    styleSet.SetColor("Color.TabView.TabPressed", FColor::FromBytes(40, 40, 40));
+    styleSet.SetColor("Color.TabView.ActiveTab", FColor::FromBytes(70, 88, 122));
+    styleSet.SetColor("Color.TabView.DisabledTab", FColor::FromBytes(40, 40, 40));
+    styleSet.SetColor("Color.TabView.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.TabView.ActiveText", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.TabView.DisabledText", FColor::FromBytes(120, 120, 120));
+    styleSet.SetColor("Color.TabView.TabBorder", FColor::FromBytes(72, 72, 72));
+    styleSet.SetColor("Color.TabView.DirtyMarker", FColor::FromBytes(255, 196, 84));
+    styleSet.SetColor("Color.TabView.CloseButton", FColor::FromBytes(206, 206, 206));
+    styleSet.SetColor("Color.TabView.CloseButtonHovered", FColor::White);
+    styleSet.SetColor("Color.TabView.CloseButtonPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.TabView.OverflowButton", FColor::FromBytes(156, 156, 156));
+    styleSet.SetColor("Color.TabView.OverflowButtonHovered", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.TabView.OverflowButtonPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.TabView.OverflowButtonDisabled", FColor::FromBytes(96, 96, 96));
+
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(24, 24, 24));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(52, 52, 52));
     styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 28));
@@ -412,6 +518,48 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.PopupMenu.DisabledText", FColor::FromBytes(150, 150, 150));
     styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(224, 228, 234));
     styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(56, 56, 56));
+
+    styleSet.SetColor("Color.ScrollBox.Background", FColor::White);
+    styleSet.SetColor("Color.ScrollBox.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
+
+    styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(196, 202, 210));
+    styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(182, 190, 200));
+    styleSet.SetColor("Color.Switch.OffTrackPressed", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.Switch.OnTrack", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Switch.OnTrackHovered", FColor::FromBytes(32, 138, 226));
+    styleSet.SetColor("Color.Switch.OnTrackPressed", FColor::FromBytes(0, 102, 187));
+    styleSet.SetColor("Color.Switch.DisabledTrack", FColor::FromBytes(224, 228, 232));
+    styleSet.SetColor("Color.Switch.Thumb", FColor::White);
+    styleSet.SetColor("Color.Switch.ThumbHovered", FColor::White);
+    styleSet.SetColor("Color.Switch.ThumbPressed", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Switch.DisabledThumb", FColor::FromBytes(180, 186, 192));
+    styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(248, 249, 251));
+    styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(210, 214, 220));
+    styleSet.SetColor("Color.TabView.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.TabView.TabStripBackground", FColor::FromBytes(238, 240, 244));
+    styleSet.SetColor("Color.TabView.Tab", FColor::FromBytes(230, 233, 238));
+    styleSet.SetColor("Color.TabView.TabHovered", FColor::FromBytes(220, 226, 234));
+    styleSet.SetColor("Color.TabView.TabPressed", FColor::FromBytes(212, 219, 228));
+    styleSet.SetColor("Color.TabView.ActiveTab", FColor::White);
+    styleSet.SetColor("Color.TabView.DisabledTab", FColor::FromBytes(236, 238, 242));
+    styleSet.SetColor("Color.TabView.Text", FColor::FromBytes(36, 36, 36));
+    styleSet.SetColor("Color.TabView.ActiveText", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.TabView.DisabledText", FColor::FromBytes(140, 140, 140));
+    styleSet.SetColor("Color.TabView.TabBorder", FColor::FromBytes(200, 204, 210));
+    styleSet.SetColor("Color.TabView.DirtyMarker", FColor::FromBytes(212, 132, 24));
+    styleSet.SetColor("Color.TabView.CloseButton", FColor::FromBytes(90, 90, 90));
+    styleSet.SetColor("Color.TabView.CloseButtonHovered", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.TabView.CloseButtonPressed", FColor::FromBytes(212, 132, 24));
+    styleSet.SetColor("Color.TabView.OverflowButton", FColor::FromBytes(110, 118, 126));
+    styleSet.SetColor("Color.TabView.OverflowButtonHovered", FColor::FromBytes(72, 82, 92));
+    styleSet.SetColor("Color.TabView.OverflowButtonPressed", FColor::FromBytes(40, 52, 66));
+    styleSet.SetColor("Color.TabView.OverflowButtonDisabled", FColor::FromBytes(170, 176, 182));
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(246, 247, 249));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(210, 214, 220));

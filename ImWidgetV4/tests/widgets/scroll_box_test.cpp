@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imgui.h>
 #include <memory>
@@ -330,6 +331,32 @@ TEST_F(ScrollBoxTest, ApplicationRoutingScrollsAndStillForwardsClicksToContent)
 
     AdvanceWithDraw(*app, {MouseEvent(EInputEventType::MouseButtonDown, FVector2(20.0f, 20.0f))}, FVector2(120.0f, 80.0f));
     EXPECT_EQ(clickSpy->MouseDownCount, 1);
+}
+
+TEST_F(ScrollBoxTest, UsesThemeResolvedStyleByDefault)
+{
+    auto app = std::make_shared<ImApplication>();
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    app->SetRootWidget(scrollBox);
+
+    ASSERT_TRUE(app->SetActiveTheme("Dark"));
+    const FScrollBoxStyle expectedStyle = ResolveScrollBoxStyle(app->GetStyleSet());
+
+    const FScrollBoxStyle& style = scrollBox->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.ScrollbarThumbColor.ToImU32(), expectedStyle.ScrollbarThumbColor.ToImU32());
+}
+
+TEST_F(ScrollBoxTest, ExplicitStyleOverridesTheme)
+{
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    FScrollBoxStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(11, 22, 33);
+    explicitStyle.ScrollbarThumbColor = FColor::FromBytes(44, 55, 66);
+    scrollBox->SetStyle(explicitStyle);
+
+    EXPECT_EQ(scrollBox->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(scrollBox->GetStyle().ScrollbarThumbColor.ToImU32(), explicitStyle.ScrollbarThumbColor.ToImU32());
 }
 
 } // namespace

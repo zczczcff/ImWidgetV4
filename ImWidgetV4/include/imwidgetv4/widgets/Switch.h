@@ -71,7 +71,7 @@ public:
     bool IsDisabled() const { return m_bDisabled; }
 
     void SetStyle(const FSwitchStyle& style);
-    const FSwitchStyle& GetStyle() const { return m_Style; }
+    const FSwitchStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     bool IsHovered() const { return m_bHovered; }
     bool IsPressed() const { return m_bPressed; }
@@ -90,6 +90,7 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FSwitchStyle& GetEffectiveStyle() const;
     void SetHovered(bool bHovered);
     void SetPressed(bool bPressed);
     FColor ResolveTrackColor() const;
@@ -99,10 +100,12 @@ private:
     float GetThumbRadius() const;
 
     FSwitchStyle m_Style;
+    mutable FSwitchStyle m_ResolvedThemeStyle;
     bool m_bChecked = false;
     bool m_bHovered = false;
     bool m_bPressed = false;
     bool m_bDisabled = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

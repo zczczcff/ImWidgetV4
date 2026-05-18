@@ -69,7 +69,7 @@ public:
     bool ScrollToWidget(const std::shared_ptr<ImWidget>& widget, bool bCenterIfLarger = false);
 
     void SetStyle(const FScrollBoxStyle& style);
-    const FScrollBoxStyle& GetStyle() const { return m_Style; }
+    const FScrollBoxStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
@@ -79,6 +79,7 @@ public:
     void Relayout();
 
 private:
+    const FScrollBoxStyle& GetEffectiveStyle() const;
     void SetScrollOffsetProperty(FVector2& scrollOffset) { SetScrollOffset(scrollOffset); }
     FVector2& GetScrollOffsetProperty() { return m_ScrollOffset; }
 
@@ -102,6 +103,7 @@ private:
     bool IsDescendantOfContent(const std::shared_ptr<ImWidget>& widget) const;
 
     FScrollBoxStyle m_Style;
+    mutable FScrollBoxStyle m_ResolvedThemeStyle;
     std::shared_ptr<ImWidget> m_Content;
     FVector2 m_ScrollOffset {0.0f, 0.0f};
     FVector2 m_MaxScrollOffset {0.0f, 0.0f};
@@ -116,6 +118,7 @@ private:
     EHoveredScrollbar m_HoveredScrollbar = EHoveredScrollbar::None;
     EActiveScrollbar m_ActiveScrollbar = EActiveScrollbar::None;
     float m_ActiveGrabOffset = 0.0f;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

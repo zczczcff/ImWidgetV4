@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -419,6 +420,7 @@ void ImTabView::SetTabStripPlacement(ETabStripPlacement placement)
 void ImTabView::SetStyle(const FTabViewStyle& style)
 {
     Style_ = style;
+    bHasExplicitStyle_ = true;
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -430,25 +432,26 @@ void ImTabView::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FTabViewStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BackgroundColor,
-        Style_.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        HasFocusWithinTabView() ? Style_.FocusedOutlineColor : Style_.BorderColor,
-        Style_.CornerRadius,
-        Style_.BorderThickness);
+        HasFocusWithinTabView() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     if (TabStripGeometry_.IsValid()) {
         paintContext.DrawContext_.DrawRectFilled(
             TabStripGeometry_.GetMin(),
             TabStripGeometry_.GetMax(),
-            Style_.TabStripBackgroundColor,
-            Style_.CornerRadius);
+            style.TabStripBackgroundColor,
+            style.CornerRadius);
         paintContext.DrawContext_.PushClipRect(TabStripGeometry_.GetMin(), TabStripGeometry_.GetMax(), true);
 
         for (const FTabGeometry& tabGeometry : VisibleTabGeometries_) {
@@ -458,12 +461,12 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 tabGeometry.Geometry.GetMin(),
                 tabGeometry.Geometry.GetMax(),
                 ResolveTabBackgroundColor(tabGeometry.Index),
-                Style_.CornerRadius);
+                style.CornerRadius);
             paintContext.DrawContext_.DrawRect(
                 tabGeometry.Geometry.GetMin(),
                 tabGeometry.Geometry.GetMax(),
-                Style_.TabBorderColor,
-                Style_.CornerRadius,
+                style.TabBorderColor,
+                style.CornerRadius,
                 1.0f);
 
             paintContext.DrawContext_.PushClipRect(
@@ -475,8 +478,8 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             float contentX = tabGeometry.ContentStartX;
             if (item.Icon.IsValid()) {
                 const float iconSize = std::min(
-                    Style_.IconSize,
-                    std::max(0.0f, tabGeometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom));
+                    style.IconSize,
+                    std::max(0.0f, tabGeometry.Geometry.Size.Y - style.TabPadding.Top - style.TabPadding.Bottom));
                 const float iconY = tabGeometry.Geometry.Position.Y +
                     std::max(0.0f, (tabGeometry.Geometry.Size.Y - iconSize) * 0.5f);
                 ImTextureID textureId = item.Icon.TextureId;
@@ -498,10 +501,10 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             if (item.bDirty) {
                 const float markerCenterY = tabGeometry.Geometry.Position.Y + tabGeometry.Geometry.Size.Y * 0.5f;
                 paintContext.DrawContext_.DrawCircleFilled(
-                    FVector2(contentX + Style_.DirtyMarkerRadius, markerCenterY),
-                    Style_.DirtyMarkerRadius,
-                    Style_.DirtyMarkerColor);
-                contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+                    FVector2(contentX + style.DirtyMarkerRadius, markerCenterY),
+                    style.DirtyMarkerRadius,
+                    style.DirtyMarkerColor);
+                contentX += style.DirtyMarkerRadius * 2.0f + 6.0f;
             }
 
             const float textWidth = MeasureTextWidth(title);
@@ -518,7 +521,7 @@ void ImTabView::Paint(const FPaintContext& paintContext)
                 FVector2(textDrawX, textY),
                 contentColor,
                 title,
-                Style_.FontSize);
+                style.FontSize);
             paintContext.DrawContext_.PopClipRect();
 
             if (tabGeometry.bShowsCloseButton) {
@@ -546,8 +549,8 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             paintContext.DrawContext_.DrawRectFilled(
                 LeftOverflowButtonGeometry_.GetMin(),
                 LeftOverflowButtonGeometry_.GetMax(),
-                Style_.TabColor,
-                Style_.CornerRadius);
+                style.TabColor,
+                style.CornerRadius);
             const FVector2 center = LeftOverflowButtonGeometry_.GetCenter();
             paintContext.DrawContext_.DrawLine(center + FVector2(3.0f, -5.0f), center + FVector2(-3.0f, 0.0f), buttonColor, 1.5f);
             paintContext.DrawContext_.DrawLine(center + FVector2(-3.0f, 0.0f), center + FVector2(3.0f, 5.0f), buttonColor, 1.5f);
@@ -558,8 +561,8 @@ void ImTabView::Paint(const FPaintContext& paintContext)
             paintContext.DrawContext_.DrawRectFilled(
                 RightOverflowButtonGeometry_.GetMin(),
                 RightOverflowButtonGeometry_.GetMax(),
-                Style_.TabColor,
-                Style_.CornerRadius);
+                style.TabColor,
+                style.CornerRadius);
             const FVector2 center = RightOverflowButtonGeometry_.GetCenter();
             paintContext.DrawContext_.DrawLine(center + FVector2(-3.0f, -5.0f), center + FVector2(3.0f, 0.0f), buttonColor, 1.5f);
             paintContext.DrawContext_.DrawLine(center + FVector2(3.0f, 0.0f), center + FVector2(-3.0f, 5.0f), buttonColor, 1.5f);
@@ -584,15 +587,16 @@ void ImTabView::Paint(const FPaintContext& paintContext)
 
 FVector2 ImTabView::GetMinSize() const
 {
-    FVector2 minSize = Style_.MinDesiredSize;
+    const FTabViewStyle& style = GetEffectiveStyle();
+    FVector2 minSize = style.MinDesiredSize;
     if (const std::shared_ptr<ImWidget> activeContent = GetActiveContent()) {
         const FVector2 contentMinSize = activeContent->GetMinSize();
         minSize.X = std::max(
             minSize.X,
-            contentMinSize.X + Style_.Padding.Left + Style_.Padding.Right + Style_.BorderThickness * 2.0f);
+            contentMinSize.X + style.Padding.Left + style.Padding.Right + style.BorderThickness * 2.0f);
         minSize.Y = std::max(
             minSize.Y,
-            contentMinSize.Y + Style_.Padding.Top + Style_.Padding.Bottom + Style_.BorderThickness * 2.0f + Style_.TabHeight);
+            contentMinSize.Y + style.Padding.Top + style.Padding.Bottom + style.BorderThickness * 2.0f + style.TabHeight);
     }
 
     return minSize;
@@ -810,6 +814,20 @@ int& ImTabView::GetTabStripPlacementProperty()
     return ReflectedTabStripPlacement_;
 }
 
+const FTabViewStyle& ImTabView::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        return Style_;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolveTabViewStyle(application->GetStyleSet());
+        return ResolvedThemeStyle_;
+    }
+
+    return Style_;
+}
+
 void ImTabView::Relayout()
 {
     if (!bLayoutDirty_ &&
@@ -821,9 +839,10 @@ void ImTabView::Relayout()
     LastLayoutGeometry_ = m_Geometry;
     bHasLastLayoutGeometry_ = true;
     UpdateRegisteredActiveContent();
+    const FTabViewStyle& style = GetEffectiveStyle();
 
     const FGeometry innerGeometry = GetInnerGeometry();
-    const float stripHeight = std::min(Style_.TabHeight, innerGeometry.Size.Y);
+    const float stripHeight = std::min(style.TabHeight, innerGeometry.Size.Y);
     const float contentHeight = std::max(0.0f, innerGeometry.Size.Y - stripHeight);
     if (TabStripPlacement_ == ETabStripPlacement::Bottom) {
         ContentGeometry_ = FGeometry(
@@ -849,7 +868,7 @@ void ImTabView::Relayout()
         naturalTabWidths.push_back(naturalWidth);
         totalTabsWidth += naturalWidth;
         if (tabIndex + 1 < Tabs_.size()) {
-            totalTabsWidth += Style_.TabSpacing;
+            totalTabsWidth += style.TabSpacing;
         }
     }
 
@@ -857,7 +876,7 @@ void ImTabView::Relayout()
     RightOverflowButtonGeometry_ = FGeometry();
     const float tabsViewportWidth = GetTabsViewportWidth();
     const float totalSpacing = Tabs_.size() > 1
-        ? Style_.TabSpacing * static_cast<float>(Tabs_.size() - 1)
+        ? style.TabSpacing * static_cast<float>(Tabs_.size() - 1)
         : 0.0f;
     const float widthAvailableForTabs = std::max(0.0f, tabsViewportWidth - totalSpacing);
     float naturalTabsWidth = std::max(0.0f, totalTabsWidth - totalSpacing);
@@ -889,21 +908,21 @@ void ImTabView::Relayout()
                 FVector2(tabWidth, TabStripGeometry_.Size.Y));
             geometry.bShowsCloseButton = item.bClosable;
 
-            const float innerMinX = geometry.Geometry.Position.X + Style_.TabPadding.Left;
-            const float innerMaxX = std::max(innerMinX, geometry.Geometry.GetMax().X - Style_.TabPadding.Right);
+            const float innerMinX = geometry.Geometry.Position.X + style.TabPadding.Left;
+            const float innerMaxX = std::max(innerMinX, geometry.Geometry.GetMax().X - style.TabPadding.Right);
             const float availableInnerWidth = std::max(0.0f, innerMaxX - innerMinX);
             const float iconSize = item.Icon.IsValid()
                 ? std::min(
-                    Style_.IconSize,
-                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom))
+                    style.IconSize,
+                    std::max(0.0f, geometry.Geometry.Size.Y - style.TabPadding.Top - style.TabPadding.Bottom))
                 : 0.0f;
             const float iconWidth = item.Icon.IsValid() ? (iconSize + 6.0f) : 0.0f;
-            const float dirtyWidth = item.bDirty ? (Style_.DirtyMarkerRadius * 2.0f + 6.0f) : 0.0f;
+            const float dirtyWidth = item.bDirty ? (style.DirtyMarkerRadius * 2.0f + 6.0f) : 0.0f;
             const float textWidth = MeasureTextWidth(title);
             const float closeSize = geometry.bShowsCloseButton
                 ? std::min(
-                    Style_.CloseButtonSize,
-                    std::max(0.0f, geometry.Geometry.Size.Y - Style_.TabPadding.Top - Style_.TabPadding.Bottom))
+                    style.CloseButtonSize,
+                    std::max(0.0f, geometry.Geometry.Size.Y - style.TabPadding.Top - style.TabPadding.Bottom))
                 : 0.0f;
             const float closeWidth = geometry.bShowsCloseButton ? (closeSize + 6.0f) : 0.0f;
             const float contentWidth = iconWidth + dirtyWidth + textWidth + closeWidth;
@@ -919,9 +938,9 @@ void ImTabView::Relayout()
                 contentX += iconSize + 6.0f;
             }
             if (item.bDirty) {
-                contentX += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+                contentX += style.DirtyMarkerRadius * 2.0f + 6.0f;
             }
-            float textClipMaxX = geometry.Geometry.GetMax().X - Style_.TabPadding.Right;
+            float textClipMaxX = geometry.Geometry.GetMax().X - style.TabPadding.Right;
             if (geometry.bShowsCloseButton) {
                 const float closeX = SnapToPixel(contentX + textWidth + 6.0f);
                 const float closeY = SnapToPixel(
@@ -939,7 +958,7 @@ void ImTabView::Relayout()
             VisibleTabGeometries_.push_back(geometry);
         }
 
-        cursorX = exactTabMaxX + Style_.TabSpacing;
+        cursorX = exactTabMaxX + style.TabSpacing;
     }
 
     if (const std::shared_ptr<ImWidget> activeContent = GetActiveContent()) {
@@ -1189,13 +1208,14 @@ int ImTabView::ResolveReplacementActiveIndex(int removedIndex) const
 
 float ImTabView::MeasureTextWidth(const std::string& text) const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (text.empty()) {
         return 0.0f;
     }
 
     if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
         const ImVec2 size = ImGui::GetFont()->CalcTextSizeA(
-            Style_.FontSize,
+            style.FontSize,
             FLT_MAX,
             0.0f,
             text.c_str(),
@@ -1203,7 +1223,7 @@ float ImTabView::MeasureTextWidth(const std::string& text) const
         return size.x;
     }
 
-    return static_cast<float>(text.size()) * Style_.FontSize * 0.55f;
+    return static_cast<float>(text.size()) * style.FontSize * 0.55f;
 }
 
 std::string ImTabView::ResolveTabTitle(const FTabViewItem& item) const
@@ -1213,69 +1233,75 @@ std::string ImTabView::ResolveTabTitle(const FTabViewItem& item) const
 
 float ImTabView::MeasureTextHeight() const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
-        return ImGui::GetFont()->CalcTextSizeA(Style_.FontSize, FLT_MAX, 0.0f, "Ag").y;
+        return ImGui::GetFont()->CalcTextSizeA(style.FontSize, FLT_MAX, 0.0f, "Ag").y;
     }
 
-    return Style_.FontSize;
+    return style.FontSize;
 }
 
 FGeometry ImTabView::GetInnerGeometry() const
 {
-    return InsetGeometry(m_Geometry, Style_.Padding, Style_.BorderThickness);
+    const FTabViewStyle& style = GetEffectiveStyle();
+    return InsetGeometry(m_Geometry, style.Padding, style.BorderThickness);
 }
 
 FColor ImTabView::ResolveTabBackgroundColor(int index) const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (!IsTabEnabled(index)) {
-        return Style_.DisabledTabColor;
+        return style.DisabledTabColor;
     }
     if (PressedTabIndex_ == index) {
-        return Style_.TabPressedColor;
+        return style.TabPressedColor;
     }
     if (ActiveTabIndex_ == index) {
-        return Style_.ActiveTabColor;
+        return style.ActiveTabColor;
     }
     if (HoveredTabIndex_ == index) {
-        return Style_.TabHoveredColor;
+        return style.TabHoveredColor;
     }
-    return Style_.TabColor;
+    return style.TabColor;
 }
 
 FColor ImTabView::ResolveTabTextColor(int index) const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (!IsTabEnabled(index)) {
-        return Style_.DisabledTextColor;
+        return style.DisabledTextColor;
     }
     if (ActiveTabIndex_ == index) {
-        return Style_.ActiveTextColor;
+        return style.ActiveTextColor;
     }
-    return Style_.TextColor;
+    return style.TextColor;
 }
 
 FColor ImTabView::ResolveCloseButtonColor(const FTabGeometry& tabGeometry) const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (PressedCloseTabIndex_ == tabGeometry.Index) {
-        return Style_.CloseButtonPressedColor;
+        return style.CloseButtonPressedColor;
     }
     if (HoveredCloseTabIndex_ == tabGeometry.Index) {
-        return Style_.CloseButtonHoveredColor;
+        return style.CloseButtonHoveredColor;
     }
-    return Style_.CloseButtonColor;
+    return style.CloseButtonColor;
 }
 
 FColor ImTabView::ResolveOverflowButtonColor(int direction) const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (!CanScrollTabs(direction)) {
-        return Style_.OverflowButtonDisabledColor;
+        return style.OverflowButtonDisabledColor;
     }
     if (PressedOverflowDirection_ == direction) {
-        return Style_.OverflowButtonPressedColor;
+        return style.OverflowButtonPressedColor;
     }
     if (HoveredOverflowDirection_ == direction) {
-        return Style_.OverflowButtonHoveredColor;
+        return style.OverflowButtonHoveredColor;
     }
-    return Style_.OverflowButtonColor;
+    return style.OverflowButtonColor;
 }
 
 bool ImTabView::HasFocusWithinTabView() const
@@ -1304,11 +1330,12 @@ bool ImTabView::CanScrollTabs(int direction) const
     }
 
     const float totalTabsWidth = [&]() {
+        const FTabViewStyle& style = GetEffectiveStyle();
         float width = 0.0f;
         for (std::size_t index = 0; index < Tabs_.size(); ++index) {
             width += ComputeTabWidth(Tabs_[index]);
             if (index + 1 < Tabs_.size()) {
-                width += Style_.TabSpacing;
+                width += style.TabSpacing;
             }
         }
         return width;
@@ -1324,13 +1351,14 @@ void ImTabView::ScrollTabs(int direction)
 
 void ImTabView::EnsureTabVisible(int index, float viewportWidth)
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     if (!IsValidIndex(index) || viewportWidth <= 0.0f) {
         return;
     }
 
     float tabStart = 0.0f;
     for (int currentIndex = 0; currentIndex < index; ++currentIndex) {
-        tabStart += ComputeTabWidth(Tabs_[static_cast<std::size_t>(currentIndex)]) + Style_.TabSpacing;
+        tabStart += ComputeTabWidth(Tabs_[static_cast<std::size_t>(currentIndex)]) + style.TabSpacing;
     }
     const float tabEnd = tabStart + ComputeTabWidth(Tabs_[static_cast<std::size_t>(index)]);
 
@@ -1343,15 +1371,16 @@ void ImTabView::EnsureTabVisible(int index, float viewportWidth)
 
 float ImTabView::ComputeTabWidth(const FTabViewItem& item) const
 {
-    float tabWidth = Style_.TabPadding.Left + Style_.TabPadding.Right + MeasureTextWidth(ResolveTabTitle(item));
-        if (item.Icon.IsValid()) {
-            tabWidth += Style_.IconSize + 6.0f;
-        }
+    const FTabViewStyle& style = GetEffectiveStyle();
+    float tabWidth = style.TabPadding.Left + style.TabPadding.Right + MeasureTextWidth(ResolveTabTitle(item));
+    if (item.Icon.IsValid()) {
+        tabWidth += style.IconSize + 6.0f;
+    }
     if (item.bDirty) {
-        tabWidth += Style_.DirtyMarkerRadius * 2.0f + 6.0f;
+        tabWidth += style.DirtyMarkerRadius * 2.0f + 6.0f;
     }
     if (item.bClosable) {
-        tabWidth += Style_.CloseButtonSize + 6.0f;
+        tabWidth += style.CloseButtonSize + 6.0f;
     }
 
     return std::max(0.0f, tabWidth);
@@ -1359,6 +1388,7 @@ float ImTabView::ComputeTabWidth(const FTabViewItem& item) const
 
 float ImTabView::GetTabsViewportWidth() const
 {
+    const FTabViewStyle& style = GetEffectiveStyle();
     float width = TabStripGeometry_.Size.X;
     if (LeftOverflowButtonGeometry_.IsValid()) {
         width -= LeftOverflowButtonGeometry_.Size.X;
@@ -1367,7 +1397,7 @@ float ImTabView::GetTabsViewportWidth() const
         width -= RightOverflowButtonGeometry_.Size.X;
     }
     if (LeftOverflowButtonGeometry_.IsValid() && RightOverflowButtonGeometry_.IsValid()) {
-        width -= Style_.TabSpacing;
+        width -= style.TabSpacing;
     }
     return std::max(0.0f, width);
 }

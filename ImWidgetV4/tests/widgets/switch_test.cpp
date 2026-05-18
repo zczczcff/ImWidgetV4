@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -161,4 +162,27 @@ TEST_F(SwitchTest, CheckStateCallbackCanReplaceOwningWidgetTreeSafely) {
 
     EXPECT_EQ(callbackCount, 1);
     EXPECT_TRUE(oldSwitch.expired());
+}
+
+TEST_F(SwitchTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FSwitchStyle expectedStyle = ResolveSwitchStyle(App->GetStyleSet());
+
+    const FSwitchStyle& style = Switch->GetStyle();
+    EXPECT_EQ(style.OnTrackColor.ToImU32(), expectedStyle.OnTrackColor.ToImU32());
+    EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+}
+
+TEST_F(SwitchTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FSwitchStyle explicitStyle;
+    explicitStyle.OnTrackColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.BorderColor = FColor::FromBytes(200, 210, 220);
+    Switch->SetStyle(explicitStyle);
+
+    EXPECT_EQ(Switch->GetStyle().OnTrackColor.ToImU32(), explicitStyle.OnTrackColor.ToImU32());
+    EXPECT_EQ(Switch->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
 }

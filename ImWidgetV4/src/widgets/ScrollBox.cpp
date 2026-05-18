@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -195,6 +197,7 @@ bool ImScrollBox::ScrollToWidget(const std::shared_ptr<ImWidget>& widget, bool b
 void ImScrollBox::SetStyle(const FScrollBoxStyle& style)
 {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Relayout();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -206,18 +209,19 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FScrollBoxStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_Style.BackgroundColor,
-        m_Style.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_Style.BorderColor,
-        m_Style.CornerRadius,
-        m_Style.BorderThickness);
+        style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     if (m_Content && m_CachedViewportGeometry.IsValid()) {
         paintContext.DrawContext_.PushClipRect(
@@ -233,15 +237,15 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             m_HorizontalScrollbarGeometry.GetMin(),
             m_HorizontalScrollbarGeometry.GetMax(),
-            m_Style.ScrollbarTrackColor,
-            m_Style.ScrollbarThickness * 0.5f);
+            style.ScrollbarTrackColor,
+            style.ScrollbarThickness * 0.5f);
         paintContext.DrawContext_.DrawRectFilled(
             m_HorizontalThumbGeometry.GetMin(),
             m_HorizontalThumbGeometry.GetMax(),
             (bHorizontalActive || m_HoveredScrollbar == EHoveredScrollbar::Horizontal)
-                ? m_Style.ScrollbarThumbHoveredColor
-                : m_Style.ScrollbarThumbColor,
-            m_Style.ScrollbarThickness * 0.5f);
+                ? style.ScrollbarThumbHoveredColor
+                : style.ScrollbarThumbColor,
+            style.ScrollbarThickness * 0.5f);
     }
 
     if (m_bShowVerticalScrollbar && m_VerticalScrollbarGeometry.IsValid()) {
@@ -249,15 +253,15 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalScrollbarGeometry.GetMin(),
             m_VerticalScrollbarGeometry.GetMax(),
-            m_Style.ScrollbarTrackColor,
-            m_Style.ScrollbarThickness * 0.5f);
+            style.ScrollbarTrackColor,
+            style.ScrollbarThickness * 0.5f);
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalThumbGeometry.GetMin(),
             m_VerticalThumbGeometry.GetMax(),
             (bVerticalActive || m_HoveredScrollbar == EHoveredScrollbar::Vertical)
-                ? m_Style.ScrollbarThumbHoveredColor
-                : m_Style.ScrollbarThumbColor,
-            m_Style.ScrollbarThickness * 0.5f);
+                ? style.ScrollbarThumbHoveredColor
+                : style.ScrollbarThumbColor,
+            style.ScrollbarThickness * 0.5f);
     }
 
     if (m_ActiveScrollbar == EActiveScrollbar::Horizontal ||
@@ -272,8 +276,9 @@ void ImScrollBox::Paint(const FPaintContext& paintContext)
 
 FVector2 ImScrollBox::GetMinSize() const
 {
-    const float insetX = m_Style.Padding.Left + m_Style.Padding.Right + m_Style.BorderThickness * 2.0f;
-    const float insetY = m_Style.Padding.Top + m_Style.Padding.Bottom + m_Style.BorderThickness * 2.0f;
+    const FScrollBoxStyle& style = GetEffectiveStyle();
+    const float insetX = style.Padding.Left + style.Padding.Right + style.BorderThickness * 2.0f;
+    const float insetY = style.Padding.Top + style.Padding.Bottom + style.BorderThickness * 2.0f;
     const FVector2 childMinSize = m_Content ? m_Content->GetMinSize() : FVector2(0.0f, 0.0f);
     return FVector2(childMinSize.X + insetX, childMinSize.Y + insetY);
 }
@@ -335,11 +340,12 @@ FReply ImScrollBox::OnInputEvent(const FInputEvent& event)
 
         const FVector2 oldOffset = m_ScrollOffset;
         FVector2 nextOffset = m_ScrollOffset;
+        const FScrollBoxStyle& style = GetEffectiveStyle();
         if (bCanScrollHorizontally) {
-            nextOffset.X -= event.ScrollDelta.X * m_Style.WheelScrollStep;
+            nextOffset.X -= event.ScrollDelta.X * style.WheelScrollStep;
         }
         if (bCanScrollVertically) {
-            nextOffset.Y -= event.ScrollDelta.Y * m_Style.WheelScrollStep;
+            nextOffset.Y -= event.ScrollDelta.Y * style.WheelScrollStep;
         }
 
         SetScrollOffset(nextOffset);
@@ -372,16 +378,17 @@ bool ImScrollBox::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& o
 
 void ImScrollBox::Relayout()
 {
-    const float borderInset = std::max(0.0f, m_Style.BorderThickness);
-    const float scrollbarThickness = std::max(0.0f, m_Style.ScrollbarThickness);
-    const float scrollbarPadding = std::max(0.0f, m_Style.ScrollbarPadding);
+    const FScrollBoxStyle& style = GetEffectiveStyle();
+    const float borderInset = std::max(0.0f, style.BorderThickness);
+    const float scrollbarThickness = std::max(0.0f, style.ScrollbarThickness);
+    const float scrollbarPadding = std::max(0.0f, style.ScrollbarPadding);
 
     const FGeometry innerGeometry = InsetGeometry(
         m_Geometry,
-        borderInset + m_Style.Padding.Left,
-        borderInset + m_Style.Padding.Top,
-        borderInset + m_Style.Padding.Right,
-        borderInset + m_Style.Padding.Bottom);
+        borderInset + style.Padding.Left,
+        borderInset + style.Padding.Top,
+        borderInset + style.Padding.Right,
+        borderInset + style.Padding.Bottom);
 
     const FVector2 contentDesiredSize = m_Content ? m_Content->GetMinSize() : FVector2(0.0f, 0.0f);
     bool showHorizontal = false;
@@ -450,7 +457,7 @@ void ImScrollBox::Relayout()
         const float thumbWidth = std::min(
             trackWidth,
             std::max(
-                std::min(trackWidth, m_Style.ThumbMinLength),
+                std::min(trackWidth, style.ThumbMinLength),
                 m_CachedContentSize.X > 0.0f ? trackWidth * (viewportSize.X / m_CachedContentSize.X) : trackWidth));
         const float availableTrack = std::max(0.0f, trackWidth - thumbWidth);
         const float thumbOffset = m_MaxScrollOffset.X > 0.0f
@@ -474,7 +481,7 @@ void ImScrollBox::Relayout()
         const float thumbHeight = std::min(
             trackHeight,
             std::max(
-                std::min(trackHeight, m_Style.ThumbMinLength),
+                std::min(trackHeight, style.ThumbMinLength),
                 m_CachedContentSize.Y > 0.0f ? trackHeight * (viewportSize.Y / m_CachedContentSize.Y) : trackHeight));
         const float availableTrack = std::max(0.0f, trackHeight - thumbHeight);
         const float thumbOffset = m_MaxScrollOffset.Y > 0.0f
@@ -581,6 +588,20 @@ bool ImScrollBox::IsDescendantOfContent(const std::shared_ptr<ImWidget>& widget)
     }
 
     return false;
+}
+
+const FScrollBoxStyle& ImScrollBox::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveScrollBoxStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 } // namespace ImWidgetV4

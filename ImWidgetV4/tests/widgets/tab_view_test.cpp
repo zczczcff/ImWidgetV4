@@ -4,6 +4,7 @@
 #define private public
 #include <imwidgetv4/widgets/TabView.h>
 #undef private
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <memory>
 #include <vector>
@@ -558,4 +559,29 @@ TEST_F(TabViewTest, RemovingActiveTabClearsFocusAndCaptureFromItsContent)
     EXPECT_EQ(App->GetMouseCapture(), nullptr);
     EXPECT_EQ(View->GetActiveTabIndex(), 0);
     EXPECT_EQ(View->GetActiveContent(), second);
+}
+
+TEST_F(TabViewTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    auto themedView = std::make_shared<ImTabView>();
+    App->SetRootWidget(themedView);
+    const FTabViewStyle expectedStyle = ResolveTabViewStyle(App->GetStyleSet());
+
+    const FTabViewStyle& style = themedView->GetStyle();
+    EXPECT_EQ(style.ActiveTabColor.ToImU32(), expectedStyle.ActiveTabColor.ToImU32());
+    EXPECT_EQ(style.TextColor.ToImU32(), expectedStyle.TextColor.ToImU32());
+}
+
+TEST_F(TabViewTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FTabViewStyle explicitStyle = MakeCompactStyle();
+    explicitStyle.ActiveTabColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.TextColor = FColor::FromBytes(200, 210, 220);
+    View->SetStyle(explicitStyle);
+
+    EXPECT_EQ(View->GetStyle().ActiveTabColor.ToImU32(), explicitStyle.ActiveTabColor.ToImU32());
+    EXPECT_EQ(View->GetStyle().TextColor.ToImU32(), explicitStyle.TextColor.ToImU32());
 }

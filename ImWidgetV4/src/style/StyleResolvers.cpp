@@ -203,6 +203,136 @@ FPopupMenuStyle ResolvePopupMenuStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FScrollBoxStyle ResolveScrollBoxStyle(const FStyleSet& styleSet)
+{
+    FScrollBoxStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.ScrollBox.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.ScrollBox.Border", style.BorderColor);
+    style.ScrollbarTrackColor = styleSet.GetColor(
+        "Color.ScrollBox.ScrollbarTrack",
+        style.ScrollbarTrackColor);
+    style.ScrollbarThumbColor = styleSet.GetColor(
+        "Color.ScrollBox.ScrollbarThumb",
+        style.ScrollbarThumbColor);
+    style.ScrollbarThumbHoveredColor = styleSet.GetColor(
+        "Color.ScrollBox.ScrollbarThumbHovered",
+        style.ScrollbarThumbHoveredColor);
+    style.BorderThickness = styleSet.GetFloat("Float.ScrollBox.BorderThickness", style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat("Float.ScrollBox.CornerRadius", style.CornerRadius);
+    style.ScrollbarThickness = styleSet.GetFloat(
+        "Float.ScrollBox.ScrollbarThickness",
+        style.ScrollbarThickness);
+    style.ScrollbarPadding = styleSet.GetFloat(
+        "Float.ScrollBox.ScrollbarPadding",
+        style.ScrollbarPadding);
+    style.ThumbMinLength = styleSet.GetFloat("Float.ScrollBox.ThumbMinLength", style.ThumbMinLength);
+    style.WheelScrollStep = styleSet.GetFloat("Float.ScrollBox.WheelScrollStep", style.WheelScrollStep);
+
+    return style;
+}
+
+FSwitchStyle ResolveSwitchStyle(const FStyleSet& styleSet)
+{
+    FSwitchStyle style;
+
+    style.OffTrackColor = styleSet.GetColor("Color.Switch.OffTrack", style.OffTrackColor);
+    style.OffTrackHoveredColor = styleSet.GetColor(
+        "Color.Switch.OffTrackHovered",
+        style.OffTrackHoveredColor);
+    style.OffTrackPressedColor = styleSet.GetColor(
+        "Color.Switch.OffTrackPressed",
+        style.OffTrackPressedColor);
+    style.OnTrackColor = styleSet.GetColor("Color.Switch.OnTrack", style.OnTrackColor);
+    style.OnTrackHoveredColor = styleSet.GetColor(
+        "Color.Switch.OnTrackHovered",
+        style.OnTrackHoveredColor);
+    style.OnTrackPressedColor = styleSet.GetColor(
+        "Color.Switch.OnTrackPressed",
+        style.OnTrackPressedColor);
+    style.DisabledTrackColor = styleSet.GetColor(
+        "Color.Switch.DisabledTrack",
+        style.DisabledTrackColor);
+    style.ThumbColor = styleSet.GetColor("Color.Switch.Thumb", style.ThumbColor);
+    style.ThumbHoveredColor = styleSet.GetColor(
+        "Color.Switch.ThumbHovered",
+        style.ThumbHoveredColor);
+    style.ThumbPressedColor = styleSet.GetColor(
+        "Color.Switch.ThumbPressed",
+        style.ThumbPressedColor);
+    style.DisabledThumbColor = styleSet.GetColor(
+        "Color.Switch.DisabledThumb",
+        style.DisabledThumbColor);
+    style.BorderColor = styleSet.GetColor("Color.Switch.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.Switch.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.BorderThickness = styleSet.GetFloat("Float.Switch.BorderThickness", style.BorderThickness);
+    style.ThumbInset = styleSet.GetFloat("Float.Switch.ThumbInset", style.ThumbInset);
+    style.DesiredSize = styleSet.GetVector2("Vector2.Switch.DesiredSize", style.DesiredSize);
+
+    return style;
+}
+
+FTabViewStyle ResolveTabViewStyle(const FStyleSet& styleSet)
+{
+    FTabViewStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.TabView.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.TabView.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.TabView.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.TabStripBackgroundColor = styleSet.GetColor(
+        "Color.TabView.TabStripBackground",
+        style.TabStripBackgroundColor);
+    style.TabColor = styleSet.GetColor("Color.TabView.Tab", style.TabColor);
+    style.TabHoveredColor = styleSet.GetColor("Color.TabView.TabHovered", style.TabHoveredColor);
+    style.TabPressedColor = styleSet.GetColor("Color.TabView.TabPressed", style.TabPressedColor);
+    style.ActiveTabColor = styleSet.GetColor("Color.TabView.ActiveTab", style.ActiveTabColor);
+    style.DisabledTabColor = styleSet.GetColor("Color.TabView.DisabledTab", style.DisabledTabColor);
+    style.TextColor = styleSet.GetColor("Color.TabView.Text", style.TextColor);
+    style.ActiveTextColor = styleSet.GetColor("Color.TabView.ActiveText", style.ActiveTextColor);
+    style.DisabledTextColor = styleSet.GetColor("Color.TabView.DisabledText", style.DisabledTextColor);
+    style.TabBorderColor = styleSet.GetColor("Color.TabView.TabBorder", style.TabBorderColor);
+    style.DirtyMarkerColor = styleSet.GetColor("Color.TabView.DirtyMarker", style.DirtyMarkerColor);
+    style.CloseButtonColor = styleSet.GetColor("Color.TabView.CloseButton", style.CloseButtonColor);
+    style.CloseButtonHoveredColor = styleSet.GetColor(
+        "Color.TabView.CloseButtonHovered",
+        style.CloseButtonHoveredColor);
+    style.CloseButtonPressedColor = styleSet.GetColor(
+        "Color.TabView.CloseButtonPressed",
+        style.CloseButtonPressedColor);
+    style.OverflowButtonColor = styleSet.GetColor(
+        "Color.TabView.OverflowButton",
+        style.OverflowButtonColor);
+    style.OverflowButtonHoveredColor = styleSet.GetColor(
+        "Color.TabView.OverflowButtonHovered",
+        style.OverflowButtonHoveredColor);
+    style.OverflowButtonPressedColor = styleSet.GetColor(
+        "Color.TabView.OverflowButtonPressed",
+        style.OverflowButtonPressedColor);
+    style.OverflowButtonDisabledColor = styleSet.GetColor(
+        "Color.TabView.OverflowButtonDisabled",
+        style.OverflowButtonDisabledColor);
+    style.TabSpacing = styleSet.GetFloat("Float.TabView.TabSpacing", style.TabSpacing);
+    style.TabMinWidth = styleSet.GetFloat("Float.TabView.TabMinWidth", style.TabMinWidth);
+    style.TabHeight = styleSet.GetFloat("Float.TabView.TabHeight", style.TabHeight);
+    style.IconSize = styleSet.GetFloat("Float.TabView.IconSize", style.IconSize);
+    style.DirtyMarkerRadius = styleSet.GetFloat(
+        "Float.TabView.DirtyMarkerRadius",
+        style.DirtyMarkerRadius);
+    style.CloseButtonSize = styleSet.GetFloat("Float.TabView.CloseButtonSize", style.CloseButtonSize);
+    style.OverflowButtonWidth = styleSet.GetFloat(
+        "Float.TabView.OverflowButtonWidth",
+        style.OverflowButtonWidth);
+    style.FontSize = styleSet.GetFloat("Float.TabView.FontSize", style.FontSize);
+    style.BorderThickness = styleSet.GetFloat("Float.TabView.BorderThickness", style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat("Float.TabView.CornerRadius", style.CornerRadius);
+
+    return style;
+}
+
 FTitleBarStyle ResolveTitleBarStyle(const FStyleSet& styleSet)
 {
     FTitleBarStyle style;

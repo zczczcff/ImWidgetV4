@@ -170,7 +170,8 @@ public:
     ETabStripPlacement GetTabStripPlacement() const { return TabStripPlacement_; }
 
     void SetStyle(const FTabViewStyle& style);
-    const FTabViewStyle& GetStyle() const { return Style_; }
+    const FTabViewStyle& GetStyle() const { return GetEffectiveStyle(); }
+    const FTabViewStyle& GetEffectiveStyle() const;
 
     FTabEvent OnActiveTabChanged;
     FTabEvent OnTabInvoked;
@@ -239,6 +240,7 @@ private:
     float GetTabsViewportWidth() const;
 
     FTabViewStyle Style_;
+    mutable FTabViewStyle ResolvedThemeStyle_;
     std::vector<FTabViewItem> Tabs_;
     std::vector<FTabGeometry> VisibleTabGeometries_;
     FGeometry TabStripGeometry_;
@@ -261,6 +263,7 @@ private:
     float TabScrollOffset_ = 0.0f;
     bool bEnsureActiveTabVisible_ = false;
     bool bLayoutDirty_ = true;
+    bool bHasExplicitStyle_ = false;
     bool bHasLastLayoutGeometry_ = false;
     FGeometry LastLayoutGeometry_;
     ETabCloseActivationPolicy CloseActivationPolicy_ = ETabCloseActivationPolicy::LeftNeighbor;

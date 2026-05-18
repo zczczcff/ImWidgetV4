@@ -221,6 +221,9 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.VerticalSplitter.BarHeight", 4.0f);
     styleSet.SetFloat("Float.VerticalSplitter.Rounding", 0.0f);
 
+    styleSet.SetFloat("Float.Image.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.Image.CornerRadius", 6.0f);
+
     styleSet.SetFloat("Float.TextBlock.FontSize", 16.0f);
 
     styleSet.SetFloat("Float.Switch.BorderThickness", 1.0f);
@@ -390,6 +393,10 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.VerticalSplitter.Bar", FColor::FromBytes(63, 73, 86));
     styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(93, 108, 126));
     styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(120, 144, 172));
+
+    styleSet.SetColor("Color.Image.Background", FColor::FromBytes(34, 40, 49));
+    styleSet.SetColor("Color.Image.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.Image.Tint", FColor::White);
 
     styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(238, 241, 245));
 
@@ -593,6 +600,10 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(108, 108, 108));
     styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(152, 152, 152));
 
+    styleSet.SetColor("Color.Image.Background", FColor::FromBytes(38, 38, 38));
+    styleSet.SetColor("Color.Image.Border", FColor::FromBytes(68, 68, 68));
+    styleSet.SetColor("Color.Image.Tint", FColor::White);
+
     styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(220, 220, 220));
 
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(66, 66, 66));
@@ -794,6 +805,10 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.VerticalSplitter.Bar", FColor::FromBytes(196, 202, 210));
     styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(166, 175, 186));
     styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.Image.Background", FColor::FromBytes(246, 248, 252));
+    styleSet.SetColor("Color.Image.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.Image.Tint", FColor::White);
 
     styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(30, 30, 30));
 

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imgui.h>
 #include <array>
@@ -257,6 +258,44 @@ TEST_F(ImageTest, StretchTintAndBackgroundAffectTheRenderedResult)
     const FSnapshotImage fillSnapshot = Capture(application, fillImage, FVector2(120.0f, 60.0f));
 
     EXPECT_NE(FSnapshotRenderer::ComputeHash(keepAspectSnapshot), FSnapshotRenderer::ComputeHash(fillSnapshot));
+}
+
+TEST_F(ImageTest, UsesThemeResolvedStyleByDefault)
+{
+    FImGuiScope imguiScope;
+    ImApplication application;
+    auto image = std::make_shared<ImImage>();
+    application.SetRootWidget(image);
+    ASSERT_TRUE(application.SetActiveTheme("Dark"));
+
+    const FImageStyle expectedStyle = ResolveImageStyle(application.GetStyleSet());
+    const FImageStyle& style = image->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+    EXPECT_FLOAT_EQ(style.CornerRadius, expectedStyle.CornerRadius);
+}
+
+TEST_F(ImageTest, ExplicitStyleOverridesTheme)
+{
+    FImGuiScope imguiScope;
+    ImApplication application;
+    auto image = std::make_shared<ImImage>();
+    application.SetRootWidget(image);
+    ASSERT_TRUE(application.SetActiveTheme("Light"));
+
+    FImageStyle style;
+    style.BackgroundColor = FColor::FromBytes(10, 20, 30);
+    style.BorderColor = FColor::FromBytes(40, 50, 60);
+    style.BorderThickness = 3.0f;
+    style.CornerRadius = 11.0f;
+    style.Tint = FColor::FromBytes(200, 210, 220);
+    image->SetStyle(style);
+
+    EXPECT_EQ(image->GetBackgroundColor().ToImU32(), style.BackgroundColor.ToImU32());
+    EXPECT_EQ(image->GetBorderColor().ToImU32(), style.BorderColor.ToImU32());
+    EXPECT_FLOAT_EQ(image->GetBorderThickness(), style.BorderThickness);
+    EXPECT_FLOAT_EQ(image->GetCornerRadius(), style.CornerRadius);
+    EXPECT_EQ(image->GetTint().ToImU32(), style.Tint.ToImU32());
 }
 
 TEST_F(ImageTest, CoreIconBrushesShareAtlasTextureAndExposeDistinctUvs)

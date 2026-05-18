@@ -240,6 +240,19 @@ FExpandableBoxStyle ResolveExpandableBoxStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FImageStyle ResolveImageStyle(const FStyleSet& styleSet)
+{
+    FImageStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.Image.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.Image.Border", style.BorderColor);
+    style.Tint = styleSet.GetColor("Color.Image.Tint", style.Tint);
+    style.BorderThickness = styleSet.GetFloat("Float.Image.BorderThickness", style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat("Float.Image.CornerRadius", style.CornerRadius);
+
+    return style;
+}
+
 FListViewStyle ResolveListViewStyle(const FStyleSet& styleSet)
 {
     FListViewStyle style;

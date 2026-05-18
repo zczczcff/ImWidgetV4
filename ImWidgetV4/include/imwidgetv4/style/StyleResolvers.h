@@ -16,6 +16,7 @@
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
@@ -29,6 +30,7 @@ FColorPickerStyle ResolveColorPickerStyle(const FStyleSet& styleSet);
 FComboBoxStyle ResolveComboBoxStyle(const FStyleSet& styleSet);
 FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet);
 FExpandableBoxStyle ResolveExpandableBoxStyle(const FStyleSet& styleSet);
+FImageStyle ResolveImageStyle(const FStyleSet& styleSet);
 FListViewStyle ResolveListViewStyle(const FStyleSet& styleSet);
 FOutlineViewStyle ResolveOutlineViewStyle(const FStyleSet& styleSet);
 FPopupMenuStyle ResolvePopupMenuStyle(const FStyleSet& styleSet);

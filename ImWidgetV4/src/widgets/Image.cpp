@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
@@ -40,6 +41,18 @@ float ResolveSafeImageRounding(float rounding)
 ImImage::ImImage()
 {
     SetHitTestVisible(false);
+}
+
+void ImImage::SetStyle(const FImageStyle& style)
+{
+    m_Style = style;
+    m_bHasExplicitStyle = true;
+    m_bHasExplicitBackgroundColor = true;
+    m_bHasExplicitBorderColor = true;
+    m_bHasExplicitBorderThickness = true;
+    m_bHasExplicitCornerRadius = true;
+    m_bHasExplicitTint = true;
+    Invalidate(EInvalidateReason::Paint);
 }
 
 void ImImage::SetBrush(const FImageBrush& brush)
@@ -82,53 +95,76 @@ void ImImage::SetDesiredSize(const FVector2& desiredSize)
 
 void ImImage::SetBackgroundColor(const FColor& color)
 {
-    if (m_BackgroundColor.ToImU32() == color.ToImU32()) {
+    const FImageStyle effectiveStyle = GetEffectiveStyle();
+    if (effectiveStyle.BackgroundColor.ToImU32() == color.ToImU32()) {
         return;
     }
 
-    m_BackgroundColor = color;
+    if (!m_bHasExplicitStyle) {
+        m_Style = effectiveStyle;
+    }
+    m_Style.BackgroundColor = color;
+    m_bHasExplicitBackgroundColor = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImImage::SetBorderColor(const FColor& color)
 {
-    if (m_BorderColor.ToImU32() == color.ToImU32()) {
+    const FImageStyle effectiveStyle = GetEffectiveStyle();
+    if (effectiveStyle.BorderColor.ToImU32() == color.ToImU32()) {
         return;
     }
 
-    m_BorderColor = color;
+    if (!m_bHasExplicitStyle) {
+        m_Style = effectiveStyle;
+    }
+    m_Style.BorderColor = color;
+    m_bHasExplicitBorderColor = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImImage::SetBorderThickness(float thickness)
 {
     const float clampedThickness = std::max(0.0f, thickness);
-    if (m_BorderThickness == clampedThickness) {
+    if (GetEffectiveStyle().BorderThickness == clampedThickness) {
         return;
     }
 
-    m_BorderThickness = clampedThickness;
+    if (!m_bHasExplicitStyle) {
+        m_Style = GetEffectiveStyle();
+    }
+    m_Style.BorderThickness = clampedThickness;
+    m_bHasExplicitBorderThickness = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImImage::SetCornerRadius(float radius)
 {
     const float clampedRadius = std::max(0.0f, radius);
-    if (m_CornerRadius == clampedRadius) {
+    if (GetEffectiveStyle().CornerRadius == clampedRadius) {
         return;
     }
 
-    m_CornerRadius = clampedRadius;
+    if (!m_bHasExplicitStyle) {
+        m_Style = GetEffectiveStyle();
+    }
+    m_Style.CornerRadius = clampedRadius;
+    m_bHasExplicitCornerRadius = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImImage::SetTint(const FColor& tint)
 {
-    if (m_Tint.ToImU32() == tint.ToImU32()) {
+    const FImageStyle effectiveStyle = GetEffectiveStyle();
+    if (effectiveStyle.Tint.ToImU32() == tint.ToImU32()) {
         return;
     }
 
-    m_Tint = tint;
+    if (!m_bHasExplicitStyle) {
+        m_Style = effectiveStyle;
+    }
+    m_Style.Tint = tint;
+    m_bHasExplicitTint = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
@@ -148,17 +184,19 @@ void ImImage::Paint(const FPaintContext& paintContext)
         return;
     }
 
+    const FImageStyle& style = GetEffectiveStyle();
+
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_BackgroundColor,
-        m_CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_BorderColor,
-        m_CornerRadius,
-        m_BorderThickness);
+        style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     const FImageBrush& brush = ResolveBrushForPaint();
     if (!brush.IsValid() || !m_Geometry.IsValid()) {
@@ -171,10 +209,10 @@ void ImImage::Paint(const FPaintContext& paintContext)
     }
 
     const FColor finalTint(
-        brush.TintColor.R * m_Tint.R,
-        brush.TintColor.G * m_Tint.G,
-        brush.TintColor.B * m_Tint.B,
-        brush.TintColor.A * m_Tint.A);
+        brush.TintColor.R * style.Tint.R,
+        brush.TintColor.G * style.Tint.G,
+        brush.TintColor.B * style.Tint.B,
+        brush.TintColor.A * style.Tint.A);
 
     ImDrawList* drawList = paintContext.DrawContext_.GetImDrawList();
     if (drawList == nullptr) {
@@ -190,7 +228,7 @@ void ImImage::Paint(const FPaintContext& paintContext)
     }
 
     const float imageRounding = ResolveSafeImageRounding(
-        std::max(0.0f, m_CornerRadius - m_BorderThickness));
+        std::max(0.0f, style.CornerRadius - style.BorderThickness));
 
     if (imageRounding > 0.0f) {
         drawList->AddImageRounded(
@@ -226,6 +264,65 @@ FVector2 ImImage::GetMinSize() const
     }
 
     return FVector2(96.0f, 72.0f);
+}
+
+const FImageStyle& ImImage::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveImageStyle(application->GetStyleSet());
+        if (m_bHasExplicitBackgroundColor) {
+            m_ResolvedThemeStyle.BackgroundColor = m_Style.BackgroundColor;
+        }
+        if (m_bHasExplicitBorderColor) {
+            m_ResolvedThemeStyle.BorderColor = m_Style.BorderColor;
+        }
+        if (m_bHasExplicitBorderThickness) {
+            m_ResolvedThemeStyle.BorderThickness = m_Style.BorderThickness;
+        }
+        if (m_bHasExplicitCornerRadius) {
+            m_ResolvedThemeStyle.CornerRadius = m_Style.CornerRadius;
+        }
+        if (m_bHasExplicitTint) {
+            m_ResolvedThemeStyle.Tint = m_Style.Tint;
+        }
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
+FColor& ImImage::GetBackgroundColorProperty()
+{
+    m_BackgroundColorPropertyCache = GetBackgroundColor();
+    return m_BackgroundColorPropertyCache;
+}
+
+FColor& ImImage::GetBorderColorProperty()
+{
+    m_BorderColorPropertyCache = GetBorderColor();
+    return m_BorderColorPropertyCache;
+}
+
+float& ImImage::GetBorderThicknessProperty()
+{
+    m_BorderThicknessPropertyCache = GetBorderThickness();
+    return m_BorderThicknessPropertyCache;
+}
+
+float& ImImage::GetCornerRadiusProperty()
+{
+    m_CornerRadiusPropertyCache = GetCornerRadius();
+    return m_CornerRadiusPropertyCache;
+}
+
+FColor& ImImage::GetTintProperty()
+{
+    m_TintPropertyCache = GetTint();
+    return m_TintPropertyCache;
 }
 
 const FImageBrush& ImImage::ResolveBrushForPaint() const

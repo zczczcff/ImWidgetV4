@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
@@ -264,4 +265,29 @@ TEST_F(ExpandableBoxTest, CollapsingClearsBodyFocusAndCapture)
     ExpandableBox->SetExpanded(false);
     EXPECT_EQ(App->GetKeyboardFocus(), nullptr);
     EXPECT_EQ(App->GetMouseCapture(), nullptr);
+}
+
+TEST_F(ExpandableBoxTest, UsesThemeResolvedStyleByDefault)
+{
+    auto themedBox = std::make_shared<ImExpandableBox>();
+    App->SetRootWidget(themedBox);
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FExpandableBoxStyle expectedStyle = ResolveExpandableBoxStyle(App->GetStyleSet());
+
+    const FExpandableBoxStyle& style = themedBox->GetStyle();
+    EXPECT_EQ(style.HeaderBackgroundColor.ToImU32(), expectedStyle.HeaderBackgroundColor.ToImU32());
+    EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+}
+
+TEST_F(ExpandableBoxTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FExpandableBoxStyle explicitStyle;
+    explicitStyle.HeaderBackgroundColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.BorderColor = FColor::FromBytes(200, 210, 220);
+    ExpandableBox->SetStyle(explicitStyle);
+
+    EXPECT_EQ(ExpandableBox->GetStyle().HeaderBackgroundColor.ToImU32(), explicitStyle.HeaderBackgroundColor.ToImU32());
+    EXPECT_EQ(ExpandableBox->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
 }

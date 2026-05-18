@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -171,4 +172,27 @@ TEST_F(SliderTest, ValueChangedCallbackCanReplaceOwningWidgetTreeSafely) {
 
     EXPECT_EQ(callbackCount, 1);
     EXPECT_TRUE(oldSlider.expired());
+}
+
+TEST_F(SliderTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FSliderStyle expectedStyle = ResolveSliderStyle(App->GetStyleSet());
+
+    const FSliderStyle& style = Slider->GetStyle();
+    EXPECT_EQ(style.TrackColor.ToImU32(), expectedStyle.TrackColor.ToImU32());
+    EXPECT_EQ(style.ThumbColor.ToImU32(), expectedStyle.ThumbColor.ToImU32());
+}
+
+TEST_F(SliderTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FSliderStyle explicitStyle;
+    explicitStyle.TrackColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.ThumbColor = FColor::FromBytes(200, 210, 220);
+    Slider->SetStyle(explicitStyle);
+
+    EXPECT_EQ(Slider->GetStyle().TrackColor.ToImU32(), explicitStyle.TrackColor.ToImU32());
+    EXPECT_EQ(Slider->GetStyle().ThumbColor.ToImU32(), explicitStyle.ThumbColor.ToImU32());
 }

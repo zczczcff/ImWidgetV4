@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/ColorPicker.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 #include <cmath>
 
@@ -160,6 +162,7 @@ void ImColorPicker::SetColor(const FColor& color)
 void ImColorPicker::SetStyle(const FColorPickerStyle& style)
 {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -170,19 +173,20 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
     }
 
     DrawContext& drawContext = paintContext.DrawContext_;
+    const FColorPickerStyle& style = GetEffectiveStyle();
     const FPickerLayout layout = ResolveLayout();
 
     drawContext.DrawRectFilled(
         m_Geometry.Position,
         m_Geometry.Position + m_Geometry.Size,
-        m_Style.BackgroundColor,
-        m_Style.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     drawContext.DrawRect(
         m_Geometry.Position,
         m_Geometry.Position + m_Geometry.Size,
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
-        m_Style.CornerRadius,
-        m_Style.BorderThickness);
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     const FColor hueColor = HsvToColor(m_Hue, 1.0f, 1.0f, 1.0f);
     const int svColumns = std::max(1, static_cast<int>(std::ceil(layout.SaturationValueRect.Size.X)));
@@ -213,8 +217,8 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
     const FVector2 svSelector(
         layout.SaturationValueRect.Position.X + m_Saturation * layout.SaturationValueRect.Size.X,
         layout.SaturationValueRect.Position.Y + (1.0f - m_Value) * layout.SaturationValueRect.Size.Y);
-    drawContext.DrawCircle(svSelector, m_Style.SelectorRadius + 1.5f, m_Style.SelectorOuterColor, 0, 2.0f);
-    drawContext.DrawCircle(svSelector, m_Style.SelectorRadius - 1.0f, m_Style.SelectorInnerColor, 0, 1.0f);
+    drawContext.DrawCircle(svSelector, style.SelectorRadius + 1.5f, style.SelectorOuterColor, 0, 2.0f);
+    drawContext.DrawCircle(svSelector, style.SelectorRadius - 1.0f, style.SelectorInnerColor, 0, 1.0f);
 
     DrawVerticalColorRamp(
         drawContext,
@@ -232,7 +236,7 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
     drawContext.DrawRect(
         FVector2(layout.HueRect.Position.X - 1.0f, hueY - 2.0f),
         FVector2(layout.HueRect.Position.X + layout.HueRect.Size.X + 1.0f, hueY + 2.0f),
-        m_Style.SelectorOuterColor,
+        style.SelectorOuterColor,
         2.0f,
         2.0f);
 
@@ -240,8 +244,8 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
         DrawCheckerboard(
             drawContext,
             layout.AlphaRect,
-            m_Style.CheckerLightColor,
-            m_Style.CheckerDarkColor,
+            style.CheckerLightColor,
+            style.CheckerDarkColor,
             6.0f);
         const FColor opaque = HsvToColor(m_Hue, m_Saturation, m_Value, 1.0f);
         const int alphaRows = std::max(1, static_cast<int>(std::ceil(layout.AlphaRect.Size.Y)));
@@ -265,7 +269,7 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
         drawContext.DrawRect(
             FVector2(layout.AlphaRect.Position.X - 1.0f, alphaY - 2.0f),
             FVector2(layout.AlphaRect.Position.X + layout.AlphaRect.Size.X + 1.0f, alphaY + 2.0f),
-            m_Style.SelectorOuterColor,
+            style.SelectorOuterColor,
             2.0f,
             2.0f);
     }
@@ -274,7 +278,7 @@ void ImColorPicker::Paint(const FPaintContext& paintContext)
 
 FVector2 ImColorPicker::GetMinSize() const
 {
-    return m_Style.MinDesiredSize;
+    return GetEffectiveStyle().MinDesiredSize;
 }
 
 FReply ImColorPicker::OnInputEvent(const FInputEvent& event)
@@ -321,35 +325,36 @@ void ImColorPicker::OnFocusChanged(bool bHasFocus)
 ImColorPicker::FPickerLayout ImColorPicker::ResolveLayout() const
 {
     FPickerLayout layout;
+    const FColorPickerStyle& style = GetEffectiveStyle();
 
     const FVector2 contentOrigin(
-        m_Geometry.Position.X + m_Style.Padding.Left,
-        m_Geometry.Position.Y + m_Style.Padding.Top);
+        m_Geometry.Position.X + style.Padding.Left,
+        m_Geometry.Position.Y + style.Padding.Top);
     const float contentWidth = std::max(
         1.0f,
-        m_Geometry.Size.X - (m_Style.Padding.Left + m_Style.Padding.Right));
+        m_Geometry.Size.X - (style.Padding.Left + style.Padding.Right));
     const float contentHeight = std::max(
         1.0f,
-        m_Geometry.Size.Y - (m_Style.Padding.Top + m_Style.Padding.Bottom));
+        m_Geometry.Size.Y - (style.Padding.Top + style.Padding.Bottom));
 
-    const float alphaWidth = m_Style.bShowAlphaBar ? m_Style.AlphaBarWidth : 0.0f;
+    const float alphaWidth = style.bShowAlphaBar ? style.AlphaBarWidth : 0.0f;
     const float totalBarWidth =
-        m_Style.HueBarWidth +
-        (m_Style.bShowAlphaBar ? (m_Style.BarSpacing + alphaWidth) : 0.0f);
-    const float availableSvWidth = std::max(1.0f, contentWidth - totalBarWidth - m_Style.BarSpacing);
+        style.HueBarWidth +
+        (style.bShowAlphaBar ? (style.BarSpacing + alphaWidth) : 0.0f);
+    const float availableSvWidth = std::max(1.0f, contentWidth - totalBarWidth - style.BarSpacing);
     const float squareSize = std::max(1.0f, std::min(contentHeight, availableSvWidth));
     const FVector2 origin = contentOrigin;
 
     layout.SaturationValueRect = FGeometry(origin, FVector2(squareSize, squareSize));
     layout.HueRect = FGeometry(
-        FVector2(origin.X + squareSize + m_Style.BarSpacing, origin.Y),
-        FVector2(m_Style.HueBarWidth, squareSize));
+        FVector2(origin.X + squareSize + style.BarSpacing, origin.Y),
+        FVector2(style.HueBarWidth, squareSize));
 
-    if (m_Style.bShowAlphaBar) {
+    if (style.bShowAlphaBar) {
         layout.bHasAlphaRect = true;
         layout.AlphaRect = FGeometry(
-            FVector2(layout.HueRect.Position.X + layout.HueRect.Size.X + m_Style.BarSpacing, origin.Y),
-            FVector2(m_Style.AlphaBarWidth, squareSize));
+            FVector2(layout.HueRect.Position.X + layout.HueRect.Size.X + style.BarSpacing, origin.Y),
+            FVector2(style.AlphaBarWidth, squareSize));
     }
 
     return layout;
@@ -487,6 +492,20 @@ bool ImColorPicker::HandleKeyboardAdjust(const FInputEvent& event)
     (void)keepAlive;
     OnColorCommitted.Broadcast(*this, m_Color);
     return true;
+}
+
+const FColorPickerStyle& ImColorPicker::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveColorPickerStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 } // namespace ImWidgetV4

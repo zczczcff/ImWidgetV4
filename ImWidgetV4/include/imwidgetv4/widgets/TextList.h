@@ -113,16 +113,16 @@ public:
     void RemoveItem(int index);
 
     void SetStyle(const FTextListStyle& style);
-    const FTextListStyle& GetStyle() const { return m_Style; }
+    const FTextListStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetTextColor(const FColor& color);
-    const FColor& GetTextColor() const { return m_Style.TextColor; }
+    const FColor& GetTextColor() const { return GetEffectiveStyle().TextColor; }
     void SetItemColor(int index, const FColor& color);
     FColor GetItemColor(int index) const;
     void SetAllItemsColor(const FColor& color);
 
     void SetLineSpacing(float spacing);
-    float GetLineSpacing() const { return m_Style.LineSpacing; }
+    float GetLineSpacing() const { return GetEffectiveStyle().LineSpacing; }
 
     void SetScrollOffset(float offset);
     float GetScrollOffset() const { return m_ScrollOffsetY; }
@@ -165,11 +165,14 @@ private:
     float ResolveLineStride(float lineHeight) const;
     std::string ResolveItemText(int index) const;
     void SyncLocalizedItemsFromSerializableItems();
+    const FTextListStyle& GetEffectiveStyle() const;
 
     FTextListStyle m_Style;
+    mutable FTextListStyle m_ResolvedThemeStyle;
     std::vector<std::string> m_Items;
     std::vector<FText> m_ItemTexts;
     std::vector<FColor> m_ItemColors;
+    std::vector<bool> m_HasExplicitItemColors;
     std::vector<FTextLine> m_Lines;
     std::vector<FItemLayout> m_ItemLayouts;
     FGeometry m_CachedViewportGeometry;
@@ -184,6 +187,7 @@ private:
     bool m_bHoveredScrollbar = false;
     bool m_bDraggingScrollbar = false;
     bool m_bDraggingSelection = false;
+    bool m_bHasExplicitStyle = false;
     float m_ActiveGrabOffset = 0.0f;
     FSelectionPoint m_SelectionAnchor;
     FSelectionPoint m_SelectionCursor;

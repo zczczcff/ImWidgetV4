@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -167,4 +168,27 @@ TEST_F(ColorPickerTest, CommitCallbackCanReplaceOwningWidgetTreeSafely)
 
     EXPECT_EQ(commitCount, 1);
     EXPECT_TRUE(oldPicker.expired());
+}
+
+TEST_F(ColorPickerTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FColorPickerStyle expectedStyle = ResolveColorPickerStyle(App->GetStyleSet());
+
+    const FColorPickerStyle& style = Picker->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+}
+
+TEST_F(ColorPickerTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FColorPickerStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.BorderColor = FColor::FromBytes(200, 210, 220);
+    Picker->SetStyle(explicitStyle);
+
+    EXPECT_EQ(Picker->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(Picker->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
 }

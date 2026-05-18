@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 
@@ -92,6 +93,7 @@ void ImExpandableBox::ToggleExpanded()
 void ImExpandableBox::SetStyle(const FExpandableBoxStyle& style)
 {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -107,22 +109,23 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FExpandableBoxStyle& style = GetEffectiveStyle();
 
     const FVector2 containerMin = m_Geometry.GetMin();
     const FVector2 containerMax = containerMin + FVector2(m_Geometry.Size.X, ComputeVisibleHeight());
-    const float cornerRadius = std::max(0.0f, m_Style.CornerRadius);
+    const float cornerRadius = std::max(0.0f, style.CornerRadius);
 
     if (m_bExpanded && m_BodyWidget) {
         paintContext.DrawContext_.DrawRectFilled(
             containerMin,
             containerMax,
-            m_Style.BodyBackgroundColor,
+            style.BodyBackgroundColor,
             cornerRadius);
     }
 
     const FColor headerColor = m_bPressed
-        ? m_Style.HeaderPressedBackgroundColor
-        : (m_bHovered ? m_Style.HeaderHoveredBackgroundColor : m_Style.HeaderBackgroundColor);
+        ? style.HeaderPressedBackgroundColor
+        : (m_bHovered ? style.HeaderHoveredBackgroundColor : style.HeaderBackgroundColor);
 
     if (m_bExpanded && m_BodyWidget) {
         paintContext.DrawContext_.DrawRectFilled(
@@ -140,8 +143,8 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
 
     if (m_IndicatorHotspotGeometry.IsValid()) {
         const FVector2 indicatorCenter = m_IndicatorHotspotGeometry.GetCenter();
-        const float halfSize = m_Style.IndicatorSize * 0.5f;
-        const FColor indicatorColor = m_bHovered ? m_Style.IndicatorHoveredColor : m_Style.IndicatorColor;
+        const float halfSize = style.IndicatorSize * 0.5f;
+        const FColor indicatorColor = m_bHovered ? style.IndicatorHoveredColor : style.IndicatorColor;
 
         if (m_bExpanded) {
             paintContext.DrawContext_.PathLineTo(FVector2(indicatorCenter.X - halfSize, indicatorCenter.Y - halfSize * 0.45f));
@@ -158,37 +161,38 @@ void ImExpandableBox::Paint(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRect(
         containerMin,
         containerMax,
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
         cornerRadius,
-        m_Style.BorderThickness);
+        style.BorderThickness);
 
     RenderChildren(paintContext);
 }
 
 FVector2 ImExpandableBox::GetMinSize() const
 {
-    const float borderInset = std::max(0.0f, m_Style.BorderThickness);
+    const FExpandableBoxStyle& style = GetEffectiveStyle();
+    const float borderInset = std::max(0.0f, style.BorderThickness);
     const float totalBorderWidth = borderInset * 2.0f;
-    const float indicatorStripWidth = m_Style.IndicatorSize + m_Style.IndicatorSpacing;
+    const float indicatorStripWidth = style.IndicatorSize + style.IndicatorSpacing;
     const FVector2 headerMin = m_HeaderWidget ? m_HeaderWidget->GetMinSize() : FVector2(0.0f, 0.0f);
     const float headerWidth =
         totalBorderWidth +
-        m_Style.HeaderPadding.Left + indicatorStripWidth + headerMin.X + m_Style.HeaderPadding.Right;
+        style.HeaderPadding.Left + indicatorStripWidth + headerMin.X + style.HeaderPadding.Right;
     const float headerHeight =
         totalBorderWidth +
-        m_Style.HeaderPadding.Top +
-        std::max(m_Style.IndicatorSize, headerMin.Y) +
-        m_Style.HeaderPadding.Bottom;
+        style.HeaderPadding.Top +
+        std::max(style.IndicatorSize, headerMin.Y) +
+        style.HeaderPadding.Bottom;
 
-    float minWidth = std::max(m_Style.MinDesiredSize.X, headerWidth);
-    float minHeight = std::max(m_Style.MinDesiredSize.Y, headerHeight);
+    float minWidth = std::max(style.MinDesiredSize.X, headerWidth);
+    float minHeight = std::max(style.MinDesiredSize.Y, headerHeight);
 
     if (m_bExpanded && m_BodyWidget) {
         const FVector2 bodyMin = m_BodyWidget->GetMinSize();
         minWidth = std::max(
             minWidth,
-            totalBorderWidth + m_Style.BodyPadding.Left + bodyMin.X + m_Style.BodyPadding.Right);
-        minHeight += m_Style.BodyPadding.Top + bodyMin.Y + m_Style.BodyPadding.Bottom;
+            totalBorderWidth + style.BodyPadding.Left + bodyMin.X + style.BodyPadding.Right);
+        minHeight += style.BodyPadding.Top + bodyMin.Y + style.BodyPadding.Bottom;
     }
 
     return FVector2(minWidth, minHeight);
@@ -260,7 +264,8 @@ bool ImExpandableBox::BuildHitTestPath(const FVector2& position, std::vector<Ptr
 
 void ImExpandableBox::Relayout()
 {
-    const FGeometry innerGeometry = InsetGeometryByBorder(m_Geometry, m_Style.BorderThickness);
+    const FExpandableBoxStyle& style = GetEffectiveStyle();
+    const FGeometry innerGeometry = InsetGeometryByBorder(m_Geometry, style.BorderThickness);
     const float headerHeight = ComputeHeaderHeight();
     const float bodyHeight = ComputeBodyHeight();
     const float visibleHeight = m_bExpanded ? headerHeight + bodyHeight : headerHeight;
@@ -272,10 +277,10 @@ void ImExpandableBox::Relayout()
         FVector2(visibleSize.X, bodyHeight));
 
     const float indicatorY = m_HeaderGeometry.Position.Y +
-        std::max(0.0f, (headerHeight - m_Style.IndicatorSize) * 0.5f);
+        std::max(0.0f, (headerHeight - style.IndicatorSize) * 0.5f);
     m_IndicatorHotspotGeometry = FGeometry(
-        FVector2(m_HeaderGeometry.Position.X + m_Style.HeaderPadding.Left, indicatorY),
-        FVector2(m_Style.IndicatorSize, m_Style.IndicatorSize));
+        FVector2(m_HeaderGeometry.Position.X + style.HeaderPadding.Left, indicatorY),
+        FVector2(style.IndicatorSize, style.IndicatorSize));
 
     const int headerSlotIndex = m_HeaderWidget ? 0 : -1;
     const int bodySlotIndex = m_bExpanded ? (m_HeaderWidget ? 1 : 0) : -1;
@@ -283,10 +288,10 @@ void ImExpandableBox::Relayout()
     ImPaddingSlot* headerSlot =
         headerSlotIndex >= 0 ? dynamic_cast<ImPaddingSlot*>(GetSlotAt(headerSlotIndex)) : nullptr;
     if (headerSlot && m_HeaderWidget) {
-        headerSlot->PaddingLeft = m_Style.HeaderPadding.Left + m_Style.IndicatorSize + m_Style.IndicatorSpacing;
-        headerSlot->PaddingRight = m_Style.HeaderPadding.Right;
-        headerSlot->PaddingTop = m_Style.HeaderPadding.Top;
-        headerSlot->PaddingBottom = m_Style.HeaderPadding.Bottom;
+        headerSlot->PaddingLeft = style.HeaderPadding.Left + style.IndicatorSize + style.IndicatorSpacing;
+        headerSlot->PaddingRight = style.HeaderPadding.Right;
+        headerSlot->PaddingTop = style.HeaderPadding.Top;
+        headerSlot->PaddingBottom = style.HeaderPadding.Bottom;
         headerSlot->SetSlotPosition(m_HeaderGeometry.Position);
         headerSlot->SetSlotSize(m_HeaderGeometry.Size);
         headerSlot->ApplyLayout(m_HeaderWidget.get());
@@ -295,10 +300,10 @@ void ImExpandableBox::Relayout()
     ImPaddingSlot* bodySlot =
         bodySlotIndex >= 0 ? dynamic_cast<ImPaddingSlot*>(GetSlotAt(bodySlotIndex)) : nullptr;
     if (bodySlot && m_BodyWidget && m_bExpanded) {
-        bodySlot->PaddingLeft = m_Style.BodyPadding.Left;
-        bodySlot->PaddingRight = m_Style.BodyPadding.Right;
-        bodySlot->PaddingTop = m_Style.BodyPadding.Top;
-        bodySlot->PaddingBottom = m_Style.BodyPadding.Bottom;
+        bodySlot->PaddingLeft = style.BodyPadding.Left;
+        bodySlot->PaddingRight = style.BodyPadding.Right;
+        bodySlot->PaddingTop = style.BodyPadding.Top;
+        bodySlot->PaddingBottom = style.BodyPadding.Bottom;
         bodySlot->SetSlotPosition(m_BodyGeometry.Position);
         bodySlot->SetSlotSize(m_BodyGeometry.Size);
         bodySlot->ApplyLayout(m_BodyWidget.get());
@@ -370,12 +375,27 @@ bool ImExpandableBox::ContainsIndicatorHotspot(const FVector2& position) const
     return m_IndicatorHotspotGeometry.Contains(position);
 }
 
+const FExpandableBoxStyle& ImExpandableBox::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveExpandableBoxStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
 float ImExpandableBox::ComputeHeaderHeight() const
 {
+    const FExpandableBoxStyle& style = GetEffectiveStyle();
     const FVector2 headerMin = m_HeaderWidget ? m_HeaderWidget->GetMinSize() : FVector2(0.0f, 0.0f);
-    return m_Style.HeaderPadding.Top +
-        std::max(m_Style.IndicatorSize, headerMin.Y) +
-        m_Style.HeaderPadding.Bottom;
+    return style.HeaderPadding.Top +
+        std::max(style.IndicatorSize, headerMin.Y) +
+        style.HeaderPadding.Bottom;
 }
 
 float ImExpandableBox::ComputeBodyHeight() const
@@ -385,7 +405,8 @@ float ImExpandableBox::ComputeBodyHeight() const
     }
 
     const FVector2 bodyMin = m_BodyWidget->GetMinSize();
-    return m_Style.BodyPadding.Top + bodyMin.Y + m_Style.BodyPadding.Bottom;
+    const FExpandableBoxStyle& style = GetEffectiveStyle();
+    return style.BodyPadding.Top + bodyMin.Y + style.BodyPadding.Bottom;
 }
 
 float ImExpandableBox::ComputeVisibleHeight() const

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imgui.h>
 #include <memory>
@@ -129,7 +130,7 @@ TEST_F(TextListTest, TextManagementAndColorsAreConfigurable)
 {
     ImTextList list;
     list.SetStyle(MakeCompactListStyle());
-    list.SetItems({"Alpha", "Beta"});
+    list.SetItems(std::vector<std::string>{"Alpha", "Beta"});
     EXPECT_EQ(list.GetItems().size(), 2u);
 
     list.AddItem("Gamma");
@@ -153,7 +154,7 @@ TEST_F(TextListTest, NarrowWidthProducesMoreScrollForWrappedContent)
 {
     ImTextList list;
     list.SetStyle(MakeCompactListStyle());
-    list.SetItems({
+    list.SetItems(std::vector<std::string>{
         "This is a deliberately long paragraph that should wrap across several lines when the list becomes narrow enough."
     });
 
@@ -175,7 +176,7 @@ TEST_F(TextListTest, FullContentWidthIsUsedBeforeReservingScrollbarSpace)
 
     const std::string singleLine =
         "This line should stay on a single row when the viewport is generously wide instead of collapsing into a narrow wrapped column.";
-    list.SetItems({singleLine});
+    list.SetItems(std::vector<std::string>{singleLine});
 
     list.SetGeometry(FGeometry(0.0f, 0.0f, 1200.0f, 32.0f));
     PaintList(list);
@@ -188,7 +189,7 @@ TEST_F(TextListTest, MouseDragCreatesSelectionAndUsesMouseCapture)
     auto app = std::make_shared<ImApplication>();
     auto list = std::make_shared<ImTextList>();
     list->SetStyle(MakeCompactListStyle());
-    list->SetItems({
+    list->SetItems(std::vector<std::string>{
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         "second line of content for cross-line selection"
     });
@@ -212,7 +213,7 @@ TEST_F(TextListTest, CtrlCAndCtrlAOperateOnSelection)
     auto app = std::make_shared<ImApplication>();
     auto list = std::make_shared<ImTextList>();
     list->SetStyle(MakeCompactListStyle());
-    list->SetItems({
+    list->SetItems(std::vector<std::string>{
         "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         "second line of content for cross-line selection"
     });
@@ -244,7 +245,7 @@ TEST_F(TextListTest, WheelScrollAndScrollbarDragUpdateOffset)
     auto app = std::make_shared<ImApplication>();
     auto list = std::make_shared<ImTextList>();
     list->SetStyle(MakeCompactListStyle());
-    list->SetItems({
+    list->SetItems(std::vector<std::string>{
         "0: a long entry that wraps and grows the content height enough to require scrolling through the retained viewport.",
         "1: another long entry that keeps the scroll range alive for testing.",
         "2: more content",
@@ -273,7 +274,7 @@ TEST_F(TextListTest, ScrollToItemClampsAndSelectionCanBeCleared)
 {
     ImTextList list;
     list.SetStyle(MakeCompactListStyle());
-    list.SetItems({
+    list.SetItems(std::vector<std::string>{
         "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"
     });
     list.SetGeometry(FGeometry(0.0f, 0.0f, 120.0f, 60.0f));
@@ -289,6 +290,49 @@ TEST_F(TextListTest, ScrollToItemClampsAndSelectionCanBeCleared)
 
     list.ClearSelection();
     EXPECT_FALSE(list.HasSelection());
+}
+
+TEST_F(TextListTest, UsesThemeResolvedStyleByDefault)
+{
+    auto app = std::make_shared<ImApplication>();
+    auto list = std::make_shared<ImTextList>();
+    app->SetRootWidget(list);
+    ASSERT_TRUE(app->SetActiveTheme("Dark"));
+    const FTextListStyle expectedStyle = ResolveTextListStyle(app->GetStyleSet());
+
+    const FTextListStyle& style = list->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.TextColor.ToImU32(), expectedStyle.TextColor.ToImU32());
+}
+
+TEST_F(TextListTest, ExplicitStyleOverridesTheme)
+{
+    auto app = std::make_shared<ImApplication>();
+    auto list = std::make_shared<ImTextList>();
+    app->SetRootWidget(list);
+    ASSERT_TRUE(app->SetActiveTheme("Light"));
+
+    FTextListStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.TextColor = FColor::FromBytes(200, 210, 220);
+    list->SetStyle(explicitStyle);
+
+    EXPECT_EQ(list->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(list->GetStyle().TextColor.ToImU32(), explicitStyle.TextColor.ToImU32());
+}
+
+TEST_F(TextListTest, ThemeTextColorUpdatesOnlyNonExplicitItemColors)
+{
+    auto app = std::make_shared<ImApplication>();
+    auto list = std::make_shared<ImTextList>();
+    app->SetRootWidget(list);
+    list->SetItems(std::vector<std::string>{"Alpha", "Beta"});
+    list->SetItemColor(1, FColor::FromBytes(1, 2, 3));
+
+    list->SetTextColor(FColor::FromBytes(10, 20, 30));
+
+    EXPECT_EQ(list->GetItemColor(0).ToImU32(), FColor::FromBytes(10, 20, 30).ToImU32());
+    EXPECT_EQ(list->GetItemColor(1).ToImU32(), FColor::FromBytes(1, 2, 3).ToImU32());
 }
 
 } // namespace

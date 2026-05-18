@@ -74,7 +74,7 @@ public:
     bool IsExpanded() const { return m_bExpanded; }
 
     void SetStyle(const FExpandableBoxStyle& style);
-    const FExpandableBoxStyle& GetStyle() const { return m_Style; }
+    const FExpandableBoxStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     bool IsHovered() const { return m_bHovered; }
 
@@ -98,12 +98,14 @@ private:
     bool IsDescendantOfBody(const std::shared_ptr<ImWidget>& widget) const;
     void SetHovered(bool bHovered);
     void SetPressed(bool bPressed);
+    const FExpandableBoxStyle& GetEffectiveStyle() const;
     bool ContainsIndicatorHotspot(const FVector2& position) const;
     float ComputeHeaderHeight() const;
     float ComputeBodyHeight() const;
     float ComputeVisibleHeight() const;
 
     FExpandableBoxStyle m_Style;
+    mutable FExpandableBoxStyle m_ResolvedThemeStyle;
     std::shared_ptr<ImWidget> m_HeaderWidget;
     std::shared_ptr<ImWidget> m_BodyWidget;
     FGeometry m_HeaderGeometry;
@@ -112,6 +114,7 @@ private:
     bool m_bExpanded = false;
     bool m_bHovered = false;
     bool m_bPressed = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

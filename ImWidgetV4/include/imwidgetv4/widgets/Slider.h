@@ -93,7 +93,7 @@ public:
     float GetStep() const { return m_Step; }
 
     void SetStyle(const FSliderStyle& style);
-    const FSliderStyle& GetStyle() const { return m_Style; }
+    const FSliderStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetDisabled(bool bDisabled);
     bool IsDisabled() const { return m_bDisabled; }
@@ -124,6 +124,7 @@ private:
     float ResolveValueFromMouse(const FVector2& mousePosition) const;
     float ResolveKeyboardStep() const;
     void SetValueInternal(float value, bool bBroadcast);
+    const FSliderStyle& GetEffectiveStyle() const;
     void SetHovered(bool bHovered);
     void SetDragging(bool bDragging);
     FVector2 GetTrackMin() const;
@@ -131,6 +132,7 @@ private:
     float GetThumbCenterX() const;
 
     FSliderStyle m_Style;
+    mutable FSliderStyle m_ResolvedThemeStyle;
     float m_MinValue = 0.0f;
     float m_MaxValue = 1.0f;
     float m_Value = 0.0f;
@@ -138,6 +140,7 @@ private:
     bool m_bHovered = false;
     bool m_bDragging = false;
     bool m_bDisabled = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

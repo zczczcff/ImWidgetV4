@@ -92,6 +92,37 @@ FCheckBoxStyle ResolveCheckBoxStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FColorPickerStyle ResolveColorPickerStyle(const FStyleSet& styleSet)
+{
+    FColorPickerStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.ColorPicker.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.ColorPicker.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.ColorPicker.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.CheckerLightColor = styleSet.GetColor(
+        "Color.ColorPicker.CheckerLight",
+        style.CheckerLightColor);
+    style.CheckerDarkColor = styleSet.GetColor(
+        "Color.ColorPicker.CheckerDark",
+        style.CheckerDarkColor);
+    style.SelectorOuterColor = styleSet.GetColor(
+        "Color.ColorPicker.SelectorOuter",
+        style.SelectorOuterColor);
+    style.SelectorInnerColor = styleSet.GetColor(
+        "Color.ColorPicker.SelectorInner",
+        style.SelectorInnerColor);
+    style.HueBarWidth = styleSet.GetFloat("Float.ColorPicker.HueBarWidth", style.HueBarWidth);
+    style.AlphaBarWidth = styleSet.GetFloat("Float.ColorPicker.AlphaBarWidth", style.AlphaBarWidth);
+    style.BarSpacing = styleSet.GetFloat("Float.ColorPicker.BarSpacing", style.BarSpacing);
+    style.BorderThickness = styleSet.GetFloat("Float.ColorPicker.BorderThickness", style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat("Float.ColorPicker.CornerRadius", style.CornerRadius);
+    style.SelectorRadius = styleSet.GetFloat("Float.ColorPicker.SelectorRadius", style.SelectorRadius);
+
+    return style;
+}
+
 FComboBoxStyle ResolveComboBoxStyle(const FStyleSet& styleSet)
 {
     FComboBoxStyle style;
@@ -163,6 +194,48 @@ FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet)
     style.CornerRadius = styleSet.GetFloat("Float.Input.CornerRadius", style.CornerRadius);
     style.BorderThickness = styleSet.GetFloat("Float.Input.BorderThickness", style.BorderThickness);
     style.FontSize = styleSet.GetFloat("Float.Input.FontSize", style.FontSize);
+
+    return style;
+}
+
+FExpandableBoxStyle ResolveExpandableBoxStyle(const FStyleSet& styleSet)
+{
+    FExpandableBoxStyle style;
+
+    style.HeaderBackgroundColor = styleSet.GetColor(
+        "Color.ExpandableBox.HeaderBackground",
+        style.HeaderBackgroundColor);
+    style.HeaderHoveredBackgroundColor = styleSet.GetColor(
+        "Color.ExpandableBox.HeaderHoveredBackground",
+        style.HeaderHoveredBackgroundColor);
+    style.HeaderPressedBackgroundColor = styleSet.GetColor(
+        "Color.ExpandableBox.HeaderPressedBackground",
+        style.HeaderPressedBackgroundColor);
+    style.BodyBackgroundColor = styleSet.GetColor(
+        "Color.ExpandableBox.BodyBackground",
+        style.BodyBackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.ExpandableBox.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.ExpandableBox.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.IndicatorColor = styleSet.GetColor(
+        "Color.ExpandableBox.Indicator",
+        style.IndicatorColor);
+    style.IndicatorHoveredColor = styleSet.GetColor(
+        "Color.ExpandableBox.IndicatorHovered",
+        style.IndicatorHoveredColor);
+    style.IndicatorSize = styleSet.GetFloat(
+        "Float.ExpandableBox.IndicatorSize",
+        style.IndicatorSize);
+    style.IndicatorSpacing = styleSet.GetFloat(
+        "Float.ExpandableBox.IndicatorSpacing",
+        style.IndicatorSpacing);
+    style.BorderThickness = styleSet.GetFloat(
+        "Float.ExpandableBox.BorderThickness",
+        style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat(
+        "Float.ExpandableBox.CornerRadius",
+        style.CornerRadius);
 
     return style;
 }
@@ -304,6 +377,42 @@ FScrollBoxStyle ResolveScrollBoxStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FSliderStyle ResolveSliderStyle(const FStyleSet& styleSet)
+{
+    FSliderStyle style;
+
+    style.TrackColor = styleSet.GetColor("Color.Slider.Track", style.TrackColor);
+    style.FilledTrackColor = styleSet.GetColor("Color.Slider.FilledTrack", style.FilledTrackColor);
+    style.HoveredFilledTrackColor = styleSet.GetColor(
+        "Color.Slider.HoveredFilledTrack",
+        style.HoveredFilledTrackColor);
+    style.DisabledTrackColor = styleSet.GetColor(
+        "Color.Slider.DisabledTrack",
+        style.DisabledTrackColor);
+    style.ThumbColor = styleSet.GetColor("Color.Slider.Thumb", style.ThumbColor);
+    style.HoveredThumbColor = styleSet.GetColor(
+        "Color.Slider.HoveredThumb",
+        style.HoveredThumbColor);
+    style.ActiveThumbColor = styleSet.GetColor(
+        "Color.Slider.ActiveThumb",
+        style.ActiveThumbColor);
+    style.DisabledThumbColor = styleSet.GetColor(
+        "Color.Slider.DisabledThumb",
+        style.DisabledThumbColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.Slider.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.ValueTextColor = styleSet.GetColor(
+        "Color.Slider.ValueText",
+        style.ValueTextColor);
+    style.TrackHeight = styleSet.GetFloat("Float.Slider.TrackHeight", style.TrackHeight);
+    style.TrackRounding = styleSet.GetFloat("Float.Slider.TrackRounding", style.TrackRounding);
+    style.ThumbRadius = styleSet.GetFloat("Float.Slider.ThumbRadius", style.ThumbRadius);
+    style.ValueFontSize = styleSet.GetFloat("Float.Slider.ValueFontSize", style.ValueFontSize);
+
+    return style;
+}
+
 FSwitchStyle ResolveSwitchStyle(const FStyleSet& styleSet)
 {
     FSwitchStyle style;
@@ -342,6 +451,50 @@ FSwitchStyle ResolveSwitchStyle(const FStyleSet& styleSet)
     style.BorderThickness = styleSet.GetFloat("Float.Switch.BorderThickness", style.BorderThickness);
     style.ThumbInset = styleSet.GetFloat("Float.Switch.ThumbInset", style.ThumbInset);
     style.DesiredSize = styleSet.GetVector2("Vector2.Switch.DesiredSize", style.DesiredSize);
+
+    return style;
+}
+
+FTextListStyle ResolveTextListStyle(const FStyleSet& styleSet)
+{
+    FTextListStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.TextList.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.TextList.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.TextList.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.TextColor = styleSet.GetColor("Color.TextList.Text", style.TextColor);
+    style.SelectionBackgroundColor = styleSet.GetColor(
+        "Color.TextList.SelectionBackground",
+        style.SelectionBackgroundColor);
+    style.ScrollbarTrackColor = styleSet.GetColor(
+        "Color.TextList.ScrollbarTrack",
+        style.ScrollbarTrackColor);
+    style.ScrollbarThumbColor = styleSet.GetColor(
+        "Color.TextList.ScrollbarThumb",
+        style.ScrollbarThumbColor);
+    style.ScrollbarThumbHoveredColor = styleSet.GetColor(
+        "Color.TextList.ScrollbarThumbHovered",
+        style.ScrollbarThumbHoveredColor);
+    style.CornerRadius = styleSet.GetFloat("Float.TextList.CornerRadius", style.CornerRadius);
+    style.BorderThickness = styleSet.GetFloat("Float.TextList.BorderThickness", style.BorderThickness);
+    style.FontSize = styleSet.GetFloat("Float.TextList.FontSize", style.FontSize);
+    style.LineSpacing = styleSet.GetFloat("Float.TextList.LineSpacing", style.LineSpacing);
+    style.ScrollbarThickness = styleSet.GetFloat(
+        "Float.TextList.ScrollbarThickness",
+        style.ScrollbarThickness);
+    style.ScrollbarPadding = styleSet.GetFloat(
+        "Float.TextList.ScrollbarPadding",
+        style.ScrollbarPadding);
+    style.ThumbMinLength = styleSet.GetFloat("Float.TextList.ThumbMinLength", style.ThumbMinLength);
+    style.WheelScrollStep = styleSet.GetFloat("Float.TextList.WheelScrollStep", style.WheelScrollStep);
+    style.AutoScrollEdgePadding = styleSet.GetFloat(
+        "Float.TextList.AutoScrollEdgePadding",
+        style.AutoScrollEdgePadding);
+    style.AutoScrollSpeed = styleSet.GetFloat(
+        "Float.TextList.AutoScrollSpeed",
+        style.AutoScrollSpeed);
 
     return style;
 }

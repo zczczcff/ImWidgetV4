@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/TextList.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -206,7 +208,8 @@ void ImTextList::SetItems(const std::vector<std::string>& items)
 {
     m_Items = items;
     SyncLocalizedItemsFromSerializableItems();
-    m_ItemColors.assign(m_Items.size(), m_Style.TextColor);
+    m_ItemColors.assign(m_Items.size(), GetEffectiveStyle().TextColor);
+    m_HasExplicitItemColors.assign(m_Items.size(), false);
     ClearSelection();
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -224,7 +227,8 @@ void ImTextList::SetItems(const std::vector<FText>& items)
             ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
             : item.GetInvariantText());
     }
-    m_ItemColors.assign(m_Items.size(), m_Style.TextColor);
+    m_ItemColors.assign(m_Items.size(), GetEffectiveStyle().TextColor);
+    m_HasExplicitItemColors.assign(m_Items.size(), false);
     ClearSelection();
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -236,7 +240,8 @@ void ImTextList::AddItem(const std::string& item)
 {
     m_Items.push_back(item);
     m_ItemTexts.push_back(FText::FromString(item));
-    m_ItemColors.push_back(m_Style.TextColor);
+    m_ItemColors.push_back(GetEffectiveStyle().TextColor);
+    m_HasExplicitItemColors.push_back(false);
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -248,7 +253,8 @@ void ImTextList::AddItem(const FText& item)
     m_Items.push_back(item.IsLocalized()
         ? (item.GetDefaultText().empty() ? item.GetKey() : item.GetDefaultText())
         : item.GetInvariantText());
-    m_ItemColors.push_back(m_Style.TextColor);
+    m_ItemColors.push_back(GetEffectiveStyle().TextColor);
+    m_HasExplicitItemColors.push_back(false);
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -259,6 +265,7 @@ void ImTextList::ClearItems()
     m_Items.clear();
     m_ItemTexts.clear();
     m_ItemColors.clear();
+    m_HasExplicitItemColors.clear();
     m_Lines.clear();
     m_ItemLayouts.clear();
     m_ContentHeight = 0.0f;
@@ -316,6 +323,7 @@ void ImTextList::RemoveItem(int index)
         m_ItemTexts.erase(m_ItemTexts.begin() + index);
     }
     m_ItemColors.erase(m_ItemColors.begin() + index);
+    m_HasExplicitItemColors.erase(m_HasExplicitItemColors.begin() + index);
     ClearSelection();
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -325,8 +333,11 @@ void ImTextList::RemoveItem(int index)
 void ImTextList::SetStyle(const FTextListStyle& style)
 {
     m_Style = style;
-    for (FColor& color : m_ItemColors) {
-        color = m_Style.TextColor;
+    m_bHasExplicitStyle = true;
+    for (std::size_t index = 0; index < m_ItemColors.size(); ++index) {
+        if (index >= m_HasExplicitItemColors.size() || !m_HasExplicitItemColors[index]) {
+            m_ItemColors[index] = m_Style.TextColor;
+        }
     }
     m_bLayoutDirty = true;
     m_LastLayoutWrapWidth = -1.0f;
@@ -336,16 +347,20 @@ void ImTextList::SetStyle(const FTextListStyle& style)
 
 void ImTextList::SetTextColor(const FColor& color)
 {
-    if (m_Style.TextColor.R == color.R &&
-        m_Style.TextColor.G == color.G &&
-        m_Style.TextColor.B == color.B &&
-        m_Style.TextColor.A == color.A) {
+    const FColor currentColor = GetEffectiveStyle().TextColor;
+    if (currentColor.R == color.R &&
+        currentColor.G == color.G &&
+        currentColor.B == color.B &&
+        currentColor.A == color.A) {
         return;
     }
 
     m_Style.TextColor = color;
-    for (FColor& itemColor : m_ItemColors) {
-        itemColor = color;
+    m_bHasExplicitStyle = true;
+    for (std::size_t index = 0; index < m_ItemColors.size(); ++index) {
+        if (index >= m_HasExplicitItemColors.size() || !m_HasExplicitItemColors[index]) {
+            m_ItemColors[index] = color;
+        }
     }
     Invalidate(EInvalidateReason::Paint);
 }
@@ -356,21 +371,32 @@ void ImTextList::SetItemColor(int index, const FColor& color)
         return;
     }
 
-    m_ItemColors[static_cast<std::size_t>(index)] = color;
+    const std::size_t itemIndex = static_cast<std::size_t>(index);
+    m_ItemColors[itemIndex] = color;
+    if (itemIndex >= m_HasExplicitItemColors.size()) {
+        m_HasExplicitItemColors.resize(m_ItemColors.size(), false);
+    }
+    m_HasExplicitItemColors[itemIndex] = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 FColor ImTextList::GetItemColor(int index) const
 {
     if (index < 0 || index >= static_cast<int>(m_ItemColors.size())) {
-        return m_Style.TextColor;
+        return GetEffectiveStyle().TextColor;
     }
 
-    return m_ItemColors[static_cast<std::size_t>(index)];
+    const std::size_t itemIndex = static_cast<std::size_t>(index);
+    if (itemIndex >= m_HasExplicitItemColors.size() || !m_HasExplicitItemColors[itemIndex]) {
+        return GetEffectiveStyle().TextColor;
+    }
+
+    return m_ItemColors[itemIndex];
 }
 
 void ImTextList::SetAllItemsColor(const FColor& color)
 {
+    m_HasExplicitItemColors.assign(m_ItemColors.size(), true);
     for (FColor& itemColor : m_ItemColors) {
         itemColor = color;
     }
@@ -379,11 +405,12 @@ void ImTextList::SetAllItemsColor(const FColor& color)
 
 void ImTextList::SetLineSpacing(float spacing)
 {
-    if (m_Style.LineSpacing == spacing) {
+    if (GetEffectiveStyle().LineSpacing == spacing) {
         return;
     }
 
     m_Style.LineSpacing = spacing;
+    m_bHasExplicitStyle = true;
     m_bLayoutDirty = true;
     m_LastLayoutHeight = -1.0f;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
@@ -484,18 +511,19 @@ void ImTextList::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FTextListStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        m_Style.BackgroundColor,
-        m_Style.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
-        m_Style.CornerRadius,
-        m_Style.BorderThickness);
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     if (m_CachedViewportGeometry.IsValid()) {
         paintContext.DrawContext_.PushClipRect(
@@ -534,7 +562,7 @@ void ImTextList::Paint(const FPaintContext& paintContext)
                 paintContext.DrawContext_.DrawRectFilled(
                     FVector2(selectionStartX, screenY),
                     FVector2(selectionEndX, screenY + lineStride),
-                    m_Style.SelectionBackgroundColor);
+                    style.SelectionBackgroundColor);
             }
         }
 
@@ -549,7 +577,7 @@ void ImTextList::Paint(const FPaintContext& paintContext)
                 FVector2(m_CachedViewportGeometry.Position.X, screenY),
                 GetItemColor(line.ItemIndex),
                 line.Text,
-                m_Style.FontSize);
+                style.FontSize);
         }
 
         paintContext.DrawContext_.PopClipRect();
@@ -559,15 +587,15 @@ void ImTextList::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalScrollbarGeometry.GetMin(),
             m_VerticalScrollbarGeometry.GetMax(),
-            m_Style.ScrollbarTrackColor,
-            m_Style.ScrollbarThickness * 0.5f);
+            style.ScrollbarTrackColor,
+            style.ScrollbarThickness * 0.5f);
         paintContext.DrawContext_.DrawRectFilled(
             m_VerticalThumbGeometry.GetMin(),
             m_VerticalThumbGeometry.GetMax(),
             (m_bDraggingScrollbar || m_bHoveredScrollbar)
-                ? m_Style.ScrollbarThumbHoveredColor
-                : m_Style.ScrollbarThumbColor,
-            m_Style.ScrollbarThickness * 0.5f);
+                ? style.ScrollbarThumbHoveredColor
+                : style.ScrollbarThumbColor,
+            style.ScrollbarThickness * 0.5f);
     }
 
     if (m_bDraggingScrollbar || m_bHoveredScrollbar) {
@@ -577,7 +605,7 @@ void ImTextList::Paint(const FPaintContext& paintContext)
 
 FVector2 ImTextList::GetMinSize() const
 {
-    return m_Style.MinDesiredSize;
+    return GetEffectiveStyle().MinDesiredSize;
 }
 
 FReply ImTextList::OnInputEvent(const FInputEvent& event)
@@ -644,7 +672,7 @@ FReply ImTextList::OnInputEvent(const FInputEvent& event)
         if (!m_Geometry.Contains(event.MousePosition) || m_MaxScrollOffsetY <= 0.0f) {
             return FReply::Unhandled();
         }
-        SetScrollOffset(m_ScrollOffsetY - event.ScrollDelta.Y * m_Style.WheelScrollStep);
+        SetScrollOffset(m_ScrollOffsetY - event.ScrollDelta.Y * GetEffectiveStyle().WheelScrollStep);
         return FReply::Handled();
 
     case EInputEventType::KeyDown:
@@ -691,18 +719,19 @@ void ImTextList::OnFocusChanged(bool bHasFocus)
 
 void ImTextList::Relayout()
 {
-    const float borderInset = std::max(0.0f, m_Style.BorderThickness);
+    const FTextListStyle& style = GetEffectiveStyle();
+    const float borderInset = std::max(0.0f, style.BorderThickness);
     const FGeometry innerGeometry = InsetGeometry(
         m_Geometry,
-        borderInset + m_Style.Padding.Left,
-        borderInset + m_Style.Padding.Top,
-        borderInset + m_Style.Padding.Right,
-        borderInset + m_Style.Padding.Bottom);
+        borderInset + style.Padding.Left,
+        borderInset + style.Padding.Top,
+        borderInset + style.Padding.Right,
+        borderInset + style.Padding.Bottom);
 
     const float estimatedWidthWithoutScrollbar = std::max(0.0f, innerGeometry.Size.X);
     const float estimatedWidthWithScrollbar = std::max(
         0.0f,
-        estimatedWidthWithoutScrollbar - m_Style.ScrollbarThickness - m_Style.ScrollbarPadding);
+        estimatedWidthWithoutScrollbar - style.ScrollbarThickness - style.ScrollbarPadding);
     const float firstPassWrapWidth = std::max(1.0f, estimatedWidthWithoutScrollbar);
     const float secondPassWrapWidth = std::max(1.0f, estimatedWidthWithScrollbar);
     float resolvedWrapWidth = firstPassWrapWidth;
@@ -735,17 +764,17 @@ void ImTextList::Relayout()
     m_VerticalScrollbarGeometry = FGeometry();
     m_VerticalThumbGeometry = FGeometry();
     if (bShowScrollbar && innerGeometry.Size.Y > 0.0f) {
-        const float scrollbarX = innerGeometry.Position.X + std::max(0.0f, resolvedWrapWidth) + m_Style.ScrollbarPadding;
+        const float scrollbarX = innerGeometry.Position.X + std::max(0.0f, resolvedWrapWidth) + style.ScrollbarPadding;
         m_VerticalScrollbarGeometry = FGeometry(
             FVector2(scrollbarX, innerGeometry.Position.Y),
-            FVector2(m_Style.ScrollbarThickness, innerGeometry.Size.Y));
+            FVector2(style.ScrollbarThickness, innerGeometry.Size.Y));
 
         const float trackHeight = m_VerticalScrollbarGeometry.Size.Y;
         const float thumbHeight = std::min(
             trackHeight,
-            std::max(
-                std::min(trackHeight, m_Style.ThumbMinLength),
-                m_ContentHeight > 0.0f ? trackHeight * (m_CachedViewportGeometry.Size.Y / m_ContentHeight) : trackHeight));
+                std::max(
+                    std::min(trackHeight, style.ThumbMinLength),
+                    m_ContentHeight > 0.0f ? trackHeight * (m_CachedViewportGeometry.Size.Y / m_ContentHeight) : trackHeight));
         const float availableTrack = std::max(0.0f, trackHeight - thumbHeight);
         const float thumbOffset = m_MaxScrollOffsetY > 0.0f
             ? (m_ScrollOffsetY / m_MaxScrollOffsetY) * availableTrack
@@ -753,13 +782,14 @@ void ImTextList::Relayout()
 
         m_VerticalThumbGeometry = FGeometry(
             FVector2(m_VerticalScrollbarGeometry.Position.X, m_VerticalScrollbarGeometry.Position.Y + thumbOffset),
-            FVector2(m_Style.ScrollbarThickness, thumbHeight));
+            FVector2(style.ScrollbarThickness, thumbHeight));
     }
 }
 
 void ImTextList::RebuildLayout(float wrapWidth)
 {
     wrapWidth = std::max(1.0f, wrapWidth);
+    const FTextListStyle& style = GetEffectiveStyle();
 
     m_Lines.clear();
     m_ItemLayouts.clear();
@@ -778,7 +808,7 @@ void ImTextList::RebuildLayout(float wrapWidth)
         while (start <= item.size()) {
             const std::size_t end = item.find('\n', start);
             const std::size_t count = (end == std::string::npos ? item.size() : end) - start;
-            AppendWrappedLines(item.substr(start, count), static_cast<int>(itemIndex), wrapWidth, m_Style.FontSize, m_Lines);
+            AppendWrappedLines(item.substr(start, count), static_cast<int>(itemIndex), wrapWidth, style.FontSize, m_Lines);
             if (end == std::string::npos) {
                 break;
             }
@@ -869,13 +899,14 @@ void ImTextList::ApplyAutoScrollForSelection(const FVector2& cursorPosition)
         return;
     }
 
+    const FTextListStyle& style = GetEffectiveStyle();
     float delta = 0.0f;
     const float localY = cursorPosition.Y - m_CachedViewportGeometry.Position.Y;
-    if (localY < m_Style.AutoScrollEdgePadding) {
-        delta = (localY - m_Style.AutoScrollEdgePadding) * (m_Style.AutoScrollSpeed / std::max(1.0f, m_Style.AutoScrollEdgePadding));
-    } else if (localY > m_CachedViewportGeometry.Size.Y - m_Style.AutoScrollEdgePadding) {
-        delta = (localY - (m_CachedViewportGeometry.Size.Y - m_Style.AutoScrollEdgePadding)) *
-            (m_Style.AutoScrollSpeed / std::max(1.0f, m_Style.AutoScrollEdgePadding));
+    if (localY < style.AutoScrollEdgePadding) {
+        delta = (localY - style.AutoScrollEdgePadding) * (style.AutoScrollSpeed / std::max(1.0f, style.AutoScrollEdgePadding));
+    } else if (localY > m_CachedViewportGeometry.Size.Y - style.AutoScrollEdgePadding) {
+        delta = (localY - (m_CachedViewportGeometry.Size.Y - style.AutoScrollEdgePadding)) *
+            (style.AutoScrollSpeed / std::max(1.0f, style.AutoScrollEdgePadding));
     }
 
     if (delta != 0.0f) {
@@ -950,12 +981,12 @@ bool ImTextList::IsNavigationShortcut(const FInputEvent& event) const
 
 float ImTextList::ResolveWrappedLineHeight() const
 {
-    return MeasureLineHeight(m_Style.FontSize);
+    return MeasureLineHeight(GetEffectiveStyle().FontSize);
 }
 
 float ImTextList::ResolveLineStride(float lineHeight) const
 {
-    return std::max(lineHeight, lineHeight * std::max(0.0f, m_Style.LineSpacing));
+    return std::max(lineHeight, lineHeight * std::max(0.0f, GetEffectiveStyle().LineSpacing));
 }
 
 std::string ImTextList::ResolveItemText(int index) const
@@ -982,6 +1013,20 @@ void ImTextList::SyncLocalizedItemsFromSerializableItems()
     for (const std::string& item : m_Items) {
         m_ItemTexts.push_back(FText::FromString(item));
     }
+}
+
+const FTextListStyle& ImTextList::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveTextListStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 } // namespace ImWidgetV4

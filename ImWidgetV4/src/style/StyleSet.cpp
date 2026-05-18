@@ -219,6 +219,34 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.Switch.ThumbInset", 3.0f);
     styleSet.SetVector2("Vector2.Switch.DesiredSize", FVector2(52.0f, 28.0f));
 
+    styleSet.SetFloat("Float.Slider.TrackHeight", 6.0f);
+    styleSet.SetFloat("Float.Slider.TrackRounding", 3.0f);
+    styleSet.SetFloat("Float.Slider.ThumbRadius", 8.0f);
+    styleSet.SetFloat("Float.Slider.ValueFontSize", 14.0f);
+
+    styleSet.SetFloat("Float.ColorPicker.HueBarWidth", 18.0f);
+    styleSet.SetFloat("Float.ColorPicker.AlphaBarWidth", 18.0f);
+    styleSet.SetFloat("Float.ColorPicker.BarSpacing", 8.0f);
+    styleSet.SetFloat("Float.ColorPicker.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.ColorPicker.CornerRadius", 6.0f);
+    styleSet.SetFloat("Float.ColorPicker.SelectorRadius", 6.0f);
+
+    styleSet.SetFloat("Float.ExpandableBox.IndicatorSize", 10.0f);
+    styleSet.SetFloat("Float.ExpandableBox.IndicatorSpacing", 8.0f);
+    styleSet.SetFloat("Float.ExpandableBox.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.ExpandableBox.CornerRadius", 8.0f);
+
+    styleSet.SetFloat("Float.TextList.CornerRadius", 7.0f);
+    styleSet.SetFloat("Float.TextList.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.TextList.FontSize", 16.0f);
+    styleSet.SetFloat("Float.TextList.LineSpacing", 1.15f);
+    styleSet.SetFloat("Float.TextList.ScrollbarThickness", 10.0f);
+    styleSet.SetFloat("Float.TextList.ScrollbarPadding", 2.0f);
+    styleSet.SetFloat("Float.TextList.ThumbMinLength", 28.0f);
+    styleSet.SetFloat("Float.TextList.WheelScrollStep", 32.0f);
+    styleSet.SetFloat("Float.TextList.AutoScrollEdgePadding", 24.0f);
+    styleSet.SetFloat("Float.TextList.AutoScrollSpeed", 8.0f);
+
     styleSet.SetFloat("Float.TabView.TabSpacing", 4.0f);
     styleSet.SetFloat("Float.TabView.TabMinWidth", 96.0f);
     styleSet.SetFloat("Float.TabView.TabHeight", 32.0f);
@@ -360,6 +388,43 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Switch.DisabledThumb", FColor::FromBytes(170, 176, 184));
     styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(19, 23, 29));
     styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(103, 177, 255));
+
+    styleSet.SetColor("Color.Slider.Track", FColor::FromBytes(43, 51, 61));
+    styleSet.SetColor("Color.Slider.FilledTrack", FColor::FromBytes(78, 126, 196));
+    styleSet.SetColor("Color.Slider.HoveredFilledTrack", FColor::FromBytes(96, 149, 221));
+    styleSet.SetColor("Color.Slider.DisabledTrack", FColor::FromBytes(59, 66, 76));
+    styleSet.SetColor("Color.Slider.Thumb", FColor::FromBytes(236, 240, 245));
+    styleSet.SetColor("Color.Slider.HoveredThumb", FColor::White);
+    styleSet.SetColor("Color.Slider.ActiveThumb", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Slider.DisabledThumb", FColor::FromBytes(146, 152, 160));
+    styleSet.SetColor("Color.Slider.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.Slider.ValueText", FColor::FromBytes(238, 241, 245));
+
+    styleSet.SetColor("Color.ColorPicker.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.ColorPicker.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.ColorPicker.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ColorPicker.CheckerLight", FColor::FromBytes(180, 186, 194));
+    styleSet.SetColor("Color.ColorPicker.CheckerDark", FColor::FromBytes(118, 126, 136));
+    styleSet.SetColor("Color.ColorPicker.SelectorOuter", FColor::White);
+    styleSet.SetColor("Color.ColorPicker.SelectorInner", FColor::Black);
+
+    styleSet.SetColor("Color.ExpandableBox.HeaderBackground", FColor::FromBytes(36, 43, 53));
+    styleSet.SetColor("Color.ExpandableBox.HeaderHoveredBackground", FColor::FromBytes(47, 56, 68));
+    styleSet.SetColor("Color.ExpandableBox.HeaderPressedBackground", FColor::FromBytes(28, 34, 42));
+    styleSet.SetColor("Color.ExpandableBox.BodyBackground", FColor::FromBytes(24, 29, 37));
+    styleSet.SetColor("Color.ExpandableBox.Border", FColor::FromBytes(12, 16, 21));
+    styleSet.SetColor("Color.ExpandableBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ExpandableBox.Indicator", FColor::FromBytes(232, 237, 243));
+    styleSet.SetColor("Color.ExpandableBox.IndicatorHovered", FColor::FromBytes(255, 214, 102));
+
+    styleSet.SetColor("Color.TextList.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.TextList.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.TextList.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TextList.Text", FColor::FromBytes(238, 241, 245));
+    styleSet.SetColor("Color.TextList.SelectionBackground", FColor::FromBytes(93, 149, 212, 176));
+    styleSet.SetColor("Color.TextList.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
+    styleSet.SetColor("Color.TextList.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.TextList.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
 
     styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(20, 24, 30));
     styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(16, 19, 23));
@@ -516,6 +581,43 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(60, 60, 60));
     styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(103, 177, 255));
 
+    styleSet.SetColor("Color.Slider.Track", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.Slider.FilledTrack", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.Slider.HoveredFilledTrack", FColor::FromBytes(103, 141, 205));
+    styleSet.SetColor("Color.Slider.DisabledTrack", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.Slider.Thumb", FColor::FromBytes(244, 244, 244));
+    styleSet.SetColor("Color.Slider.HoveredThumb", FColor::White);
+    styleSet.SetColor("Color.Slider.ActiveThumb", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Slider.DisabledThumb", FColor::FromBytes(144, 144, 144));
+    styleSet.SetColor("Color.Slider.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.Slider.ValueText", FColor::FromBytes(220, 220, 220));
+
+    styleSet.SetColor("Color.ColorPicker.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.ColorPicker.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ColorPicker.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ColorPicker.CheckerLight", FColor::FromBytes(174, 174, 174));
+    styleSet.SetColor("Color.ColorPicker.CheckerDark", FColor::FromBytes(112, 112, 112));
+    styleSet.SetColor("Color.ColorPicker.SelectorOuter", FColor::White);
+    styleSet.SetColor("Color.ColorPicker.SelectorInner", FColor::Black);
+
+    styleSet.SetColor("Color.ExpandableBox.HeaderBackground", FColor::FromBytes(44, 44, 44));
+    styleSet.SetColor("Color.ExpandableBox.HeaderHoveredBackground", FColor::FromBytes(56, 56, 56));
+    styleSet.SetColor("Color.ExpandableBox.HeaderPressedBackground", FColor::FromBytes(36, 36, 36));
+    styleSet.SetColor("Color.ExpandableBox.BodyBackground", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.ExpandableBox.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ExpandableBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ExpandableBox.Indicator", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.ExpandableBox.IndicatorHovered", FColor::FromBytes(255, 214, 102));
+
+    styleSet.SetColor("Color.TextList.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.TextList.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.TextList.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TextList.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.TextList.SelectionBackground", FColor::FromBytes(86, 120, 182, 176));
+    styleSet.SetColor("Color.TextList.ScrollbarTrack", FColor::FromBytes(42, 42, 42));
+    styleSet.SetColor("Color.TextList.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
+    styleSet.SetColor("Color.TextList.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
+
     styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(24, 24, 24));
     styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(52, 52, 52));
     styleSet.SetColor("Color.TabView.FocusedOutline", FColor::FromBytes(103, 177, 255));
@@ -670,6 +772,43 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Switch.DisabledThumb", FColor::FromBytes(180, 186, 192));
     styleSet.SetColor("Color.Switch.Border", FColor::FromBytes(200, 200, 200));
     styleSet.SetColor("Color.Switch.FocusedOutline", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.Slider.Track", FColor::FromBytes(210, 214, 220));
+    styleSet.SetColor("Color.Slider.FilledTrack", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Slider.HoveredFilledTrack", FColor::FromBytes(32, 138, 226));
+    styleSet.SetColor("Color.Slider.DisabledTrack", FColor::FromBytes(224, 228, 232));
+    styleSet.SetColor("Color.Slider.Thumb", FColor::White);
+    styleSet.SetColor("Color.Slider.HoveredThumb", FColor::White);
+    styleSet.SetColor("Color.Slider.ActiveThumb", FColor::FromBytes(255, 214, 102));
+    styleSet.SetColor("Color.Slider.DisabledThumb", FColor::FromBytes(180, 186, 192));
+    styleSet.SetColor("Color.Slider.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Slider.ValueText", FColor::FromBytes(30, 30, 30));
+
+    styleSet.SetColor("Color.ColorPicker.Background", FColor::White);
+    styleSet.SetColor("Color.ColorPicker.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.ColorPicker.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ColorPicker.CheckerLight", FColor::FromBytes(216, 220, 224));
+    styleSet.SetColor("Color.ColorPicker.CheckerDark", FColor::FromBytes(180, 186, 192));
+    styleSet.SetColor("Color.ColorPicker.SelectorOuter", FColor::White);
+    styleSet.SetColor("Color.ColorPicker.SelectorInner", FColor::Black);
+
+    styleSet.SetColor("Color.ExpandableBox.HeaderBackground", FColor::FromBytes(238, 240, 244));
+    styleSet.SetColor("Color.ExpandableBox.HeaderHoveredBackground", FColor::FromBytes(230, 233, 238));
+    styleSet.SetColor("Color.ExpandableBox.HeaderPressedBackground", FColor::FromBytes(220, 226, 234));
+    styleSet.SetColor("Color.ExpandableBox.BodyBackground", FColor::White);
+    styleSet.SetColor("Color.ExpandableBox.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.ExpandableBox.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ExpandableBox.Indicator", FColor::FromBytes(80, 80, 80));
+    styleSet.SetColor("Color.ExpandableBox.IndicatorHovered", FColor::FromBytes(212, 132, 24));
+
+    styleSet.SetColor("Color.TextList.Background", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.TextList.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.TextList.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.TextList.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.TextList.SelectionBackground", FColor::FromBytes(162, 205, 255, 200));
+    styleSet.SetColor("Color.TextList.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
+    styleSet.SetColor("Color.TextList.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.TextList.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
 
     styleSet.SetColor("Color.TabView.Background", FColor::FromBytes(248, 249, 251));
     styleSet.SetColor("Color.TabView.Border", FColor::FromBytes(210, 214, 220));

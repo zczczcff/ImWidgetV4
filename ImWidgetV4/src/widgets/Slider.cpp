@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/Slider.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -60,6 +62,7 @@ void ImSlider::SetStep(float step) {
 
 void ImSlider::SetStyle(const FSliderStyle& style) {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -80,34 +83,35 @@ void ImSlider::Paint(const FPaintContext& paintContext) {
         return;
     }
 
+    const FSliderStyle& style = GetEffectiveStyle();
     const FVector2 trackMin = GetTrackMin();
     const FVector2 trackMax = GetTrackMax();
     const FVector2 filledMax(GetThumbCenterX(), trackMax.Y);
     const float thumbCenterY = (trackMin.Y + trackMax.Y) * 0.5f;
     const FVector2 thumbCenter(GetThumbCenterX(), thumbCenterY);
 
-    const FColor trackColor = m_bDisabled ? m_Style.DisabledTrackColor : m_Style.TrackColor;
-    FColor filledColor = m_Style.FilledTrackColor;
+    const FColor trackColor = m_bDisabled ? style.DisabledTrackColor : style.TrackColor;
+    FColor filledColor = style.FilledTrackColor;
     if (m_bDisabled) {
-        filledColor = m_Style.DisabledTrackColor;
+        filledColor = style.DisabledTrackColor;
     } else if (m_bHovered || m_bDragging) {
-        filledColor = m_Style.HoveredFilledTrackColor;
+        filledColor = style.HoveredFilledTrackColor;
     }
 
-    FColor thumbColor = m_Style.ThumbColor;
+    FColor thumbColor = style.ThumbColor;
     if (m_bDisabled) {
-        thumbColor = m_Style.DisabledThumbColor;
+        thumbColor = style.DisabledThumbColor;
     } else if (m_bDragging) {
-        thumbColor = m_Style.ActiveThumbColor;
+        thumbColor = style.ActiveThumbColor;
     } else if (m_bHovered) {
-        thumbColor = m_Style.HoveredThumbColor;
+        thumbColor = style.HoveredThumbColor;
     }
 
     paintContext.DrawContext_.DrawRectFilled(
         trackMin,
         trackMax,
         trackColor,
-        m_Style.TrackRounding
+        style.TrackRounding
     );
 
     const FVector2 clampedFilledMax(
@@ -118,47 +122,47 @@ void ImSlider::Paint(const FPaintContext& paintContext) {
         trackMin,
         clampedFilledMax,
         filledColor,
-        m_Style.TrackRounding
+        style.TrackRounding
     );
 
     paintContext.DrawContext_.DrawCircleFilled(
         thumbCenter,
-        m_Style.ThumbRadius,
+        style.ThumbRadius,
         thumbColor
     );
 
     if (HasKeyboardFocus()) {
         paintContext.DrawContext_.DrawCircle(
             thumbCenter,
-            m_Style.ThumbRadius + 3.0f,
-            m_Style.FocusedOutlineColor,
+            style.ThumbRadius + 3.0f,
+            style.FocusedOutlineColor,
             0,
             2.0f
         );
     }
 
-    if (m_Style.bShowValueText) {
+    if (style.bShowValueText) {
         char valueBuffer[32] = {};
         std::snprintf(valueBuffer, sizeof(valueBuffer), "%.2f", m_Value);
         const FVector2 valuePosition(
             trackMax.X + 12.0f,
-            m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - m_Style.ValueFontSize) * 0.5f)
+            m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - style.ValueFontSize) * 0.5f)
         );
 
         if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
             paintContext.DrawContext_.GetImDrawList()->AddText(
                 ImGui::GetFont(),
-                m_Style.ValueFontSize,
+                style.ValueFontSize,
                 valuePosition.ToImVec2(),
-                m_Style.ValueTextColor.ToImU32(),
+                style.ValueTextColor.ToImU32(),
                 valueBuffer
             );
         } else {
             paintContext.DrawContext_.DrawText(
                 valuePosition,
-                m_Style.ValueTextColor,
+                style.ValueTextColor,
                 valueBuffer,
-                m_Style.ValueFontSize
+                style.ValueFontSize
             );
         }
     }
@@ -169,7 +173,7 @@ void ImSlider::Paint(const FPaintContext& paintContext) {
 }
 
 FVector2 ImSlider::GetMinSize() const {
-    return m_Style.MinDesiredSize;
+    return GetEffectiveStyle().MinDesiredSize;
 }
 
 FReply ImSlider::OnInputEvent(const FInputEvent& event) {
@@ -236,6 +240,20 @@ FReply ImSlider::OnInputEvent(const FInputEvent& event) {
 
 void ImSlider::OnFocusChanged(bool bHasFocus) {
     ImWidget::OnFocusChanged(bHasFocus);
+}
+
+const FSliderStyle& ImSlider::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveSliderStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 float ImSlider::ClampValue(float value) const {
@@ -310,17 +328,19 @@ void ImSlider::SetDragging(bool bDragging) {
 }
 
 FVector2 ImSlider::GetTrackMin() const {
+    const FSliderStyle& style = GetEffectiveStyle();
     return FVector2(
-        m_Geometry.Position.X + m_Style.ThumbRadius,
-        m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - m_Style.TrackHeight) * 0.5f)
+        m_Geometry.Position.X + style.ThumbRadius,
+        m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - style.TrackHeight) * 0.5f)
     );
 }
 
 FVector2 ImSlider::GetTrackMax() const {
-    const float valueTextWidth = m_Style.bShowValueText ? 52.0f : 0.0f;
+    const FSliderStyle& style = GetEffectiveStyle();
+    const float valueTextWidth = style.bShowValueText ? 52.0f : 0.0f;
     return FVector2(
-        m_Geometry.Position.X + m_Geometry.Size.X - m_Style.ThumbRadius - valueTextWidth,
-        m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - m_Style.TrackHeight) * 0.5f) + m_Style.TrackHeight
+        m_Geometry.Position.X + m_Geometry.Size.X - style.ThumbRadius - valueTextWidth,
+        m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - style.TrackHeight) * 0.5f) + style.TrackHeight
     );
 }
 

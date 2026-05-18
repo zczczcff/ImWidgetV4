@@ -67,7 +67,7 @@ public:
     const FColor& GetColor() const { return m_Color; }
 
     void SetStyle(const FColorPickerStyle& style);
-    const FColorPickerStyle& GetStyle() const { return m_Style; }
+    const FColorPickerStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     FColorChangedEvent OnColorChanged;
     FColorChangedEvent OnColorCommitted;
@@ -104,9 +104,11 @@ private:
     bool BeginInteraction(const FVector2& mousePosition);
     void EndInteraction(bool bCommit);
     bool HandleKeyboardAdjust(const FInputEvent& event);
+    const FColorPickerStyle& GetEffectiveStyle() const;
     float Clamp01(float value) const;
 
     FColorPickerStyle m_Style;
+    mutable FColorPickerStyle m_ResolvedThemeStyle;
     FColor m_Color;
     float m_Hue = 0.0f;
     float m_Saturation = 1.0f;
@@ -114,6 +116,7 @@ private:
     float m_Alpha = 1.0f;
     EActiveRegion m_ActiveRegion = EActiveRegion::None;
     bool m_bInteractionChanged = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

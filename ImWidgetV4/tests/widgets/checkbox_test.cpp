@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imgui.h>
 #include <memory>
@@ -140,4 +141,27 @@ TEST_F(CheckBoxTest, DisabledCheckBoxDoesNotRespond) {
     EXPECT_FALSE(reply.IsHandled());
     EXPECT_FALSE(CheckBox->IsChecked());
     EXPECT_FALSE(CheckBox->IsPressed());
+}
+
+TEST_F(CheckBoxTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FCheckBoxStyle expectedStyle = ResolveCheckBoxStyle(App->GetStyleSet());
+
+    const FCheckBoxStyle& style = CheckBox->GetStyle();
+    EXPECT_EQ(style.CheckedBackgroundColor.ToImU32(), expectedStyle.CheckedBackgroundColor.ToImU32());
+    EXPECT_EQ(style.TextColor.ToImU32(), expectedStyle.TextColor.ToImU32());
+}
+
+TEST_F(CheckBoxTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FCheckBoxStyle explicitStyle;
+    explicitStyle.CheckedBackgroundColor = FColor::FromBytes(20, 30, 40);
+    explicitStyle.TextColor = FColor::FromBytes(200, 210, 220);
+    CheckBox->SetStyle(explicitStyle);
+
+    EXPECT_EQ(CheckBox->GetStyle().CheckedBackgroundColor.ToImU32(), explicitStyle.CheckedBackgroundColor.ToImU32());
+    EXPECT_EQ(CheckBox->GetStyle().TextColor.ToImU32(), explicitStyle.TextColor.ToImU32());
 }

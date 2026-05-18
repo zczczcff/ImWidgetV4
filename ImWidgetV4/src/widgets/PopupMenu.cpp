@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -52,8 +53,12 @@ void ImPopupMenu::SetItems(std::vector<FPopupMenuItem>&& items)
 void ImPopupMenu::SetStyle(const FPopupMenuStyle& style)
 {
     Style_ = style;
+    bHasExplicitStyle_ = true;
     if (ActiveChildMenu_) {
         ActiveChildMenu_->SetStyle(style);
+    }
+    if (ActiveChildWindow_ && ActiveChildWindow_->IsOpen()) {
+        ActiveChildWindow_->SetStyle(BuildChildPopupWindowStyle());
     }
     if (ActiveChildWindow_ && ActiveChildWindow_->IsOpen() && ActiveChildMenu_) {
         ActiveChildWindow_->SetSize(ActiveChildMenu_->GetMinSize());
@@ -64,61 +69,62 @@ void ImPopupMenu::SetStyle(const FPopupMenuStyle& style)
 void ImPopupMenu::Paint(const FPaintContext& paintContext)
 {
     SyncChildSubmenuState();
+    const FPopupMenuStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BackgroundColor,
-        Style_.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BorderColor,
-        Style_.CornerRadius,
-        Style_.BorderThickness);
+        style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     const FGeometry contentGeometry = GetContentGeometry();
     paintContext.DrawContext_.PushClipRect(contentGeometry.GetMin(), contentGeometry.GetMax(), true);
 
     const float submenuIndicatorWidth = ResolveSubmenuIndicatorWidth();
-    float rowY = contentGeometry.Position.Y + Style_.OuterPaddingY;
-    const float rowWidth = std::max(0.0f, contentGeometry.Size.X - Style_.OuterPaddingX * 2.0f);
+    float rowY = contentGeometry.Position.Y + style.OuterPaddingY;
+    const float rowWidth = std::max(0.0f, contentGeometry.Size.X - style.OuterPaddingX * 2.0f);
     for (std::size_t index = 0; index < Items_.size(); ++index) {
         const FPopupMenuItem& item = Items_[index];
         if (item.bIsSeparator) {
-            const float separatorY = rowY + Style_.RowHeight * 0.5f;
+            const float separatorY = rowY + style.RowHeight * 0.5f;
             paintContext.DrawContext_.DrawLine(
-                FVector2(contentGeometry.Position.X + Style_.OuterPaddingX + Style_.HorizontalPadding, separatorY),
-                FVector2(contentGeometry.GetMax().X - Style_.OuterPaddingX - Style_.HorizontalPadding, separatorY),
-                Style_.SeparatorColor,
+                FVector2(contentGeometry.Position.X + style.OuterPaddingX + style.HorizontalPadding, separatorY),
+                FVector2(contentGeometry.GetMax().X - style.OuterPaddingX - style.HorizontalPadding, separatorY),
+                style.SeparatorColor,
                 1.0f);
-            rowY += Style_.RowHeight;
+            rowY += style.RowHeight;
             continue;
         }
 
         const std::string itemText = ResolveItemText(item);
         const FGeometry rowGeometry(
-            FVector2(contentGeometry.Position.X + Style_.OuterPaddingX, rowY),
-            FVector2(rowWidth, Style_.RowHeight));
+            FVector2(contentGeometry.Position.X + style.OuterPaddingX, rowY),
+            FVector2(rowWidth, style.RowHeight));
         const bool bHovered = static_cast<int>(index) == HoveredItemIndex_;
         const bool bPressed = static_cast<int>(index) == PressedItemIndex_;
         if (!item.bEnabled) {
             // Disabled rows remain visible but do not show hover or pressed fills.
         } else if (bPressed) {
-            paintContext.DrawContext_.DrawRectFilled(
-                rowGeometry.GetMin(),
-                rowGeometry.GetMax(),
-                Style_.RowPressedColor,
-                6.0f);
+                paintContext.DrawContext_.DrawRectFilled(
+                    rowGeometry.GetMin(),
+                    rowGeometry.GetMax(),
+                    style.RowPressedColor,
+                    6.0f);
         } else if (bHovered) {
             paintContext.DrawContext_.DrawRectFilled(
                 rowGeometry.GetMin(),
                 rowGeometry.GetMax(),
-                Style_.RowHoveredColor,
+                style.RowHoveredColor,
                 6.0f);
         }
 
-        float contentX = rowGeometry.Position.X + Style_.HorizontalPadding;
+        float contentX = rowGeometry.Position.X + style.HorizontalPadding;
         if (item.Icon.IsValid()) {
             ImTextureID textureId = item.Icon.TextureId;
             if (GetApplication() != nullptr) {
@@ -127,36 +133,36 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
             if (textureId != nullptr) {
                 paintContext.DrawContext_.DrawImage(
                     textureId,
-                    FVector2(contentX, rowGeometry.Position.Y + (Style_.RowHeight - Style_.IconSize) * 0.5f),
-                    FVector2(contentX + Style_.IconSize, rowGeometry.Position.Y + (Style_.RowHeight + Style_.IconSize) * 0.5f),
+                    FVector2(contentX, rowGeometry.Position.Y + (style.RowHeight - style.IconSize) * 0.5f),
+                    FVector2(contentX + style.IconSize, rowGeometry.Position.Y + (style.RowHeight + style.IconSize) * 0.5f),
                     item.Icon.Uv0,
                     item.Icon.Uv1,
-                    item.bEnabled ? item.Icon.TintColor : Style_.DisabledTextColor);
-                contentX += Style_.IconSize + Style_.IconTextSpacing;
+                    item.bEnabled ? item.Icon.TintColor : style.DisabledTextColor);
+                contentX += style.IconSize + style.IconTextSpacing;
             }
         }
 
-        const float rightReserve = item.HasSubMenu() ? (submenuIndicatorWidth + Style_.SubmenuIndicatorSpacing) : 0.0f;
+        const float rightReserve = item.HasSubMenu() ? (submenuIndicatorWidth + style.SubmenuIndicatorSpacing) : 0.0f;
         const FVector2 textClipMin(contentX, rowGeometry.Position.Y);
         const FVector2 textClipMax(
-            rowGeometry.Position.X + rowGeometry.Size.X - Style_.HorizontalPadding - rightReserve,
+            rowGeometry.Position.X + rowGeometry.Size.X - style.HorizontalPadding - rightReserve,
             rowGeometry.Position.Y + rowGeometry.Size.Y);
         paintContext.DrawContext_.PushClipRect(textClipMin, textClipMax, true);
         paintContext.DrawContext_.DrawText(
             FVector2(
                 contentX,
-                rowGeometry.Position.Y + std::max(0.0f, (Style_.RowHeight - Style_.FontSize) * 0.5f)),
-            item.bEnabled ? Style_.TextColor : Style_.DisabledTextColor,
+                rowGeometry.Position.Y + std::max(0.0f, (style.RowHeight - style.FontSize) * 0.5f)),
+            item.bEnabled ? style.TextColor : style.DisabledTextColor,
             itemText,
-            Style_.FontSize);
+            style.FontSize);
         paintContext.DrawContext_.PopClipRect();
 
         if (item.HasSubMenu()) {
-            const FColor arrowColor = item.bEnabled ? Style_.SubmenuArrowColor : Style_.DisabledTextColor;
+            const FColor arrowColor = item.bEnabled ? style.SubmenuArrowColor : style.DisabledTextColor;
             const float arrowWidth = submenuIndicatorWidth;
-            const float arrowHeight = std::max(6.0f, Style_.FontSize * 0.5f);
+            const float arrowHeight = std::max(6.0f, style.FontSize * 0.5f);
             const float arrowCenterX =
-                rowGeometry.Position.X + rowGeometry.Size.X - Style_.HorizontalPadding - arrowWidth * 0.5f;
+                rowGeometry.Position.X + rowGeometry.Size.X - style.HorizontalPadding - arrowWidth * 0.5f;
             const float arrowCenterY = rowGeometry.Position.Y + rowGeometry.Size.Y * 0.5f;
             paintContext.DrawContext_.PathLineTo(FVector2(arrowCenterX - arrowWidth * 0.35f, arrowCenterY - arrowHeight * 0.5f));
             paintContext.DrawContext_.PathLineTo(FVector2(arrowCenterX - arrowWidth * 0.35f, arrowCenterY + arrowHeight * 0.5f));
@@ -164,7 +170,7 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
             paintContext.DrawContext_.PathFill(arrowColor);
         }
 
-        rowY += Style_.RowHeight;
+        rowY += style.RowHeight;
     }
 
     paintContext.DrawContext_.PopClipRect();
@@ -172,24 +178,25 @@ void ImPopupMenu::Paint(const FPaintContext& paintContext)
 
 FVector2 ImPopupMenu::GetMinSize() const
 {
+    const FPopupMenuStyle& style = GetEffectiveStyle();
     const FMenuMetrics metrics = ComputeMetrics();
-    const float borderInset = ResolveBorderInset(Style_.BorderThickness);
+    const float borderInset = ResolveBorderInset(style.BorderThickness);
 
     const float width =
         borderInset * 2.0f +
-        Style_.OuterPaddingX * 2.0f +
-        Style_.HorizontalPadding * 2.0f +
+        style.OuterPaddingX * 2.0f +
+        style.HorizontalPadding * 2.0f +
         metrics.MaxTextWidth +
-        (metrics.bHasAnyIcon ? (Style_.IconSize + Style_.IconTextSpacing) : 0.0f) +
-        (metrics.bHasAnySubMenu ? (ResolveSubmenuIndicatorWidth() + Style_.SubmenuIndicatorSpacing) : 0.0f);
+        (metrics.bHasAnyIcon ? (style.IconSize + style.IconTextSpacing) : 0.0f) +
+        (metrics.bHasAnySubMenu ? (ResolveSubmenuIndicatorWidth() + style.SubmenuIndicatorSpacing) : 0.0f);
     const float height =
         borderInset * 2.0f +
-        Style_.OuterPaddingY * 2.0f +
-        static_cast<float>(Items_.size()) * Style_.RowHeight;
+        style.OuterPaddingY * 2.0f +
+        static_cast<float>(Items_.size()) * style.RowHeight;
 
     return FVector2(
-        std::max(Style_.MinDesiredSize.X, width),
-        std::max(Style_.MinDesiredSize.Y, height));
+        std::max(style.MinDesiredSize.X, width),
+        std::max(style.MinDesiredSize.Y, height));
 }
 
 FReply ImPopupMenu::OnInputEvent(const FInputEvent& event)
@@ -267,7 +274,7 @@ FReply ImPopupMenu::OnInputEvent(const FInputEvent& event)
 
 FGeometry ImPopupMenu::GetContentGeometry() const
 {
-    const float borderInset = ResolveBorderInset(Style_.BorderThickness);
+    const float borderInset = ResolveBorderInset(GetEffectiveStyle().BorderThickness);
     return FGeometry(
         FVector2(m_Geometry.Position.X + borderInset, m_Geometry.Position.Y + borderInset),
         FVector2(
@@ -284,11 +291,11 @@ FGeometry ImPopupMenu::GetRowGeometry(int index) const
     const FGeometry contentGeometry = GetContentGeometry();
     return FGeometry(
         FVector2(
-            contentGeometry.Position.X + Style_.OuterPaddingX,
-            contentGeometry.Position.Y + Style_.OuterPaddingY + Style_.RowHeight * static_cast<float>(index)),
+            contentGeometry.Position.X + GetEffectiveStyle().OuterPaddingX,
+            contentGeometry.Position.Y + GetEffectiveStyle().OuterPaddingY + GetEffectiveStyle().RowHeight * static_cast<float>(index)),
         FVector2(
-            std::max(0.0f, contentGeometry.Size.X - Style_.OuterPaddingX * 2.0f),
-            Style_.RowHeight));
+            std::max(0.0f, contentGeometry.Size.X - GetEffectiveStyle().OuterPaddingX * 2.0f),
+            GetEffectiveStyle().RowHeight));
 }
 
 int ImPopupMenu::ResolveIndexAt(const FVector2& position) const
@@ -298,8 +305,9 @@ int ImPopupMenu::ResolveIndexAt(const FVector2& position) const
         return InvalidPopupMenuIndex;
     }
 
-    const float localY = position.Y - contentGeometry.Position.Y - Style_.OuterPaddingY;
-    const int index = static_cast<int>(localY / Style_.RowHeight);
+    const FPopupMenuStyle& style = GetEffectiveStyle();
+    const float localY = position.Y - contentGeometry.Position.Y - style.OuterPaddingY;
+    const int index = static_cast<int>(localY / style.RowHeight);
     if (index < 0 || index >= static_cast<int>(Items_.size())) {
         return InvalidPopupMenuIndex;
     }
@@ -329,10 +337,10 @@ float ImPopupMenu::MeasureTextWidth(const std::string& text) const
     }
 
     if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
-        return ImGui::GetFont()->CalcTextSizeA(Style_.FontSize, FLT_MAX, 0.0f, text.c_str()).x;
+        return ImGui::GetFont()->CalcTextSizeA(GetEffectiveStyle().FontSize, FLT_MAX, 0.0f, text.c_str()).x;
     }
 
-    return Style_.FontSize * 0.55f * static_cast<float>(text.size());
+    return GetEffectiveStyle().FontSize * 0.55f * static_cast<float>(text.size());
 }
 
 std::string ImPopupMenu::ResolveItemText(const FPopupMenuItem& item) const
@@ -346,7 +354,7 @@ std::string ImPopupMenu::ResolveItemText(const FPopupMenuItem& item) const
 
 float ImPopupMenu::ResolveSubmenuIndicatorWidth() const
 {
-    return std::max(8.0f, Style_.FontSize * 0.55f);
+    return std::max(8.0f, GetEffectiveStyle().FontSize * 0.55f);
 }
 
 ImPopupMenu::FMenuMetrics ImPopupMenu::ComputeMetrics() const
@@ -377,6 +385,7 @@ void ImPopupMenu::SyncChildSubmenuState()
     if (ActiveChildWindow_ && ActiveChildMenu_ && ActiveSubMenuIndex_ != InvalidPopupMenuIndex) {
         const FGeometry rowGeometry = GetRowGeometry(ActiveSubMenuIndex_);
         ActiveChildWindow_->SetPosition(FVector2(rowGeometry.Position.X + rowGeometry.Size.X, rowGeometry.Position.Y));
+        ActiveChildWindow_->SetStyle(BuildChildPopupWindowStyle());
         ActiveChildWindow_->SetSize(ActiveChildMenu_->GetMinSize());
     }
 }
@@ -395,7 +404,9 @@ void ImPopupMenu::OpenChildSubmenu(int index)
     CloseChildSubmenuChain();
 
     std::shared_ptr<ImPopupMenu> childMenu = std::make_shared<ImPopupMenu>();
-    childMenu->SetStyle(Style_);
+    if (bHasExplicitStyle_) {
+        childMenu->SetStyle(Style_);
+    }
     childMenu->SetItems(Items_[static_cast<std::size_t>(index)].SubItems);
     childMenu->ParentMenu_ = std::static_pointer_cast<ImPopupMenu>(shared_from_this());
 
@@ -422,12 +433,7 @@ void ImPopupMenu::OpenChildSubmenu(int index)
     popupOptions.Size = childSize;
     popupOptions.RootWidget = childMenu;
     popupOptions.ParentWindow = parentWindow;
-    popupOptions.Style.BackgroundColor = Style_.BackgroundColor;
-    popupOptions.Style.InactiveBackgroundColor = Style_.BackgroundColor;
-    popupOptions.Style.BorderColor = Style_.BorderColor;
-    popupOptions.Style.ActiveBorderColor = Style_.BorderColor;
-    popupOptions.Style.CornerRadius = Style_.CornerRadius;
-    popupOptions.Style.BorderThickness = Style_.BorderThickness;
+    popupOptions.Style = BuildChildPopupWindowStyle();
     popupOptions.Style.bDrawShadow = true;
     popupOptions.Style.ShadowColor = FColor(0.0f, 0.0f, 0.0f, 0.18f);
     popupOptions.Style.ShadowOffset = FVector2(0.0f, 10.0f);
@@ -461,6 +467,33 @@ void ImPopupMenu::ClearInteractionState()
 {
     HoveredItemIndex_ = InvalidPopupMenuIndex;
     PressedItemIndex_ = InvalidPopupMenuIndex;
+}
+
+const FPopupMenuStyle& ImPopupMenu::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        return Style_;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolvePopupMenuStyle(application->GetStyleSet());
+        return ResolvedThemeStyle_;
+    }
+
+    return Style_;
+}
+
+FWindowStyle ImPopupMenu::BuildChildPopupWindowStyle() const
+{
+    const FPopupMenuStyle& style = GetEffectiveStyle();
+    FWindowStyle windowStyle;
+    windowStyle.BackgroundColor = style.BackgroundColor;
+    windowStyle.InactiveBackgroundColor = style.BackgroundColor;
+    windowStyle.BorderColor = style.BorderColor;
+    windowStyle.ActiveBorderColor = style.BorderColor;
+    windowStyle.CornerRadius = style.CornerRadius;
+    windowStyle.BorderThickness = style.BorderThickness;
+    return windowStyle;
 }
 
 } // namespace ImWidgetV4

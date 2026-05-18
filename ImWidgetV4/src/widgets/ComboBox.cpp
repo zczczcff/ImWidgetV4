@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -63,7 +64,7 @@ public:
             return;
         }
 
-        const FComboBoxStyle& style = owner->m_Style;
+        const FComboBoxStyle& style = owner->GetEffectiveStyle();
         const float itemHeight = style.PopupItemHeight;
         const float scrollOffset = owner->m_PopupScrollOffset;
         const int firstVisibleIndex = std::max(0, static_cast<int>(scrollOffset / itemHeight));
@@ -156,7 +157,7 @@ public:
 
         if (event.Type == EInputEventType::MouseWheel) {
             if (owner->m_Items.size() > static_cast<std::size_t>(owner->m_MaxVisibleItems)) {
-                owner->m_PopupScrollOffset -= event.ScrollDelta.Y * owner->m_Style.PopupItemHeight;
+                owner->m_PopupScrollOffset -= event.ScrollDelta.Y * owner->GetEffectiveStyle().PopupItemHeight;
                 owner->ClampPopupScrollOffset();
                 owner->Invalidate(EInvalidateReason::Paint);
             }
@@ -201,7 +202,7 @@ private:
             return InvalidComboIndex;
         }
 
-        const FComboBoxStyle& style = owner->m_Style;
+        const FComboBoxStyle& style = owner->GetEffectiveStyle();
         const FGeometry contentGeometry = InsetGeometryByBorder(m_Geometry, style.BorderThickness);
         if (!contentGeometry.Contains(position)) {
             return InvalidComboIndex;
@@ -370,6 +371,10 @@ void ImComboBox::SetMaxVisibleItems(int count)
 void ImComboBox::SetStyle(const FComboBoxStyle& style)
 {
     m_Style = style;
+    m_bHasExplicitStyle = true;
+    if (m_PopupWindow && m_PopupWindow->IsOpen()) {
+        m_PopupWindow->SetStyle(BuildPopupWindowStyle());
+    }
     RefreshPopupWindowContent();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -405,12 +410,7 @@ void ImComboBox::OpenPopup()
     popupOptions.Position = m_Geometry.Position;
     popupOptions.Size = FVector2(m_Geometry.Size.X, ResolvePopupHeight());
     popupOptions.ParentWindow = windowManager.FindWindowForWidget(shared_from_this());
-    popupOptions.Style.BackgroundColor = m_Style.BackgroundColor;
-    popupOptions.Style.InactiveBackgroundColor = m_Style.BackgroundColor;
-    popupOptions.Style.BorderColor = m_Style.PopupOutlineColor;
-    popupOptions.Style.ActiveBorderColor = m_Style.PopupOutlineColor;
-    popupOptions.Style.CornerRadius = m_Style.CornerRadius;
-    popupOptions.Style.BorderThickness = m_Style.BorderThickness;
+    popupOptions.Style = BuildPopupWindowStyle();
     popupOptions.Style.bDrawShadow = true;
 
     std::shared_ptr<ImComboBox> self = std::static_pointer_cast<ImComboBox>(shared_from_this());
@@ -474,57 +474,59 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
         UpdatePopupWindowLayout();
     }
 
-    FColor background = m_Style.BackgroundColor;
+    const FComboBoxStyle& style = GetEffectiveStyle();
+
+    FColor background = style.BackgroundColor;
     if (m_bDisabled) {
-        background = m_Style.DisabledBackgroundColor;
+        background = style.DisabledBackgroundColor;
     } else if (m_bPressed || IsPopupOpen()) {
-        background = m_Style.PressedBackgroundColor;
+        background = style.PressedBackgroundColor;
     } else if (m_bHovered) {
-        background = m_Style.HoveredBackgroundColor;
+        background = style.HoveredBackgroundColor;
     }
 
-    const FColor outline = HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor;
+    const FColor outline = HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor;
     const std::string displayText = HasSelection() ? GetSelectedText() : ResolvePlaceholderText();
     const FColor textColor = HasSelection()
-        ? (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor)
-        : m_Style.PlaceholderTextColor;
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+        ? (m_bDisabled ? style.DisabledTextColor : style.TextColor)
+        : style.PlaceholderTextColor;
+    const float borderInset = ResolveContentInset(style.BorderThickness);
     const float textY = m_Geometry.Position.Y +
         borderInset +
-        std::max(0.0f, (m_Geometry.Size.Y - borderInset * 2.0f - m_Style.FontSize) * 0.5f);
-    const float arrowHalf = m_Style.ArrowSize * 0.5f;
+        std::max(0.0f, (m_Geometry.Size.Y - borderInset * 2.0f - style.FontSize) * 0.5f);
+    const float arrowHalf = style.ArrowSize * 0.5f;
     const FVector2 arrowCenter(
-        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - m_Style.Padding.Right - arrowHalf,
+        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - style.Padding.Right - arrowHalf,
         m_Geometry.Position.Y + m_Geometry.Size.Y * 0.5f);
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
         background,
-        m_Style.CornerRadius);
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
         outline,
-        m_Style.CornerRadius,
-        m_Style.BorderThickness);
+        style.CornerRadius,
+        style.BorderThickness);
 
-    const float textRight = arrowCenter.X - m_Style.ArrowSize - 10.0f;
+    const float textRight = arrowCenter.X - style.ArrowSize - 10.0f;
     const FVector2 clipMin(
-        m_Geometry.Position.X + borderInset + m_Style.Padding.Left,
+        m_Geometry.Position.X + borderInset + style.Padding.Left,
         m_Geometry.Position.Y + borderInset);
     const FVector2 clipMax(
         textRight,
         m_Geometry.Position.Y + m_Geometry.Size.Y - borderInset);
     paintContext.DrawContext_.PushClipRect(clipMin, clipMax, true);
     paintContext.DrawContext_.DrawText(
-        FVector2(m_Geometry.Position.X + borderInset + m_Style.Padding.Left, textY),
+        FVector2(m_Geometry.Position.X + borderInset + style.Padding.Left, textY),
         textColor,
         displayText,
-        m_Style.FontSize);
+        style.FontSize);
     paintContext.DrawContext_.PopClipRect();
 
-    const FColor arrowColor = m_bDisabled ? m_Style.DisabledTextColor : m_Style.ArrowColor;
+    const FColor arrowColor = m_bDisabled ? style.DisabledTextColor : style.ArrowColor;
     const float direction = IsPopupOpen() ? -1.0f : 1.0f;
     paintContext.DrawContext_.PathLineTo(FVector2(arrowCenter.X - arrowHalf, arrowCenter.Y - 3.0f * direction));
     paintContext.DrawContext_.PathLineTo(FVector2(arrowCenter.X + arrowHalf, arrowCenter.Y - 3.0f * direction));
@@ -534,20 +536,21 @@ void ImComboBox::Paint(const FPaintContext& paintContext)
 
 FVector2 ImComboBox::GetMinSize() const
 {
+    const FComboBoxStyle& style = GetEffectiveStyle();
     float longestTextWidth = MeasureTextWidth(ResolvePlaceholderText());
     for (int index = 0; index < static_cast<int>(m_Items.size()); ++index) {
         longestTextWidth = std::max(longestTextWidth, MeasureTextWidth(ResolveItemText(index)));
     }
 
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float borderInset = ResolveContentInset(style.BorderThickness);
 
     return FVector2(
         std::max(
-            m_Style.MinDesiredSize.X,
-            borderInset * 2.0f + m_Style.Padding.Left + longestTextWidth + m_Style.Padding.Right + m_Style.ArrowSize + 18.0f),
+            style.MinDesiredSize.X,
+            borderInset * 2.0f + style.Padding.Left + longestTextWidth + style.Padding.Right + style.ArrowSize + 18.0f),
         std::max(
-            m_Style.MinDesiredSize.Y,
-            borderInset * 2.0f + m_Style.Padding.Top + m_Style.FontSize + m_Style.Padding.Bottom));
+            style.MinDesiredSize.Y,
+            borderInset * 2.0f + style.Padding.Top + style.FontSize + style.Padding.Bottom));
 }
 
 FReply ImComboBox::OnInputEvent(const FInputEvent& event)
@@ -653,7 +656,7 @@ void ImComboBox::EnsurePopupSelectionVisible()
         return;
     }
 
-    const float itemHeight = m_Style.PopupItemHeight;
+    const float itemHeight = GetEffectiveStyle().PopupItemHeight;
     const float popupHeight = ResolvePopupContentHeight();
     const float itemTop = static_cast<float>(m_HighlightedIndex) * itemHeight;
     const float itemBottom = itemTop + itemHeight;
@@ -669,7 +672,7 @@ void ImComboBox::EnsurePopupSelectionVisible()
 
 void ImComboBox::ClampPopupScrollOffset()
 {
-    const float itemHeight = m_Style.PopupItemHeight;
+    const float itemHeight = GetEffectiveStyle().PopupItemHeight;
     const float popupHeight = ResolvePopupContentHeight();
     const float maxScroll = std::max(0.0f, static_cast<float>(m_Items.size()) * itemHeight - popupHeight);
     m_PopupScrollOffset = std::clamp(m_PopupScrollOffset, 0.0f, maxScroll);
@@ -680,6 +683,8 @@ void ImComboBox::UpdatePopupWindowLayout()
     if (!m_PopupWindow || !m_PopupWindow->IsOpen()) {
         return;
     }
+
+    m_PopupWindow->SetStyle(BuildPopupWindowStyle());
 
     ImWindowManager& windowManager = GetApplication()->GetWindowManager();
     const std::shared_ptr<ImWindow> mainWindow = windowManager.GetMainWindow();
@@ -805,7 +810,7 @@ void ImComboBox::SetPopupHighlightedIndex(int index)
 
 float ImComboBox::MeasureTextWidth(const std::string& text) const
 {
-    return MeasureTextWidthWithFont(text, m_Style.FontSize);
+    return MeasureTextWidthWithFont(text, GetEffectiveStyle().FontSize);
 }
 
 std::string ImComboBox::ResolveItemText(int index) const
@@ -845,17 +850,45 @@ void ImComboBox::SyncLocalizedItemsFromSerializableItems()
 
 float ImComboBox::ResolvePopupHeight() const
 {
+    const FComboBoxStyle& style = GetEffectiveStyle();
     const float visibleItems = static_cast<float>(std::min(m_MaxVisibleItems, static_cast<int>(m_Items.size())));
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float borderInset = ResolveContentInset(style.BorderThickness);
     return std::max(
-        m_Style.PopupItemHeight + borderInset * 2.0f,
-        visibleItems * m_Style.PopupItemHeight + borderInset * 2.0f);
+        style.PopupItemHeight + borderInset * 2.0f,
+        visibleItems * style.PopupItemHeight + borderInset * 2.0f);
 }
 
 float ImComboBox::ResolvePopupContentHeight() const
 {
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float borderInset = ResolveContentInset(GetEffectiveStyle().BorderThickness);
     return std::max(0.0f, ResolvePopupHeight() - borderInset * 2.0f);
+}
+
+const FComboBoxStyle& ImComboBox::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveComboBoxStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
+FWindowStyle ImComboBox::BuildPopupWindowStyle() const
+{
+    const FComboBoxStyle& style = GetEffectiveStyle();
+    FWindowStyle windowStyle;
+    windowStyle.BackgroundColor = style.BackgroundColor;
+    windowStyle.InactiveBackgroundColor = style.BackgroundColor;
+    windowStyle.BorderColor = style.PopupOutlineColor;
+    windowStyle.ActiveBorderColor = style.PopupOutlineColor;
+    windowStyle.CornerRadius = style.CornerRadius;
+    windowStyle.BorderThickness = style.BorderThickness;
+    return windowStyle;
 }
 
 } // namespace ImWidgetV4

@@ -151,6 +151,30 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.Input.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.Input.FontSize", 16.0f);
 
+    styleSet.SetFloat("Float.CheckBox.IndicatorSize", 18.0f);
+    styleSet.SetFloat("Float.CheckBox.IndicatorCornerRadius", 4.0f);
+    styleSet.SetFloat("Float.CheckBox.LabelSpacing", 10.0f);
+    styleSet.SetFloat("Float.CheckBox.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.CheckBox.FontSize", 16.0f);
+
+    styleSet.SetFloat("Float.ComboBox.FontSize", 16.0f);
+    styleSet.SetFloat("Float.ComboBox.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.ComboBox.CornerRadius", 7.0f);
+    styleSet.SetFloat("Float.ComboBox.ArrowSize", 10.0f);
+    styleSet.SetFloat("Float.ComboBox.PopupItemHeight", 30.0f);
+    styleSet.SetFloat("Float.ComboBox.PopupMaxVisibleItems", 6.0f);
+
+    styleSet.SetFloat("Float.PopupMenu.FontSize", 14.0f);
+    styleSet.SetFloat("Float.PopupMenu.RowHeight", 28.0f);
+    styleSet.SetFloat("Float.PopupMenu.IconSize", 18.0f);
+    styleSet.SetFloat("Float.PopupMenu.HorizontalPadding", 12.0f);
+    styleSet.SetFloat("Float.PopupMenu.IconTextSpacing", 8.0f);
+    styleSet.SetFloat("Float.PopupMenu.SubmenuIndicatorSpacing", 12.0f);
+    styleSet.SetFloat("Float.PopupMenu.OuterPaddingX", 4.0f);
+    styleSet.SetFloat("Float.PopupMenu.OuterPaddingY", 6.0f);
+    styleSet.SetFloat("Float.PopupMenu.CornerRadius", 8.0f);
+    styleSet.SetFloat("Float.PopupMenu.BorderThickness", 1.0f);
+
     styleSet.SetFloat("Float.TitleBar.Height", 34.0f);
     styleSet.SetFloat("Float.TitleBar.DragRegionMinWidth", 34.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSize", 34.0f);
@@ -193,6 +217,41 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Input.Caret", FColor::FromBytes(245, 247, 250));
     styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(93, 149, 212, 176));
     styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(248, 250, 252));
+
+    styleSet.SetColor("Color.CheckBox.Background", FColor::FromBytes(31, 37, 46));
+    styleSet.SetColor("Color.CheckBox.HoveredBackground", FColor::FromBytes(42, 51, 62));
+    styleSet.SetColor("Color.CheckBox.PressedBackground", FColor::FromBytes(23, 29, 37));
+    styleSet.SetColor("Color.CheckBox.CheckedBackground", FColor::FromBytes(78, 126, 196));
+    styleSet.SetColor("Color.CheckBox.DisabledBackground", FColor::FromBytes(56, 60, 66));
+    styleSet.SetColor("Color.CheckBox.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.CheckBox.CheckMark", FColor::FromBytes(248, 250, 252));
+    styleSet.SetColor("Color.CheckBox.Text", FColor::FromBytes(238, 241, 245));
+    styleSet.SetColor("Color.CheckBox.DisabledText", FColor::FromBytes(140, 147, 156));
+    styleSet.SetColor("Color.CheckBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+
+    styleSet.SetColor("Color.ComboBox.Background", FColor::FromBytes(31, 37, 46));
+    styleSet.SetColor("Color.ComboBox.HoveredBackground", FColor::FromBytes(39, 46, 56));
+    styleSet.SetColor("Color.ComboBox.PressedBackground", FColor::FromBytes(24, 31, 40));
+    styleSet.SetColor("Color.ComboBox.DisabledBackground", FColor::FromBytes(56, 60, 66));
+    styleSet.SetColor("Color.ComboBox.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.ComboBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ComboBox.Text", FColor::FromBytes(238, 241, 245));
+    styleSet.SetColor("Color.ComboBox.PlaceholderText", FColor::FromBytes(135, 145, 157));
+    styleSet.SetColor("Color.ComboBox.DisabledText", FColor::FromBytes(140, 147, 156));
+    styleSet.SetColor("Color.ComboBox.Arrow", FColor::FromBytes(220, 227, 235));
+    styleSet.SetColor("Color.ComboBox.PopupRowHovered", FColor::FromBytes(46, 58, 76));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelected", FColor::FromBytes(78, 126, 196));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelectedHovered", FColor::FromBytes(96, 149, 221));
+    styleSet.SetColor("Color.ComboBox.PopupOutline", FColor::FromBytes(16, 19, 23));
+
+    styleSet.SetColor("Color.PopupMenu.Background", FColor::FromBytes(26, 31, 38));
+    styleSet.SetColor("Color.PopupMenu.Border", FColor::FromBytes(63, 73, 89));
+    styleSet.SetColor("Color.PopupMenu.RowHovered", FColor::FromBytes(48, 60, 77));
+    styleSet.SetColor("Color.PopupMenu.RowPressed", FColor::FromBytes(69, 101, 154));
+    styleSet.SetColor("Color.PopupMenu.Text", FColor::FromBytes(238, 242, 247));
+    styleSet.SetColor("Color.PopupMenu.DisabledText", FColor::FromBytes(128, 134, 143));
+    styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(57, 66, 80));
+    styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(238, 242, 247));
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(28, 33, 41));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(16, 19, 24));
@@ -239,6 +298,41 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(78, 120, 184, 180));
     styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(250, 250, 250));
 
+    styleSet.SetColor("Color.CheckBox.Background", FColor::FromBytes(36, 36, 36));
+    styleSet.SetColor("Color.CheckBox.HoveredBackground", FColor::FromBytes(52, 52, 52));
+    styleSet.SetColor("Color.CheckBox.PressedBackground", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.CheckBox.CheckedBackground", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.CheckBox.DisabledBackground", FColor::FromBytes(44, 44, 44));
+    styleSet.SetColor("Color.CheckBox.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.CheckBox.CheckMark", FColor::FromBytes(250, 250, 250));
+    styleSet.SetColor("Color.CheckBox.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.CheckBox.DisabledText", FColor::FromBytes(120, 120, 120));
+    styleSet.SetColor("Color.CheckBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+
+    styleSet.SetColor("Color.ComboBox.Background", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.ComboBox.HoveredBackground", FColor::FromBytes(38, 38, 38));
+    styleSet.SetColor("Color.ComboBox.PressedBackground", FColor::FromBytes(24, 24, 24));
+    styleSet.SetColor("Color.ComboBox.DisabledBackground", FColor::FromBytes(45, 45, 45));
+    styleSet.SetColor("Color.ComboBox.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ComboBox.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ComboBox.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.ComboBox.PlaceholderText", FColor::FromBytes(144, 144, 144));
+    styleSet.SetColor("Color.ComboBox.DisabledText", FColor::FromBytes(130, 130, 130));
+    styleSet.SetColor("Color.ComboBox.Arrow", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.ComboBox.PopupRowHovered", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelected", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelectedHovered", FColor::FromBytes(103, 141, 205));
+    styleSet.SetColor("Color.ComboBox.PopupOutline", FColor::FromBytes(72, 72, 72));
+
+    styleSet.SetColor("Color.PopupMenu.Background", FColor::FromBytes(34, 34, 34));
+    styleSet.SetColor("Color.PopupMenu.Border", FColor::FromBytes(66, 66, 66));
+    styleSet.SetColor("Color.PopupMenu.RowHovered", FColor::FromBytes(58, 58, 58));
+    styleSet.SetColor("Color.PopupMenu.RowPressed", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.PopupMenu.Text", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.PopupMenu.DisabledText", FColor::FromBytes(130, 130, 130));
+    styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(72, 72, 72));
+    styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(236, 236, 236));
+
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(24, 24, 24));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(52, 52, 52));
     styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 28));
@@ -283,6 +377,41 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.Input.Caret", FColor::FromBytes(20, 20, 20));
     styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(162, 205, 255, 200));
     styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(20, 20, 20));
+
+    styleSet.SetColor("Color.CheckBox.Background", FColor::White);
+    styleSet.SetColor("Color.CheckBox.HoveredBackground", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.CheckBox.PressedBackground", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.CheckBox.CheckedBackground", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.CheckBox.DisabledBackground", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Color.CheckBox.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.CheckBox.CheckMark", FColor::FromBytes(250, 250, 250));
+    styleSet.SetColor("Color.CheckBox.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.CheckBox.DisabledText", FColor::FromBytes(140, 140, 140));
+    styleSet.SetColor("Color.CheckBox.FocusedOutline", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.ComboBox.Background", FColor::White);
+    styleSet.SetColor("Color.ComboBox.HoveredBackground", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.ComboBox.PressedBackground", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.ComboBox.DisabledBackground", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Color.ComboBox.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.ComboBox.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ComboBox.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.ComboBox.PlaceholderText", FColor::FromBytes(132, 132, 132));
+    styleSet.SetColor("Color.ComboBox.DisabledText", FColor::FromBytes(140, 140, 140));
+    styleSet.SetColor("Color.ComboBox.Arrow", FColor::FromBytes(80, 80, 80));
+    styleSet.SetColor("Color.ComboBox.PopupRowHovered", FColor::FromBytes(232, 240, 250));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelected", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ComboBox.PopupRowSelectedHovered", FColor::FromBytes(32, 138, 226));
+    styleSet.SetColor("Color.ComboBox.PopupOutline", FColor::FromBytes(200, 200, 200));
+
+    styleSet.SetColor("Color.PopupMenu.Background", FColor::White);
+    styleSet.SetColor("Color.PopupMenu.Border", FColor::FromBytes(208, 212, 218));
+    styleSet.SetColor("Color.PopupMenu.RowHovered", FColor::FromBytes(234, 242, 252));
+    styleSet.SetColor("Color.PopupMenu.RowPressed", FColor::FromBytes(214, 229, 247));
+    styleSet.SetColor("Color.PopupMenu.Text", FColor::FromBytes(26, 26, 26));
+    styleSet.SetColor("Color.PopupMenu.DisabledText", FColor::FromBytes(150, 150, 150));
+    styleSet.SetColor("Color.PopupMenu.Separator", FColor::FromBytes(224, 228, 234));
+    styleSet.SetColor("Color.PopupMenu.SubmenuArrow", FColor::FromBytes(56, 56, 56));
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(246, 247, 249));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(210, 214, 220));

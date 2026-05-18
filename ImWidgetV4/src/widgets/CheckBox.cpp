@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/CheckBox.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -77,6 +79,7 @@ void ImCheckBox::Toggle() {
 
 void ImCheckBox::SetStyle(const FCheckBoxStyle& style) {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -94,89 +97,91 @@ void ImCheckBox::Paint(const FPaintContext& paintContext) {
         return;
     }
 
+    const FCheckBoxStyle& style = GetEffectiveStyle();
     const FVector2 labelSize = MeasureLabelSize();
     const float availableHeight =
-        std::max(0.0f, m_Geometry.Size.Y - m_Style.Padding.Top - m_Style.Padding.Bottom);
+        std::max(0.0f, m_Geometry.Size.Y - style.Padding.Top - style.Padding.Bottom);
     const float indicatorY =
-        m_Geometry.Position.Y + m_Style.Padding.Top +
-        std::max(0.0f, (availableHeight - m_Style.IndicatorSize) * 0.5f);
+        m_Geometry.Position.Y + style.Padding.Top +
+        std::max(0.0f, (availableHeight - style.IndicatorSize) * 0.5f);
     const FVector2 indicatorMin(
-        m_Geometry.Position.X + m_Style.Padding.Left,
+        m_Geometry.Position.X + style.Padding.Left,
         indicatorY);
-    const FVector2 indicatorMax = indicatorMin + FVector2(m_Style.IndicatorSize, m_Style.IndicatorSize);
+    const FVector2 indicatorMax = indicatorMin + FVector2(style.IndicatorSize, style.IndicatorSize);
 
-    FColor indicatorBackground = m_Style.BackgroundColor;
+    FColor indicatorBackground = style.BackgroundColor;
     if (m_bDisabled) {
-        indicatorBackground = m_Style.DisabledBackgroundColor;
+        indicatorBackground = style.DisabledBackgroundColor;
     } else if (m_bPressed) {
-        indicatorBackground = m_Style.PressedBackgroundColor;
+        indicatorBackground = style.PressedBackgroundColor;
     } else if (m_bChecked) {
-        indicatorBackground = m_Style.CheckedBackgroundColor;
+        indicatorBackground = style.CheckedBackgroundColor;
     } else if (m_bHovered) {
-        indicatorBackground = m_Style.HoveredBackgroundColor;
+        indicatorBackground = style.HoveredBackgroundColor;
     }
 
     paintContext.DrawContext_.DrawRectFilled(
         indicatorMin,
         indicatorMax,
         indicatorBackground,
-        m_Style.IndicatorCornerRadius
+        style.IndicatorCornerRadius
     );
     paintContext.DrawContext_.DrawRect(
         indicatorMin,
         indicatorMax,
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
-        m_Style.IndicatorCornerRadius,
-        m_Style.BorderThickness
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.IndicatorCornerRadius,
+        style.BorderThickness
     );
 
     if (m_bChecked) {
-        const float size = m_Style.IndicatorSize;
+        const float size = style.IndicatorSize;
         const FVector2 checkA(indicatorMin.X + size * 0.22f, indicatorMin.Y + size * 0.55f);
         const FVector2 checkB(indicatorMin.X + size * 0.45f, indicatorMin.Y + size * 0.78f);
         const FVector2 checkC(indicatorMin.X + size * 0.80f, indicatorMin.Y + size * 0.28f);
-        paintContext.DrawContext_.DrawLine(checkA, checkB, m_Style.CheckMarkColor, 2.0f);
-        paintContext.DrawContext_.DrawLine(checkB, checkC, m_Style.CheckMarkColor, 2.0f);
+        paintContext.DrawContext_.DrawLine(checkA, checkB, style.CheckMarkColor, 2.0f);
+        paintContext.DrawContext_.DrawLine(checkB, checkC, style.CheckMarkColor, 2.0f);
     }
 
     const std::string label = ResolveLabel();
     if (!label.empty()) {
         const FVector2 labelPosition(
-            indicatorMax.X + m_Style.LabelSpacing,
+            indicatorMax.X + style.LabelSpacing,
             m_Geometry.Position.Y + std::max(0.0f, (m_Geometry.Size.Y - labelSize.Y) * 0.5f));
 
         if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
             paintContext.DrawContext_.GetImDrawList()->AddText(
                 ImGui::GetFont(),
-                m_Style.FontSize,
+                style.FontSize,
                 labelPosition.ToImVec2(),
-                (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor).ToImU32(),
+                (m_bDisabled ? style.DisabledTextColor : style.TextColor).ToImU32(),
                 label.c_str()
             );
         } else {
             paintContext.DrawContext_.DrawText(
                 labelPosition,
-                m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor,
+                m_bDisabled ? style.DisabledTextColor : style.TextColor,
                 label,
-                m_Style.FontSize
+                style.FontSize
             );
         }
     }
 }
 
 FVector2 ImCheckBox::GetMinSize() const {
+    const FCheckBoxStyle& style = GetEffectiveStyle();
     const std::string label = ResolveLabel();
     const FVector2 labelSize = MeasureLabelSize();
-    const float contentWidth = m_Style.Padding.Left + m_Style.IndicatorSize +
-        (label.empty() ? 0.0f : (m_Style.LabelSpacing + labelSize.X)) +
-        m_Style.Padding.Right;
-    const float contentHeight = m_Style.Padding.Top +
-        std::max(m_Style.IndicatorSize, labelSize.Y) +
-        m_Style.Padding.Bottom;
+    const float contentWidth = style.Padding.Left + style.IndicatorSize +
+        (label.empty() ? 0.0f : (style.LabelSpacing + labelSize.X)) +
+        style.Padding.Right;
+    const float contentHeight = style.Padding.Top +
+        std::max(style.IndicatorSize, labelSize.Y) +
+        style.Padding.Bottom;
 
     return FVector2(
-        std::max(contentWidth, m_Style.MinDesiredSize.X),
-        std::max(contentHeight, m_Style.MinDesiredSize.Y)
+        std::max(contentWidth, style.MinDesiredSize.X),
+        std::max(contentHeight, style.MinDesiredSize.Y)
     );
 }
 
@@ -265,12 +270,26 @@ void ImCheckBox::SetHovered(bool bHovered) {
 }
 
 FVector2 ImCheckBox::MeasureLabelSize() const {
-    return MeasureText(ResolveLabel(), m_Style.FontSize);
+    return MeasureText(ResolveLabel(), GetEffectiveStyle().FontSize);
 }
 
 std::string ImCheckBox::ResolveLabel() const
 {
     return m_LabelText.Resolve();
+}
+
+const FCheckBoxStyle& ImCheckBox::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveCheckBoxStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 void ImCheckBox::FromJson(const json& j)

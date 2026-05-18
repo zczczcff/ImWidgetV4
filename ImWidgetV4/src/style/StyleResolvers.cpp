@@ -57,6 +57,91 @@ FButtonStyle ResolveButtonStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FCheckBoxStyle ResolveCheckBoxStyle(const FStyleSet& styleSet)
+{
+    FCheckBoxStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.CheckBox.Background", style.BackgroundColor);
+    style.HoveredBackgroundColor = styleSet.GetColor(
+        "Color.CheckBox.HoveredBackground",
+        style.HoveredBackgroundColor);
+    style.PressedBackgroundColor = styleSet.GetColor(
+        "Color.CheckBox.PressedBackground",
+        style.PressedBackgroundColor);
+    style.CheckedBackgroundColor = styleSet.GetColor(
+        "Color.CheckBox.CheckedBackground",
+        style.CheckedBackgroundColor);
+    style.DisabledBackgroundColor = styleSet.GetColor(
+        "Color.CheckBox.DisabledBackground",
+        style.DisabledBackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.CheckBox.Border", style.BorderColor);
+    style.CheckMarkColor = styleSet.GetColor("Color.CheckBox.CheckMark", style.CheckMarkColor);
+    style.TextColor = styleSet.GetColor("Color.CheckBox.Text", style.TextColor);
+    style.DisabledTextColor = styleSet.GetColor("Color.CheckBox.DisabledText", style.DisabledTextColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.CheckBox.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.IndicatorSize = styleSet.GetFloat("Float.CheckBox.IndicatorSize", style.IndicatorSize);
+    style.IndicatorCornerRadius = styleSet.GetFloat(
+        "Float.CheckBox.IndicatorCornerRadius",
+        style.IndicatorCornerRadius);
+    style.LabelSpacing = styleSet.GetFloat("Float.CheckBox.LabelSpacing", style.LabelSpacing);
+    style.BorderThickness = styleSet.GetFloat("Float.CheckBox.BorderThickness", style.BorderThickness);
+    style.FontSize = styleSet.GetFloat("Float.CheckBox.FontSize", style.FontSize);
+
+    return style;
+}
+
+FComboBoxStyle ResolveComboBoxStyle(const FStyleSet& styleSet)
+{
+    FComboBoxStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.ComboBox.Background", style.BackgroundColor);
+    style.HoveredBackgroundColor = styleSet.GetColor(
+        "Color.ComboBox.HoveredBackground",
+        style.HoveredBackgroundColor);
+    style.PressedBackgroundColor = styleSet.GetColor(
+        "Color.ComboBox.PressedBackground",
+        style.PressedBackgroundColor);
+    style.DisabledBackgroundColor = styleSet.GetColor(
+        "Color.ComboBox.DisabledBackground",
+        style.DisabledBackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.ComboBox.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.ComboBox.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.TextColor = styleSet.GetColor("Color.ComboBox.Text", style.TextColor);
+    style.PlaceholderTextColor = styleSet.GetColor(
+        "Color.ComboBox.PlaceholderText",
+        style.PlaceholderTextColor);
+    style.DisabledTextColor = styleSet.GetColor(
+        "Color.ComboBox.DisabledText",
+        style.DisabledTextColor);
+    style.ArrowColor = styleSet.GetColor("Color.ComboBox.Arrow", style.ArrowColor);
+    style.PopupRowHoveredColor = styleSet.GetColor(
+        "Color.ComboBox.PopupRowHovered",
+        style.PopupRowHoveredColor);
+    style.PopupRowSelectedColor = styleSet.GetColor(
+        "Color.ComboBox.PopupRowSelected",
+        style.PopupRowSelectedColor);
+    style.PopupRowSelectedHoveredColor = styleSet.GetColor(
+        "Color.ComboBox.PopupRowSelectedHovered",
+        style.PopupRowSelectedHoveredColor);
+    style.PopupOutlineColor = styleSet.GetColor(
+        "Color.ComboBox.PopupOutline",
+        style.PopupOutlineColor);
+    style.FontSize = styleSet.GetFloat("Float.ComboBox.FontSize", style.FontSize);
+    style.BorderThickness = styleSet.GetFloat("Float.ComboBox.BorderThickness", style.BorderThickness);
+    style.CornerRadius = styleSet.GetFloat("Float.ComboBox.CornerRadius", style.CornerRadius);
+    style.ArrowSize = styleSet.GetFloat("Float.ComboBox.ArrowSize", style.ArrowSize);
+    style.PopupItemHeight = styleSet.GetFloat("Float.ComboBox.PopupItemHeight", style.PopupItemHeight);
+    style.PopupMaxVisibleItems = styleSet.GetFloat(
+        "Float.ComboBox.PopupMaxVisibleItems",
+        style.PopupMaxVisibleItems);
+
+    return style;
+}
+
 FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet)
 {
     FEditableTextStyle style;
@@ -78,6 +163,42 @@ FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet)
     style.CornerRadius = styleSet.GetFloat("Float.Input.CornerRadius", style.CornerRadius);
     style.BorderThickness = styleSet.GetFloat("Float.Input.BorderThickness", style.BorderThickness);
     style.FontSize = styleSet.GetFloat("Float.Input.FontSize", style.FontSize);
+
+    return style;
+}
+
+FPopupMenuStyle ResolvePopupMenuStyle(const FStyleSet& styleSet)
+{
+    FPopupMenuStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.PopupMenu.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.PopupMenu.Border", style.BorderColor);
+    style.RowHoveredColor = styleSet.GetColor("Color.PopupMenu.RowHovered", style.RowHoveredColor);
+    style.RowPressedColor = styleSet.GetColor("Color.PopupMenu.RowPressed", style.RowPressedColor);
+    style.TextColor = styleSet.GetColor("Color.PopupMenu.Text", style.TextColor);
+    style.DisabledTextColor = styleSet.GetColor(
+        "Color.PopupMenu.DisabledText",
+        style.DisabledTextColor);
+    style.SeparatorColor = styleSet.GetColor("Color.PopupMenu.Separator", style.SeparatorColor);
+    style.SubmenuArrowColor = styleSet.GetColor(
+        "Color.PopupMenu.SubmenuArrow",
+        style.SubmenuArrowColor);
+    style.FontSize = styleSet.GetFloat("Float.PopupMenu.FontSize", style.FontSize);
+    style.RowHeight = styleSet.GetFloat("Float.PopupMenu.RowHeight", style.RowHeight);
+    style.IconSize = styleSet.GetFloat("Float.PopupMenu.IconSize", style.IconSize);
+    style.HorizontalPadding = styleSet.GetFloat(
+        "Float.PopupMenu.HorizontalPadding",
+        style.HorizontalPadding);
+    style.IconTextSpacing = styleSet.GetFloat(
+        "Float.PopupMenu.IconTextSpacing",
+        style.IconTextSpacing);
+    style.SubmenuIndicatorSpacing = styleSet.GetFloat(
+        "Float.PopupMenu.SubmenuIndicatorSpacing",
+        style.SubmenuIndicatorSpacing);
+    style.OuterPaddingX = styleSet.GetFloat("Float.PopupMenu.OuterPaddingX", style.OuterPaddingX);
+    style.OuterPaddingY = styleSet.GetFloat("Float.PopupMenu.OuterPaddingY", style.OuterPaddingY);
+    style.CornerRadius = styleSet.GetFloat("Float.PopupMenu.CornerRadius", style.CornerRadius);
+    style.BorderThickness = styleSet.GetFloat("Float.PopupMenu.BorderThickness", style.BorderThickness);
 
     return style;
 }

@@ -75,7 +75,7 @@ public:
     void Toggle();
 
     void SetStyle(const FCheckBoxStyle& style);
-    const FCheckBoxStyle& GetStyle() const { return m_Style; }
+    const FCheckBoxStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetDisabled(bool bDisabled);
     bool IsDisabled() const { return m_bDisabled; }
@@ -97,18 +97,21 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FCheckBoxStyle& GetEffectiveStyle() const;
     void SetPressed(bool bPressed);
     void SetHovered(bool bHovered);
     FVector2 MeasureLabelSize() const;
     std::string ResolveLabel() const;
 
     FCheckBoxStyle m_Style;
+    mutable FCheckBoxStyle m_ResolvedThemeStyle;
     std::string m_Label;
     FText m_LabelText;
     bool m_bChecked = false;
     bool m_bHovered = false;
     bool m_bPressed = false;
     bool m_bDisabled = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/Window.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -291,6 +292,43 @@ TEST_F(ComboBoxTest, SelectionCallbackCanReplaceOwningWidgetTreeSafely) {
     EXPECT_EQ(callbackCount, 1);
     EXPECT_TRUE(oldCombo.expired());
     EXPECT_TRUE(App->GetWindowManager().GetOpenWindows().size() >= 1);
+}
+
+TEST_F(ComboBoxTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+    const FComboBoxStyle expectedStyle = ResolveComboBoxStyle(App->GetStyleSet());
+
+    const FComboBoxStyle& style = ComboBox->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.PopupOutlineColor.ToImU32(), expectedStyle.PopupOutlineColor.ToImU32());
+}
+
+TEST_F(ComboBoxTest, ExplicitStyleOverridesThemeAndPopupWindowStyle)
+{
+    FComboBoxStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(14, 24, 34);
+    explicitStyle.PopupOutlineColor = FColor::FromBytes(90, 100, 110);
+    ComboBox->SetStyle(explicitStyle);
+
+    EXPECT_EQ(ComboBox->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+
+    AdvanceWithEvents({
+        CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(60.0f, 40.0f)),
+        CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(60.0f, 40.0f))
+    });
+    ASSERT_TRUE(ComboBox->IsPopupOpen());
+
+    for (const auto& window : App->GetWindowManager().GetOpenWindows()) {
+        if (window && window->GetKind() == EWindowKind::Popup) {
+            EXPECT_EQ(window->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+            EXPECT_EQ(window->GetStyle().BorderColor.ToImU32(), explicitStyle.PopupOutlineColor.ToImU32());
+            break;
+        }
+    }
+
+    ComboBox->ClosePopup();
+    EXPECT_FALSE(ComboBox->IsPopupOpen());
 }
 
 int main(int argc, char** argv) {

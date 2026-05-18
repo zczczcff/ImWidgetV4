@@ -44,7 +44,6 @@ ImWindowManager::Ptr ImWindowManager::CreatePopup(const FPopupOptions& options)
 
     Windows_.push_back(window);
     OpenWindowInternal(window);
-    PopupStack_.push_back(window);
     return window;
 }
 

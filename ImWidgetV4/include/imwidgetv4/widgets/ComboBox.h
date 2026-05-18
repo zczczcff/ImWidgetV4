@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/Localization.h>
+#include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/core/Widget.h>
 #include <memory>
 #include <string>
@@ -9,7 +10,6 @@
 
 namespace ImWidgetV4 {
 
-class ImWindow;
 class ImComboPopupList;
 
 struct FComboBoxStyle : public ReflectableObject {
@@ -124,7 +124,7 @@ public:
     int GetMaxVisibleItems() const { return m_MaxVisibleItems; }
 
     void SetStyle(const FComboBoxStyle& style);
-    const FComboBoxStyle& GetStyle() const { return m_Style; }
+    const FComboBoxStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetDisabled(bool bDisabled);
     bool IsDisabled() const { return m_bDisabled; }
@@ -170,6 +170,8 @@ private:
     void MoveHighlight(int direction);
     void CommitHighlightedItem();
     void SetPopupHighlightedIndex(int index);
+    const FComboBoxStyle& GetEffectiveStyle() const;
+    FWindowStyle BuildPopupWindowStyle() const;
     void ClampPopupScrollOffset();
     std::string ResolveItemText(int index) const;
     std::string ResolvePlaceholderText() const;
@@ -179,6 +181,7 @@ private:
     float ResolvePopupContentHeight() const;
 
     FComboBoxStyle m_Style;
+    mutable FComboBoxStyle m_ResolvedThemeStyle;
     std::vector<std::string> m_Items;
     std::vector<FText> m_ItemTexts;
     std::string m_PlaceholderText = "Select an option";
@@ -195,6 +198,7 @@ private:
     bool m_bPressed = false;
     bool m_bDisabled = false;
     bool m_bPopupOpen = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

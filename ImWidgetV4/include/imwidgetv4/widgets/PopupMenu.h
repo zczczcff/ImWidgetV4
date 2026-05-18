@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/Localization.h>
+#include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <functional>
@@ -56,7 +57,7 @@ public:
     const std::vector<FPopupMenuItem>& GetItems() const { return Items_; }
 
     void SetStyle(const FPopupMenuStyle& style);
-    const FPopupMenuStyle& GetStyle() const { return Style_; }
+    const FPopupMenuStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     FItemInvokedEvent OnItemInvoked;
 
@@ -76,6 +77,8 @@ private:
     int ResolveIndexAt(const FVector2& position) const;
     bool HasSubMenuAt(int index) const;
     bool IsInteractiveIndex(int index) const;
+    const FPopupMenuStyle& GetEffectiveStyle() const;
+    FWindowStyle BuildChildPopupWindowStyle() const;
     float MeasureTextWidth(const std::string& text) const;
     std::string ResolveItemText(const FPopupMenuItem& item) const;
     float ResolveSubmenuIndicatorWidth() const;
@@ -88,12 +91,14 @@ private:
 
     std::vector<FPopupMenuItem> Items_;
     FPopupMenuStyle Style_;
+    mutable FPopupMenuStyle ResolvedThemeStyle_;
     int HoveredItemIndex_ = -1;
     int PressedItemIndex_ = -1;
     int ActiveSubMenuIndex_ = -1;
     std::shared_ptr<class ImPopupMenu> ActiveChildMenu_;
     std::shared_ptr<class ImWindow> ActiveChildWindow_;
     std::weak_ptr<class ImPopupMenu> ParentMenu_;
+    bool bHasExplicitStyle_ = false;
 };
 
 } // namespace ImWidgetV4

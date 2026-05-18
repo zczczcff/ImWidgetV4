@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imgui.h>
 #include <memory>
@@ -246,6 +247,34 @@ TEST_F(PopupMenuTest, MovingToNonSubmenuItemClosesExistingChildPopup)
 
     Advance({MouseEvent(EInputEventType::MouseMove, ResolveRowCenter(1))});
     EXPECT_EQ(GetTopmostPopupWindow(), nullptr);
+}
+
+TEST_F(PopupMenuTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App_->SetActiveTheme("Dark"));
+    const FPopupMenuStyle expectedStyle = ResolvePopupMenuStyle(App_->GetStyleSet());
+
+    const FPopupMenuStyle& style = Menu_->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.RowHoveredColor.ToImU32(), expectedStyle.RowHoveredColor.ToImU32());
+}
+
+TEST_F(PopupMenuTest, ExplicitStylePropagatesToChildPopupWindow)
+{
+    FPopupMenuStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(18, 28, 38);
+    explicitStyle.BorderColor = FColor::FromBytes(80, 90, 100);
+    Menu_->SetStyle(explicitStyle);
+
+    std::vector<FPopupMenuItem> subItems;
+    subItems.push_back(FPopupMenuItem {"Child", FImageBrush(), {}, true, false, nullptr});
+    Menu_->SetItems({FPopupMenuItem {"Parent", FImageBrush(), subItems, true, false, nullptr}});
+
+    Advance({MouseEvent(EInputEventType::MouseMove, ResolveRowCenter(0))});
+    const std::shared_ptr<ImWindow> popupWindow = GetTopmostPopupWindow();
+    ASSERT_NE(popupWindow, nullptr);
+    EXPECT_EQ(popupWindow->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(popupWindow->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
 }
 
 int main(int argc, char** argv)

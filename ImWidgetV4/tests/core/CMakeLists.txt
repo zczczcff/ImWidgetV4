@@ -31,3 +31,14 @@ target_link_libraries(named_action_test
 )
 
 add_test(NAME named_action_test COMMAND named_action_test)
+
+add_executable(style_set_test
+    style_set_test.cpp
+)
+
+target_link_libraries(style_set_test
+    imwidgetv4_core
+    gtest_main
+)
+
+add_test(NAME style_set_test COMMAND style_set_test)

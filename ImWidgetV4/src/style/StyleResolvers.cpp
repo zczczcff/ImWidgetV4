@@ -88,6 +88,8 @@ FCheckBoxStyle ResolveCheckBoxStyle(const FStyleSet& styleSet)
     style.LabelSpacing = styleSet.GetFloat("Float.CheckBox.LabelSpacing", style.LabelSpacing);
     style.BorderThickness = styleSet.GetFloat("Float.CheckBox.BorderThickness", style.BorderThickness);
     style.FontSize = styleSet.GetFloat("Float.CheckBox.FontSize", style.FontSize);
+    style.Padding = styleSet.GetMargin("Margin.CheckBox.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.CheckBox.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -119,6 +121,8 @@ FColorPickerStyle ResolveColorPickerStyle(const FStyleSet& styleSet)
     style.BorderThickness = styleSet.GetFloat("Float.ColorPicker.BorderThickness", style.BorderThickness);
     style.CornerRadius = styleSet.GetFloat("Float.ColorPicker.CornerRadius", style.CornerRadius);
     style.SelectorRadius = styleSet.GetFloat("Float.ColorPicker.SelectorRadius", style.SelectorRadius);
+    style.Padding = styleSet.GetMargin("Margin.ColorPicker.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.ColorPicker.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -169,6 +173,8 @@ FComboBoxStyle ResolveComboBoxStyle(const FStyleSet& styleSet)
     style.PopupMaxVisibleItems = styleSet.GetFloat(
         "Float.ComboBox.PopupMaxVisibleItems",
         style.PopupMaxVisibleItems);
+    style.Padding = styleSet.GetMargin("Margin.ComboBox.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.ComboBox.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -238,6 +244,8 @@ FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet)
     style.CornerRadius = styleSet.GetFloat("Float.Input.CornerRadius", style.CornerRadius);
     style.BorderThickness = styleSet.GetFloat("Float.Input.BorderThickness", style.BorderThickness);
     style.FontSize = styleSet.GetFloat("Float.Input.FontSize", style.FontSize);
+    style.Padding = styleSet.GetMargin("Margin.Input.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.Input.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -280,6 +288,15 @@ FExpandableBoxStyle ResolveExpandableBoxStyle(const FStyleSet& styleSet)
     style.CornerRadius = styleSet.GetFloat(
         "Float.ExpandableBox.CornerRadius",
         style.CornerRadius);
+    style.HeaderPadding = styleSet.GetMargin(
+        "Margin.ExpandableBox.HeaderPadding",
+        style.HeaderPadding);
+    style.BodyPadding = styleSet.GetMargin(
+        "Margin.ExpandableBox.BodyPadding",
+        style.BodyPadding);
+    style.MinDesiredSize = styleSet.GetVector2(
+        "Vector2.ExpandableBox.MinDesiredSize",
+        style.MinDesiredSize);
 
     return style;
 }
@@ -325,6 +342,9 @@ FListViewStyle ResolveListViewStyle(const FStyleSet& styleSet)
     style.ScrollbarPadding = styleSet.GetFloat("Float.ListView.ScrollbarPadding", style.ScrollbarPadding);
     style.ThumbMinLength = styleSet.GetFloat("Float.ListView.ThumbMinLength", style.ThumbMinLength);
     style.WheelScrollStep = styleSet.GetFloat("Float.ListView.WheelScrollStep", style.WheelScrollStep);
+    style.Padding = styleSet.GetMargin("Margin.ListView.Padding", style.Padding);
+    style.RowPadding = styleSet.GetMargin("Margin.ListView.RowPadding", style.RowPadding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.ListView.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -365,6 +385,9 @@ FOutlineViewStyle ResolveOutlineViewStyle(const FStyleSet& styleSet)
     style.ScrollbarPadding = styleSet.GetFloat("Float.OutlineView.ScrollbarPadding", style.ScrollbarPadding);
     style.ThumbMinLength = styleSet.GetFloat("Float.OutlineView.ThumbMinLength", style.ThumbMinLength);
     style.WheelScrollStep = styleSet.GetFloat("Float.OutlineView.WheelScrollStep", style.WheelScrollStep);
+    style.Padding = styleSet.GetMargin("Margin.OutlineView.Padding", style.Padding);
+    style.RowPadding = styleSet.GetMargin("Margin.OutlineView.RowPadding", style.RowPadding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.OutlineView.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -430,6 +453,7 @@ FScrollBoxStyle ResolveScrollBoxStyle(const FStyleSet& styleSet)
         style.ScrollbarPadding);
     style.ThumbMinLength = styleSet.GetFloat("Float.ScrollBox.ThumbMinLength", style.ThumbMinLength);
     style.WheelScrollStep = styleSet.GetFloat("Float.ScrollBox.WheelScrollStep", style.WheelScrollStep);
+    style.Padding = styleSet.GetMargin("Margin.ScrollBox.Padding", style.Padding);
 
     return style;
 }
@@ -596,6 +620,8 @@ FTextListStyle ResolveTextListStyle(const FStyleSet& styleSet)
     style.AutoScrollSpeed = styleSet.GetFloat(
         "Float.TextList.AutoScrollSpeed",
         style.AutoScrollSpeed);
+    style.Padding = styleSet.GetMargin("Margin.TextList.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.TextList.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -642,6 +668,11 @@ FTextOutlineViewStyle ResolveTextOutlineViewStyle(const FStyleSet& styleSet)
         style.ScrollbarPadding);
     style.ThumbMinLength = styleSet.GetFloat("Float.TextOutlineView.ThumbMinLength", style.ThumbMinLength);
     style.WheelScrollStep = styleSet.GetFloat("Float.TextOutlineView.WheelScrollStep", style.WheelScrollStep);
+    style.Padding = styleSet.GetMargin("Margin.TextOutlineView.Padding", style.Padding);
+    style.RowPadding = styleSet.GetMargin("Margin.TextOutlineView.RowPadding", style.RowPadding);
+    style.MinDesiredSize = styleSet.GetVector2(
+        "Vector2.TextOutlineView.MinDesiredSize",
+        style.MinDesiredSize);
 
     return style;
 }
@@ -701,6 +732,9 @@ FTabViewStyle ResolveTabViewStyle(const FStyleSet& styleSet)
     style.FontSize = styleSet.GetFloat("Float.TabView.FontSize", style.FontSize);
     style.BorderThickness = styleSet.GetFloat("Float.TabView.BorderThickness", style.BorderThickness);
     style.CornerRadius = styleSet.GetFloat("Float.TabView.CornerRadius", style.CornerRadius);
+    style.Padding = styleSet.GetMargin("Margin.TabView.Padding", style.Padding);
+    style.TabPadding = styleSet.GetMargin("Margin.TabView.TabPadding", style.TabPadding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.TabView.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }
@@ -737,6 +771,8 @@ FTitleBarStyle ResolveTitleBarStyle(const FStyleSet& styleSet)
     style.SystemButtonSpacing = styleSet.GetFloat(
         "Float.TitleBar.SystemButtonSpacing",
         style.SystemButtonSpacing);
+    style.Padding = styleSet.GetMargin("Margin.TitleBar.Padding", style.Padding);
+    style.MinDesiredSize = styleSet.GetVector2("Vector2.TitleBar.MinDesiredSize", style.MinDesiredSize);
 
     return style;
 }

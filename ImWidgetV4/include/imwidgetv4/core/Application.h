@@ -42,6 +42,8 @@ struct FToolTipStyle {
 
 class ImApplication {
 public:
+    using FThemeChangedEvent = TMulticastDelegate<ImApplication&, const std::string&>;
+
     ImApplication();
     virtual ~ImApplication();
 
@@ -56,6 +58,7 @@ public:
     bool SetActiveTheme(const std::string& name);
     const std::string& GetActiveThemeName() const;
     const std::vector<FThemePack>& GetThemePacks() const;
+    const FThemePack* FindThemePack(const std::string& name) const;
     void SetIniSettingsPath(const std::filesystem::path& path);
     const std::filesystem::path& GetIniSettingsPath() const;
     void EnsureDefaultFontConfigured();
@@ -131,6 +134,8 @@ public:
     FImageBrush GetCoreIconBrush(ECoreIcon icon, const FColor& tint = FColor::White) const;
 
     std::uint64_t GetFrameNumber() const { return FrameNumber_; }
+
+    FThemeChangedEvent OnThemeChanged;
 
 private:
     class FInputQueue;
@@ -223,6 +228,7 @@ private:
         int& outHeight) const;
     void PromoteBrushToBackendTexture(FImageBrush& brush);
     static std::vector<std::uint8_t> BuildDefaultImagePlaceholderPixels(int width, int height);
+    void InvalidateAllWindowRoots(EInvalidateReason reason);
 };
 
 } // namespace ImWidgetV4

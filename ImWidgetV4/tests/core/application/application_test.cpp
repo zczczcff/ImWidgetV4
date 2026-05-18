@@ -805,6 +805,34 @@ TEST(ApplicationFileDialogTest, ForwardsOptionsAndReturnsBackendResults)
     EXPECT_EQ(saveFileResult.ErrorMessage, "save failed");
 }
 
+TEST(ApplicationThemeTest, SetActiveThemeBroadcastsAndCanFindRegisteredTheme)
+{
+    ImApplication application;
+
+    int themeChangedCount = 0;
+    std::string lastThemeName;
+    application.OnThemeChanged.AddLambda([&themeChangedCount, &lastThemeName](ImApplication&, const std::string& themeName) {
+        ++themeChangedCount;
+        lastThemeName = themeName;
+    });
+
+    ASSERT_NE(application.FindThemePack("Dark"), nullptr);
+    ASSERT_TRUE(application.SetActiveTheme("Dark"));
+    EXPECT_EQ(application.GetActiveThemeName(), "Dark");
+    EXPECT_EQ(themeChangedCount, 1);
+    EXPECT_EQ(lastThemeName, "Dark");
+    const FThemePack* darkTheme = application.FindThemePack("Dark");
+    ASSERT_NE(darkTheme, nullptr);
+    const FColor activeButtonColor =
+        application.GetStyleSet().GetColor("Color.Button.Normal.Background");
+    const FColor themeButtonColor =
+        darkTheme->StyleSet.GetColor("Color.Button.Normal.Background");
+    EXPECT_FLOAT_EQ(activeButtonColor.R, themeButtonColor.R);
+    EXPECT_FLOAT_EQ(activeButtonColor.G, themeButtonColor.G);
+    EXPECT_FLOAT_EQ(activeButtonColor.B, themeButtonColor.B);
+    EXPECT_FLOAT_EQ(activeButtonColor.A, themeButtonColor.A);
+}
+
 TEST(ApplicationRuntimeTextureTest, RecreatesBackendTexturesAfterBackendResourcesAreLost)
 {
     ImApplication application;

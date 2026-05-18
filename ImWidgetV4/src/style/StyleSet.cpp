@@ -86,10 +86,68 @@ void FStyleSet::RemoveVector2(const std::string& name) {
     Vectors_.erase(name);
 }
 
+void FStyleSet::SetBool(const std::string& name, bool value) {
+    Bools_[name] = value;
+}
+
+bool FStyleSet::GetBool(const std::string& name) const {
+    auto it = Bools_.find(name);
+    if (it != Bools_.end()) {
+        return it->second;
+    }
+    return false;
+}
+
+bool FStyleSet::GetBool(const std::string& name, bool defaultValue) const {
+    auto it = Bools_.find(name);
+    if (it != Bools_.end()) {
+        return it->second;
+    }
+    return defaultValue;
+}
+
+bool FStyleSet::HasBool(const std::string& name) const {
+    return Bools_.find(name) != Bools_.end();
+}
+
+void FStyleSet::RemoveBool(const std::string& name) {
+    Bools_.erase(name);
+}
+
+void FStyleSet::SetMargin(const std::string& name, const FMargin& value) {
+    Margins_[name] = value;
+}
+
+FMargin FStyleSet::GetMargin(const std::string& name) const {
+    auto it = Margins_.find(name);
+    if (it != Margins_.end()) {
+        return it->second;
+    }
+    return FMargin();
+}
+
+FMargin FStyleSet::GetMargin(const std::string& name, const FMargin& defaultValue) const {
+    auto it = Margins_.find(name);
+    if (it != Margins_.end()) {
+        return it->second;
+    }
+    return defaultValue;
+}
+
+bool FStyleSet::HasMargin(const std::string& name) const {
+    return Margins_.find(name) != Margins_.end();
+}
+
+void FStyleSet::RemoveMargin(const std::string& name) {
+    Margins_.erase(name);
+}
+
 void FStyleSet::Clear() {
     Colors_.clear();
     Floats_.clear();
     Vectors_.clear();
+    Bools_.clear();
+    Margins_.clear();
 }
 
 void FStyleSet::Merge(const FStyleSet& other) {
@@ -103,6 +161,14 @@ void FStyleSet::Merge(const FStyleSet& other) {
 
     for (const auto& pair : other.Vectors_) {
         Vectors_[pair.first] = pair.second;
+    }
+
+    for (const auto& pair : other.Bools_) {
+        Bools_[pair.first] = pair.second;
+    }
+
+    for (const auto& pair : other.Margins_) {
+        Margins_[pair.first] = pair.second;
     }
 }
 
@@ -133,6 +199,24 @@ std::vector<std::string> FStyleSet::GetVector2Keys() const {
     return keys;
 }
 
+std::vector<std::string> FStyleSet::GetBoolKeys() const {
+    std::vector<std::string> keys;
+    keys.reserve(Bools_.size());
+    for (const auto& pair : Bools_) {
+        keys.push_back(pair.first);
+    }
+    return keys;
+}
+
+std::vector<std::string> FStyleSet::GetMarginKeys() const {
+    std::vector<std::string> keys;
+    keys.reserve(Margins_.size());
+    for (const auto& pair : Margins_) {
+        keys.push_back(pair.first);
+    }
+    return keys;
+}
+
 namespace {
 
 void PopulateSharedThemeGeometry(FStyleSet& styleSet)
@@ -142,6 +226,8 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Padding", 8.0f);
     styleSet.SetVector2("DefaultSize", FVector2(100.0f, 30.0f));
     styleSet.SetVector2("DefaultPadding", FVector2(8.0f, 8.0f));
+    styleSet.SetMargin("Margin.Input.Padding", FMargin(12.0f));
+    styleSet.SetVector2("Vector2.Input.MinDesiredSize", FVector2(228.0f, 40.0f));
 
     styleSet.SetFloat("Float.Button.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.Button.Pressed.BorderThickness", 2.0f);
@@ -156,6 +242,8 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.CheckBox.LabelSpacing", 10.0f);
     styleSet.SetFloat("Float.CheckBox.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.CheckBox.FontSize", 16.0f);
+    styleSet.SetMargin("Margin.CheckBox.Padding", FMargin(6.0f));
+    styleSet.SetVector2("Vector2.CheckBox.MinDesiredSize", FVector2(148.0f, 32.0f));
 
     styleSet.SetFloat("Float.ComboBox.FontSize", 16.0f);
     styleSet.SetFloat("Float.ComboBox.BorderThickness", 1.0f);
@@ -163,6 +251,8 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ComboBox.ArrowSize", 10.0f);
     styleSet.SetFloat("Float.ComboBox.PopupItemHeight", 30.0f);
     styleSet.SetFloat("Float.ComboBox.PopupMaxVisibleItems", 6.0f);
+    styleSet.SetMargin("Margin.ComboBox.Padding", FMargin(12.0f));
+    styleSet.SetVector2("Vector2.ComboBox.MinDesiredSize", FVector2(180.0f, 38.0f));
 
     styleSet.SetFloat("Float.DesignerSurface.SelectionBorderThickness", 2.0f);
     styleSet.SetFloat("Float.DesignerSurface.TransformHandleSize", 5.0f);
@@ -186,6 +276,7 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ScrollBox.ScrollbarPadding", 2.0f);
     styleSet.SetFloat("Float.ScrollBox.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.ScrollBox.WheelScrollStep", 32.0f);
+    styleSet.SetMargin("Margin.ScrollBox.Padding", FMargin(8.0f));
 
     styleSet.SetFloat("Float.ListView.CornerRadius", 6.0f);
     styleSet.SetFloat("Float.ListView.BorderThickness", 1.0f);
@@ -194,6 +285,9 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ListView.ScrollbarPadding", 2.0f);
     styleSet.SetFloat("Float.ListView.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.ListView.WheelScrollStep", 28.0f);
+    styleSet.SetMargin("Margin.ListView.Padding", FMargin(8.0f));
+    styleSet.SetMargin("Margin.ListView.RowPadding", FMargin(8.0f, 8.0f, 4.0f, 4.0f));
+    styleSet.SetVector2("Vector2.ListView.MinDesiredSize", FVector2(280.0f, 220.0f));
 
     styleSet.SetFloat("Float.TextOutlineView.CornerRadius", 6.0f);
     styleSet.SetFloat("Float.TextOutlineView.BorderThickness", 1.0f);
@@ -208,6 +302,9 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.TextOutlineView.ScrollbarPadding", 2.0f);
     styleSet.SetFloat("Float.TextOutlineView.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.TextOutlineView.WheelScrollStep", 28.0f);
+    styleSet.SetMargin("Margin.TextOutlineView.Padding", FMargin(8.0f));
+    styleSet.SetMargin("Margin.TextOutlineView.RowPadding", FMargin(6.0f, 8.0f, 4.0f, 4.0f));
+    styleSet.SetVector2("Vector2.TextOutlineView.MinDesiredSize", FVector2(240.0f, 220.0f));
 
     styleSet.SetFloat("Float.OutlineView.CornerRadius", 6.0f);
     styleSet.SetFloat("Float.OutlineView.BorderThickness", 1.0f);
@@ -219,6 +316,9 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.OutlineView.ScrollbarPadding", 2.0f);
     styleSet.SetFloat("Float.OutlineView.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.OutlineView.WheelScrollStep", 28.0f);
+    styleSet.SetMargin("Margin.OutlineView.Padding", FMargin(8.0f));
+    styleSet.SetMargin("Margin.OutlineView.RowPadding", FMargin(6.0f, 8.0f, 4.0f, 4.0f));
+    styleSet.SetVector2("Vector2.OutlineView.MinDesiredSize", FVector2(280.0f, 220.0f));
 
     styleSet.SetFloat("Float.HorizontalSplitter.BarWidth", 4.0f);
     styleSet.SetFloat("Float.HorizontalSplitter.Rounding", 0.0f);
@@ -246,11 +346,16 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ColorPicker.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.ColorPicker.CornerRadius", 6.0f);
     styleSet.SetFloat("Float.ColorPicker.SelectorRadius", 6.0f);
+    styleSet.SetMargin("Margin.ColorPicker.Padding", FMargin(8.0f));
+    styleSet.SetVector2("Vector2.ColorPicker.MinDesiredSize", FVector2(220.0f, 176.0f));
 
     styleSet.SetFloat("Float.ExpandableBox.IndicatorSize", 10.0f);
     styleSet.SetFloat("Float.ExpandableBox.IndicatorSpacing", 8.0f);
     styleSet.SetFloat("Float.ExpandableBox.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.ExpandableBox.CornerRadius", 8.0f);
+    styleSet.SetMargin("Margin.ExpandableBox.HeaderPadding", FMargin(12.0f, 12.0f, 8.0f, 8.0f));
+    styleSet.SetMargin("Margin.ExpandableBox.BodyPadding", FMargin(12.0f, 12.0f, 10.0f, 10.0f));
+    styleSet.SetVector2("Vector2.ExpandableBox.MinDesiredSize", FVector2(180.0f, 36.0f));
 
     styleSet.SetFloat("Float.TextList.CornerRadius", 7.0f);
     styleSet.SetFloat("Float.TextList.BorderThickness", 1.0f);
@@ -262,6 +367,8 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.TextList.WheelScrollStep", 32.0f);
     styleSet.SetFloat("Float.TextList.AutoScrollEdgePadding", 24.0f);
     styleSet.SetFloat("Float.TextList.AutoScrollSpeed", 8.0f);
+    styleSet.SetMargin("Margin.TextList.Padding", FMargin(10.0f));
+    styleSet.SetVector2("Vector2.TextList.MinDesiredSize", FVector2(320.0f, 220.0f));
 
     styleSet.SetFloat("Float.TabView.TabSpacing", 4.0f);
     styleSet.SetFloat("Float.TabView.TabMinWidth", 96.0f);
@@ -273,12 +380,17 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.TabView.FontSize", 14.0f);
     styleSet.SetFloat("Float.TabView.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.TabView.CornerRadius", 6.0f);
+    styleSet.SetMargin("Margin.TabView.Padding", FMargin(6.0f));
+    styleSet.SetMargin("Margin.TabView.TabPadding", FMargin(12.0f, 12.0f, 6.0f, 6.0f));
+    styleSet.SetVector2("Vector2.TabView.MinDesiredSize", FVector2(280.0f, 220.0f));
 
     styleSet.SetFloat("Float.TitleBar.Height", 34.0f);
     styleSet.SetFloat("Float.TitleBar.DragRegionMinWidth", 34.0f);
     styleSet.SetFloat("Float.TitleBar.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSize", 34.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSpacing", 0.0f);
+    styleSet.SetMargin("Margin.TitleBar.Padding", FMargin(0.0f));
+    styleSet.SetVector2("Vector2.TitleBar.MinDesiredSize", FVector2(240.0f, 34.0f));
 }
 
 void PopulateDefaultTheme(FStyleSet& styleSet)

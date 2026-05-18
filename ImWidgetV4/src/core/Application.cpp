@@ -658,9 +658,7 @@ void ImApplication::SetStyleSet(const FStyleSet& styleSet)
     StyleSet_.Clear();
     StyleSet_.Merge(styleSet);
     DismissToolTip();
-    if (const std::shared_ptr<ImWidget>& rootWidget = GetRootWidget()) {
-        rootWidget->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
-    }
+    InvalidateAllWindowRoots(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
 const FStyleSet& ImApplication::GetStyleSet() const
@@ -686,9 +684,8 @@ bool ImApplication::SetActiveTheme(const std::string& name)
             StyleSet_.Clear();
             StyleSet_.Merge(pack.StyleSet);
             DismissToolTip();
-            if (const std::shared_ptr<ImWidget>& rootWidget = GetRootWidget()) {
-                rootWidget->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
-            }
+            InvalidateAllWindowRoots(EInvalidateReason::Layout | EInvalidateReason::Paint);
+            OnThemeChanged.Broadcast(*this, ActiveThemeName_);
             return true;
         }
     }
@@ -704,6 +701,17 @@ const std::string& ImApplication::GetActiveThemeName() const
 const std::vector<FThemePack>& ImApplication::GetThemePacks() const
 {
     return ThemePacks_;
+}
+
+const FThemePack* ImApplication::FindThemePack(const std::string& name) const
+{
+    for (const auto& pack : ThemePacks_) {
+        if (pack.Name == name) {
+            return &pack;
+        }
+    }
+
+    return nullptr;
 }
 
 void ImApplication::SetApplicationTitle(const std::string& title)
@@ -2376,6 +2384,15 @@ void ImApplication::PromoteBrushToBackendTexture(FImageBrush& brush)
     }
 
     (void)ResolveTextureForPaint(brush.TextureId);
+}
+
+void ImApplication::InvalidateAllWindowRoots(EInvalidateReason reason)
+{
+    for (const std::shared_ptr<ImWindow>& window : WindowManager_.GetOpenWindows()) {
+        if (window && window->GetRootWidget()) {
+            window->GetRootWidget()->Invalidate(reason);
+        }
+    }
 }
 
 void ImApplication::EnsureDefaultImagePlaceholderInitialized() const

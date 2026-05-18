@@ -39,6 +39,18 @@ public:
     bool HasVector2(const std::string& name) const;
     void RemoveVector2(const std::string& name);
 
+    void SetBool(const std::string& name, bool value);
+    bool GetBool(const std::string& name) const;
+    bool GetBool(const std::string& name, bool defaultValue) const;
+    bool HasBool(const std::string& name) const;
+    void RemoveBool(const std::string& name);
+
+    void SetMargin(const std::string& name, const FMargin& value);
+    FMargin GetMargin(const std::string& name) const;
+    FMargin GetMargin(const std::string& name, const FMargin& defaultValue) const;
+    bool HasMargin(const std::string& name) const;
+    void RemoveMargin(const std::string& name);
+
     // 清空所有样式
     void Clear();
 
@@ -49,11 +61,15 @@ public:
     std::vector<std::string> GetColorKeys() const;
     std::vector<std::string> GetFloatKeys() const;
     std::vector<std::string> GetVector2Keys() const;
+    std::vector<std::string> GetBoolKeys() const;
+    std::vector<std::string> GetMarginKeys() const;
 
 private:
     std::unordered_map<std::string, FColor> Colors_;
     std::unordered_map<std::string, float> Floats_;
     std::unordered_map<std::string, FVector2> Vectors_;
+    std::unordered_map<std::string, bool> Bools_;
+    std::unordered_map<std::string, FMargin> Margins_;
 };
 
 // 主题包

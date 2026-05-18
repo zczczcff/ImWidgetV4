@@ -164,6 +164,11 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ComboBox.PopupItemHeight", 30.0f);
     styleSet.SetFloat("Float.ComboBox.PopupMaxVisibleItems", 6.0f);
 
+    styleSet.SetFloat("Float.DesignerSurface.SelectionBorderThickness", 2.0f);
+    styleSet.SetFloat("Float.DesignerSurface.TransformHandleSize", 5.0f);
+    styleSet.SetFloat("Float.DesignerSurface.TransformHandleBorderThickness", 1.0f);
+    styleSet.SetFloat("Float.DesignerSurface.DropPreviewBorderThickness", 2.0f);
+
     styleSet.SetFloat("Float.PopupMenu.FontSize", 14.0f);
     styleSet.SetFloat("Float.PopupMenu.RowHeight", 28.0f);
     styleSet.SetFloat("Float.PopupMenu.IconSize", 18.0f);
@@ -338,6 +343,15 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.ComboBox.PopupRowSelected", FColor::FromBytes(78, 126, 196));
     styleSet.SetColor("Color.ComboBox.PopupRowSelectedHovered", FColor::FromBytes(96, 149, 221));
     styleSet.SetColor("Color.ComboBox.PopupOutline", FColor::FromBytes(16, 19, 23));
+
+    styleSet.SetColor("Color.DesignerSurface.SelectionBorder", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.DesignerSurface.SelectionFill", FColor::FromBytes(103, 177, 255, 36));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandle", FColor::FromBytes(91, 156, 226));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleHovered", FColor::FromBytes(121, 186, 255));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleActive", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleBorder", FColor::White);
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewBorder", FColor::FromBytes(92, 214, 141));
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewFill", FColor::FromBytes(92, 214, 141, 34));
 
     styleSet.SetColor("Color.PopupMenu.Background", FColor::FromBytes(26, 31, 38));
     styleSet.SetColor("Color.PopupMenu.Border", FColor::FromBytes(63, 73, 89));
@@ -688,6 +702,15 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(255, 255, 255, 46));
     styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
     styleSet.SetColor("Color.TitleBar.CloseButton.Pressed", FColor::FromBytes(188, 46, 66, 240));
+
+    styleSet.SetColor("Color.DesignerSurface.SelectionBorder", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.DesignerSurface.SelectionFill", FColor::FromBytes(103, 177, 255, 32));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandle", FColor::FromBytes(88, 150, 220));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleHovered", FColor::FromBytes(120, 184, 250));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleActive", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleBorder", FColor::White);
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewBorder", FColor::FromBytes(92, 214, 141));
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewFill", FColor::FromBytes(92, 214, 141, 30));
 }
 
 void PopulateLightTheme(FStyleSet& styleSet)
@@ -752,6 +775,15 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.ComboBox.PopupRowSelected", FColor::FromBytes(0, 120, 215));
     styleSet.SetColor("Color.ComboBox.PopupRowSelectedHovered", FColor::FromBytes(32, 138, 226));
     styleSet.SetColor("Color.ComboBox.PopupOutline", FColor::FromBytes(200, 200, 200));
+
+    styleSet.SetColor("Color.DesignerSurface.SelectionBorder", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.DesignerSurface.SelectionFill", FColor::FromBytes(0, 120, 215, 30));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandle", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleHovered", FColor::FromBytes(32, 138, 226));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleActive", FColor::FromBytes(0, 102, 187));
+    styleSet.SetColor("Color.DesignerSurface.TransformHandleBorder", FColor::White);
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewBorder", FColor::FromBytes(40, 168, 96));
+    styleSet.SetColor("Color.DesignerSurface.DropPreviewFill", FColor::FromBytes(40, 168, 96, 28));
 
     styleSet.SetColor("Color.PopupMenu.Background", FColor::White);
     styleSet.SetColor("Color.PopupMenu.Border", FColor::FromBytes(208, 212, 218));

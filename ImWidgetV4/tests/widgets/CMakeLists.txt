@@ -84,6 +84,18 @@ target_link_libraries(canvas_panel_test PRIVATE
 
 add_test(NAME CanvasPanelTest COMMAND canvas_panel_test)
 
+add_executable(designer_surface_test
+    designer_surface_test.cpp
+)
+
+target_link_libraries(designer_surface_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME DesignerSurfaceTest COMMAND designer_surface_test)
+
 add_executable(editable_text_test
     editable_text_test.cpp
 )

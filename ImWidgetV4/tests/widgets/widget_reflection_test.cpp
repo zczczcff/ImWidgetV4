@@ -7,6 +7,7 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
@@ -217,6 +218,11 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     EXPECT_TRUE(colorPickerStyle.HasProperty("ShowAlphaBar", "FColorPickerStyle"));
     EXPECT_TRUE(colorPicker.HasProperty("Color", "ImColorPicker"));
     EXPECT_TRUE(colorPicker.HasProperty("Style", "ImColorPicker"));
+
+    FDesignerSurfaceStyle designerSurfaceStyle;
+    ImDesignerSurface designerSurface;
+    EXPECT_TRUE(designerSurfaceStyle.HasProperty("TransformHandleSize", "FDesignerSurfaceStyle"));
+    EXPECT_TRUE(designerSurface.HasProperty("Style", "ImDesignerSurface"));
 
     FScrollBoxStyle scrollStyle;
     ImScrollBox scrollBox;

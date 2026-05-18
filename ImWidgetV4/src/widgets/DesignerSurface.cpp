@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/DesignerSurface.h>
 
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 
 #include <algorithm>
@@ -62,32 +64,48 @@ void ImDesignerSurface::ClearSelection()
 
 void ImDesignerSurface::SetSelectionBorderColor(const FColor& color)
 {
-    if (m_SelectionBorderColor.ToImU32() == color.ToImU32()) {
+    if (GetSelectionBorderColor().ToImU32() == color.ToImU32()) {
         return;
     }
 
     m_SelectionBorderColor = color;
+    m_bHasExplicitSelectionBorderColor = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImDesignerSurface::SetSelectionFillColor(const FColor& color)
 {
-    if (m_SelectionFillColor.ToImU32() == color.ToImU32()) {
+    if (GetSelectionFillColor().ToImU32() == color.ToImU32()) {
         return;
     }
 
     m_SelectionFillColor = color;
+    m_bHasExplicitSelectionFillColor = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImDesignerSurface::SetSelectionBorderThickness(float thickness)
 {
-    if (m_SelectionBorderThickness == thickness) {
+    if (GetSelectionBorderThickness() == thickness) {
         return;
     }
 
     m_SelectionBorderThickness = thickness;
+    m_bHasExplicitSelectionBorderThickness = true;
     Invalidate(EInvalidateReason::Paint);
+}
+
+void ImDesignerSurface::SetStyle(const FDesignerSurfaceStyle& style)
+{
+    Style_ = style;
+    bHasExplicitStyle_ = true;
+    m_bHasExplicitSelectionBorderColor = false;
+    m_bHasExplicitSelectionFillColor = false;
+    m_bHasExplicitSelectionBorderThickness = false;
+    m_bHasExplicitTransformHandleSize = false;
+    m_bHasExplicitDropPreviewBorderColor = false;
+    m_bHasExplicitDropPreviewFillColor = false;
+    Invalidate(EInvalidateReason::Paint | EInvalidateReason::Layout);
 }
 
 void ImDesignerSurface::Paint(const FPaintContext& paintContext)
@@ -294,7 +312,7 @@ FGeometry ImDesignerSurface::GetTransformHandleGeometry(EDesignerTransformHandle
     }
 
     const FGeometry selectionGeometry = m_SelectedWidget->GetGeometry();
-    const float handleSize = m_TransformHandleSize;
+    const float handleSize = GetEffectiveStyle().TransformHandleSize;
     const float halfHandleSize = handleSize * 0.5f;
     const FVector2 min = selectionGeometry.GetMin();
     const FVector2 max = selectionGeometry.GetMax();
@@ -390,14 +408,14 @@ void ImDesignerSurface::PaintDropPreviewOverlay(const FPaintContext& paintContex
     paintContext.DrawContext_.DrawRectFilled(
         previewGeometry.GetMin(),
         previewGeometry.GetMax(),
-        m_DropPreviewFillColor,
+        GetEffectiveStyle().DropPreviewFillColor,
         0.0f);
     paintContext.DrawContext_.DrawRect(
         previewGeometry.GetMin(),
         previewGeometry.GetMax(),
-        m_DropPreviewBorderColor,
+        GetEffectiveStyle().DropPreviewBorderColor,
         0.0f,
-        2.0f);
+        GetEffectiveStyle().DropPreviewBorderThickness);
 }
 
 void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext) const
@@ -414,14 +432,14 @@ void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext)
     paintContext.DrawContext_.DrawRectFilled(
         selectionGeometry.GetMin(),
         selectionGeometry.GetMax(),
-        m_SelectionFillColor,
+        GetSelectionFillColor(),
         0.0f);
     paintContext.DrawContext_.DrawRect(
         selectionGeometry.GetMin(),
         selectionGeometry.GetMax(),
-        m_SelectionBorderColor,
+        GetSelectionBorderColor(),
         0.0f,
-        m_SelectionBorderThickness);
+        GetSelectionBorderThickness());
 
     std::shared_ptr<ImCanvasPanel> canvas;
     ImCanvasPanelSlot* slot = nullptr;
@@ -449,10 +467,10 @@ void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext)
 
         const FColor handleFillColor =
             m_ActiveTransformHandle == handle
-                ? m_SelectionBorderColor
+                ? GetEffectiveStyle().TransformHandleActiveColor
                 : (m_HoveredTransformHandle == handle
-                       ? m_SelectionBorderColor.Lerp(FColor::White, 0.18f)
-                       : m_SelectionBorderColor.Lerp(FColor::Black, 0.12f));
+                       ? GetEffectiveStyle().TransformHandleHoveredColor
+                       : GetEffectiveStyle().TransformHandleColor);
 
         paintContext.DrawContext_.DrawRectFilled(
             handleGeometry.GetMin(),
@@ -462,9 +480,9 @@ void ImDesignerSurface::PaintSelectionOverlay(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRect(
             handleGeometry.GetMin(),
             handleGeometry.GetMax(),
-            FColor::White,
+            GetEffectiveStyle().TransformHandleBorderColor,
             0.0f,
-            1.0f);
+            GetEffectiveStyle().TransformHandleBorderThickness);
     }
 }
 
@@ -716,6 +734,38 @@ void ImDesignerSurface::CancelTransform()
     m_bTransformChanged = false;
     UpdateCursorForTransformHandle(m_HoveredTransformHandle);
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+const FDesignerSurfaceStyle& ImDesignerSurface::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        ResolvedThemeStyle_ = Style_;
+    } else if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolveDesignerSurfaceStyle(application->GetStyleSet());
+    } else {
+        ResolvedThemeStyle_ = Style_;
+    }
+
+    if (m_bHasExplicitSelectionBorderColor) {
+        ResolvedThemeStyle_.SelectionBorderColor = m_SelectionBorderColor;
+    }
+    if (m_bHasExplicitSelectionFillColor) {
+        ResolvedThemeStyle_.SelectionFillColor = m_SelectionFillColor;
+    }
+    if (m_bHasExplicitSelectionBorderThickness) {
+        ResolvedThemeStyle_.SelectionBorderThickness = m_SelectionBorderThickness;
+    }
+    if (m_bHasExplicitTransformHandleSize) {
+        ResolvedThemeStyle_.TransformHandleSize = m_TransformHandleSize;
+    }
+    if (m_bHasExplicitDropPreviewBorderColor) {
+        ResolvedThemeStyle_.DropPreviewBorderColor = m_DropPreviewBorderColor;
+    }
+    if (m_bHasExplicitDropPreviewFillColor) {
+        ResolvedThemeStyle_.DropPreviewFillColor = m_DropPreviewFillColor;
+    }
+
+    return ResolvedThemeStyle_;
 }
 
 } // namespace ImWidgetV4

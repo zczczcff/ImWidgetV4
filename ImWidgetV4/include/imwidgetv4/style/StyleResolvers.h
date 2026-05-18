@@ -5,6 +5,7 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/ListView.h>
@@ -28,6 +29,7 @@ FButtonStyle ResolveButtonStyle(const FStyleSet& styleSet);
 FCheckBoxStyle ResolveCheckBoxStyle(const FStyleSet& styleSet);
 FColorPickerStyle ResolveColorPickerStyle(const FStyleSet& styleSet);
 FComboBoxStyle ResolveComboBoxStyle(const FStyleSet& styleSet);
+FDesignerSurfaceStyle ResolveDesignerSurfaceStyle(const FStyleSet& styleSet);
 FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet);
 FExpandableBoxStyle ResolveExpandableBoxStyle(const FStyleSet& styleSet);
 FImageStyle ResolveImageStyle(const FStyleSet& styleSet);

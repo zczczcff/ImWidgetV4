@@ -21,8 +21,42 @@ enum class EDesignerTransformHandle : std::uint8_t {
     ResizeBottomRight
 };
 
+struct FDesignerSurfaceStyle : public ReflectableObject {
+    DECLARE_OBJECT_WITH_PARENT(FDesignerSurfaceStyle, ReflectableObject)
+    registrar
+        .RegisterProperty(PropertyType::Color, "SelectionBorderColor", &FDesignerSurfaceStyle::SelectionBorderColor, "Selection outline color")
+        .RegisterProperty(PropertyType::Color, "SelectionFillColor", &FDesignerSurfaceStyle::SelectionFillColor, "Selection fill color")
+        .RegisterProperty(PropertyType::Float, "SelectionBorderThickness", &FDesignerSurfaceStyle::SelectionBorderThickness, "Selection outline thickness")
+        .RegisterProperty(PropertyType::Float, "TransformHandleSize", &FDesignerSurfaceStyle::TransformHandleSize, "Transform handle size")
+        .RegisterProperty(PropertyType::Color, "TransformHandleColor", &FDesignerSurfaceStyle::TransformHandleColor, "Default transform handle fill color")
+        .RegisterProperty(PropertyType::Color, "TransformHandleHoveredColor", &FDesignerSurfaceStyle::TransformHandleHoveredColor, "Hovered transform handle fill color")
+        .RegisterProperty(PropertyType::Color, "TransformHandleActiveColor", &FDesignerSurfaceStyle::TransformHandleActiveColor, "Active transform handle fill color")
+        .RegisterProperty(PropertyType::Color, "TransformHandleBorderColor", &FDesignerSurfaceStyle::TransformHandleBorderColor, "Transform handle border color")
+        .RegisterProperty(PropertyType::Float, "TransformHandleBorderThickness", &FDesignerSurfaceStyle::TransformHandleBorderThickness, "Transform handle border thickness")
+        .RegisterProperty(PropertyType::Color, "DropPreviewBorderColor", &FDesignerSurfaceStyle::DropPreviewBorderColor, "Drop preview outline color")
+        .RegisterProperty(PropertyType::Color, "DropPreviewFillColor", &FDesignerSurfaceStyle::DropPreviewFillColor, "Drop preview fill color")
+        .RegisterProperty(PropertyType::Float, "DropPreviewBorderThickness", &FDesignerSurfaceStyle::DropPreviewBorderThickness, "Drop preview outline thickness");
+    END_DECLARE_OBJECT()
+
+public:
+    FColor SelectionBorderColor = FColor::FromBytes(103, 177, 255);
+    FColor SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
+    float SelectionBorderThickness = 2.0f;
+    float TransformHandleSize = 5.0f;
+    FColor TransformHandleColor = FColor::FromBytes(91, 156, 226);
+    FColor TransformHandleHoveredColor = FColor::FromBytes(121, 186, 255);
+    FColor TransformHandleActiveColor = FColor::FromBytes(103, 177, 255);
+    FColor TransformHandleBorderColor = FColor::White;
+    float TransformHandleBorderThickness = 1.0f;
+    FColor DropPreviewBorderColor = FColor::FromBytes(92, 214, 141);
+    FColor DropPreviewFillColor = FColor::FromBytes(92, 214, 141, 34);
+    float DropPreviewBorderThickness = 2.0f;
+};
+
 class ImDesignerSurface : public ImUserWidget {
     DECLARE_OBJECT_WITH_PARENT(ImDesignerSurface, ImUserWidget)
+    registrar
+        .RegisterProperty(PropertyType::Struct, "Style", &ImDesignerSurface::Style_, "Designer surface style");
     END_DECLARE_OBJECT()
 
 public:
@@ -61,13 +95,15 @@ public:
     void ClearSelection();
 
     void SetSelectionBorderColor(const FColor& color);
-    const FColor& GetSelectionBorderColor() const { return m_SelectionBorderColor; }
+    const FColor& GetSelectionBorderColor() const { return GetEffectiveStyle().SelectionBorderColor; }
 
     void SetSelectionFillColor(const FColor& color);
-    const FColor& GetSelectionFillColor() const { return m_SelectionFillColor; }
+    const FColor& GetSelectionFillColor() const { return GetEffectiveStyle().SelectionFillColor; }
 
     void SetSelectionBorderThickness(float thickness);
-    float GetSelectionBorderThickness() const { return m_SelectionBorderThickness; }
+    float GetSelectionBorderThickness() const { return GetEffectiveStyle().SelectionBorderThickness; }
+    void SetStyle(const FDesignerSurfaceStyle& style);
+    const FDesignerSurfaceStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     FSelectionChangedEvent OnSelectionChanged;
     FDeleteRequestedEvent OnDeleteRequested;
@@ -97,8 +133,11 @@ private:
     bool UpdateTransform(const FVector2& mousePosition);
     void EndTransform();
     void CancelTransform();
+    const FDesignerSurfaceStyle& GetEffectiveStyle() const;
 
     std::shared_ptr<ImWidget> m_SelectedWidget;
+    FDesignerSurfaceStyle Style_;
+    mutable FDesignerSurfaceStyle ResolvedThemeStyle_;
     FColor m_SelectionBorderColor = FColor::FromBytes(103, 177, 255);
     FColor m_SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
     float m_SelectionBorderThickness = 2.0f;
@@ -107,6 +146,13 @@ private:
     bool m_bDropPreviewAccepted = false;
     FColor m_DropPreviewBorderColor = FColor::FromBytes(92, 214, 141);
     FColor m_DropPreviewFillColor = FColor::FromBytes(92, 214, 141, 34);
+    bool bHasExplicitStyle_ = false;
+    bool m_bHasExplicitSelectionBorderColor = false;
+    bool m_bHasExplicitSelectionFillColor = false;
+    bool m_bHasExplicitSelectionBorderThickness = false;
+    bool m_bHasExplicitTransformHandleSize = false;
+    bool m_bHasExplicitDropPreviewBorderColor = false;
+    bool m_bHasExplicitDropPreviewFillColor = false;
     EDesignerTransformHandle m_HoveredTransformHandle = EDesignerTransformHandle::None;
     EDesignerTransformHandle m_ActiveTransformHandle = EDesignerTransformHandle::None;
     bool m_bTransformChanged = false;

@@ -35,6 +35,21 @@ bool TryReadColor(const nlohmann::ordered_json& value, FColor& outColor)
     }
 
     if (value.is_object()) {
+        if (value.contains("Bytes") || value.contains("bytes")) {
+            const nlohmann::ordered_json& bytes = value.contains("Bytes")
+                ? value.at("Bytes")
+                : value.at("bytes");
+            if (bytes.is_array() && (bytes.size() == 3 || bytes.size() == 4)) {
+                outColor = FColor::FromBytes(
+                    bytes.at(0).get<int>(),
+                    bytes.at(1).get<int>(),
+                    bytes.at(2).get<int>(),
+                    bytes.size() == 4 ? bytes.at(3).get<int>() : 255);
+                return true;
+            }
+            return false;
+        }
+
         outColor = FColor(
             value.value("R", value.value("r", 0.0f)),
             value.value("G", value.value("g", 0.0f)),

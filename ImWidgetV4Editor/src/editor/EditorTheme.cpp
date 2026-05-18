@@ -25,78 +25,77 @@ FColor GetEditorColorToken(const char* token, const FColor& fallback)
         : fallback;
 }
 
-void PopulateEditorThemeTokens(FStyleSet& styleSet, bool bLight, bool bBlueGreenAccent)
+constexpr const char* GEditorBlueGreenThemeJson = R"json(
 {
-    const FColor accent = bBlueGreenAccent
-        ? (bLight ? FColor::FromBytes(0, 132, 126) : FColor::FromBytes(64, 196, 181))
-        : (bLight ? FColor::FromBytes(0, 120, 215) : FColor::FromBytes(103, 177, 255));
-    const FColor surface = bLight
-        ? (bBlueGreenAccent ? FColor::FromBytes(246, 249, 249) : FColor::FromBytes(248, 249, 251))
-        : (bBlueGreenAccent ? FColor::FromBytes(16, 27, 29) : FColor::FromBytes(18, 23, 29));
-    const FColor surfaceAlt = bLight
-        ? (bBlueGreenAccent ? FColor::FromBytes(236, 242, 242) : FColor::FromBytes(238, 240, 244))
-        : (bBlueGreenAccent ? FColor::FromBytes(24, 42, 44) : FColor::FromBytes(30, 36, 44));
-    const FColor tabStrip = bLight
-        ? (bBlueGreenAccent ? FColor::FromBytes(226, 235, 235) : FColor::FromBytes(232, 235, 240))
-        : (bBlueGreenAccent ? FColor::FromBytes(20, 36, 38) : FColor::FromBytes(24, 29, 36));
+  "Name": "Editor Blue Green",
+  "BaseTheme": "Dark",
+  "StyleSet": {
+    "Colors": {
+      "Color.Editor.Surface.Background": {"Bytes": [16, 27, 29]},
+      "Color.Editor.Surface.AltBackground": {"Bytes": [24, 42, 44]},
+      "Color.Editor.Surface.TabStrip": {"Bytes": [20, 36, 38]},
+      "Color.Editor.Accent": {"Bytes": [64, 196, 181]},
+      "Color.Editor.SelectionFill": {"Bytes": [72, 104, 146, 148]},
+      "Color.Editor.Panel.Title": {"Bytes": [238, 242, 247]},
+      "Color.Editor.Panel.Body": {"Bytes": [164, 174, 188]},
+      "Color.Editor.TitleBar.Text": {"Bytes": [232, 238, 246]},
+      "Color.Editor.TitleBar.MutedText": {"Bytes": [150, 160, 172]},
+      "Color.Editor.TitleBar.DisabledText": {"Bytes": [132, 140, 150]},
+      "Color.Editor.Danger": {"Bytes": [239, 103, 103]},
+      "Color.Editor.Success": {"Bytes": [125, 204, 138]},
+      "Color.Editor.Warning": {"Bytes": [230, 184, 104]},
+      "Color.Editor.Inspector.Label": {"Bytes": [224, 230, 237]},
+      "Color.Editor.Inspector.CompactLabel": {"Bytes": [158, 168, 180]},
+      "Color.Editor.TitleBar.Icon": {"Bytes": [235, 242, 250]},
+      "Color.Editor.Tree.Icon": {"Bytes": [214, 222, 234]}
+    }
+  }
+}
+)json";
 
-    styleSet.SetColor("Color.Editor.Surface.Background", surface);
-    styleSet.SetColor("Color.Editor.Surface.AltBackground", surfaceAlt);
-    styleSet.SetColor("Color.Editor.Surface.TabStrip", tabStrip);
-    styleSet.SetColor("Color.Editor.Accent", accent);
-    styleSet.SetColor(
-        "Color.Editor.SelectionFill",
-        bLight ? FColor::FromBytes(162, 205, 255, 200) : FColor::FromBytes(72, 104, 146, 148));
-    styleSet.SetColor(
-        "Color.Editor.Panel.Title",
-        bLight ? FColor::FromBytes(36, 36, 36) : FColor::FromBytes(238, 242, 247));
-    styleSet.SetColor(
-        "Color.Editor.Panel.Body",
-        bLight ? FColor::FromBytes(108, 116, 126) : FColor::FromBytes(164, 174, 188));
-    styleSet.SetColor(
-        "Color.Editor.TitleBar.Text",
-        bLight ? FColor::FromBytes(48, 52, 58) : FColor::FromBytes(232, 238, 246));
-    styleSet.SetColor(
-        "Color.Editor.TitleBar.MutedText",
-        bLight ? FColor::FromBytes(118, 126, 136) : FColor::FromBytes(150, 160, 172));
-    styleSet.SetColor(
-        "Color.Editor.TitleBar.DisabledText",
-        bLight ? FColor::FromBytes(154, 160, 170) : FColor::FromBytes(132, 140, 150));
-    styleSet.SetColor("Color.Editor.Danger", bLight ? FColor::FromBytes(212, 58, 76) : FColor::FromBytes(239, 103, 103));
-    styleSet.SetColor("Color.Editor.Success", bLight ? FColor::FromBytes(40, 168, 96) : FColor::FromBytes(125, 204, 138));
-    styleSet.SetColor("Color.Editor.Warning", bLight ? FColor::FromBytes(212, 132, 24) : FColor::FromBytes(230, 184, 104));
-    styleSet.SetColor(
-        "Color.Editor.Inspector.Label",
-        bLight ? FColor::FromBytes(58, 64, 72) : FColor::FromBytes(224, 230, 237));
-    styleSet.SetColor(
-        "Color.Editor.Inspector.CompactLabel",
-        bLight ? FColor::FromBytes(120, 126, 136) : FColor::FromBytes(158, 168, 180));
-    styleSet.SetColor(
-        "Color.Editor.TitleBar.Icon",
-        bLight ? FColor::FromBytes(60, 66, 74) : FColor::FromBytes(235, 242, 250));
-    styleSet.SetColor(
-        "Color.Editor.Tree.Icon",
-        bLight ? FColor::FromBytes(96, 104, 114) : FColor::FromBytes(214, 222, 234));
+constexpr const char* GEditorLightGrayThemeJson = R"json(
+{
+  "Name": "Editor Light Gray",
+  "BaseTheme": "Light",
+  "StyleSet": {
+    "Colors": {
+      "Color.Editor.Surface.Background": {"Bytes": [248, 249, 251]},
+      "Color.Editor.Surface.AltBackground": {"Bytes": [238, 240, 244]},
+      "Color.Editor.Surface.TabStrip": {"Bytes": [232, 235, 240]},
+      "Color.Editor.Accent": {"Bytes": [0, 120, 215]},
+      "Color.Editor.SelectionFill": {"Bytes": [162, 205, 255, 200]},
+      "Color.Editor.Panel.Title": {"Bytes": [36, 36, 36]},
+      "Color.Editor.Panel.Body": {"Bytes": [108, 116, 126]},
+      "Color.Editor.TitleBar.Text": {"Bytes": [48, 52, 58]},
+      "Color.Editor.TitleBar.MutedText": {"Bytes": [118, 126, 136]},
+      "Color.Editor.TitleBar.DisabledText": {"Bytes": [154, 160, 170]},
+      "Color.Editor.Danger": {"Bytes": [212, 58, 76]},
+      "Color.Editor.Success": {"Bytes": [40, 168, 96]},
+      "Color.Editor.Warning": {"Bytes": [212, 132, 24]},
+      "Color.Editor.Inspector.Label": {"Bytes": [58, 64, 72]},
+      "Color.Editor.Inspector.CompactLabel": {"Bytes": [120, 126, 136]},
+      "Color.Editor.TitleBar.Icon": {"Bytes": [60, 66, 74]},
+      "Color.Editor.Tree.Icon": {"Bytes": [96, 104, 114]}
+    }
+  }
+}
+)json";
+
+void RegisterEditorThemePackFromJson(ImApplication& application, const char* themeJson)
+{
+    std::string error;
+    FThemePack themePack = FStyleSetFactory::CreateThemePackFromJsonString(themeJson, &error);
+    if (!themePack.Name.empty()) {
+        application.RegisterThemePack(std::move(themePack));
+    }
 }
 
 } // namespace
 
 void RegisterEditorThemePacks(ImApplication& application)
 {
-    auto createThemePack = [](const std::string& name, bool bLight, bool bBlueGreenAccent) {
-        FThemePack themePack(name);
-        auto baseStyleSet = bLight
-            ? FStyleSetFactory::CreateLightTheme()
-            : FStyleSetFactory::CreateDarkTheme();
-        if (baseStyleSet) {
-            themePack.StyleSet.Merge(*baseStyleSet);
-        }
-        PopulateEditorThemeTokens(themePack.StyleSet, bLight, bBlueGreenAccent);
-        return themePack;
-    };
-
-    application.RegisterThemePack(createThemePack("Editor Blue Green", false, true));
-    application.RegisterThemePack(createThemePack("Editor Light Gray", true, false));
+    RegisterEditorThemePackFromJson(application, GEditorBlueGreenThemeJson);
+    RegisterEditorThemePackFromJson(application, GEditorLightGrayThemeJson);
 }
 
 void SetEditorActiveThemeName(const std::string& themeName)

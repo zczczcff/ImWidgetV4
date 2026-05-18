@@ -104,7 +104,7 @@ TEST(StyleSetTest, CreatesThemePackFromJsonStringWithBaseTheme)
   "BaseTheme": "Light",
   "StyleSet": {
     "Colors": {
-      "Color.Editor.Accent": [0.0, 0.5, 0.25, 1.0]
+      "Color.Editor.Accent": {"Bytes": [0, 128, 64, 255]}
     },
     "Floats": {
       "Float.Button.CornerRadius": 3.0
@@ -123,8 +123,8 @@ TEST(StyleSetTest, CreatesThemePackFromJsonStringWithBaseTheme)
 
     const FColor accent = themePack.StyleSet.GetColor("Color.Editor.Accent");
     EXPECT_FLOAT_EQ(accent.R, 0.0f);
-    EXPECT_FLOAT_EQ(accent.G, 0.5f);
-    EXPECT_FLOAT_EQ(accent.B, 0.25f);
+    EXPECT_FLOAT_EQ(accent.G, 128.0f / 255.0f);
+    EXPECT_FLOAT_EQ(accent.B, 64.0f / 255.0f);
     EXPECT_FLOAT_EQ(accent.A, 1.0f);
 }
 

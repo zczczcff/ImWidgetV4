@@ -66,36 +66,36 @@ void WidgetPaletteItemButton::Paint(const FPaintContext& paintContext)
 
 void WidgetPaletteItemButton::EnsureVisualContent()
 {
-    if (m_bVisualContentInitialized) {
-        if (m_IconImage != nullptr && GetApplication() != nullptr) {
-            m_IconImage->SetBrush(GetApplication()->GetCoreIconBrush(m_Entry.Icon, FColor::Black));
-            m_IconImage->SetBrush(GetApplication()->GetCoreIconBrush(m_Entry.Icon, GetEditorPanelTitleColor()));
-        }
-        return;
+    if (!m_bVisualContentInitialized) {
+        auto row = std::make_shared<ImHorizontalBox>();
+        row->SetSpacing(8.0f);
+        row->SetHitTestVisible(false);
+
+        m_IconImage = std::make_shared<ImImage>();
+        m_IconImage->SetDesiredSize(FVector2(32.0f, 32.0f));
+        m_IconImage->SetBackgroundColor(FColor::Transparent);
+        m_IconImage->SetCornerRadius(0.0f);
+        m_IconImage->SetHitTestVisible(false);
+        row->AddChild(m_IconImage);
+
+        m_LabelText = std::make_shared<ImTextBlock>();
+        m_LabelText->SetText(m_Entry.LabelText);
+        m_LabelText->SetFontSize(14.0f);
+        m_LabelText->SetWrapText(false);
+        m_LabelText->SetHitTestVisible(false);
+        row->AddChild(m_LabelText);
+
+        SetContent(row);
+        m_bVisualContentInitialized = true;
     }
 
-    auto row = std::make_shared<ImHorizontalBox>();
-    row->SetSpacing(8.0f);
-    row->SetHitTestVisible(false);
-
-    m_IconImage = std::make_shared<ImImage>();
-    m_IconImage->SetDesiredSize(FVector2(32.0f, 32.0f));
-    m_IconImage->SetBackgroundColor(FColor::Transparent);
-    m_IconImage->SetCornerRadius(0.0f);
-    m_IconImage->SetHitTestVisible(false);
-    row->AddChild(m_IconImage);
-
-    m_LabelText = std::make_shared<ImTextBlock>();
-    m_LabelText->SetText(m_Entry.LabelText);
-    m_LabelText->SetFontSize(14.0f);
-    m_LabelText->SetWrapText(false);
-    m_LabelText->SetTextColor(GetEditorPanelTitleColor());
-    m_LabelText->SetHitTestVisible(false);
-    row->AddChild(m_LabelText);
-
-    SetContent(row);
-    m_bVisualContentInitialized = true;
-    EnsureVisualContent();
+    SetStyle(MakeEditorPaletteItemButtonStyle(GetStyle()));
+    if (m_LabelText != nullptr) {
+        m_LabelText->SetTextColor(GetEditorPanelTitleColor());
+    }
+    if (m_IconImage != nullptr && GetApplication() != nullptr) {
+        m_IconImage->SetBrush(GetApplication()->GetCoreIconBrush(m_Entry.Icon, GetEditorPanelTitleColor()));
+    }
 }
 
 FReply WidgetPaletteItemButton::OnInputEvent(const FInputEvent& event)

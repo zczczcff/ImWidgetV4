@@ -18,6 +18,9 @@
 
 namespace ImWidgetV4Editor {
 
+void SetEditorActiveThemeName(const std::string& themeName);
+const std::string& GetEditorActiveThemeName();
+
 ImWidgetV4::FColor GetEditorSurfaceBackgroundColor();
 ImWidgetV4::FColor GetEditorSurfaceAltBackgroundColor();
 ImWidgetV4::FColor GetEditorSurfaceTabStripColor();

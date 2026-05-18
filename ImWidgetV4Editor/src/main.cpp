@@ -103,6 +103,10 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImWidget> Root;
     std::shared_ptr<ImTitleBar> TitleBar;
     std::shared_ptr<EditorShellHost> ShellHost;
+    std::shared_ptr<ImVerticalSplitter> VerticalShell;
+    std::shared_ptr<ImHorizontalSplitter> TopWorkspace;
+    std::shared_ptr<ImTabView> LeftDockTabs;
+    std::shared_ptr<ImScrollBox> ControlPaletteHost;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImTextOutlineView> ProjectView;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
@@ -785,6 +789,10 @@ FEditorShellWidgets BuildEditorShell()
     shell.Root = rootLayout;
     shell.TitleBar = titleBar;
     shell.ShellHost = shellHost;
+    shell.VerticalShell = verticalShell;
+    shell.TopWorkspace = topWorkspace;
+    shell.LeftDockTabs = leftDock;
+    shell.ControlPaletteHost = std::dynamic_pointer_cast<ImScrollBox>(leftDock->GetTab(0)->Content);
     shell.DocumentTabs = documentTabs;
     shell.ProjectView = projectView;
     shell.WidgetTreeView = widgetTreeView;
@@ -1211,6 +1219,101 @@ void RefreshLocalizedEditorShell(
     FEditorShellWidgets& shell,
     const std::shared_ptr<EditorWorkspaceController>& workspaceController);
 
+void UpdateEditorTitleBarActions(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController);
+
+void ApplyEditorThemeToShell(
+    ImApplication& app,
+    FEditorShellWidgets& shell,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    SetEditorActiveThemeName(app.GetActiveThemeName());
+
+    if (shell.TitleBar) {
+        shell.TitleBar->SetStyle(MakeEditorTitleBarStyle(shell.TitleBar->GetStyle()));
+    }
+    if (shell.TitleBarText) {
+        shell.TitleBarText->SetTextColor(GetEditorTitleBarTextColor());
+    }
+    if (shell.TitleBarProfileStatusText) {
+        shell.TitleBarProfileStatusText->SetTextColor(GetEditorTitleBarMutedTextColor());
+    }
+    if (shell.UndoButton) {
+        shell.UndoButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
+    if (shell.RedoButton) {
+        shell.RedoButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
+    if (shell.VerticalShell) {
+        shell.VerticalShell->SetSplitterStyle(MakeEditorVerticalSplitterStyle(shell.VerticalShell->GetSplitterStyle()));
+    }
+    if (shell.TopWorkspace) {
+        shell.TopWorkspace->SetSplitterStyle(MakeEditorHorizontalSplitterStyle(shell.TopWorkspace->GetSplitterStyle()));
+    }
+    if (shell.LeftDockTabs) {
+        shell.LeftDockTabs->SetStyle(MakeEditorDockTabStyle(shell.LeftDockTabs->GetStyle()));
+    }
+    if (shell.ControlPaletteHost) {
+        shell.ControlPaletteHost->SetStyle(MakeEditorHostScrollStyle(shell.ControlPaletteHost->GetStyle(), FMargin(6.0f)));
+    }
+    if (shell.DocumentTabs) {
+        FTabViewStyle tabStyle = MakeEditorWorkspaceTabStyle(shell.DocumentTabs->GetStyle());
+        tabStyle.TabHeight = 36.0f;
+        tabStyle.TabMinWidth = 150.0f;
+        shell.DocumentTabs->SetStyle(tabStyle);
+    }
+    if (shell.ProjectView) {
+        shell.ProjectView->SetStyle(MakeEditorDockOutlineStyle(shell.ProjectView->GetStyle()));
+    }
+    if (shell.WidgetTreeView) {
+        shell.WidgetTreeView->SetStyle(MakeEditorDockOutlineStyle(shell.WidgetTreeView->GetStyle()));
+    }
+    if (shell.BuildOverviewText) {
+        shell.BuildOverviewText->SetStyle(
+            MakeEditorCodeTextListStyle(
+                shell.BuildOverviewText->GetStyle(),
+                FMargin(14.0f),
+                FVector2(0.0f, 120.0f)));
+    }
+    if (shell.OutputText) {
+        shell.OutputText->SetStyle(
+            MakeEditorCodeTextListStyle(
+                shell.OutputText->GetStyle(),
+                FMargin(14.0f),
+                FVector2(0.0f, 120.0f)));
+    }
+
+    using namespace ImWidgetV4Editor::PropertyEditorWidgets;
+    if (shell.BuildProfileComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildProfileComboBox);
+    }
+    if (shell.BuildWindowsGeneratorComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildWindowsGeneratorComboBox);
+    }
+    if (shell.BuildAndroidAbiComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildAndroidAbiComboBox);
+    }
+    if (shell.BuildAndroidApiComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildAndroidApiComboBox);
+    }
+    if (shell.BuildAndroidStlComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildAndroidStlComboBox);
+    }
+    if (shell.BuildAndroidSdkRootEditor) {
+        ApplyInspectorEditableTextStyle(*shell.BuildAndroidSdkRootEditor, shell.BuildAndroidSdkRootEditor->IsDisabled());
+    }
+    if (shell.BuildAndroidNdkRootEditor) {
+        ApplyInspectorEditableTextStyle(*shell.BuildAndroidNdkRootEditor, shell.BuildAndroidNdkRootEditor->IsDisabled());
+    }
+    if (shell.DetailsView) {
+        shell.DetailsView->RebuildPreservingViewState();
+    }
+
+    UpdateEditorTitleBarActions(app, shell, workspaceController);
+}
+
 void RebuildEditorTitleBar(
     ImApplication& app,
     FEditorShellWidgets& shell,
@@ -1626,6 +1729,7 @@ void RefreshLocalizedEditorShell(
     FEditorShellWidgets& shell,
     const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
+    ApplyEditorThemeToShell(app, shell, workspaceController);
     app.SetApplicationTitle(EditorText("App.Title", "ImWidgetV4 Editor").Resolve());
     RebuildEditorTitleBar(app, shell, workspaceController);
     UpdateEditorTitleBarActions(app, shell, workspaceController);
@@ -1658,6 +1762,7 @@ public:
     void ConfigureApplication(ImApplication& app) override
     {
         BoundApplication_ = &app;
+        SetEditorActiveThemeName(app.GetActiveThemeName());
         RegisterEditorDefaultStringTables();
         const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
         std::error_code currentPathError;

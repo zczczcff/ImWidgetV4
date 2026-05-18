@@ -4,84 +4,137 @@ namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
 
+namespace {
+
+std::string GEditorActiveThemeName = "Default";
+
+bool IsLightEditorTheme()
+{
+    return GEditorActiveThemeName == "Light";
+}
+
+} // namespace
+
+void SetEditorActiveThemeName(const std::string& themeName)
+{
+    GEditorActiveThemeName = themeName.empty() ? "Default" : themeName;
+}
+
+const std::string& GetEditorActiveThemeName()
+{
+    return GEditorActiveThemeName;
+}
+
 FColor GetEditorSurfaceBackgroundColor()
 {
-    return FColor::FromBytes(18, 23, 29);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(248, 249, 251)
+        : FColor::FromBytes(18, 23, 29);
 }
 
 FColor GetEditorSurfaceAltBackgroundColor()
 {
-    return FColor::FromBytes(30, 36, 44);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(238, 240, 244)
+        : FColor::FromBytes(30, 36, 44);
 }
 
 FColor GetEditorSurfaceTabStripColor()
 {
-    return FColor::FromBytes(24, 29, 36);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(232, 235, 240)
+        : FColor::FromBytes(24, 29, 36);
 }
 
 FColor GetEditorAccentColor()
 {
-    return FColor::FromBytes(103, 177, 255);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(0, 120, 215)
+        : FColor::FromBytes(103, 177, 255);
 }
 
 FColor GetEditorSelectionFillColor()
 {
-    return FColor::FromBytes(72, 104, 146, 148);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(162, 205, 255, 200)
+        : FColor::FromBytes(72, 104, 146, 148);
 }
 
 FColor GetEditorPanelTitleColor()
 {
-    return FColor::FromBytes(238, 242, 247);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(36, 36, 36)
+        : FColor::FromBytes(238, 242, 247);
 }
 
 FColor GetEditorPanelBodyColor()
 {
-    return FColor::FromBytes(164, 174, 188);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(108, 116, 126)
+        : FColor::FromBytes(164, 174, 188);
 }
 
 FColor GetEditorTitleBarTextColor()
 {
-    return FColor::FromBytes(232, 238, 246);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(48, 52, 58)
+        : FColor::FromBytes(232, 238, 246);
 }
 
 FColor GetEditorTitleBarMutedTextColor()
 {
-    return FColor::FromBytes(150, 160, 172);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(118, 126, 136)
+        : FColor::FromBytes(150, 160, 172);
 }
 
 FColor GetEditorTitleBarDisabledTextColor()
 {
-    return FColor::FromBytes(132, 140, 150);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(154, 160, 170)
+        : FColor::FromBytes(132, 140, 150);
 }
 
 FColor GetEditorDangerColor()
 {
-    return FColor::FromBytes(239, 103, 103);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(212, 58, 76)
+        : FColor::FromBytes(239, 103, 103);
 }
 
 FColor GetEditorSuccessColor()
 {
-    return FColor::FromBytes(125, 204, 138);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(40, 168, 96)
+        : FColor::FromBytes(125, 204, 138);
 }
 
 FColor GetEditorWarningColor()
 {
-    return FColor::FromBytes(230, 184, 104);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(212, 132, 24)
+        : FColor::FromBytes(230, 184, 104);
 }
 
 FColor GetEditorInspectorLabelColor()
 {
-    return FColor::FromBytes(224, 230, 237);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(58, 64, 72)
+        : FColor::FromBytes(224, 230, 237);
 }
 
 FColor GetEditorInspectorCompactLabelColor()
 {
-    return FColor::FromBytes(158, 168, 180);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(120, 126, 136)
+        : FColor::FromBytes(158, 168, 180);
 }
 
 FColor GetEditorTitleBarIconColor()
 {
-    return FColor::FromBytes(235, 242, 250);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(60, 66, 74)
+        : FColor::FromBytes(235, 242, 250);
 }
 
 FColor GetEditorTitleBarIconDisabledColor()
@@ -91,7 +144,9 @@ FColor GetEditorTitleBarIconDisabledColor()
 
 FColor GetEditorTreeIconColor()
 {
-    return FColor::FromBytes(214, 222, 234);
+    return IsLightEditorTheme()
+        ? FColor::FromBytes(96, 104, 114)
+        : FColor::FromBytes(214, 222, 234);
 }
 
 FButtonStyle MakeEditorTitleBarButtonStyle(bool bHighlighted)
@@ -99,10 +154,24 @@ FButtonStyle MakeEditorTitleBarButtonStyle(bool bHighlighted)
     FButtonStyle style = FButtonStyle::CreatePrimary();
     const FColor textColor = GetEditorTitleBarTextColor();
     const FColor transparent = FColor::Transparent;
-    const FColor baseColor = bHighlighted ? FColor::FromBytes(72, 104, 146, 116) : transparent;
+    const FColor baseColor = bHighlighted
+        ? (IsLightEditorTheme() ? FColor::FromBytes(0, 120, 215, 34) : FColor::FromBytes(72, 104, 146, 116))
+        : transparent;
     style.Normal = FButtonStateStyle(baseColor, transparent, textColor, 0.0f, 0.0f, false);
-    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), transparent, textColor, 0.0f, 0.0f, false);
-    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), transparent, textColor, 0.0f, 0.0f, false);
+    style.Hovered = FButtonStateStyle(
+        IsLightEditorTheme() ? FColor::FromBytes(0, 0, 0, 14) : FColor::FromBytes(255, 255, 255, 24),
+        transparent,
+        textColor,
+        0.0f,
+        0.0f,
+        false);
+    style.Pressed = FButtonStateStyle(
+        IsLightEditorTheme() ? FColor::FromBytes(0, 0, 0, 24) : FColor::FromBytes(255, 255, 255, 38),
+        transparent,
+        textColor,
+        0.0f,
+        0.0f,
+        false);
     style.Focused = style.Hovered;
     style.Disabled = FButtonStateStyle(transparent, transparent, GetEditorTitleBarDisabledTextColor(), 0.0f, 0.0f, false);
     return style;
@@ -113,6 +182,15 @@ FButtonStyle MakeEditorDialogButtonStyle(bool bPrimary, const FButtonStyle& base
     FButtonStyle style = baseStyle;
     if (bPrimary) {
         style = FButtonStyle::CreatePrimary();
+        return style;
+    }
+
+    if (IsLightEditorTheme()) {
+        style.Normal = FButtonStateStyle(FColor::White, FColor::FromBytes(200, 200, 200), GetEditorPanelTitleColor(), 5.0f, 1.0f, false);
+        style.Hovered = FButtonStateStyle(FColor::FromBytes(248, 248, 248), FColor::FromBytes(176, 176, 176), GetEditorPanelTitleColor(), 5.0f, 1.0f, false);
+        style.Pressed = FButtonStateStyle(FColor::FromBytes(236, 236, 236), GetEditorAccentColor(), GetEditorPanelTitleColor(), 5.0f, 1.0f, false);
+        style.Focused = style.Hovered;
+        style.Disabled = FButtonStateStyle(FColor::FromBytes(244, 244, 244), FColor::FromBytes(214, 214, 214), FColor::FromBytes(150, 150, 150), 5.0f, 1.0f, false);
         return style;
     }
 
@@ -130,8 +208,20 @@ FButtonStyle MakeEditorTitleBarIconButtonStyle()
     const FColor transparent = FColor::Transparent;
     const FColor textColor = GetEditorTitleBarTextColor();
     style.Normal = FButtonStateStyle(transparent, transparent, textColor, 0.0f, 0.0f, false);
-    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 18), transparent, textColor, 0.0f, 0.0f, false);
-    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 30), transparent, textColor, 0.0f, 0.0f, false);
+    style.Hovered = FButtonStateStyle(
+        IsLightEditorTheme() ? FColor::FromBytes(0, 0, 0, 12) : FColor::FromBytes(255, 255, 255, 18),
+        transparent,
+        textColor,
+        0.0f,
+        0.0f,
+        false);
+    style.Pressed = FButtonStateStyle(
+        IsLightEditorTheme() ? FColor::FromBytes(0, 0, 0, 22) : FColor::FromBytes(255, 255, 255, 30),
+        transparent,
+        textColor,
+        0.0f,
+        0.0f,
+        false);
     style.Focused = style.Hovered;
     style.Disabled = FButtonStateStyle(transparent, transparent, GetEditorTitleBarDisabledTextColor(), 0.0f, 0.0f, false);
     return style;
@@ -140,23 +230,26 @@ FButtonStyle MakeEditorTitleBarIconButtonStyle()
 FButtonStyle MakeEditorPaletteItemButtonStyle(const FButtonStyle& baseStyle)
 {
     FButtonStyle style = baseStyle;
+    const FColor textColor = GetEditorPanelTitleColor();
+    if (IsLightEditorTheme()) {
+        style.Normal = FButtonStateStyle(FColor::White, FColor::FromBytes(214, 218, 224), textColor, 4.0f, 1.0f, false);
+        style.Hovered = FButtonStateStyle(FColor::FromBytes(244, 247, 251), GetEditorAccentColor(), textColor, 4.0f, 1.0f, false);
+        style.Pressed = FButtonStateStyle(FColor::FromBytes(232, 238, 246), GetEditorAccentColor(), textColor, 4.0f, 1.0f, false);
+        style.Focused = style.Hovered;
+        style.Disabled = FButtonStateStyle(FColor::FromBytes(242, 242, 242), FColor::FromBytes(220, 220, 220), FColor::FromBytes(150, 150, 150), 4.0f, 1.0f, false);
+        return style;
+    }
+
     const FColor background = FColor::FromBytes(34, 40, 49);
     const FColor hovered = FColor::FromBytes(43, 50, 61);
     const FColor pressed = FColor::FromBytes(52, 61, 74);
     const FColor selectedBorder = FColor::FromBytes(72, 104, 146);
     const FColor border = FColor::FromBytes(20, 24, 30);
-    const FColor textColor = GetEditorPanelTitleColor();
     style.Normal = FButtonStateStyle(background, border, textColor, 4.0f, 1.0f, false);
     style.Hovered = FButtonStateStyle(hovered, selectedBorder, textColor, 4.0f, 1.0f, false);
     style.Pressed = FButtonStateStyle(pressed, GetEditorAccentColor(), textColor, 4.0f, 1.0f, false);
     style.Focused = style.Hovered;
-    style.Disabled = FButtonStateStyle(
-        FColor::FromBytes(42, 47, 55),
-        border,
-        FColor::FromBytes(128, 136, 146),
-        4.0f,
-        1.0f,
-        false);
+    style.Disabled = FButtonStateStyle(FColor::FromBytes(42, 47, 55), border, FColor::FromBytes(128, 136, 146), 4.0f, 1.0f, false);
     return style;
 }
 
@@ -183,23 +276,35 @@ FWindowStyle MakeEditorPopupWindowStyle(const FWindowStyle& baseStyle)
     style.CornerRadius = 6.0f;
     style.BorderThickness = 1.0f;
     style.bDrawShadow = false;
-    style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
-    style.BorderColor = FColor::FromBytes(16, 19, 23);
+    style.BackgroundColor = IsLightEditorTheme() ? FColor::White : GetEditorSurfaceAltBackgroundColor();
+    style.BorderColor = IsLightEditorTheme() ? FColor::FromBytes(208, 212, 218) : FColor::FromBytes(16, 19, 23);
     return style;
 }
 
 FEditableTextStyle MakeEditorInspectorEditableTextStyle(const FEditableTextStyle& baseStyle)
 {
     FEditableTextStyle style = baseStyle;
-    style.BackgroundColor = FColor::FromBytes(31, 37, 46);
-    style.HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
-    style.FocusedBackgroundColor = FColor::FromBytes(24, 31, 40);
-    style.DisabledBackgroundColor = FColor::FromBytes(46, 52, 61);
-    style.BorderColor = FColor::FromBytes(16, 19, 23);
-    style.FocusedOutlineColor = GetEditorAccentColor();
-    style.TextColor = FColor::FromBytes(238, 241, 245);
-    style.DisabledTextColor = FColor::FromBytes(188, 196, 207);
-    style.HintTextColor = FColor::FromBytes(135, 145, 157);
+    if (IsLightEditorTheme()) {
+        style.BackgroundColor = FColor::White;
+        style.HoveredBackgroundColor = FColor::FromBytes(248, 248, 248);
+        style.FocusedBackgroundColor = FColor::White;
+        style.DisabledBackgroundColor = FColor::FromBytes(240, 240, 240);
+        style.BorderColor = FColor::FromBytes(200, 200, 200);
+        style.FocusedOutlineColor = GetEditorAccentColor();
+        style.TextColor = FColor::FromBytes(30, 30, 30);
+        style.DisabledTextColor = FColor::FromBytes(150, 150, 150);
+        style.HintTextColor = FColor::FromBytes(132, 132, 132);
+    } else {
+        style.BackgroundColor = FColor::FromBytes(31, 37, 46);
+        style.HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
+        style.FocusedBackgroundColor = FColor::FromBytes(24, 31, 40);
+        style.DisabledBackgroundColor = FColor::FromBytes(46, 52, 61);
+        style.BorderColor = FColor::FromBytes(16, 19, 23);
+        style.FocusedOutlineColor = GetEditorAccentColor();
+        style.TextColor = FColor::FromBytes(238, 241, 245);
+        style.DisabledTextColor = FColor::FromBytes(188, 196, 207);
+        style.HintTextColor = FColor::FromBytes(135, 145, 157);
+    }
     style.Padding = FMargin(10.0f);
     style.MinDesiredSize = FVector2(0.0f, 34.0f);
     style.CornerRadius = 5.0f;
@@ -211,20 +316,37 @@ FEditableTextStyle MakeEditorInspectorEditableTextStyle(const FEditableTextStyle
 FComboBoxStyle MakeEditorInspectorComboBoxStyle(const FComboBoxStyle& baseStyle)
 {
     FComboBoxStyle style = baseStyle;
-    style.BackgroundColor = FColor::FromBytes(31, 37, 46);
-    style.HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
-    style.PressedBackgroundColor = FColor::FromBytes(24, 31, 40);
-    style.DisabledBackgroundColor = FColor::FromBytes(46, 52, 61);
-    style.BorderColor = FColor::FromBytes(16, 19, 23);
-    style.FocusedOutlineColor = GetEditorAccentColor();
-    style.TextColor = FColor::FromBytes(238, 241, 245);
-    style.PlaceholderTextColor = FColor::FromBytes(135, 145, 157);
-    style.DisabledTextColor = FColor::FromBytes(188, 196, 207);
-    style.ArrowColor = FColor::FromBytes(220, 227, 235);
-    style.PopupRowHoveredColor = FColor::FromBytes(46, 58, 76);
-    style.PopupRowSelectedColor = FColor::FromBytes(78, 126, 196);
-    style.PopupRowSelectedHoveredColor = FColor::FromBytes(96, 149, 221);
-    style.PopupOutlineColor = FColor::FromBytes(16, 19, 23);
+    if (IsLightEditorTheme()) {
+        style.BackgroundColor = FColor::White;
+        style.HoveredBackgroundColor = FColor::FromBytes(248, 248, 248);
+        style.PressedBackgroundColor = FColor::FromBytes(236, 236, 236);
+        style.DisabledBackgroundColor = FColor::FromBytes(240, 240, 240);
+        style.BorderColor = FColor::FromBytes(200, 200, 200);
+        style.FocusedOutlineColor = GetEditorAccentColor();
+        style.TextColor = FColor::FromBytes(30, 30, 30);
+        style.PlaceholderTextColor = FColor::FromBytes(132, 132, 132);
+        style.DisabledTextColor = FColor::FromBytes(150, 150, 150);
+        style.ArrowColor = FColor::FromBytes(80, 80, 80);
+        style.PopupRowHoveredColor = FColor::FromBytes(232, 240, 250);
+        style.PopupRowSelectedColor = FColor::FromBytes(0, 120, 215);
+        style.PopupRowSelectedHoveredColor = FColor::FromBytes(32, 138, 226);
+        style.PopupOutlineColor = FColor::FromBytes(200, 200, 200);
+    } else {
+        style.BackgroundColor = FColor::FromBytes(31, 37, 46);
+        style.HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
+        style.PressedBackgroundColor = FColor::FromBytes(24, 31, 40);
+        style.DisabledBackgroundColor = FColor::FromBytes(46, 52, 61);
+        style.BorderColor = FColor::FromBytes(16, 19, 23);
+        style.FocusedOutlineColor = GetEditorAccentColor();
+        style.TextColor = FColor::FromBytes(238, 241, 245);
+        style.PlaceholderTextColor = FColor::FromBytes(135, 145, 157);
+        style.DisabledTextColor = FColor::FromBytes(188, 196, 207);
+        style.ArrowColor = FColor::FromBytes(220, 227, 235);
+        style.PopupRowHoveredColor = FColor::FromBytes(46, 58, 76);
+        style.PopupRowSelectedColor = FColor::FromBytes(78, 126, 196);
+        style.PopupRowSelectedHoveredColor = FColor::FromBytes(96, 149, 221);
+        style.PopupOutlineColor = FColor::FromBytes(16, 19, 23);
+    }
     style.Padding = FMargin(10.0f);
     style.FontSize = 14.0f;
     style.BorderThickness = 1.0f;
@@ -264,7 +386,7 @@ FTextListStyle MakeEditorCodeTextListStyle(
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
     style.BorderColor = FColor::Transparent;
     style.FocusedOutlineColor = GetEditorAccentColor();
-    style.TextColor = FColor::FromBytes(188, 198, 210);
+    style.TextColor = IsLightEditorTheme() ? FColor::FromBytes(72, 78, 86) : FColor::FromBytes(188, 198, 210);
     style.SelectionBackgroundColor = GetEditorSelectionFillColor();
     style.Padding = padding;
     style.MinDesiredSize = minDesiredSize;
@@ -279,9 +401,9 @@ FTextListStyle MakeEditorInspectorProbeTextListStyle(const FTextListStyle& baseS
 {
     FTextListStyle style = baseStyle;
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
-    style.BorderColor = FColor::FromBytes(16, 19, 23);
+    style.BorderColor = IsLightEditorTheme() ? FColor::FromBytes(200, 200, 200) : FColor::FromBytes(16, 19, 23);
     style.FocusedOutlineColor = GetEditorAccentColor();
-    style.TextColor = FColor::FromBytes(196, 205, 217);
+    style.TextColor = IsLightEditorTheme() ? FColor::FromBytes(58, 64, 72) : FColor::FromBytes(196, 205, 217);
     style.SelectionBackgroundColor = GetEditorSelectionFillColor();
     style.Padding = FMargin(10.0f);
     style.MinDesiredSize = FVector2(0.0f, 200.0f);
@@ -299,9 +421,9 @@ FTextOutlineViewStyle MakeEditorDockOutlineStyle(const FTextOutlineViewStyle& ba
     style.RowPadding = FMargin(6.0f, 6.0f, 4.0f, 4.0f);
     style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
     style.BorderColor = FColor::Transparent;
-    style.HoveredRowColor = FColor::FromBytes(43, 50, 61);
-    style.SelectedRowColor = FColor::FromBytes(60, 86, 122);
-    style.SelectedFocusedRowColor = FColor::FromBytes(74, 106, 150);
+    style.HoveredRowColor = IsLightEditorTheme() ? FColor::FromBytes(232, 238, 246) : FColor::FromBytes(43, 50, 61);
+    style.SelectedRowColor = IsLightEditorTheme() ? FColor::FromBytes(214, 229, 247) : FColor::FromBytes(60, 86, 122);
+    style.SelectedFocusedRowColor = IsLightEditorTheme() ? FColor::FromBytes(0, 120, 215) : FColor::FromBytes(74, 106, 150);
     style.TextColor = GetEditorPanelTitleColor();
     style.MinDesiredSize = FVector2(220.0f, 180.0f);
     style.CornerRadius = 0.0f;
@@ -321,9 +443,10 @@ FOutlineViewStyle MakeEditorInspectorOutlineStyle(const FOutlineViewStyle& baseS
     style.BackgroundColor = GetEditorSurfaceAltBackgroundColor();
     style.BorderColor = FColor::Transparent;
     style.FocusedOutlineColor = GetEditorAccentColor();
-    style.HoveredRowColor = FColor::FromBytes(43, 50, 61);
-    style.SelectedRowColor = FColor::FromBytes(60, 86, 122);
-    style.SelectedFocusedRowColor = FColor::FromBytes(74, 106, 150);
+    style.HoveredRowColor = IsLightEditorTheme() ? FColor::FromBytes(232, 238, 246) : FColor::FromBytes(43, 50, 61);
+    style.SelectedRowColor = IsLightEditorTheme() ? FColor::FromBytes(214, 229, 247) : FColor::FromBytes(60, 86, 122);
+    style.SelectedFocusedRowColor = IsLightEditorTheme() ? FColor::FromBytes(0, 120, 215) : FColor::FromBytes(74, 106, 150);
+    style.IndicatorColor = IsLightEditorTheme() ? FColor::FromBytes(90, 98, 108) : FColor::FromBytes(228, 232, 238);
     style.BorderThickness = 1.0f;
     style.CornerRadius = 0.0f;
     style.IndentWidth = 16.0f;
@@ -345,13 +468,23 @@ FTabViewStyle MakeEditorWorkspaceTabStyle(const FTabViewStyle& baseStyle)
     style.CornerRadius = 0.0f;
     style.TabStripBackgroundColor = GetEditorSurfaceTabStripColor();
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
-    style.TabColor = FColor::FromBytes(33, 39, 47);
-    style.TabHoveredColor = FColor::FromBytes(43, 50, 60);
-    style.TabPressedColor = FColor::FromBytes(28, 34, 41);
-    style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
-    style.TextColor = FColor::FromBytes(180, 189, 201);
-    style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
-    style.DisabledTextColor = FColor::FromBytes(118, 126, 137);
+    if (IsLightEditorTheme()) {
+        style.TabColor = FColor::FromBytes(230, 233, 238);
+        style.TabHoveredColor = FColor::FromBytes(220, 226, 234);
+        style.TabPressedColor = FColor::FromBytes(212, 219, 228);
+        style.ActiveTabColor = FColor::White;
+        style.TextColor = FColor::FromBytes(72, 78, 86);
+        style.ActiveTextColor = FColor::FromBytes(20, 20, 20);
+        style.DisabledTextColor = FColor::FromBytes(150, 150, 150);
+    } else {
+        style.TabColor = FColor::FromBytes(33, 39, 47);
+        style.TabHoveredColor = FColor::FromBytes(43, 50, 60);
+        style.TabPressedColor = FColor::FromBytes(28, 34, 41);
+        style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
+        style.TextColor = FColor::FromBytes(180, 189, 201);
+        style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
+        style.DisabledTextColor = FColor::FromBytes(118, 126, 137);
+    }
     return style;
 }
 
@@ -368,12 +501,21 @@ FTabViewStyle MakeEditorDockTabStyle(const FTabViewStyle& baseStyle)
     style.CornerRadius = 0.0f;
     style.BackgroundColor = GetEditorSurfaceBackgroundColor();
     style.TabStripBackgroundColor = GetEditorSurfaceTabStripColor();
-    style.TabColor = FColor::FromBytes(34, 40, 49);
-    style.TabHoveredColor = FColor::FromBytes(44, 51, 62);
-    style.TabPressedColor = FColor::FromBytes(30, 35, 43);
-    style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
-    style.TextColor = FColor::FromBytes(176, 186, 198);
-    style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
+    if (IsLightEditorTheme()) {
+        style.TabColor = FColor::FromBytes(230, 233, 238);
+        style.TabHoveredColor = FColor::FromBytes(220, 226, 234);
+        style.TabPressedColor = FColor::FromBytes(212, 219, 228);
+        style.ActiveTabColor = FColor::White;
+        style.TextColor = FColor::FromBytes(72, 78, 86);
+        style.ActiveTextColor = FColor::FromBytes(20, 20, 20);
+    } else {
+        style.TabColor = FColor::FromBytes(34, 40, 49);
+        style.TabHoveredColor = FColor::FromBytes(44, 51, 62);
+        style.TabPressedColor = FColor::FromBytes(30, 35, 43);
+        style.ActiveTabColor = FColor::FromBytes(67, 96, 138);
+        style.TextColor = FColor::FromBytes(176, 186, 198);
+        style.ActiveTextColor = FColor::FromBytes(241, 246, 252);
+    }
     return style;
 }
 
@@ -383,7 +525,23 @@ FTitleBarStyle MakeEditorTitleBarStyle(const FTitleBarStyle& baseStyle)
     style.Height = 24.0f;
     style.Padding = FMargin(4.0f, 0.0f, 0.0f, 0.0f);
     style.ItemSpacing = 4.0f;
+    style.BackgroundColor = IsLightEditorTheme()
+        ? FColor::FromBytes(246, 247, 249)
+        : FColor::FromBytes(24, 29, 36);
+    style.BorderColor = IsLightEditorTheme()
+        ? FColor::FromBytes(210, 214, 220)
+        : FColor::FromBytes(16, 19, 23);
+    style.BorderThickness = 1.0f;
     style.SystemButtonSize = 34.0f;
+    style.SystemButtonGlyphColor = GetEditorTitleBarTextColor();
+    style.HoveredSystemButtonColor = IsLightEditorTheme()
+        ? FColor::FromBytes(0, 0, 0, 18)
+        : FColor::FromBytes(255, 255, 255, 24);
+    style.PressedSystemButtonColor = IsLightEditorTheme()
+        ? FColor::FromBytes(0, 0, 0, 30)
+        : FColor::FromBytes(255, 255, 255, 40);
+    style.CloseButtonHoveredColor = FColor::FromBytes(212, 58, 76, 224);
+    style.CloseButtonPressedColor = FColor::FromBytes(188, 46, 66, 240);
     style.MinDesiredSize = FVector2(0.0f, 24.0f);
     return style;
 }
@@ -392,8 +550,8 @@ FHorizontalSplitterStyle MakeEditorHorizontalSplitterStyle(const FHorizontalSpli
 {
     FHorizontalSplitterStyle style = baseStyle;
     style.BarWidth = 5.0f;
-    style.Color = FColor::FromBytes(44, 51, 61);
-    style.HoveredColor = FColor::FromBytes(70, 82, 99);
+    style.Color = IsLightEditorTheme() ? FColor::FromBytes(196, 202, 210) : FColor::FromBytes(44, 51, 61);
+    style.HoveredColor = IsLightEditorTheme() ? FColor::FromBytes(166, 175, 186) : FColor::FromBytes(70, 82, 99);
     style.ActiveColor = GetEditorAccentColor();
     return style;
 }
@@ -402,8 +560,8 @@ FVerticalSplitterStyle MakeEditorVerticalSplitterStyle(const FVerticalSplitterSt
 {
     FVerticalSplitterStyle style = baseStyle;
     style.BarHeight = 5.0f;
-    style.Color = FColor::FromBytes(44, 51, 61);
-    style.HoveredColor = FColor::FromBytes(70, 82, 99);
+    style.Color = IsLightEditorTheme() ? FColor::FromBytes(196, 202, 210) : FColor::FromBytes(44, 51, 61);
+    style.HoveredColor = IsLightEditorTheme() ? FColor::FromBytes(166, 175, 186) : FColor::FromBytes(70, 82, 99);
     style.ActiveColor = GetEditorAccentColor();
     return style;
 }

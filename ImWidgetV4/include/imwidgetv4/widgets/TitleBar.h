@@ -68,7 +68,7 @@ public:
     void SetShowCloseButton(bool value);
     void SetDragRegionMinWidth(float width);
     void SetStyle(const FTitleBarStyle& style);
-    const FTitleBarStyle& GetStyle() const { return Style_; }
+    const FTitleBarStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
@@ -100,6 +100,7 @@ private:
     void PaintSystemButtons(const FPaintContext& paintContext) const;
     void PaintSystemButton(const FPaintContext& paintContext, ESystemButton button, const FGeometry& geometry) const;
     void DrawSystemButtonGlyph(const FPaintContext& paintContext, ESystemButton button, const FGeometry& geometry) const;
+    const FTitleBarStyle& GetEffectiveStyle() const;
     bool HasSystemButtons() const;
     bool IsSystemButtonVisible(ESystemButton button) const;
     float GetResolvedDragRegionMinWidth() const;
@@ -111,6 +112,7 @@ private:
     void MarkLayoutDirty();
 
     FTitleBarStyle Style_;
+    mutable FTitleBarStyle ResolvedThemeStyle_;
     std::vector<Ptr> LeadingItems_;
     std::vector<Ptr> TrailingItems_;
     mutable std::vector<FChildLayout> LeadingLayouts_;
@@ -126,6 +128,7 @@ private:
     bool bShowMinimizeButton_ = true;
     bool bShowMaximizeButton_ = true;
     bool bShowCloseButton_ = true;
+    bool bHasExplicitStyle_ = false;
     float ReflectedDragRegionMinWidth_ = -1.0f;
     ESystemButton HoveredSystemButton_ = ESystemButton::None;
     ESystemButton PressedSystemButton_ = ESystemButton::None;

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
@@ -333,6 +334,27 @@ TEST_F(ButtonTest, ApplicationRoutesHoverCaptureAndClick) {
     AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseMove, FVector2(200.0f, 200.0f))});
     EXPECT_FALSE(Button->IsHovered());
     EXPECT_TRUE(hoverEnd);
+}
+
+TEST_F(ButtonTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    const FButtonStyle expectedStyle = ResolveButtonStyle(App->GetStyleSet());
+
+    const FButtonStyle& style = Button->GetStyle();
+    EXPECT_EQ(style.Normal.BackgroundColor.ToImU32(), expectedStyle.Normal.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.Hovered.BackgroundColor.ToImU32(), expectedStyle.Hovered.BackgroundColor.ToImU32());
+}
+
+TEST_F(ButtonTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+
+    FButtonStyle explicitStyle = FButtonStyle::CreatePrimary();
+    explicitStyle.Normal.BackgroundColor = FColor::FromBytes(12, 34, 56);
+    Button->SetStyle(explicitStyle);
+
+    EXPECT_EQ(Button->GetStyle().Normal.BackgroundColor.ToImU32(), explicitStyle.Normal.BackgroundColor.ToImU32());
 }
 
 int main(int argc, char** argv) {

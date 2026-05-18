@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -275,4 +276,27 @@ TEST_F(EditableTextTest, CommitCallbackCanReplaceOwningWidgetTreeSafely) {
 
     EXPECT_EQ(commitCount, 1);
     EXPECT_TRUE(oldEditor.expired());
+}
+
+TEST_F(EditableTextTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+    const FEditableTextStyle expectedStyle = ResolveEditableTextStyle(App->GetStyleSet());
+
+    const FEditableTextStyle& style = EditableText->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.TextColor.ToImU32(), expectedStyle.TextColor.ToImU32());
+}
+
+TEST_F(EditableTextTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+
+    FEditableTextStyle explicitStyle;
+    explicitStyle.BackgroundColor = FColor::FromBytes(90, 20, 30);
+    explicitStyle.TextColor = FColor::FromBytes(240, 230, 220);
+    EditableText->SetStyle(explicitStyle);
+
+    EXPECT_EQ(EditableText->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(EditableText->GetStyle().TextColor.ToImU32(), explicitStyle.TextColor.ToImU32());
 }

@@ -117,6 +117,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/rendering/DrawContext.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/rendering/DrawUtils.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/snapshot/Snapshot.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/style/StyleResolvers.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/style/StyleSet.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/BoxSlot.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/Button.h
@@ -166,6 +167,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rendering/DrawUtils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snapshot/Snapshot.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/snapshot/TextureRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/style/StyleResolvers.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/BoxSlot.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/Button.cpp

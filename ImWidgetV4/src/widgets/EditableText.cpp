@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cfloat>
@@ -212,6 +214,7 @@ void ImEditableText::SetHintText(const FText& hintText) {
 
 void ImEditableText::SetStyle(const FEditableTextStyle& style) {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     EnsureCursorVisible();
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -241,38 +244,39 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
         return;
     }
 
-    FColor background = m_Style.BackgroundColor;
+    const FEditableTextStyle& style = GetEffectiveStyle();
+    FColor background = style.BackgroundColor;
     if (m_bDisabled) {
-        background = m_Style.DisabledBackgroundColor;
+        background = style.DisabledBackgroundColor;
     } else if (HasKeyboardFocus()) {
-        background = m_Style.FocusedBackgroundColor;
+        background = style.FocusedBackgroundColor;
     } else if (m_bHovered) {
-        background = m_Style.HoveredBackgroundColor;
+        background = style.HoveredBackgroundColor;
     }
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.Position,
         m_Geometry.Position + m_Geometry.Size,
         background,
-        m_Style.CornerRadius
+        style.CornerRadius
     );
 
     paintContext.DrawContext_.DrawRect(
         m_Geometry.Position,
         m_Geometry.Position + m_Geometry.Size,
-        HasKeyboardFocus() ? m_Style.FocusedOutlineColor : m_Style.BorderColor,
-        m_Style.CornerRadius,
-        m_Style.BorderThickness
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness
     );
 
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const float borderInset = ResolveContentInset(style.BorderThickness);
     const FVector2 innerMin(
-        m_Geometry.Position.X + borderInset + m_Style.Padding.Left,
-        m_Geometry.Position.Y + borderInset + m_Style.Padding.Top
+        m_Geometry.Position.X + borderInset + style.Padding.Left,
+        m_Geometry.Position.Y + borderInset + style.Padding.Top
     );
     const FVector2 innerMax(
-        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - m_Style.Padding.Right,
-        m_Geometry.Position.Y + m_Geometry.Size.Y - borderInset - m_Style.Padding.Bottom
+        m_Geometry.Position.X + m_Geometry.Size.X - borderInset - style.Padding.Right,
+        m_Geometry.Position.Y + m_Geometry.Size.Y - borderInset - style.Padding.Bottom
     );
 
     paintContext.DrawContext_.PushClipRect(innerMin, innerMax, true);
@@ -281,8 +285,8 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
     const std::string resolvedHintText = bShowingHint ? ResolveHintText() : std::string();
     const std::string& displayText = bShowingHint ? resolvedHintText : m_Text;
     const FColor baseTextColor = bShowingHint
-        ? m_Style.HintTextColor
-        : (m_bDisabled ? m_Style.DisabledTextColor : m_Style.TextColor);
+        ? style.HintTextColor
+        : (m_bDisabled ? style.DisabledTextColor : style.TextColor);
     const FVector2 textSize = MeasureText(displayText);
     const float textBaseY = innerMin.Y + std::max(0.0f, (innerMax.Y - innerMin.Y - textSize.Y) * 0.5f);
     const float textBaseX = innerMin.X - m_HorizontalScrollOffset;
@@ -292,7 +296,7 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
             if (ImGui::GetCurrentContext() != nullptr && ImGui::GetFont() != nullptr) {
                 paintContext.DrawContext_.GetImDrawList()->AddText(
                     ImGui::GetFont(),
-                    m_Style.FontSize,
+                    style.FontSize,
                     ImVec2(textBaseX, textBaseY),
                     color.ToImU32(),
                     displayText.c_str()
@@ -302,7 +306,7 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
                     FVector2(textBaseX, textBaseY),
                     color,
                     displayText,
-                    m_Style.FontSize
+                    style.FontSize
                 );
             }
         };
@@ -341,12 +345,12 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
             paintContext.DrawContext_.DrawRectFilled(
                 selectionBackgroundMin,
                 selectionBackgroundMax,
-                m_Style.SelectionBackgroundColor,
+                style.SelectionBackgroundColor,
                 3.0f
             );
 
             drawTextClipped(innerMin, FVector2(selectionTextClipMin.X, innerMax.Y), baseTextColor);
-            drawTextClipped(selectionTextClipMin, selectionTextClipMax, m_Style.SelectedTextColor);
+            drawTextClipped(selectionTextClipMin, selectionTextClipMax, style.SelectedTextColor);
             drawTextClipped(FVector2(selectionTextClipMax.X, innerMin.Y), innerMax, baseTextColor);
         } else {
             drawText(baseTextColor);
@@ -357,21 +361,22 @@ void ImEditableText::Paint(const FPaintContext& paintContext) {
         const float caretX = innerMin.X + MeasureCaretX(m_CursorByteIndex) - m_HorizontalScrollOffset;
         const FVector2 caretMin(caretX, innerMin.Y + 1.0f);
         const FVector2 caretMax(caretX, innerMax.Y - 1.0f);
-        paintContext.DrawContext_.DrawLine(caretMin, caretMax, m_Style.CaretColor, 1.5f);
+        paintContext.DrawContext_.DrawLine(caretMin, caretMax, style.CaretColor, 1.5f);
     }
 
     paintContext.DrawContext_.PopClipRect();
 }
 
 FVector2 ImEditableText::GetMinSize() const {
+    const FEditableTextStyle& style = GetEffectiveStyle();
     const FVector2 textSize = MeasureText(m_Text.empty() ? ResolveHintText() : m_Text);
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
-    const float width = borderInset * 2.0f + m_Style.Padding.Left + textSize.X + m_Style.Padding.Right;
-    const float height = borderInset * 2.0f + m_Style.Padding.Top + std::max(textSize.Y, m_Style.FontSize) + m_Style.Padding.Bottom;
+    const float borderInset = ResolveContentInset(style.BorderThickness);
+    const float width = borderInset * 2.0f + style.Padding.Left + textSize.X + style.Padding.Right;
+    const float height = borderInset * 2.0f + style.Padding.Top + std::max(textSize.Y, style.FontSize) + style.Padding.Bottom;
 
     return FVector2(
-        std::max(width, m_Style.MinDesiredSize.X),
-        std::max(height, m_Style.MinDesiredSize.Y)
+        std::max(width, style.MinDesiredSize.X),
+        std::max(height, style.MinDesiredSize.Y)
     );
 }
 
@@ -511,9 +516,10 @@ std::size_t ImEditableText::ClampByteIndex(std::size_t byteIndex) const {
 }
 
 std::size_t ImEditableText::ResolveCursorByteIndexAt(const FVector2& mousePosition) const {
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const FEditableTextStyle& style = GetEffectiveStyle();
+    const float borderInset = ResolveContentInset(style.BorderThickness);
     const float localX =
-        mousePosition.X - (m_Geometry.Position.X + borderInset + m_Style.Padding.Left) + m_HorizontalScrollOffset;
+        mousePosition.X - (m_Geometry.Position.X + borderInset + style.Padding.Left) + m_HorizontalScrollOffset;
     if (localX <= 0.0f || m_Text.empty()) {
         return 0;
     }
@@ -550,10 +556,11 @@ void ImEditableText::SetCursorByteIndex(std::size_t byteIndex, bool bExtendSelec
 }
 
 void ImEditableText::EnsureCursorVisible() {
-    const float borderInset = ResolveContentInset(m_Style.BorderThickness);
+    const FEditableTextStyle& style = GetEffectiveStyle();
+    const float borderInset = ResolveContentInset(style.BorderThickness);
     const float visibleWidth = std::max(
         0.0f,
-        m_Geometry.Size.X - borderInset * 2.0f - m_Style.Padding.Left - m_Style.Padding.Right);
+        m_Geometry.Size.X - borderInset * 2.0f - style.Padding.Left - style.Padding.Right);
     if (visibleWidth <= 0.0f) {
         m_HorizontalScrollOffset = 0.0f;
         return;
@@ -778,7 +785,21 @@ float ImEditableText::MeasureCaretX(std::size_t byteIndex) const {
 }
 
 FVector2 ImEditableText::MeasureText(const std::string& text) const {
-    return MeasureTextWithFont(text, m_Style.FontSize);
+    return MeasureTextWithFont(text, GetEffectiveStyle().FontSize);
+}
+
+const FEditableTextStyle& ImEditableText::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveEditableTextStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 std::string ImEditableText::ResolveHintText() const {

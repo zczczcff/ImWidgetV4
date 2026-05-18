@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <algorithm>
 
@@ -69,12 +71,13 @@ void ImButton::SetText(const FText& text) {
 
     auto newTextBlock = std::make_shared<ImTextBlock>();
     newTextBlock->SetText(text);
-    newTextBlock->SetTextColor(FColor::Black);
+    newTextBlock->SetTextColor(GetCurrentStateStyle().TextColor);
     SetContent(newTextBlock);
 }
 
 void ImButton::SetStyle(const FButtonStyle& style) {
     m_Style = style;
+    m_bHasExplicitStyle = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -110,16 +113,17 @@ void ImButton::Paint(const FPaintContext& paintContext) {
 }
 
 FVector2 ImButton::GetMinSize() const {
+    const FButtonStyle& effectiveStyle = GetEffectiveStyle();
     const auto& children = GetChildren();
     const ImPaddingSlot* slot = dynamic_cast<const ImPaddingSlot*>(GetSlotAt(0));
     const float borderInset = std::max(
         {
             0.0f,
-            m_Style.Normal.BorderThickness,
-            m_Style.Hovered.BorderThickness,
-            m_Style.Pressed.BorderThickness,
-            m_Style.Focused.BorderThickness,
-            m_Style.Disabled.BorderThickness
+            effectiveStyle.Normal.BorderThickness,
+            effectiveStyle.Hovered.BorderThickness,
+            effectiveStyle.Pressed.BorderThickness,
+            effectiveStyle.Focused.BorderThickness,
+            effectiveStyle.Disabled.BorderThickness
         });
     const float totalBorderWidth = borderInset * 2.0f;
 
@@ -215,19 +219,34 @@ void ImButton::Relayout() {
 }
 
 const FButtonStateStyle& ImButton::GetCurrentStateStyle() const {
+    const FButtonStyle& effectiveStyle = GetEffectiveStyle();
     if (m_bDisabled) {
-        return m_Style.Disabled;
+        return effectiveStyle.Disabled;
     }
     if (m_bPressed) {
-        return m_Style.Pressed;
+        return effectiveStyle.Pressed;
     }
     if (m_bHovered) {
-        return m_Style.Hovered;
+        return effectiveStyle.Hovered;
     }
     if (HasKeyboardFocus()) {
-        return m_Style.Focused;
+        return effectiveStyle.Focused;
     }
-    return m_Style.Normal;
+    return effectiveStyle.Normal;
+}
+
+const FButtonStyle& ImButton::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveButtonStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 void ImButton::SetPressed(bool bPressed) {
@@ -255,11 +274,20 @@ void ImButton::SetHovered(bool bHovered) {
 }
 
 void ImButton::TriggerClick() {
+    const FButtonStateStyle& currentStyle = GetCurrentStateStyle();
+    auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(GetContent());
+    if (textBlock) {
+        textBlock->SetTextColor(currentStyle.TextColor);
+    }
     OnClicked.Broadcast(*this);
 }
 
 void ImButton::RenderButton(const FPaintContext& paintContext) {
     const FButtonStateStyle& currentStyle = GetCurrentStateStyle();
+    auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(GetContent());
+    if (textBlock) {
+        textBlock->SetTextColor(currentStyle.TextColor);
+    }
     const FGeometry& geometry = GetGeometry();
     const FVector2 min = geometry.Position;
     const FVector2 max = geometry.Position + geometry.Size;

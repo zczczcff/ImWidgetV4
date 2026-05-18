@@ -1,11 +1,6 @@
 #include <imwidgetv4/style/StyleSet.h>
-#include <algorithm>
 
 namespace ImWidgetV4 {
-
-// ============================================================================
-// FStyleSet 实现
-// ============================================================================
 
 void FStyleSet::SetColor(const std::string& name, const FColor& color) {
     Colors_[name] = color;
@@ -16,7 +11,7 @@ FColor FStyleSet::GetColor(const std::string& name) const {
     if (it != Colors_.end()) {
         return it->second;
     }
-    return FColor::White; // 默认返回白色
+    return FColor::White;
 }
 
 FColor FStyleSet::GetColor(const std::string& name, const FColor& defaultColor) const {
@@ -44,7 +39,7 @@ float FStyleSet::GetFloat(const std::string& name) const {
     if (it != Floats_.end()) {
         return it->second;
     }
-    return 0.0f; // 默认返回 0
+    return 0.0f;
 }
 
 float FStyleSet::GetFloat(const std::string& name, float defaultValue) const {
@@ -72,7 +67,7 @@ FVector2 FStyleSet::GetVector2(const std::string& name) const {
     if (it != Vectors_.end()) {
         return it->second;
     }
-    return FVector2::Zero; // 默认返回零向量
+    return FVector2::Zero;
 }
 
 FVector2 FStyleSet::GetVector2(const std::string& name, const FVector2& defaultValue) const {
@@ -98,17 +93,14 @@ void FStyleSet::Clear() {
 }
 
 void FStyleSet::Merge(const FStyleSet& other) {
-    // 合并颜色
     for (const auto& pair : other.Colors_) {
         Colors_[pair.first] = pair.second;
     }
 
-    // 合并浮点值
     for (const auto& pair : other.Floats_) {
         Floats_[pair.first] = pair.second;
     }
 
-    // 合并向量
     for (const auto& pair : other.Vectors_) {
         Vectors_[pair.first] = pair.second;
     }
@@ -141,98 +133,185 @@ std::vector<std::string> FStyleSet::GetVector2Keys() const {
     return keys;
 }
 
-// ============================================================================
-// FStyleSetFactory 实现
-// ============================================================================
+namespace {
+
+void PopulateSharedThemeGeometry(FStyleSet& styleSet)
+{
+    styleSet.SetFloat("BorderThickness", 1.0f);
+    styleSet.SetFloat("CornerRadius", 4.0f);
+    styleSet.SetFloat("Padding", 8.0f);
+    styleSet.SetVector2("DefaultSize", FVector2(100.0f, 30.0f));
+    styleSet.SetVector2("DefaultPadding", FVector2(8.0f, 8.0f));
+
+    styleSet.SetFloat("Float.Button.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.Button.Pressed.BorderThickness", 2.0f);
+    styleSet.SetFloat("Float.Button.Focused.BorderThickness", 2.0f);
+
+    styleSet.SetFloat("Float.Input.CornerRadius", 7.0f);
+    styleSet.SetFloat("Float.Input.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.Input.FontSize", 16.0f);
+
+    styleSet.SetFloat("Float.TitleBar.Height", 34.0f);
+    styleSet.SetFloat("Float.TitleBar.DragRegionMinWidth", 34.0f);
+    styleSet.SetFloat("Float.TitleBar.SystemButtonSize", 34.0f);
+    styleSet.SetFloat("Float.TitleBar.SystemButtonSpacing", 0.0f);
+}
+
+void PopulateDefaultTheme(FStyleSet& styleSet)
+{
+    styleSet.SetColor("Background", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Text", FColor::White);
+    styleSet.SetColor("Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Highlight", FColor::FromBytes(100, 150, 255));
+
+    styleSet.SetColor("Color.Button.Normal.Background", FColor::FromBytes(245, 250, 255));
+    styleSet.SetColor("Color.Button.Normal.Border", FColor::FromBytes(200, 220, 240));
+    styleSet.SetColor("Color.Button.Normal.Text", FColor::FromBytes(50, 50, 50));
+    styleSet.SetColor("Color.Button.Hovered.Background", FColor::FromBytes(210, 230, 250));
+    styleSet.SetColor("Color.Button.Hovered.Border", FColor::FromBytes(120, 170, 220));
+    styleSet.SetColor("Color.Button.Hovered.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.Button.Pressed.Background", FColor::FromBytes(190, 220, 245));
+    styleSet.SetColor("Color.Button.Pressed.Border", FColor::FromBytes(100, 150, 210));
+    styleSet.SetColor("Color.Button.Pressed.Text", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.Button.Focused.Background", FColor::FromBytes(235, 245, 255));
+    styleSet.SetColor("Color.Button.Focused.Border", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Button.Focused.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.Button.Disabled.Background", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Color.Button.Disabled.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.Button.Disabled.Text", FColor::FromBytes(150, 150, 150));
+    styleSet.SetFloat("Float.Button.CornerRadius", 0.0f);
+
+    styleSet.SetColor("Color.Input.Background", FColor::FromBytes(31, 37, 46));
+    styleSet.SetColor("Color.Input.HoveredBackground", FColor::FromBytes(39, 46, 56));
+    styleSet.SetColor("Color.Input.FocusedBackground", FColor::FromBytes(24, 31, 40));
+    styleSet.SetColor("Color.Input.DisabledBackground", FColor::FromBytes(56, 60, 66));
+    styleSet.SetColor("Color.Input.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.Input.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.Input.Text", FColor::FromBytes(238, 241, 245));
+    styleSet.SetColor("Color.Input.DisabledText", FColor::FromBytes(140, 147, 156));
+    styleSet.SetColor("Color.Input.HintText", FColor::FromBytes(135, 145, 157));
+    styleSet.SetColor("Color.Input.Caret", FColor::FromBytes(245, 247, 250));
+    styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(93, 149, 212, 176));
+    styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(248, 250, 252));
+
+    styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(28, 33, 41));
+    styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(16, 19, 24));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 24));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(255, 255, 255, 40));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Pressed", FColor::FromBytes(188, 46, 66, 240));
+}
+
+void PopulateDarkTheme(FStyleSet& styleSet)
+{
+    styleSet.SetColor("Background", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Border", FColor::FromBytes(50, 50, 50));
+    styleSet.SetColor("Highlight", FColor::FromBytes(70, 120, 200));
+
+    styleSet.SetColor("Color.Button.Normal.Background", FColor::FromBytes(50, 50, 50));
+    styleSet.SetColor("Color.Button.Normal.Border", FColor::FromBytes(72, 72, 72));
+    styleSet.SetColor("Color.Button.Normal.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.Button.Hovered.Background", FColor::FromBytes(70, 70, 70));
+    styleSet.SetColor("Color.Button.Hovered.Border", FColor::FromBytes(102, 102, 102));
+    styleSet.SetColor("Color.Button.Hovered.Text", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.Button.Pressed.Background", FColor::FromBytes(40, 40, 40));
+    styleSet.SetColor("Color.Button.Pressed.Border", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.Button.Pressed.Text", FColor::FromBytes(250, 250, 250));
+    styleSet.SetColor("Color.Button.Focused.Background", FColor::FromBytes(58, 58, 58));
+    styleSet.SetColor("Color.Button.Focused.Border", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.Button.Focused.Text", FColor::FromBytes(244, 244, 244));
+    styleSet.SetColor("Color.Button.Disabled.Background", FColor::FromBytes(44, 44, 44));
+    styleSet.SetColor("Color.Button.Disabled.Border", FColor::FromBytes(62, 62, 62));
+    styleSet.SetColor("Color.Button.Disabled.Text", FColor::FromBytes(120, 120, 120));
+    styleSet.SetFloat("Float.Button.CornerRadius", 4.0f);
+
+    styleSet.SetColor("Color.Input.Background", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.Input.HoveredBackground", FColor::FromBytes(38, 38, 38));
+    styleSet.SetColor("Color.Input.FocusedBackground", FColor::FromBytes(24, 24, 24));
+    styleSet.SetColor("Color.Input.DisabledBackground", FColor::FromBytes(45, 45, 45));
+    styleSet.SetColor("Color.Input.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.Input.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.Input.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.Input.DisabledText", FColor::FromBytes(130, 130, 130));
+    styleSet.SetColor("Color.Input.HintText", FColor::FromBytes(144, 144, 144));
+    styleSet.SetColor("Color.Input.Caret", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(78, 120, 184, 180));
+    styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(250, 250, 250));
+
+    styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(24, 24, 24));
+    styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(52, 52, 52));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 28));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(255, 255, 255, 46));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Pressed", FColor::FromBytes(188, 46, 66, 240));
+}
+
+void PopulateLightTheme(FStyleSet& styleSet)
+{
+    styleSet.SetColor("Background", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Highlight", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.Button.Normal.Background", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.Button.Normal.Border", FColor::FromBytes(190, 190, 190));
+    styleSet.SetColor("Color.Button.Normal.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.Button.Hovered.Background", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.Button.Hovered.Border", FColor::FromBytes(168, 168, 168));
+    styleSet.SetColor("Color.Button.Hovered.Text", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.Button.Pressed.Background", FColor::FromBytes(180, 180, 180));
+    styleSet.SetColor("Color.Button.Pressed.Border", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Button.Pressed.Text", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.Button.Focused.Background", FColor::FromBytes(212, 226, 248));
+    styleSet.SetColor("Color.Button.Focused.Border", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Button.Focused.Text", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.Button.Disabled.Background", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.Button.Disabled.Border", FColor::FromBytes(214, 214, 214));
+    styleSet.SetColor("Color.Button.Disabled.Text", FColor::FromBytes(150, 150, 150));
+    styleSet.SetFloat("Float.Button.CornerRadius", 4.0f);
+
+    styleSet.SetColor("Color.Input.Background", FColor::White);
+    styleSet.SetColor("Color.Input.HoveredBackground", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.Input.FocusedBackground", FColor::White);
+    styleSet.SetColor("Color.Input.DisabledBackground", FColor::FromBytes(240, 240, 240));
+    styleSet.SetColor("Color.Input.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.Input.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.Input.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.Input.DisabledText", FColor::FromBytes(140, 140, 140));
+    styleSet.SetColor("Color.Input.HintText", FColor::FromBytes(132, 132, 132));
+    styleSet.SetColor("Color.Input.Caret", FColor::FromBytes(20, 20, 20));
+    styleSet.SetColor("Color.Input.SelectionBackground", FColor::FromBytes(162, 205, 255, 200));
+    styleSet.SetColor("Color.Input.SelectedText", FColor::FromBytes(20, 20, 20));
+
+    styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(246, 247, 249));
+    styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(210, 214, 220));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(0, 0, 0, 18));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(0, 0, 0, 30));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
+    styleSet.SetColor("Color.TitleBar.CloseButton.Pressed", FColor::FromBytes(188, 46, 66, 240));
+}
+
+} // namespace
 
 std::shared_ptr<FStyleSet> FStyleSetFactory::CreateDefault() {
     auto styleSet = std::make_shared<FStyleSet>();
-
-    // 基础颜色
-    styleSet->SetColor("Background", FColor::FromBytes(30, 30, 30));
-    styleSet->SetColor("Text", FColor::White);
-    styleSet->SetColor("Border", FColor::FromBytes(60, 60, 60));
-    styleSet->SetColor("Highlight", FColor::FromBytes(100, 150, 255));
-
-    // 按钮颜色
-    styleSet->SetColor("Button.Normal", FColor::FromBytes(60, 60, 60));
-    styleSet->SetColor("Button.Hovered", FColor::FromBytes(80, 80, 80));
-    styleSet->SetColor("Button.Pressed", FColor::FromBytes(50, 50, 50));
-    styleSet->SetColor("Button.Text", FColor::White);
-
-    // 基础尺寸
-    styleSet->SetFloat("BorderThickness", 1.0f);
-    styleSet->SetFloat("CornerRadius", 4.0f);
-    styleSet->SetFloat("Padding", 8.0f);
-
-    // 基础向量
-    styleSet->SetVector2("DefaultSize", FVector2(100.0f, 30.0f));
-    styleSet->SetVector2("DefaultPadding", FVector2(8.0f, 8.0f));
-
+    PopulateSharedThemeGeometry(*styleSet);
+    PopulateDefaultTheme(*styleSet);
     return styleSet;
 }
 
 std::shared_ptr<FStyleSet> FStyleSetFactory::CreateDarkTheme() {
     auto styleSet = std::make_shared<FStyleSet>();
-
-    // 深色主题颜色
-    styleSet->SetColor("Background", FColor::FromBytes(20, 20, 20));
-    styleSet->SetColor("Text", FColor::FromBytes(220, 220, 220));
-    styleSet->SetColor("Border", FColor::FromBytes(50, 50, 50));
-    styleSet->SetColor("Highlight", FColor::FromBytes(70, 120, 200));
-
-    // 按钮颜色
-    styleSet->SetColor("Button.Normal", FColor::FromBytes(50, 50, 50));
-    styleSet->SetColor("Button.Hovered", FColor::FromBytes(70, 70, 70));
-    styleSet->SetColor("Button.Pressed", FColor::FromBytes(40, 40, 40));
-    styleSet->SetColor("Button.Text", FColor::FromBytes(220, 220, 220));
-
-    // 输入框颜色
-    styleSet->SetColor("Input.Background", FColor::FromBytes(30, 30, 30));
-    styleSet->SetColor("Input.Border", FColor::FromBytes(60, 60, 60));
-    styleSet->SetColor("Input.Text", FColor::FromBytes(220, 220, 220));
-
-    // 基础尺寸
-    styleSet->SetFloat("BorderThickness", 1.0f);
-    styleSet->SetFloat("CornerRadius", 4.0f);
-    styleSet->SetFloat("Padding", 8.0f);
-
-    // 基础向量
-    styleSet->SetVector2("DefaultSize", FVector2(100.0f, 30.0f));
-    styleSet->SetVector2("DefaultPadding", FVector2(8.0f, 8.0f));
-
+    PopulateSharedThemeGeometry(*styleSet);
+    PopulateDarkTheme(*styleSet);
     return styleSet;
 }
 
 std::shared_ptr<FStyleSet> FStyleSetFactory::CreateLightTheme() {
     auto styleSet = std::make_shared<FStyleSet>();
-
-    // 浅色主题颜色
-    styleSet->SetColor("Background", FColor::FromBytes(240, 240, 240));
-    styleSet->SetColor("Text", FColor::FromBytes(30, 30, 30));
-    styleSet->SetColor("Border", FColor::FromBytes(200, 200, 200));
-    styleSet->SetColor("Highlight", FColor::FromBytes(0, 120, 215));
-
-    // 按钮颜色
-    styleSet->SetColor("Button.Normal", FColor::FromBytes(220, 220, 220));
-    styleSet->SetColor("Button.Hovered", FColor::FromBytes(200, 200, 200));
-    styleSet->SetColor("Button.Pressed", FColor::FromBytes(180, 180, 180));
-    styleSet->SetColor("Button.Text", FColor::FromBytes(30, 30, 30));
-
-    // 输入框颜色
-    styleSet->SetColor("Input.Background", FColor::White);
-    styleSet->SetColor("Input.Border", FColor::FromBytes(200, 200, 200));
-    styleSet->SetColor("Input.Text", FColor::FromBytes(30, 30, 30));
-
-    // 基础尺寸
-    styleSet->SetFloat("BorderThickness", 1.0f);
-    styleSet->SetFloat("CornerRadius", 4.0f);
-    styleSet->SetFloat("Padding", 8.0f);
-
-    // 基础向量
-    styleSet->SetVector2("DefaultSize", FVector2(100.0f, 30.0f));
-    styleSet->SetVector2("DefaultPadding", FVector2(8.0f, 8.0f));
-
+    PopulateSharedThemeGeometry(*styleSet);
+    PopulateLightTheme(*styleSet);
     return styleSet;
 }
 

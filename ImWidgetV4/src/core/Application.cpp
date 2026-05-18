@@ -657,6 +657,10 @@ void ImApplication::SetStyleSet(const FStyleSet& styleSet)
 {
     StyleSet_.Clear();
     StyleSet_.Merge(styleSet);
+    DismissToolTip();
+    if (const std::shared_ptr<ImWidget>& rootWidget = GetRootWidget()) {
+        rootWidget->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+    }
 }
 
 const FStyleSet& ImApplication::GetStyleSet() const
@@ -681,6 +685,10 @@ bool ImApplication::SetActiveTheme(const std::string& name)
             ActiveThemeName_ = name;
             StyleSet_.Clear();
             StyleSet_.Merge(pack.StyleSet);
+            DismissToolTip();
+            if (const std::shared_ptr<ImWidget>& rootWidget = GetRootWidget()) {
+                rootWidget->Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+            }
             return true;
         }
     }

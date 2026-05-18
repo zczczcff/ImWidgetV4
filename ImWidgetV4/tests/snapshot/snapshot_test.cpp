@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/snapshot/Snapshot.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -46,6 +47,29 @@ public:
             : FColor::White;
         paintContext.DrawContext_.DrawRectFilled(m_Geometry.GetMin(), m_Geometry.GetMax(), color);
     }
+};
+
+class ThemeAwareButtonWidget : public ImWidget {
+public:
+    ThemeAwareButtonWidget()
+    {
+        Button = std::make_shared<ImButton>();
+        Button->SetText("Theme");
+        AddChild(Button);
+    }
+
+    void Paint(const FPaintContext& paintContext) override
+    {
+        Button->SetGeometry(m_Geometry);
+        Button->Paint(paintContext);
+    }
+
+    FVector2 GetMinSize() const override
+    {
+        return Button->GetMinSize();
+    }
+
+    std::shared_ptr<ImButton> Button;
 };
 
 FFrameContext MakeFrameContext(float width, float height, double currentTime = 0.0) {
@@ -223,6 +247,21 @@ TEST(SnapshotTest, ThemeSwitchChangesSnapshotWithoutRebuildingRoot) {
 
     EXPECT_NE(FSnapshotRenderer::ComputeHash(defaultTheme), FSnapshotRenderer::ComputeHash(darkTheme));
     EXPECT_FALSE(FSnapshotRenderer::Compare(defaultTheme, darkTheme, 0).IsMatch());
+}
+
+TEST(SnapshotTest, ThemeSwitchUpdatesThemeAwareButtonWithoutExplicitStyle)
+{
+    FImGuiScope imguiScope;
+    ImApplication application;
+    auto widget = std::make_shared<ThemeAwareButtonWidget>();
+    application.SetRootWidget(widget);
+
+    const FSnapshotOptions options {160, 60, FColor::FromBytes(8, 10, 14, 255)};
+    const FSnapshotImage defaultTheme = application.CaptureSnapshot(MakeFrameContext(160.0f, 60.0f), options);
+    ASSERT_TRUE(application.SetActiveTheme("Dark"));
+    const FSnapshotImage darkTheme = application.CaptureSnapshot(MakeFrameContext(160.0f, 60.0f), options);
+
+    EXPECT_NE(FSnapshotRenderer::ComputeHash(defaultTheme), FSnapshotRenderer::ComputeHash(darkTheme));
 }
 
 TEST(SnapshotTest, MultiWindowSnapshotChangesWhenModalAppears) {

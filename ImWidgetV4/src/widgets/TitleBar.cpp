@@ -2,6 +2,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <algorithm>
 #include <cmath>
@@ -137,6 +138,7 @@ void ImTitleBar::SetDragRegionMinWidth(float width)
 void ImTitleBar::SetStyle(const FTitleBarStyle& style)
 {
     Style_ = style;
+    bHasExplicitStyle_ = true;
     MarkLayoutDirty();
 }
 
@@ -148,13 +150,14 @@ void ImTitleBar::Paint(const FPaintContext& paintContext)
 
     Relayout();
 
+    const FTitleBarStyle& style = GetEffectiveStyle();
     const FVector2 min = m_Geometry.GetMin();
     const FVector2 max = m_Geometry.GetMax();
-    paintContext.DrawContext_.DrawRectFilled(min, max, Style_.BackgroundColor);
+    paintContext.DrawContext_.DrawRectFilled(min, max, style.BackgroundColor);
     paintContext.DrawContext_.DrawLine(
         FVector2(min.X, max.Y - BorderThickness),
         FVector2(max.X, max.Y - BorderThickness),
-        Style_.BorderColor,
+        style.BorderColor,
         BorderThickness);
 
     PaintChildren(paintContext);
@@ -163,7 +166,8 @@ void ImTitleBar::Paint(const FPaintContext& paintContext)
 
 FVector2 ImTitleBar::GetMinSize() const
 {
-    float width = Style_.Padding.Left + Style_.Padding.Right + GetResolvedDragRegionMinWidth();
+    const FTitleBarStyle& style = GetEffectiveStyle();
+    float width = style.Padding.Left + style.Padding.Right + GetResolvedDragRegionMinWidth();
     float contentHeight = 0.0f;
 
     const auto accumulateItems = [&](const std::vector<Ptr>& items) {
@@ -178,7 +182,7 @@ FVector2 ImTitleBar::GetMinSize() const
             localWidth += itemMinSize.X;
             localHeight = std::max(localHeight, itemMinSize.Y);
             if (index + 1 < items.size()) {
-                localWidth += Style_.ItemSpacing;
+                localWidth += style.ItemSpacing;
             }
         }
 
@@ -188,7 +192,7 @@ FVector2 ImTitleBar::GetMinSize() const
 
     accumulateItems(LeadingItems_);
     if (!LeadingItems_.empty() && !TrailingItems_.empty()) {
-        width += Style_.ItemSpacing;
+        width += style.ItemSpacing;
     }
     accumulateItems(TrailingItems_);
 
@@ -199,15 +203,15 @@ FVector2 ImTitleBar::GetMinSize() const
         }
 
         if (visibleButtonCount > 0) {
-            width += Style_.SystemButtonSize * static_cast<float>(visibleButtonCount);
-            width += Style_.SystemButtonSpacing * static_cast<float>(visibleButtonCount - 1U);
+            width += style.SystemButtonSize * static_cast<float>(visibleButtonCount);
+            width += style.SystemButtonSpacing * static_cast<float>(visibleButtonCount - 1U);
         }
     }
 
     const float height = std::max(
-        std::max(Style_.Height, Style_.MinDesiredSize.Y),
-        contentHeight + Style_.Padding.Top + Style_.Padding.Bottom);
-    width = std::max(width, Style_.MinDesiredSize.X);
+        std::max(style.Height, style.MinDesiredSize.Y),
+        contentHeight + style.Padding.Top + style.Padding.Bottom);
+    width = std::max(width, style.MinDesiredSize.X);
     return FVector2(width, height);
 }
 
@@ -320,10 +324,11 @@ void ImTitleBar::Relayout() const
     MaximizeButtonGeometry_ = FGeometry();
     CloseButtonGeometry_ = FGeometry();
 
-    const FGeometry innerGeometry = InsetGeometry(m_Geometry, Style_.Padding);
+    const FTitleBarStyle& style = GetEffectiveStyle();
+    const FGeometry innerGeometry = InsetGeometry(m_Geometry, style.Padding);
     const float innerHeight = innerGeometry.Size.Y;
-    const float buttonSize = std::min(ClampNonNegative(Style_.SystemButtonSize), innerHeight);
-    const float systemButtonSpacing = ClampNonNegative(Style_.SystemButtonSpacing);
+    const float buttonSize = std::min(ClampNonNegative(style.SystemButtonSize), innerHeight);
+    const float systemButtonSpacing = ClampNonNegative(style.SystemButtonSpacing);
 
     auto layoutItemsLeftToRight = [&](const std::vector<Ptr>& items, float startX, std::vector<FChildLayout>& outLayouts) {
         float cursorX = startX;
@@ -344,7 +349,7 @@ void ImTitleBar::Relayout() const
             outLayouts.push_back(layout);
             cursorX += itemWidth;
             if (index + 1 < items.size()) {
-                cursorX += Style_.ItemSpacing;
+                cursorX += style.ItemSpacing;
             }
         }
 
@@ -360,7 +365,7 @@ void ImTitleBar::Relayout() const
             }
 
             if (bHasAny) {
-                width += Style_.ItemSpacing;
+                width += style.ItemSpacing;
             }
             width += ClampNonNegative(item->GetMinSize().X);
             bHasAny = true;
@@ -405,7 +410,7 @@ void ImTitleBar::Relayout() const
             TrailingLayouts_.push_back(layout);
             cursorX += itemWidth;
             if (index + 1 < TrailingItems_.size()) {
-                cursorX += Style_.ItemSpacing;
+                cursorX += style.ItemSpacing;
             }
         }
     }
@@ -578,14 +583,14 @@ void ImTitleBar::PaintSystemButton(const FPaintContext& paintContext, ESystemBut
 
     if (button == ESystemButton::Close) {
         if (bPressed) {
-            fillColor = Style_.CloseButtonPressedColor;
+            fillColor = GetEffectiveStyle().CloseButtonPressedColor;
         } else if (bHovered) {
-            fillColor = Style_.CloseButtonHoveredColor;
+            fillColor = GetEffectiveStyle().CloseButtonHoveredColor;
         }
     } else if (bPressed) {
-        fillColor = Style_.PressedSystemButtonColor;
+        fillColor = GetEffectiveStyle().PressedSystemButtonColor;
     } else if (bHovered) {
-        fillColor = Style_.HoveredSystemButtonColor;
+        fillColor = GetEffectiveStyle().HoveredSystemButtonColor;
     }
 
     if (fillColor.A > 0.0f) {
@@ -689,9 +694,24 @@ bool ImTitleBar::IsSystemButtonVisible(ESystemButton button) const
 
 float ImTitleBar::GetResolvedDragRegionMinWidth() const
 {
+    const FTitleBarStyle& style = GetEffectiveStyle();
     return ReflectedDragRegionMinWidth_ >= 0.0f
         ? ReflectedDragRegionMinWidth_
-        : ClampNonNegative(Style_.DragRegionMinWidth);
+        : ClampNonNegative(style.DragRegionMinWidth);
+}
+
+const FTitleBarStyle& ImTitleBar::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        return Style_;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolveTitleBarStyle(application->GetStyleSet());
+        return ResolvedThemeStyle_;
+    }
+
+    return Style_;
 }
 
 ImTitleBar::ESystemButton ImTitleBar::HitTestSystemButton(const FVector2& position) const

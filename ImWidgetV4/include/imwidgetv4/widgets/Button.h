@@ -30,7 +30,7 @@ public:
     std::string GetText() const;
 
     void SetStyle(const FButtonStyle& style);
-    const FButtonStyle& GetStyle() const { return m_Style; }
+    const FButtonStyle& GetStyle() const { return GetEffectiveStyle(); }
     void SetNormalStyle(const FButtonStateStyle& style) { m_Style.Normal = style; }
     void SetHoveredStyle(const FButtonStateStyle& style) { m_Style.Hovered = style; }
     void SetPressedStyle(const FButtonStateStyle& style) { m_Style.Pressed = style; }
@@ -64,6 +64,7 @@ public:
     virtual void Relayout();
 
 protected:
+    const FButtonStyle& GetEffectiveStyle() const;
     const FButtonStateStyle& GetCurrentStateStyle() const;
     void SetPressed(bool bPressed);
     void SetHovered(bool bHovered);
@@ -72,9 +73,11 @@ protected:
 
 private:
     FButtonStyle m_Style;
+    mutable FButtonStyle m_ResolvedThemeStyle;
     bool m_bHovered = false;
     bool m_bPressed = false;
     bool m_bDisabled = false;
+    bool m_bHasExplicitStyle = false;
     FVector2 m_OriginalMinSize {100.0f, 30.0f};
 };
 

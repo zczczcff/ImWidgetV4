@@ -84,7 +84,7 @@ public:
     const FText& GetHintTextValue() const { return m_HintTextValue; }
 
     void SetStyle(const FEditableTextStyle& style);
-    const FEditableTextStyle& GetStyle() const { return m_Style; }
+    const FEditableTextStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetDisabled(bool bDisabled);
     bool IsDisabled() const { return m_bDisabled; }
@@ -107,6 +107,7 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FEditableTextStyle& GetEffectiveStyle() const;
     void SetTextProperty(std::string& text) { SetText(text); }
     std::string& GetTextProperty() { return m_Text; }
     void SetHintTextProperty(std::string& hintText) { SetHintText(hintText); }
@@ -142,6 +143,7 @@ private:
     void SetDraggingSelection(bool bDraggingSelection);
 
     FEditableTextStyle m_Style;
+    mutable FEditableTextStyle m_ResolvedThemeStyle;
     std::string m_Text;
     std::string m_HintText;
     FText m_HintTextValue;
@@ -152,6 +154,7 @@ private:
     bool m_bDisabled = false;
     bool m_bDraggingSelection = false;
     bool m_bTextDirty = false;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

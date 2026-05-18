@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TitleBar.h>
@@ -287,4 +288,27 @@ TEST_F(TitleBarTest, SystemButtonsRelayoutWhenViewportChanges)
     }, FVector2(860.0f, 44.0f));
 
     EXPECT_EQ(Backend.CloseCalls, 1);
+}
+
+TEST_F(TitleBarTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+    const FTitleBarStyle expectedStyle = ResolveTitleBarStyle(App->GetStyleSet());
+
+    const FTitleBarStyle& style = TitleBar->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+}
+
+TEST_F(TitleBarTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+
+    FTitleBarStyle explicitStyle = TitleBar->GetStyle();
+    explicitStyle.BackgroundColor = FColor::FromBytes(1, 2, 3);
+    explicitStyle.BorderColor = FColor::FromBytes(4, 5, 6);
+    TitleBar->SetStyle(explicitStyle);
+
+    EXPECT_EQ(TitleBar->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(TitleBar->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
 }

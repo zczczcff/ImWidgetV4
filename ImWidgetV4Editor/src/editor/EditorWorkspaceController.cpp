@@ -4,6 +4,7 @@
 #include "EditorSession.h"
 #include "EditorPaths.h"
 #include "EditorShellHost.h"
+#include "EditorTheme.h"
 #include "InputDialog.h"
 #include "NewAppProjectDialog.h"
 #include "ProjectSettingsDialog.h"
@@ -40,7 +41,7 @@ std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
     auto title = std::make_shared<ImTextBlock>();
     title->SetText(text);
     title->SetFontSize(18.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+    title->SetTextColor(GetEditorPanelTitleColor());
     return title;
 }
 
@@ -50,7 +51,7 @@ std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSi
     body->SetText(text);
     body->SetWrapText(false);
     body->SetFontSize(fontSize);
-    body->SetTextColor(FColor::FromBytes(180, 190, 204));
+    body->SetTextColor(GetEditorPanelBodyColor());
     return body;
 }
 
@@ -74,43 +75,21 @@ std::string LocalizedEditorString(
 std::shared_ptr<ImScrollBox> CreateDocumentHost()
 {
     auto documentHost = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle scrollStyle = documentHost->GetStyle();
-    scrollStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    scrollStyle.BorderThickness = 0.0f;
-    scrollStyle.CornerRadius = 0.0f;
-    scrollStyle.Padding = FMargin(0.0f);
-    documentHost->SetStyle(scrollStyle);
+    documentHost->SetStyle(MakeEditorHostScrollStyle(documentHost->GetStyle(), FMargin(0.0f)));
     return documentHost;
 }
 
 std::shared_ptr<ImScrollBox> CreatePreviewHost()
 {
     auto previewHost = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle style = previewHost->GetStyle();
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
-    style.Padding = FMargin(0.0f);
-    previewHost->SetStyle(style);
+    previewHost->SetStyle(MakeEditorHostScrollStyle(previewHost->GetStyle(), FMargin(0.0f)));
     return previewHost;
 }
 
 std::shared_ptr<ImTextList> CreateSchemaText()
 {
     auto schemaText = std::make_shared<ImTextList>();
-    FTextListStyle style = schemaText->GetStyle();
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderColor = FColor::Transparent;
-    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
-    style.TextColor = FColor::FromBytes(196, 205, 217);
-    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
-    style.Padding = FMargin(12.0f);
-    style.MinDesiredSize = FVector2(0.0f, 180.0f);
-    style.CornerRadius = 0.0f;
-    style.BorderThickness = 0.0f;
-    style.FontSize = 14.0f;
-    style.LineSpacing = 1.1f;
-    schemaText->SetStyle(style);
+    schemaText->SetStyle(MakeEditorCodeTextListStyle(schemaText->GetStyle(), FMargin(12.0f), FVector2(0.0f, 180.0f)));
     schemaText->SetItems({"{}"});
     return schemaText;
 }
@@ -118,36 +97,14 @@ std::shared_ptr<ImTextList> CreateSchemaText()
 std::shared_ptr<ImTextList> CreateCodePreviewText()
 {
     auto previewText = std::make_shared<ImTextList>();
-    FTextListStyle style = previewText->GetStyle();
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderColor = FColor::Transparent;
-    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
-    style.TextColor = FColor::FromBytes(196, 205, 217);
-    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
-    style.Padding = FMargin(12.0f);
-    style.MinDesiredSize = FVector2(0.0f, 180.0f);
-    style.CornerRadius = 0.0f;
-    style.BorderThickness = 0.0f;
-    style.FontSize = 14.0f;
-    style.LineSpacing = 1.1f;
-    previewText->SetStyle(style);
+    previewText->SetStyle(MakeEditorCodeTextListStyle(previewText->GetStyle(), FMargin(12.0f), FVector2(0.0f, 180.0f)));
     previewText->SetItems({EditorText("Session.NoDocumentLoadedComment", "// No document loaded.")});
     return previewText;
 }
 
 FTabViewStyle CreateWorkspaceTabStyle()
 {
-    FTabViewStyle tabStyle;
-    tabStyle.Padding = FMargin(0.0f);
-    tabStyle.TabHeight = 28.0f;
-    tabStyle.TabMinWidth = 110.0f;
-    tabStyle.TabSpacing = 0.0f;
-    tabStyle.BorderThickness = 0.0f;
-    tabStyle.CornerRadius = 0.0f;
-    tabStyle.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
-    tabStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    tabStyle.ActiveTabColor = FColor::FromBytes(63, 90, 128);
-    return tabStyle;
+    return MakeEditorWorkspaceTabStyle();
 }
 
 bool ShouldSkipWorkspaceEntry(const std::filesystem::directory_entry& entry)

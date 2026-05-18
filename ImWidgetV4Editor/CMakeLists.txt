@@ -50,6 +50,7 @@ set(IMWIDGETV4_EDITOR_SOURCES
     src/editor/EditorPaths.cpp
     src/editor/EditorLocalization.cpp
     src/editor/EditorShellHost.cpp
+    src/editor/EditorTheme.cpp
     src/editor/InputDialog.cpp
     src/editor/NewAppProjectDialog.cpp
     src/editor/ProjectSettingsDialog.cpp
@@ -92,6 +93,7 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
         src/editor/EditorPaths.cpp
         src/editor/EditorLocalization.cpp
         src/editor/EditorShellHost.cpp
+        src/editor/EditorTheme.cpp
         src/editor/InputDialog.cpp
         src/editor/NewAppProjectDialog.cpp
         src/editor/ProjectSettingsDialog.cpp

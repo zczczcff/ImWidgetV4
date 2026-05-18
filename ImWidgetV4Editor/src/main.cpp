@@ -2,6 +2,7 @@
 #include "editor/EditorShellHost.h"
 #include "editor/EditorLocalization.h"
 #include "editor/EditorPaths.h"
+#include "editor/EditorTheme.h"
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "inspector/PropertyEditorWidgets.h"
@@ -187,48 +188,19 @@ struct FTitleBarPopupState {
     std::shared_ptr<ImWindow> Window;
 };
 
-FButtonStyle MakeTitleBarButtonStyle(bool bHighlighted = false)
-{
-    FButtonStyle style = FButtonStyle::CreatePrimary();
-    const FColor textColor = FColor::FromBytes(232, 238, 246);
-    const FColor baseColor = bHighlighted ? FColor::FromBytes(72, 104, 146, 116) : FColor(0.0f, 0.0f, 0.0f, 0.0f);
-    style.Normal = FButtonStateStyle(baseColor, FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
-    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 24), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
-    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 38), FColor(0.0f, 0.0f, 0.0f, 0.0f), textColor, 0.0f, 0.0f, false);
-    style.Focused = style.Hovered;
-    style.Disabled = FButtonStateStyle(FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor(0.0f, 0.0f, 0.0f, 0.0f), FColor::FromBytes(132, 140, 150), 0.0f, 0.0f, false);
-    return style;
-}
-
-FButtonStyle MakeTitleBarIconButtonStyle()
-{
-    FButtonStyle style = FButtonStyle::CreatePrimary();
-    const FColor transparent(0.0f, 0.0f, 0.0f, 0.0f);
-    const FColor textColor = FColor::FromBytes(232, 238, 246);
-    style.Normal = FButtonStateStyle(transparent, transparent, textColor, 0.0f, 0.0f, false);
-    style.Hovered = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 18), transparent, textColor, 0.0f, 0.0f, false);
-    style.Pressed = FButtonStateStyle(FColor::FromBytes(255, 255, 255, 30), transparent, textColor, 0.0f, 0.0f, false);
-    style.Focused = style.Hovered;
-    style.Disabled = FButtonStateStyle(transparent, transparent, FColor::FromBytes(132, 140, 150), 0.0f, 0.0f, false);
-    return style;
-}
-
 std::shared_ptr<ImImage> MakeTitleBarIcon(const FImageBrush& brush, float size = 16.0f)
 {
     auto image = std::make_shared<ImImage>();
     image->SetBrush(brush);
     image->SetDesiredSize(FVector2(size, size));
-    image->SetBackgroundColor(FColor(0.0f, 0.0f, 0.0f, 0.0f));
-    image->SetBorderColor(FColor(0.0f, 0.0f, 0.0f, 0.0f));
-    image->SetBorderThickness(0.0f);
-    image->SetCornerRadius(0.0f);
+    image->SetStyle(MakeEditorPlainIconStyle(image->GetStyle()));
     return image;
 }
 
 std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const FText& text)
 {
     auto button = std::make_shared<FCompactTitleBarButton>();
-    button->SetStyle(MakeTitleBarButtonStyle());
+    button->SetStyle(MakeEditorTitleBarButtonStyle());
     button->SetText(text);
     button->SetCompactMinSize(FVector2(0.0f, 28.0f));
     if (ImPaddingSlot* slot = button->GetContentSlot()) {
@@ -243,7 +215,7 @@ std::shared_ptr<FCompactTitleBarButton> MakeTitleBarTextButton(const FText& text
 std::shared_ptr<FCompactTitleBarButton> MakeTitleBarIconButton(const FImageBrush& brush, const FText& tooltip)
 {
     auto button = std::make_shared<FCompactTitleBarButton>();
-    button->SetStyle(MakeTitleBarIconButtonStyle());
+    button->SetStyle(MakeEditorTitleBarIconButtonStyle());
     button->SetContent(MakeTitleBarIcon(brush, 16.0f));
     button->SetCompactMinSize(FVector2(30.0f, 28.0f));
     if (ImPaddingSlot* slot = button->GetContentSlot()) {
@@ -328,7 +300,7 @@ std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
     auto title = std::make_shared<ImTextBlock>();
     title->SetText(text);
     title->SetFontSize(18.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+    title->SetTextColor(GetEditorPanelTitleColor());
     return title;
 }
 
@@ -338,26 +310,14 @@ std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSi
     body->SetText(text);
     body->SetWrapText(false);
     body->SetFontSize(fontSize);
-    body->SetTextColor(FColor::FromBytes(180, 190, 204));
+    body->SetTextColor(GetEditorPanelBodyColor());
     return body;
 }
 
 std::shared_ptr<ImTextList> MakePanelTextList(const std::vector<FText>& items)
 {
     auto list = std::make_shared<ImTextList>();
-    FTextListStyle style = list->GetStyle();
-    style.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    style.BorderColor = FColor::FromBytes(0, 0, 0, 0);
-    style.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
-    style.TextColor = FColor::FromBytes(180, 190, 204);
-    style.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
-    style.Padding = FMargin(14.0f);
-    style.MinDesiredSize = FVector2(0.0f, 120.0f);
-    style.CornerRadius = 0.0f;
-    style.BorderThickness = 0.0f;
-    style.FontSize = 14.0f;
-    style.LineSpacing = 1.1f;
-    list->SetStyle(style);
+    list->SetStyle(MakeEditorCodeTextListStyle(list->GetStyle(), FMargin(14.0f), FVector2(0.0f, 120.0f)));
     list->SetItems(items);
     return list;
 }
@@ -371,29 +331,10 @@ std::shared_ptr<ImVerticalBox> MakeSimplePanel(const std::string& title, const s
     return panel;
 }
 
-FTextOutlineViewStyle MakeDockOutlineStyle()
-{
-    FTextOutlineViewStyle style;
-    style.Padding = FMargin(6.0f);
-    style.RowPadding = FMargin(5.0f, 6.0f, 3.0f, 3.0f);
-    style.MinDesiredSize = FVector2(220.0f, 180.0f);
-    style.CornerRadius = 0.0f;
-    style.BorderThickness = 0.0f;
-    style.FontSize = 14.0f;
-    style.RowHeight = 22.0f;
-    style.IndentWidth = 16.0f;
-    style.IndicatorSize = 9.0f;
-    return style;
-}
-
 std::shared_ptr<ImWidget> BuildControlPalettePanel()
 {
     auto host = std::make_shared<ImScrollBox>();
-    FScrollBoxStyle style = host->GetStyle();
-    style.Padding = FMargin(6.0f);
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
-    host->SetStyle(style);
+    host->SetStyle(MakeEditorHostScrollStyle(host->GetStyle(), FMargin(6.0f)));
     host->SetContent(BuildWidgetPaletteView());
     return host;
 }
@@ -402,7 +343,7 @@ std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
-    outline->SetStyle(MakeDockOutlineStyle());
+    outline->SetStyle(MakeEditorDockOutlineStyle(outline->GetStyle()));
     return outline;
 }
 
@@ -410,7 +351,7 @@ std::shared_ptr<ImWidget> BuildWidgetTreePanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
-    outline->SetStyle(MakeDockOutlineStyle());
+    outline->SetStyle(MakeEditorDockOutlineStyle(outline->GetStyle()));
     return outline;
 }
 

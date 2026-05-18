@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/OutlineView.h>
 #include <imgui.h>
 #include <memory>
@@ -244,6 +245,31 @@ TEST_F(OutlineViewTest, RemovingFocusedCapturedSubtreeClearsApplicationInteracti
     EXPECT_EQ(App->GetKeyboardFocus(), nullptr);
     EXPECT_EQ(App->GetMouseCapture(), nullptr);
     EXPECT_EQ(View->GetSelectedItem(), nullptr);
+}
+
+TEST_F(OutlineViewTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    auto themedView = std::make_shared<ImOutlineView>();
+    App->SetRootWidget(themedView);
+    const FOutlineViewStyle expectedStyle = ResolveOutlineViewStyle(App->GetStyleSet());
+
+    const FOutlineViewStyle& style = themedView->GetStyle();
+    EXPECT_EQ(style.HoveredRowColor.ToImU32(), expectedStyle.HoveredRowColor.ToImU32());
+    EXPECT_EQ(style.IndicatorColor.ToImU32(), expectedStyle.IndicatorColor.ToImU32());
+}
+
+TEST_F(OutlineViewTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FOutlineViewStyle explicitStyle;
+    explicitStyle.HoveredRowColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.IndicatorColor = FColor::FromBytes(40, 50, 60);
+    View->SetStyle(explicitStyle);
+
+    EXPECT_EQ(View->GetStyle().HoveredRowColor.ToImU32(), explicitStyle.HoveredRowColor.ToImU32());
+    EXPECT_EQ(View->GetStyle().IndicatorColor.ToImU32(), explicitStyle.IndicatorColor.ToImU32());
 }
 
 int main(int argc, char** argv)

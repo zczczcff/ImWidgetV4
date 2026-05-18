@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/ListView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
 #include <algorithm>
@@ -206,6 +207,7 @@ std::shared_ptr<ImWidget> ImListView::GetEmptyContent() const
 void ImListView::SetStyle(const FListViewStyle& style)
 {
     Style_ = style;
+    bHasExplicitStyle_ = true;
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -217,18 +219,19 @@ void ImListView::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FListViewStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BackgroundColor,
-        Style_.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        HasKeyboardFocus() ? Style_.FocusedOutlineColor : Style_.BorderColor,
-        Style_.CornerRadius,
-        Style_.BorderThickness);
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     paintContext.DrawContext_.PushClipRect(ViewportGeometry_.GetMin(), ViewportGeometry_.GetMax(), true);
 
@@ -253,9 +256,9 @@ void ImListView::Paint(const FPaintContext& paintContext)
 
             FColor rowColor = FColor::Transparent;
             if (entry.Index == SelectedIndex_) {
-                rowColor = HasKeyboardFocus() ? Style_.SelectedFocusedRowColor : Style_.SelectedRowColor;
+                rowColor = HasKeyboardFocus() ? style.SelectedFocusedRowColor : style.SelectedRowColor;
             } else if (entry.Index == HoveredRowIndex_) {
-                rowColor = Style_.HoveredRowColor;
+                rowColor = style.HoveredRowColor;
             }
 
             if (rowColor.A > 0.0f) {
@@ -287,13 +290,13 @@ void ImListView::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             VerticalScrollbarGeometry_.GetMin(),
             VerticalScrollbarGeometry_.GetMax(),
-            Style_.ScrollbarTrackColor,
-            Style_.ScrollbarThickness * 0.5f);
+            style.ScrollbarTrackColor,
+            style.ScrollbarThickness * 0.5f);
         paintContext.DrawContext_.DrawRectFilled(
             VerticalThumbGeometry_.GetMin(),
             VerticalThumbGeometry_.GetMax(),
-            (bDraggingScrollbar_ || bHoveredScrollbar_) ? Style_.ScrollbarThumbHoveredColor : Style_.ScrollbarThumbColor,
-            Style_.ScrollbarThickness * 0.5f);
+            (bDraggingScrollbar_ || bHoveredScrollbar_) ? style.ScrollbarThumbHoveredColor : style.ScrollbarThumbColor,
+            style.ScrollbarThickness * 0.5f);
     }
 
     if (bDraggingScrollbar_ || bHoveredScrollbar_) {
@@ -303,7 +306,7 @@ void ImListView::Paint(const FPaintContext& paintContext)
 
 FVector2 ImListView::GetMinSize() const
 {
-    return Style_.MinDesiredSize;
+    return GetEffectiveStyle().MinDesiredSize;
 }
 
 FReply ImListView::OnPreviewInputEvent(const FInputEvent& event)
@@ -399,7 +402,7 @@ FReply ImListView::OnInputEvent(const FInputEvent& event)
         if (!m_Geometry.Contains(event.MousePosition) || MaxScrollOffsetY_ <= 0.0f) {
             return FReply::Unhandled();
         }
-        SetScrollOffset(ScrollOffsetY_ - event.ScrollDelta.Y * Style_.WheelScrollStep);
+        SetScrollOffset(ScrollOffsetY_ - event.ScrollDelta.Y * GetEffectiveStyle().WheelScrollStep);
         return FReply::Handled();
 
     case EInputEventType::KeyDown:
@@ -491,7 +494,8 @@ float& ImListView::GetScrollOffsetProperty()
 
 void ImListView::Relayout()
 {
-    const FGeometry innerGeometry = InsetGeometry(m_Geometry, Style_.Padding, Style_.BorderThickness);
+    const FListViewStyle& style = GetEffectiveStyle();
+    const FGeometry innerGeometry = InsetGeometry(m_Geometry, style.Padding, style.BorderThickness);
     const FGeometry initialViewportGeometry(innerGeometry.Position, innerGeometry.Size);
 
     if (bLayoutDirty_) {
@@ -499,7 +503,7 @@ void ImListView::Relayout()
 
         const bool bNeedScrollbar = ContentHeight_ > innerGeometry.Size.Y + 0.5f;
         const float viewportWidth = bNeedScrollbar
-            ? std::max(0.0f, innerGeometry.Size.X - Style_.ScrollbarThickness - Style_.ScrollbarPadding)
+            ? std::max(0.0f, innerGeometry.Size.X - style.ScrollbarThickness - style.ScrollbarPadding)
             : innerGeometry.Size.X;
         const FGeometry finalViewportGeometry(
             innerGeometry.Position,
@@ -515,7 +519,7 @@ void ImListView::Relayout()
     } else {
         const bool bNeedScrollbar = ContentHeight_ > innerGeometry.Size.Y + 0.5f;
         const float viewportWidth = bNeedScrollbar
-            ? std::max(0.0f, innerGeometry.Size.X - Style_.ScrollbarThickness - Style_.ScrollbarPadding)
+            ? std::max(0.0f, innerGeometry.Size.X - style.ScrollbarThickness - style.ScrollbarPadding)
             : innerGeometry.Size.X;
         ViewportGeometry_ = FGeometry(
             innerGeometry.Position,
@@ -533,15 +537,15 @@ void ImListView::Relayout()
     if (bShowScrollbar && innerGeometry.Size.Y > 0.0f) {
         VerticalScrollbarGeometry_ = FGeometry(
             FVector2(
-                ViewportGeometry_.Position.X + ViewportGeometry_.Size.X + Style_.ScrollbarPadding,
+                ViewportGeometry_.Position.X + ViewportGeometry_.Size.X + style.ScrollbarPadding,
                 innerGeometry.Position.Y),
-            FVector2(Style_.ScrollbarThickness, innerGeometry.Size.Y));
+            FVector2(style.ScrollbarThickness, innerGeometry.Size.Y));
 
         const float trackHeight = VerticalScrollbarGeometry_.Size.Y;
         const float thumbHeight = std::min(
             trackHeight,
             std::max(
-                std::min(trackHeight, Style_.ThumbMinLength),
+                std::min(trackHeight, style.ThumbMinLength),
                 ContentHeight_ > 0.0f ? trackHeight * (ViewportGeometry_.Size.Y / ContentHeight_) : trackHeight));
         const float availableTrack = std::max(0.0f, trackHeight - thumbHeight);
         const float thumbOffset = MaxScrollOffsetY_ > 0.0f
@@ -555,6 +559,7 @@ void ImListView::Relayout()
 
 void ImListView::RebuildVisibleEntries(const FGeometry& viewportGeometry, bool bMeasureHeights)
 {
+    const FListViewStyle& style = GetEffectiveStyle();
     ViewportGeometry_ = viewportGeometry;
     const float viewportHeight = std::max(0.0f, viewportGeometry.Size.Y);
     const float estimatedRowHeight = EstimateRowHeight();
@@ -650,7 +655,7 @@ void ImListView::RebuildVisibleEntries(const FGeometry& viewportGeometry, bool b
         bool bPassChanged = false;
         for (FVisibleEntry& entry : VisibleEntries_) {
             const float measuredHeight = entry.RowWidget
-                ? std::max(Style_.RowMinHeight, entry.RowWidget->GetMinSize().Y + Style_.RowPadding.Top + Style_.RowPadding.Bottom)
+                ? std::max(style.RowMinHeight, entry.RowWidget->GetMinSize().Y + style.RowPadding.Top + style.RowPadding.Bottom)
                 : estimatedRowHeight;
             if (std::fabs(measuredHeight - entry.RowHeight) > 0.5f) {
                 RowHeightCache_[static_cast<std::size_t>(entry.Index)] = measuredHeight;
@@ -678,6 +683,7 @@ void ImListView::RebuildVisibleEntries(const FGeometry& viewportGeometry, bool b
 
 void ImListView::UpdateVisibleEntryGeometries()
 {
+    const FListViewStyle& style = GetEffectiveStyle();
     for (FVisibleEntry& entry : VisibleEntries_) {
         const float rowY = ViewportGeometry_.Position.Y + entry.ContentY - ScrollOffsetY_;
         entry.RowGeometry = FGeometry(
@@ -685,11 +691,11 @@ void ImListView::UpdateVisibleEntryGeometries()
             FVector2(ViewportGeometry_.Size.X, entry.RowHeight));
         entry.ContentGeometry = FGeometry(
             FVector2(
-                entry.RowGeometry.Position.X + Style_.RowPadding.Left,
-                rowY + Style_.RowPadding.Top),
+                entry.RowGeometry.Position.X + style.RowPadding.Left,
+                rowY + style.RowPadding.Top),
             FVector2(
-                std::max(0.0f, entry.RowGeometry.Size.X - Style_.RowPadding.Left - Style_.RowPadding.Right),
-                std::max(0.0f, entry.RowHeight - Style_.RowPadding.Top - Style_.RowPadding.Bottom)));
+                std::max(0.0f, entry.RowGeometry.Size.X - style.RowPadding.Left - style.RowPadding.Right),
+                std::max(0.0f, entry.RowHeight - style.RowPadding.Top - style.RowPadding.Bottom)));
         if (entry.RowWidget) {
             entry.RowWidget->SetGeometry(entry.ContentGeometry);
         }
@@ -878,7 +884,22 @@ const ImListView::FVisibleEntry* ImListView::ResolveEntryAt(const FVector2& posi
 
 float ImListView::EstimateRowHeight() const
 {
-    return std::max(0.0f, Style_.RowMinHeight + Style_.RowPadding.Top + Style_.RowPadding.Bottom);
+    const FListViewStyle& style = GetEffectiveStyle();
+    return std::max(0.0f, style.RowMinHeight + style.RowPadding.Top + style.RowPadding.Bottom);
+}
+
+const FListViewStyle& ImListView::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        return Style_;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolveListViewStyle(application->GetStyleSet());
+        return ResolvedThemeStyle_;
+    }
+
+    return Style_;
 }
 
 float ImListView::GetRowHeightForIndex(int index) const

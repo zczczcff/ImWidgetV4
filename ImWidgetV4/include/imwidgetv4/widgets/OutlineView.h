@@ -115,7 +115,7 @@ public:
     void CollapseAll();
 
     void SetStyle(const FOutlineViewStyle& style);
-    const FOutlineViewStyle& GetStyle() const { return Style_; }
+    const FOutlineViewStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetScrollOffset(float offset);
     float GetScrollOffset() const { return ScrollOffsetY_; }
@@ -133,6 +133,8 @@ public:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FOutlineViewStyle& GetEffectiveStyle() const;
+
     struct FVisibleEntry {
         ImOutlineItem* Item = nullptr;
         int Depth = 0;
@@ -176,6 +178,7 @@ private:
     bool ContainsWidgetInItemSubtree(const std::shared_ptr<ImWidget>& widget, const ImOutlineItem& item) const;
 
     FOutlineViewStyle Style_;
+    mutable FOutlineViewStyle ResolvedThemeStyle_;
     std::vector<std::unique_ptr<ImOutlineItem>> RootItems_;
     std::vector<FVisibleEntry> VisibleEntries_;
     ImOutlineItem* SelectedItem_ = nullptr;
@@ -189,6 +192,7 @@ private:
     bool bLayoutDirty_ = true;
     bool bHoveredScrollbar_ = false;
     bool bDraggingScrollbar_ = false;
+    bool bHasExplicitStyle_ = false;
     float ActiveGrabOffset_ = 0.0f;
 };
 

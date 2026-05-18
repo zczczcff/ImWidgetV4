@@ -167,6 +167,78 @@ FEditableTextStyle ResolveEditableTextStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FListViewStyle ResolveListViewStyle(const FStyleSet& styleSet)
+{
+    FListViewStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.ListView.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.ListView.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor("Color.ListView.FocusedOutline", style.FocusedOutlineColor);
+    style.HoveredRowColor = styleSet.GetColor("Color.ListView.HoveredRow", style.HoveredRowColor);
+    style.SelectedRowColor = styleSet.GetColor("Color.ListView.SelectedRow", style.SelectedRowColor);
+    style.SelectedFocusedRowColor = styleSet.GetColor(
+        "Color.ListView.SelectedFocusedRow",
+        style.SelectedFocusedRowColor);
+    style.ScrollbarTrackColor = styleSet.GetColor(
+        "Color.ListView.ScrollbarTrack",
+        style.ScrollbarTrackColor);
+    style.ScrollbarThumbColor = styleSet.GetColor(
+        "Color.ListView.ScrollbarThumb",
+        style.ScrollbarThumbColor);
+    style.ScrollbarThumbHoveredColor = styleSet.GetColor(
+        "Color.ListView.ScrollbarThumbHovered",
+        style.ScrollbarThumbHoveredColor);
+    style.CornerRadius = styleSet.GetFloat("Float.ListView.CornerRadius", style.CornerRadius);
+    style.BorderThickness = styleSet.GetFloat("Float.ListView.BorderThickness", style.BorderThickness);
+    style.RowMinHeight = styleSet.GetFloat("Float.ListView.RowMinHeight", style.RowMinHeight);
+    style.ScrollbarThickness = styleSet.GetFloat("Float.ListView.ScrollbarThickness", style.ScrollbarThickness);
+    style.ScrollbarPadding = styleSet.GetFloat("Float.ListView.ScrollbarPadding", style.ScrollbarPadding);
+    style.ThumbMinLength = styleSet.GetFloat("Float.ListView.ThumbMinLength", style.ThumbMinLength);
+    style.WheelScrollStep = styleSet.GetFloat("Float.ListView.WheelScrollStep", style.WheelScrollStep);
+
+    return style;
+}
+
+FOutlineViewStyle ResolveOutlineViewStyle(const FStyleSet& styleSet)
+{
+    FOutlineViewStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.OutlineView.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.OutlineView.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.OutlineView.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.HoveredRowColor = styleSet.GetColor("Color.OutlineView.HoveredRow", style.HoveredRowColor);
+    style.SelectedRowColor = styleSet.GetColor("Color.OutlineView.SelectedRow", style.SelectedRowColor);
+    style.SelectedFocusedRowColor = styleSet.GetColor(
+        "Color.OutlineView.SelectedFocusedRow",
+        style.SelectedFocusedRowColor);
+    style.IndicatorColor = styleSet.GetColor("Color.OutlineView.Indicator", style.IndicatorColor);
+    style.ScrollbarTrackColor = styleSet.GetColor(
+        "Color.OutlineView.ScrollbarTrack",
+        style.ScrollbarTrackColor);
+    style.ScrollbarThumbColor = styleSet.GetColor(
+        "Color.OutlineView.ScrollbarThumb",
+        style.ScrollbarThumbColor);
+    style.ScrollbarThumbHoveredColor = styleSet.GetColor(
+        "Color.OutlineView.ScrollbarThumbHovered",
+        style.ScrollbarThumbHoveredColor);
+    style.CornerRadius = styleSet.GetFloat("Float.OutlineView.CornerRadius", style.CornerRadius);
+    style.BorderThickness = styleSet.GetFloat("Float.OutlineView.BorderThickness", style.BorderThickness);
+    style.IndentWidth = styleSet.GetFloat("Float.OutlineView.IndentWidth", style.IndentWidth);
+    style.IndicatorSize = styleSet.GetFloat("Float.OutlineView.IndicatorSize", style.IndicatorSize);
+    style.IndicatorSpacing = styleSet.GetFloat("Float.OutlineView.IndicatorSpacing", style.IndicatorSpacing);
+    style.RowMinHeight = styleSet.GetFloat("Float.OutlineView.RowMinHeight", style.RowMinHeight);
+    style.ScrollbarThickness = styleSet.GetFloat(
+        "Float.OutlineView.ScrollbarThickness",
+        style.ScrollbarThickness);
+    style.ScrollbarPadding = styleSet.GetFloat("Float.OutlineView.ScrollbarPadding", style.ScrollbarPadding);
+    style.ThumbMinLength = styleSet.GetFloat("Float.OutlineView.ThumbMinLength", style.ThumbMinLength);
+    style.WheelScrollStep = styleSet.GetFloat("Float.OutlineView.WheelScrollStep", style.WheelScrollStep);
+
+    return style;
+}
+
 FPopupMenuStyle ResolvePopupMenuStyle(const FStyleSet& styleSet)
 {
     FPopupMenuStyle style;
@@ -270,6 +342,52 @@ FSwitchStyle ResolveSwitchStyle(const FStyleSet& styleSet)
     style.BorderThickness = styleSet.GetFloat("Float.Switch.BorderThickness", style.BorderThickness);
     style.ThumbInset = styleSet.GetFloat("Float.Switch.ThumbInset", style.ThumbInset);
     style.DesiredSize = styleSet.GetVector2("Vector2.Switch.DesiredSize", style.DesiredSize);
+
+    return style;
+}
+
+FTextOutlineViewStyle ResolveTextOutlineViewStyle(const FStyleSet& styleSet)
+{
+    FTextOutlineViewStyle style;
+
+    style.BackgroundColor = styleSet.GetColor("Color.TextOutlineView.Background", style.BackgroundColor);
+    style.BorderColor = styleSet.GetColor("Color.TextOutlineView.Border", style.BorderColor);
+    style.FocusedOutlineColor = styleSet.GetColor(
+        "Color.TextOutlineView.FocusedOutline",
+        style.FocusedOutlineColor);
+    style.TextColor = styleSet.GetColor("Color.TextOutlineView.Text", style.TextColor);
+    style.HoveredRowColor = styleSet.GetColor("Color.TextOutlineView.HoveredRow", style.HoveredRowColor);
+    style.SelectedRowColor = styleSet.GetColor("Color.TextOutlineView.SelectedRow", style.SelectedRowColor);
+    style.SelectedFocusedRowColor = styleSet.GetColor(
+        "Color.TextOutlineView.SelectedFocusedRow",
+        style.SelectedFocusedRowColor);
+    style.IndicatorColor = styleSet.GetColor("Color.TextOutlineView.Indicator", style.IndicatorColor);
+    style.ScrollbarTrackColor = styleSet.GetColor(
+        "Color.TextOutlineView.ScrollbarTrack",
+        style.ScrollbarTrackColor);
+    style.ScrollbarThumbColor = styleSet.GetColor(
+        "Color.TextOutlineView.ScrollbarThumb",
+        style.ScrollbarThumbColor);
+    style.ScrollbarThumbHoveredColor = styleSet.GetColor(
+        "Color.TextOutlineView.ScrollbarThumbHovered",
+        style.ScrollbarThumbHoveredColor);
+    style.CornerRadius = styleSet.GetFloat("Float.TextOutlineView.CornerRadius", style.CornerRadius);
+    style.BorderThickness = styleSet.GetFloat("Float.TextOutlineView.BorderThickness", style.BorderThickness);
+    style.FontSize = styleSet.GetFloat("Float.TextOutlineView.FontSize", style.FontSize);
+    style.RowHeight = styleSet.GetFloat("Float.TextOutlineView.RowHeight", style.RowHeight);
+    style.IndentWidth = styleSet.GetFloat("Float.TextOutlineView.IndentWidth", style.IndentWidth);
+    style.IndicatorSize = styleSet.GetFloat("Float.TextOutlineView.IndicatorSize", style.IndicatorSize);
+    style.IndicatorSpacing = styleSet.GetFloat("Float.TextOutlineView.IndicatorSpacing", style.IndicatorSpacing);
+    style.IconSize = styleSet.GetFloat("Float.TextOutlineView.IconSize", style.IconSize);
+    style.IconSpacing = styleSet.GetFloat("Float.TextOutlineView.IconSpacing", style.IconSpacing);
+    style.ScrollbarThickness = styleSet.GetFloat(
+        "Float.TextOutlineView.ScrollbarThickness",
+        style.ScrollbarThickness);
+    style.ScrollbarPadding = styleSet.GetFloat(
+        "Float.TextOutlineView.ScrollbarPadding",
+        style.ScrollbarPadding);
+    style.ThumbMinLength = styleSet.GetFloat("Float.TextOutlineView.ThumbMinLength", style.ThumbMinLength);
+    style.WheelScrollStep = styleSet.GetFloat("Float.TextOutlineView.WheelScrollStep", style.WheelScrollStep);
 
     return style;
 }

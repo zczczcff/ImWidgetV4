@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
@@ -305,6 +306,31 @@ TEST_F(ListViewTest, UnrealizedRowsClearFocusAndMouseCapture)
     Advance({});
     EXPECT_EQ(App->GetKeyboardFocus(), nullptr);
     EXPECT_EQ(App->GetMouseCapture(), nullptr);
+}
+
+TEST_F(ListViewTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    auto themedView = std::make_shared<ImListView>();
+    App->SetRootWidget(themedView);
+    const FListViewStyle expectedStyle = ResolveListViewStyle(App->GetStyleSet());
+
+    const FListViewStyle& style = themedView->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(style.ScrollbarThumbColor.ToImU32(), expectedStyle.ScrollbarThumbColor.ToImU32());
+}
+
+TEST_F(ListViewTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FListViewStyle explicitStyle = MakeCompactListStyle();
+    explicitStyle.BackgroundColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.ScrollbarThumbColor = FColor::FromBytes(40, 50, 60);
+    View->SetStyle(explicitStyle);
+
+    EXPECT_EQ(View->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
+    EXPECT_EQ(View->GetStyle().ScrollbarThumbColor.ToImU32(), explicitStyle.ScrollbarThumbColor.ToImU32());
 }
 
 int main(int argc, char** argv)

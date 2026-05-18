@@ -111,7 +111,7 @@ public:
     const FText& GetDefaultEmptyText() const { return DefaultEmptyText_; }
 
     void SetStyle(const FListViewStyle& style);
-    const FListViewStyle& GetStyle() const { return Style_; }
+    const FListViewStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     FSelectionChangedEvent OnSelectionChanged;
     FContextMenuRequestedEvent OnItemContextMenuRequested;
@@ -126,6 +126,8 @@ protected:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FListViewStyle& GetEffectiveStyle() const;
+
     struct FVisibleEntry {
         int Index = -1;
         float ContentY = 0.0f;
@@ -169,6 +171,7 @@ private:
     bool ContainsWidgetInSubtree(const std::shared_ptr<ImWidget>& widget, const std::shared_ptr<ImWidget>& subtreeRoot) const;
 
     FListViewStyle Style_;
+    mutable FListViewStyle ResolvedThemeStyle_;
     FOnGenerateRow OnGenerateRow_;
     std::shared_ptr<ImWidget> EmptyContent_;
     std::shared_ptr<ImWidget> DefaultEmptyContent_;
@@ -188,6 +191,7 @@ private:
     bool bLayoutDirty_ = true;
     bool bHoveredScrollbar_ = false;
     bool bDraggingScrollbar_ = false;
+    bool bHasExplicitStyle_ = false;
     float ActiveGrabOffset_ = 0.0f;
     int ReflectedItemCount_ = 0;
 };

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imgui.h>
 #include <memory>
@@ -208,6 +209,31 @@ TEST_F(TextOutlineViewTest, LongTextDoesNotWrapAndScrollbarInputClamps)
 
     EXPECT_TRUE(View->OnInputEvent(CreateMouseEvent(EInputEventType::MouseButtonUp, FVector2(115.0f, 60.0f))).IsHandled());
     EXPECT_LE(View->GetScrollOffset(), View->GetMaxScrollOffset());
+}
+
+TEST_F(TextOutlineViewTest, UsesThemeResolvedStyleByDefault)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+    auto themedView = std::make_shared<ImTextOutlineView>();
+    App->SetRootWidget(themedView);
+    const FTextOutlineViewStyle expectedStyle = ResolveTextOutlineViewStyle(App->GetStyleSet());
+
+    const FTextOutlineViewStyle& style = themedView->GetStyle();
+    EXPECT_EQ(style.TextColor.ToImU32(), expectedStyle.TextColor.ToImU32());
+    EXPECT_EQ(style.IndicatorColor.ToImU32(), expectedStyle.IndicatorColor.ToImU32());
+}
+
+TEST_F(TextOutlineViewTest, ExplicitStyleOverridesTheme)
+{
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    FTextOutlineViewStyle explicitStyle;
+    explicitStyle.TextColor = FColor::FromBytes(10, 20, 30);
+    explicitStyle.IndicatorColor = FColor::FromBytes(40, 50, 60);
+    View->SetStyle(explicitStyle);
+
+    EXPECT_EQ(View->GetStyle().TextColor.ToImU32(), explicitStyle.TextColor.ToImU32());
+    EXPECT_EQ(View->GetStyle().IndicatorColor.ToImU32(), explicitStyle.IndicatorColor.ToImU32());
 }
 
 int main(int argc, char** argv)

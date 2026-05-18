@@ -142,7 +142,7 @@ public:
     void CollapseAll();
 
     void SetStyle(const FTextOutlineViewStyle& style);
-    const FTextOutlineViewStyle& GetStyle() const { return Style_; }
+    const FTextOutlineViewStyle& GetStyle() const { return GetEffectiveStyle(); }
 
     void SetScrollOffset(float offset);
     float GetScrollOffset() const { return ScrollOffsetY_; }
@@ -165,6 +165,8 @@ public:
     virtual void OnFocusChanged(bool bHasFocus) override;
 
 private:
+    const FTextOutlineViewStyle& GetEffectiveStyle() const;
+
     struct FVisibleEntry {
         ImTextOutlineItem* Item = nullptr;
         int Depth = 0;
@@ -224,6 +226,7 @@ private:
     FGeometry ResolveDropIndicatorGeometry(const FVisibleEntry& entry, ETextOutlineDropZone zone) const;
 
     FTextOutlineViewStyle Style_;
+    mutable FTextOutlineViewStyle ResolvedThemeStyle_;
     std::vector<std::unique_ptr<ImTextOutlineItem>> RootItems_;
     std::vector<FVisibleEntry> VisibleEntries_;
     ImTextOutlineItem* SelectedItem_ = nullptr;
@@ -240,6 +243,7 @@ private:
     bool bLayoutDirty_ = true;
     bool bHoveredScrollbar_ = false;
     bool bDraggingScrollbar_ = false;
+    bool bHasExplicitStyle_ = false;
     float ActiveGrabOffset_ = 0.0f;
 };
 

@@ -1,6 +1,7 @@
 #include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 
@@ -226,6 +227,7 @@ void ImOutlineView::CollapseAll()
 void ImOutlineView::SetStyle(const FOutlineViewStyle& style)
 {
     Style_ = style;
+    bHasExplicitStyle_ = true;
     bLayoutDirty_ = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
@@ -250,18 +252,19 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
     }
 
     Relayout();
+    const FOutlineViewStyle& style = GetEffectiveStyle();
 
     paintContext.DrawContext_.DrawRectFilled(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        Style_.BackgroundColor,
-        Style_.CornerRadius);
+        style.BackgroundColor,
+        style.CornerRadius);
     paintContext.DrawContext_.DrawRect(
         m_Geometry.GetMin(),
         m_Geometry.GetMax(),
-        HasKeyboardFocus() ? Style_.FocusedOutlineColor : Style_.BorderColor,
-        Style_.CornerRadius,
-        Style_.BorderThickness);
+        HasKeyboardFocus() ? style.FocusedOutlineColor : style.BorderColor,
+        style.CornerRadius,
+        style.BorderThickness);
 
     paintContext.DrawContext_.PushClipRect(ViewportGeometry_.GetMin(), ViewportGeometry_.GetMax(), true);
     for (const FVisibleEntry& entry : VisibleEntries_) {
@@ -272,9 +275,9 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
 
         FColor rowColor = FColor::Transparent;
         if (entry.Item == SelectedItem_) {
-            rowColor = HasKeyboardFocus() ? Style_.SelectedFocusedRowColor : Style_.SelectedRowColor;
+            rowColor = HasKeyboardFocus() ? style.SelectedFocusedRowColor : style.SelectedRowColor;
         } else if (entry.Item == HoveredItem_) {
-            rowColor = Style_.HoveredRowColor;
+            rowColor = style.HoveredRowColor;
         }
 
         if (rowColor.A > 0.0f) {
@@ -287,7 +290,7 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
 
         if (!entry.Item->Children.empty()) {
             const FVector2 center = entry.IndicatorGeometry.GetCenter();
-            const float halfSize = Style_.IndicatorSize * 0.5f;
+            const float halfSize = style.IndicatorSize * 0.5f;
             if (entry.Item->Expanded) {
                 paintContext.DrawContext_.PathLineTo(FVector2(center.X - halfSize, center.Y - halfSize * 0.4f));
                 paintContext.DrawContext_.PathLineTo(FVector2(center.X + halfSize, center.Y - halfSize * 0.4f));
@@ -297,7 +300,7 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
                 paintContext.DrawContext_.PathLineTo(FVector2(center.X - halfSize * 0.4f, center.Y + halfSize));
                 paintContext.DrawContext_.PathLineTo(FVector2(center.X + halfSize * 0.6f, center.Y));
             }
-            paintContext.DrawContext_.PathFill(Style_.IndicatorColor);
+            paintContext.DrawContext_.PathFill(style.IndicatorColor);
         }
 
         if (entry.Item->ContentWidget) {
@@ -319,13 +322,13 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
         paintContext.DrawContext_.DrawRectFilled(
             VerticalScrollbarGeometry_.GetMin(),
             VerticalScrollbarGeometry_.GetMax(),
-            Style_.ScrollbarTrackColor,
-            Style_.ScrollbarThickness * 0.5f);
+            style.ScrollbarTrackColor,
+            style.ScrollbarThickness * 0.5f);
         paintContext.DrawContext_.DrawRectFilled(
             VerticalThumbGeometry_.GetMin(),
             VerticalThumbGeometry_.GetMax(),
-            (bDraggingScrollbar_ || bHoveredScrollbar_) ? Style_.ScrollbarThumbHoveredColor : Style_.ScrollbarThumbColor,
-            Style_.ScrollbarThickness * 0.5f);
+            (bDraggingScrollbar_ || bHoveredScrollbar_) ? style.ScrollbarThumbHoveredColor : style.ScrollbarThumbColor,
+            style.ScrollbarThickness * 0.5f);
     }
 
     if (bDraggingScrollbar_ || bHoveredScrollbar_) {
@@ -335,7 +338,7 @@ void ImOutlineView::Paint(const FPaintContext& paintContext)
 
 FVector2 ImOutlineView::GetMinSize() const
 {
-    return Style_.MinDesiredSize;
+    return GetEffectiveStyle().MinDesiredSize;
 }
 
 FReply ImOutlineView::OnPreviewInputEvent(const FInputEvent& event)
@@ -436,7 +439,7 @@ FReply ImOutlineView::OnInputEvent(const FInputEvent& event)
         if (!m_Geometry.Contains(event.MousePosition) || MaxScrollOffsetY_ <= 0.0f) {
             return FReply::Unhandled();
         }
-        SetScrollOffset(ScrollOffsetY_ - event.ScrollDelta.Y * Style_.WheelScrollStep);
+        SetScrollOffset(ScrollOffsetY_ - event.ScrollDelta.Y * GetEffectiveStyle().WheelScrollStep);
         return FReply::Handled();
 
     case EInputEventType::KeyDown:
@@ -492,14 +495,15 @@ void ImOutlineView::OnFocusChanged(bool)
 
 void ImOutlineView::Relayout()
 {
-    const FGeometry innerGeometry = InsetGeometry(m_Geometry, Style_.Padding, Style_.BorderThickness);
+    const FOutlineViewStyle& style = GetEffectiveStyle();
+    const FGeometry innerGeometry = InsetGeometry(m_Geometry, style.Padding, style.BorderThickness);
     if (bLayoutDirty_) {
         const FGeometry initialViewportGeometry(innerGeometry.Position, innerGeometry.Size);
         RebuildVisibleEntries(initialViewportGeometry);
 
         const bool bNeedScrollbar = ContentHeight_ > innerGeometry.Size.Y + 0.5f;
         const float viewportWidth = bNeedScrollbar
-            ? std::max(0.0f, innerGeometry.Size.X - Style_.ScrollbarThickness - Style_.ScrollbarPadding)
+            ? std::max(0.0f, innerGeometry.Size.X - style.ScrollbarThickness - style.ScrollbarPadding)
             : innerGeometry.Size.X;
         const FGeometry finalViewportGeometry(
             innerGeometry.Position,
@@ -513,7 +517,7 @@ void ImOutlineView::Relayout()
     } else {
         const bool bNeedScrollbar = ContentHeight_ > innerGeometry.Size.Y + 0.5f;
         const float viewportWidth = bNeedScrollbar
-            ? std::max(0.0f, innerGeometry.Size.X - Style_.ScrollbarThickness - Style_.ScrollbarPadding)
+            ? std::max(0.0f, innerGeometry.Size.X - style.ScrollbarThickness - style.ScrollbarPadding)
             : innerGeometry.Size.X;
         ViewportGeometry_ = FGeometry(
             innerGeometry.Position,
@@ -529,15 +533,15 @@ void ImOutlineView::Relayout()
     if (bShowScrollbar && innerGeometry.Size.Y > 0.0f) {
         VerticalScrollbarGeometry_ = FGeometry(
             FVector2(
-                ViewportGeometry_.Position.X + ViewportGeometry_.Size.X + Style_.ScrollbarPadding,
+                ViewportGeometry_.Position.X + ViewportGeometry_.Size.X + style.ScrollbarPadding,
                 innerGeometry.Position.Y),
-            FVector2(Style_.ScrollbarThickness, innerGeometry.Size.Y));
+            FVector2(style.ScrollbarThickness, innerGeometry.Size.Y));
 
         const float trackHeight = VerticalScrollbarGeometry_.Size.Y;
         const float thumbHeight = std::min(
             trackHeight,
             std::max(
-                std::min(trackHeight, Style_.ThumbMinLength),
+                std::min(trackHeight, style.ThumbMinLength),
                 ContentHeight_ > 0.0f ? trackHeight * (ViewportGeometry_.Size.Y / ContentHeight_) : trackHeight));
         const float availableTrack = std::max(0.0f, trackHeight - thumbHeight);
         const float thumbOffset = MaxScrollOffsetY_ > 0.0f
@@ -574,28 +578,29 @@ void ImOutlineView::ClampScrollOffset()
 
 void ImOutlineView::UpdateVisibleEntryGeometries()
 {
+    const FOutlineViewStyle& style = GetEffectiveStyle();
     for (FVisibleEntry& entry : VisibleEntries_) {
         const float rowY = ViewportGeometry_.Position.Y + entry.ContentY - ScrollOffsetY_;
         entry.RowGeometry = FGeometry(
             FVector2(ViewportGeometry_.Position.X, rowY),
             FVector2(ViewportGeometry_.Size.X, entry.RowHeight));
 
-        const float depthOffset = static_cast<float>(entry.Depth) * Style_.IndentWidth;
-        const float indicatorAreaX = entry.RowGeometry.Position.X + Style_.RowPadding.Left + depthOffset;
+        const float depthOffset = static_cast<float>(entry.Depth) * style.IndentWidth;
+        const float indicatorAreaX = entry.RowGeometry.Position.X + style.RowPadding.Left + depthOffset;
         entry.IndicatorGeometry = FGeometry();
         if (!entry.Item->Children.empty()) {
             entry.IndicatorGeometry = FGeometry(
-                FVector2(indicatorAreaX, rowY + (entry.RowHeight - Style_.IndicatorSize) * 0.5f),
-                FVector2(Style_.IndicatorSize, Style_.IndicatorSize));
+                FVector2(indicatorAreaX, rowY + (entry.RowHeight - style.IndicatorSize) * 0.5f),
+                FVector2(style.IndicatorSize, style.IndicatorSize));
         }
 
         const float contentX = indicatorAreaX +
-            (!entry.Item->Children.empty() ? (Style_.IndicatorSize + Style_.IndicatorSpacing) : 0.0f);
+            (!entry.Item->Children.empty() ? (style.IndicatorSize + style.IndicatorSpacing) : 0.0f);
         entry.ContentGeometry = FGeometry(
-            FVector2(contentX, rowY + Style_.RowPadding.Top),
+            FVector2(contentX, rowY + style.RowPadding.Top),
             FVector2(
-                std::max(0.0f, entry.RowGeometry.Size.X - (contentX - entry.RowGeometry.Position.X) - Style_.RowPadding.Right),
-                std::max(0.0f, entry.RowHeight - Style_.RowPadding.Top - Style_.RowPadding.Bottom)));
+                std::max(0.0f, entry.RowGeometry.Size.X - (contentX - entry.RowGeometry.Position.X) - style.RowPadding.Right),
+                std::max(0.0f, entry.RowHeight - style.RowPadding.Top - style.RowPadding.Bottom)));
         if (entry.Item->ContentWidget) {
             entry.Item->ContentWidget->SetGeometry(entry.ContentGeometry);
         }
@@ -923,12 +928,13 @@ void ImOutlineView::HandleKeyboardNavigation(EKey key)
 
 void ImOutlineView::FlattenVisibleChildren(ImOutlineItem& item, int depth, float& cursorY)
 {
+    const FOutlineViewStyle& style = GetEffectiveStyle();
     float contentMinHeight = 0.0f;
     if (item.ContentWidget) {
         contentMinHeight = item.ContentWidget->GetMinSize().Y;
     }
 
-    const float rowHeight = std::max(Style_.RowMinHeight, contentMinHeight + Style_.RowPadding.Top + Style_.RowPadding.Bottom);
+    const float rowHeight = std::max(style.RowMinHeight, contentMinHeight + style.RowPadding.Top + style.RowPadding.Bottom);
     FVisibleEntry entry;
     entry.Item = &item;
     entry.Depth = depth;
@@ -944,6 +950,20 @@ void ImOutlineView::FlattenVisibleChildren(ImOutlineItem& item, int depth, float
             }
         }
     }
+}
+
+const FOutlineViewStyle& ImOutlineView::GetEffectiveStyle() const
+{
+    if (bHasExplicitStyle_) {
+        return Style_;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        ResolvedThemeStyle_ = ResolveOutlineViewStyle(application->GetStyleSet());
+        return ResolvedThemeStyle_;
+    }
+
+    return Style_;
 }
 
 void ImOutlineView::CleanupInteractionStateForItemSubtree(ImOutlineItem& item)

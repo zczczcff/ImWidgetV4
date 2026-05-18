@@ -182,6 +182,39 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.ScrollBox.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.ScrollBox.WheelScrollStep", 32.0f);
 
+    styleSet.SetFloat("Float.ListView.CornerRadius", 6.0f);
+    styleSet.SetFloat("Float.ListView.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.ListView.RowMinHeight", 28.0f);
+    styleSet.SetFloat("Float.ListView.ScrollbarThickness", 10.0f);
+    styleSet.SetFloat("Float.ListView.ScrollbarPadding", 2.0f);
+    styleSet.SetFloat("Float.ListView.ThumbMinLength", 28.0f);
+    styleSet.SetFloat("Float.ListView.WheelScrollStep", 28.0f);
+
+    styleSet.SetFloat("Float.TextOutlineView.CornerRadius", 6.0f);
+    styleSet.SetFloat("Float.TextOutlineView.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.TextOutlineView.FontSize", 16.0f);
+    styleSet.SetFloat("Float.TextOutlineView.RowHeight", 26.0f);
+    styleSet.SetFloat("Float.TextOutlineView.IndentWidth", 18.0f);
+    styleSet.SetFloat("Float.TextOutlineView.IndicatorSize", 10.0f);
+    styleSet.SetFloat("Float.TextOutlineView.IndicatorSpacing", 6.0f);
+    styleSet.SetFloat("Float.TextOutlineView.IconSize", 14.0f);
+    styleSet.SetFloat("Float.TextOutlineView.IconSpacing", 6.0f);
+    styleSet.SetFloat("Float.TextOutlineView.ScrollbarThickness", 10.0f);
+    styleSet.SetFloat("Float.TextOutlineView.ScrollbarPadding", 2.0f);
+    styleSet.SetFloat("Float.TextOutlineView.ThumbMinLength", 28.0f);
+    styleSet.SetFloat("Float.TextOutlineView.WheelScrollStep", 28.0f);
+
+    styleSet.SetFloat("Float.OutlineView.CornerRadius", 6.0f);
+    styleSet.SetFloat("Float.OutlineView.BorderThickness", 1.0f);
+    styleSet.SetFloat("Float.OutlineView.IndentWidth", 18.0f);
+    styleSet.SetFloat("Float.OutlineView.IndicatorSize", 10.0f);
+    styleSet.SetFloat("Float.OutlineView.IndicatorSpacing", 6.0f);
+    styleSet.SetFloat("Float.OutlineView.RowMinHeight", 28.0f);
+    styleSet.SetFloat("Float.OutlineView.ScrollbarThickness", 10.0f);
+    styleSet.SetFloat("Float.OutlineView.ScrollbarPadding", 2.0f);
+    styleSet.SetFloat("Float.OutlineView.ThumbMinLength", 28.0f);
+    styleSet.SetFloat("Float.OutlineView.WheelScrollStep", 28.0f);
+
     styleSet.SetFloat("Float.Switch.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.Switch.ThumbInset", 3.0f);
     styleSet.SetVector2("Vector2.Switch.DesiredSize", FVector2(52.0f, 28.0f));
@@ -280,6 +313,39 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.ScrollBox.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
+
+    styleSet.SetColor("Color.ListView.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.ListView.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.ListView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ListView.HoveredRow", FColor::FromBytes(44, 52, 63));
+    styleSet.SetColor("Color.ListView.SelectedRow", FColor::FromBytes(74, 112, 168));
+    styleSet.SetColor("Color.ListView.SelectedFocusedRow", FColor::FromBytes(92, 141, 214));
+    styleSet.SetColor("Color.ListView.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
+    styleSet.SetColor("Color.ListView.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.ListView.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
+
+    styleSet.SetColor("Color.TextOutlineView.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.TextOutlineView.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.TextOutlineView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TextOutlineView.Text", FColor::FromBytes(238, 241, 245));
+    styleSet.SetColor("Color.TextOutlineView.HoveredRow", FColor::FromBytes(44, 52, 63));
+    styleSet.SetColor("Color.TextOutlineView.SelectedRow", FColor::FromBytes(74, 112, 168));
+    styleSet.SetColor("Color.TextOutlineView.SelectedFocusedRow", FColor::FromBytes(92, 141, 214));
+    styleSet.SetColor("Color.TextOutlineView.Indicator", FColor::FromBytes(228, 232, 238));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
+
+    styleSet.SetColor("Color.OutlineView.Background", FColor::FromBytes(24, 28, 34));
+    styleSet.SetColor("Color.OutlineView.Border", FColor::FromBytes(16, 19, 23));
+    styleSet.SetColor("Color.OutlineView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.OutlineView.HoveredRow", FColor::FromBytes(44, 52, 63));
+    styleSet.SetColor("Color.OutlineView.SelectedRow", FColor::FromBytes(74, 112, 168));
+    styleSet.SetColor("Color.OutlineView.SelectedFocusedRow", FColor::FromBytes(92, 141, 214));
+    styleSet.SetColor("Color.OutlineView.Indicator", FColor::FromBytes(228, 232, 238));
+    styleSet.SetColor("Color.OutlineView.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
 
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(57, 64, 75));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(73, 82, 95));
@@ -403,6 +469,39 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
 
+    styleSet.SetColor("Color.ListView.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.ListView.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.ListView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.ListView.HoveredRow", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.ListView.SelectedRow", FColor::FromBytes(70, 88, 122));
+    styleSet.SetColor("Color.ListView.SelectedFocusedRow", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.ListView.ScrollbarTrack", FColor::FromBytes(42, 42, 42));
+    styleSet.SetColor("Color.ListView.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
+    styleSet.SetColor("Color.ListView.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
+
+    styleSet.SetColor("Color.TextOutlineView.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.TextOutlineView.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.TextOutlineView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.TextOutlineView.Text", FColor::FromBytes(220, 220, 220));
+    styleSet.SetColor("Color.TextOutlineView.HoveredRow", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.TextOutlineView.SelectedRow", FColor::FromBytes(70, 88, 122));
+    styleSet.SetColor("Color.TextOutlineView.SelectedFocusedRow", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.TextOutlineView.Indicator", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarTrack", FColor::FromBytes(42, 42, 42));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
+
+    styleSet.SetColor("Color.OutlineView.Background", FColor::FromBytes(28, 28, 28));
+    styleSet.SetColor("Color.OutlineView.Border", FColor::FromBytes(60, 60, 60));
+    styleSet.SetColor("Color.OutlineView.FocusedOutline", FColor::FromBytes(103, 177, 255));
+    styleSet.SetColor("Color.OutlineView.HoveredRow", FColor::FromBytes(48, 48, 48));
+    styleSet.SetColor("Color.OutlineView.SelectedRow", FColor::FromBytes(70, 88, 122));
+    styleSet.SetColor("Color.OutlineView.SelectedFocusedRow", FColor::FromBytes(86, 120, 182));
+    styleSet.SetColor("Color.OutlineView.Indicator", FColor::FromBytes(236, 236, 236));
+    styleSet.SetColor("Color.OutlineView.ScrollbarTrack", FColor::FromBytes(42, 42, 42));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
+
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(66, 66, 66));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(82, 82, 82));
     styleSet.SetColor("Color.Switch.OffTrackPressed", FColor::FromBytes(54, 54, 54));
@@ -524,6 +623,39 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.ScrollBox.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
     styleSet.SetColor("Color.ScrollBox.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
+
+    styleSet.SetColor("Color.ListView.Background", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.ListView.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.ListView.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ListView.HoveredRow", FColor::FromBytes(238, 242, 247));
+    styleSet.SetColor("Color.ListView.SelectedRow", FColor::FromBytes(214, 229, 247));
+    styleSet.SetColor("Color.ListView.SelectedFocusedRow", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.ListView.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
+    styleSet.SetColor("Color.ListView.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.ListView.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
+
+    styleSet.SetColor("Color.TextOutlineView.Background", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.TextOutlineView.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.TextOutlineView.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.TextOutlineView.Text", FColor::FromBytes(30, 30, 30));
+    styleSet.SetColor("Color.TextOutlineView.HoveredRow", FColor::FromBytes(238, 242, 247));
+    styleSet.SetColor("Color.TextOutlineView.SelectedRow", FColor::FromBytes(214, 229, 247));
+    styleSet.SetColor("Color.TextOutlineView.SelectedFocusedRow", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.TextOutlineView.Indicator", FColor::FromBytes(80, 80, 80));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.TextOutlineView.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
+
+    styleSet.SetColor("Color.OutlineView.Background", FColor::FromBytes(248, 248, 248));
+    styleSet.SetColor("Color.OutlineView.Border", FColor::FromBytes(200, 200, 200));
+    styleSet.SetColor("Color.OutlineView.FocusedOutline", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.OutlineView.HoveredRow", FColor::FromBytes(238, 242, 247));
+    styleSet.SetColor("Color.OutlineView.SelectedRow", FColor::FromBytes(214, 229, 247));
+    styleSet.SetColor("Color.OutlineView.SelectedFocusedRow", FColor::FromBytes(0, 120, 215));
+    styleSet.SetColor("Color.OutlineView.Indicator", FColor::FromBytes(80, 80, 80));
+    styleSet.SetColor("Color.OutlineView.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
+    styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
 
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(196, 202, 210));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(182, 190, 200));

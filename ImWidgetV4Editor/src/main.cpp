@@ -1229,7 +1229,7 @@ void ApplyEditorThemeToShell(
     FEditorShellWidgets& shell,
     const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
-    SetEditorActiveThemeName(app.GetActiveThemeName());
+    SetEditorActiveTheme(app.GetActiveThemeName(), app.GetStyleSet());
 
     if (shell.TitleBar) {
         shell.TitleBar->SetStyle(MakeEditorTitleBarStyle(shell.TitleBar->GetStyle()));
@@ -1762,7 +1762,8 @@ public:
     void ConfigureApplication(ImApplication& app) override
     {
         BoundApplication_ = &app;
-        SetEditorActiveThemeName(app.GetActiveThemeName());
+        RegisterEditorThemePacks(app);
+        SetEditorActiveTheme(app.GetActiveThemeName(), app.GetStyleSet());
         RegisterEditorDefaultStringTables();
         const std::filesystem::path defaultWorkspaceDirectory = GetDefaultEditorWorkspaceDirectory();
         std::error_code currentPathError;

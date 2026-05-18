@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/core/Window.h>
+#include <imwidgetv4/style/StyleSet.h>
 #include <imwidgetv4/widgets/ButtonStyle.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
@@ -18,6 +19,8 @@
 
 namespace ImWidgetV4Editor {
 
+void RegisterEditorThemePacks(ImWidgetV4::ImApplication& application);
+void SetEditorActiveTheme(const std::string& themeName, const ImWidgetV4::FStyleSet& styleSet);
 void SetEditorActiveThemeName(const std::string& themeName);
 const std::string& GetEditorActiveThemeName();
 

@@ -31,6 +31,31 @@
 
 namespace ImWidgetV4 {
 
+namespace {
+
+void RegisterBaseThemePacks(ImApplication& application)
+{
+    FThemePack defaultTheme("Default");
+    if (auto styleSet = FStyleSetFactory::CreateDefault()) {
+        defaultTheme.StyleSet = std::move(*styleSet);
+    }
+    application.RegisterThemePack(std::move(defaultTheme));
+
+    FThemePack darkTheme("Dark");
+    if (auto styleSet = FStyleSetFactory::CreateDarkTheme()) {
+        darkTheme.StyleSet = std::move(*styleSet);
+    }
+    application.RegisterThemePack(std::move(darkTheme));
+
+    FThemePack lightTheme("Light");
+    if (auto styleSet = FStyleSetFactory::CreateLightTheme()) {
+        lightTheme.StyleSet = std::move(*styleSet);
+    }
+    application.RegisterThemePack(std::move(lightTheme));
+}
+
+} // namespace
+
 class ImApplication::FInputQueue {
 public:
     void Enqueue(const FInputEvent& inputEvent)
@@ -574,32 +599,7 @@ ImApplication::ImApplication()
         StyleSet_ = std::move(*defaultStyleSet);
     }
 
-    {
-        FThemePack defaultTheme("Default");
-        auto styleSet = FStyleSetFactory::CreateDefault();
-        if (styleSet) {
-            defaultTheme.StyleSet = std::move(*styleSet);
-        }
-        RegisterThemePack(std::move(defaultTheme));
-    }
-
-    {
-        FThemePack darkTheme("Dark");
-        auto styleSet = FStyleSetFactory::CreateDarkTheme();
-        if (styleSet) {
-            darkTheme.StyleSet = std::move(*styleSet);
-        }
-        RegisterThemePack(std::move(darkTheme));
-    }
-
-    {
-        FThemePack lightTheme("Light");
-        auto styleSet = FStyleSetFactory::CreateLightTheme();
-        if (styleSet) {
-            lightTheme.StyleSet = std::move(*styleSet);
-        }
-        RegisterThemePack(std::move(lightTheme));
-    }
+    RegisterBaseThemePacks(*this);
 
     SetActiveTheme("Default");
 }

@@ -1,5 +1,8 @@
 #include "EditorTheme.h"
 
+#include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleSet.h>
+
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
@@ -7,17 +10,105 @@ using namespace ImWidgetV4;
 namespace {
 
 std::string GEditorActiveThemeName = "Default";
+const FStyleSet* GEditorActiveStyleSet = nullptr;
 
 bool IsLightEditorTheme()
 {
-    return GEditorActiveThemeName == "Light";
+    return GEditorActiveThemeName == "Light" ||
+        GEditorActiveThemeName == "Editor Light Gray";
+}
+
+FColor GetEditorColorToken(const char* token, const FColor& fallback)
+{
+    return GEditorActiveStyleSet != nullptr
+        ? GEditorActiveStyleSet->GetColor(token, fallback)
+        : fallback;
+}
+
+void PopulateEditorThemeTokens(FStyleSet& styleSet, bool bLight, bool bBlueGreenAccent)
+{
+    const FColor accent = bBlueGreenAccent
+        ? (bLight ? FColor::FromBytes(0, 132, 126) : FColor::FromBytes(64, 196, 181))
+        : (bLight ? FColor::FromBytes(0, 120, 215) : FColor::FromBytes(103, 177, 255));
+    const FColor surface = bLight
+        ? (bBlueGreenAccent ? FColor::FromBytes(246, 249, 249) : FColor::FromBytes(248, 249, 251))
+        : (bBlueGreenAccent ? FColor::FromBytes(16, 27, 29) : FColor::FromBytes(18, 23, 29));
+    const FColor surfaceAlt = bLight
+        ? (bBlueGreenAccent ? FColor::FromBytes(236, 242, 242) : FColor::FromBytes(238, 240, 244))
+        : (bBlueGreenAccent ? FColor::FromBytes(24, 42, 44) : FColor::FromBytes(30, 36, 44));
+    const FColor tabStrip = bLight
+        ? (bBlueGreenAccent ? FColor::FromBytes(226, 235, 235) : FColor::FromBytes(232, 235, 240))
+        : (bBlueGreenAccent ? FColor::FromBytes(20, 36, 38) : FColor::FromBytes(24, 29, 36));
+
+    styleSet.SetColor("Color.Editor.Surface.Background", surface);
+    styleSet.SetColor("Color.Editor.Surface.AltBackground", surfaceAlt);
+    styleSet.SetColor("Color.Editor.Surface.TabStrip", tabStrip);
+    styleSet.SetColor("Color.Editor.Accent", accent);
+    styleSet.SetColor(
+        "Color.Editor.SelectionFill",
+        bLight ? FColor::FromBytes(162, 205, 255, 200) : FColor::FromBytes(72, 104, 146, 148));
+    styleSet.SetColor(
+        "Color.Editor.Panel.Title",
+        bLight ? FColor::FromBytes(36, 36, 36) : FColor::FromBytes(238, 242, 247));
+    styleSet.SetColor(
+        "Color.Editor.Panel.Body",
+        bLight ? FColor::FromBytes(108, 116, 126) : FColor::FromBytes(164, 174, 188));
+    styleSet.SetColor(
+        "Color.Editor.TitleBar.Text",
+        bLight ? FColor::FromBytes(48, 52, 58) : FColor::FromBytes(232, 238, 246));
+    styleSet.SetColor(
+        "Color.Editor.TitleBar.MutedText",
+        bLight ? FColor::FromBytes(118, 126, 136) : FColor::FromBytes(150, 160, 172));
+    styleSet.SetColor(
+        "Color.Editor.TitleBar.DisabledText",
+        bLight ? FColor::FromBytes(154, 160, 170) : FColor::FromBytes(132, 140, 150));
+    styleSet.SetColor("Color.Editor.Danger", bLight ? FColor::FromBytes(212, 58, 76) : FColor::FromBytes(239, 103, 103));
+    styleSet.SetColor("Color.Editor.Success", bLight ? FColor::FromBytes(40, 168, 96) : FColor::FromBytes(125, 204, 138));
+    styleSet.SetColor("Color.Editor.Warning", bLight ? FColor::FromBytes(212, 132, 24) : FColor::FromBytes(230, 184, 104));
+    styleSet.SetColor(
+        "Color.Editor.Inspector.Label",
+        bLight ? FColor::FromBytes(58, 64, 72) : FColor::FromBytes(224, 230, 237));
+    styleSet.SetColor(
+        "Color.Editor.Inspector.CompactLabel",
+        bLight ? FColor::FromBytes(120, 126, 136) : FColor::FromBytes(158, 168, 180));
+    styleSet.SetColor(
+        "Color.Editor.TitleBar.Icon",
+        bLight ? FColor::FromBytes(60, 66, 74) : FColor::FromBytes(235, 242, 250));
+    styleSet.SetColor(
+        "Color.Editor.Tree.Icon",
+        bLight ? FColor::FromBytes(96, 104, 114) : FColor::FromBytes(214, 222, 234));
 }
 
 } // namespace
 
+void RegisterEditorThemePacks(ImApplication& application)
+{
+    auto createThemePack = [](const std::string& name, bool bLight, bool bBlueGreenAccent) {
+        FThemePack themePack(name);
+        auto baseStyleSet = bLight
+            ? FStyleSetFactory::CreateLightTheme()
+            : FStyleSetFactory::CreateDarkTheme();
+        if (baseStyleSet) {
+            themePack.StyleSet.Merge(*baseStyleSet);
+        }
+        PopulateEditorThemeTokens(themePack.StyleSet, bLight, bBlueGreenAccent);
+        return themePack;
+    };
+
+    application.RegisterThemePack(createThemePack("Editor Blue Green", false, true));
+    application.RegisterThemePack(createThemePack("Editor Light Gray", true, false));
+}
+
 void SetEditorActiveThemeName(const std::string& themeName)
 {
     GEditorActiveThemeName = themeName.empty() ? "Default" : themeName;
+    GEditorActiveStyleSet = nullptr;
+}
+
+void SetEditorActiveTheme(const std::string& themeName, const FStyleSet& styleSet)
+{
+    GEditorActiveThemeName = themeName.empty() ? "Default" : themeName;
+    GEditorActiveStyleSet = &styleSet;
 }
 
 const std::string& GetEditorActiveThemeName()
@@ -27,114 +118,114 @@ const std::string& GetEditorActiveThemeName()
 
 FColor GetEditorSurfaceBackgroundColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(248, 249, 251)
-        : FColor::FromBytes(18, 23, 29);
+    return GetEditorColorToken(
+        "Color.Editor.Surface.Background",
+        IsLightEditorTheme() ? FColor::FromBytes(248, 249, 251) : FColor::FromBytes(18, 23, 29));
 }
 
 FColor GetEditorSurfaceAltBackgroundColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(238, 240, 244)
-        : FColor::FromBytes(30, 36, 44);
+    return GetEditorColorToken(
+        "Color.Editor.Surface.AltBackground",
+        IsLightEditorTheme() ? FColor::FromBytes(238, 240, 244) : FColor::FromBytes(30, 36, 44));
 }
 
 FColor GetEditorSurfaceTabStripColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(232, 235, 240)
-        : FColor::FromBytes(24, 29, 36);
+    return GetEditorColorToken(
+        "Color.Editor.Surface.TabStrip",
+        IsLightEditorTheme() ? FColor::FromBytes(232, 235, 240) : FColor::FromBytes(24, 29, 36));
 }
 
 FColor GetEditorAccentColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(0, 120, 215)
-        : FColor::FromBytes(103, 177, 255);
+    return GetEditorColorToken(
+        "Color.Editor.Accent",
+        IsLightEditorTheme() ? FColor::FromBytes(0, 120, 215) : FColor::FromBytes(103, 177, 255));
 }
 
 FColor GetEditorSelectionFillColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(162, 205, 255, 200)
-        : FColor::FromBytes(72, 104, 146, 148);
+    return GetEditorColorToken(
+        "Color.Editor.SelectionFill",
+        IsLightEditorTheme() ? FColor::FromBytes(162, 205, 255, 200) : FColor::FromBytes(72, 104, 146, 148));
 }
 
 FColor GetEditorPanelTitleColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(36, 36, 36)
-        : FColor::FromBytes(238, 242, 247);
+    return GetEditorColorToken(
+        "Color.Editor.Panel.Title",
+        IsLightEditorTheme() ? FColor::FromBytes(36, 36, 36) : FColor::FromBytes(238, 242, 247));
 }
 
 FColor GetEditorPanelBodyColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(108, 116, 126)
-        : FColor::FromBytes(164, 174, 188);
+    return GetEditorColorToken(
+        "Color.Editor.Panel.Body",
+        IsLightEditorTheme() ? FColor::FromBytes(108, 116, 126) : FColor::FromBytes(164, 174, 188));
 }
 
 FColor GetEditorTitleBarTextColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(48, 52, 58)
-        : FColor::FromBytes(232, 238, 246);
+    return GetEditorColorToken(
+        "Color.Editor.TitleBar.Text",
+        IsLightEditorTheme() ? FColor::FromBytes(48, 52, 58) : FColor::FromBytes(232, 238, 246));
 }
 
 FColor GetEditorTitleBarMutedTextColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(118, 126, 136)
-        : FColor::FromBytes(150, 160, 172);
+    return GetEditorColorToken(
+        "Color.Editor.TitleBar.MutedText",
+        IsLightEditorTheme() ? FColor::FromBytes(118, 126, 136) : FColor::FromBytes(150, 160, 172));
 }
 
 FColor GetEditorTitleBarDisabledTextColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(154, 160, 170)
-        : FColor::FromBytes(132, 140, 150);
+    return GetEditorColorToken(
+        "Color.Editor.TitleBar.DisabledText",
+        IsLightEditorTheme() ? FColor::FromBytes(154, 160, 170) : FColor::FromBytes(132, 140, 150));
 }
 
 FColor GetEditorDangerColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(212, 58, 76)
-        : FColor::FromBytes(239, 103, 103);
+    return GetEditorColorToken(
+        "Color.Editor.Danger",
+        IsLightEditorTheme() ? FColor::FromBytes(212, 58, 76) : FColor::FromBytes(239, 103, 103));
 }
 
 FColor GetEditorSuccessColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(40, 168, 96)
-        : FColor::FromBytes(125, 204, 138);
+    return GetEditorColorToken(
+        "Color.Editor.Success",
+        IsLightEditorTheme() ? FColor::FromBytes(40, 168, 96) : FColor::FromBytes(125, 204, 138));
 }
 
 FColor GetEditorWarningColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(212, 132, 24)
-        : FColor::FromBytes(230, 184, 104);
+    return GetEditorColorToken(
+        "Color.Editor.Warning",
+        IsLightEditorTheme() ? FColor::FromBytes(212, 132, 24) : FColor::FromBytes(230, 184, 104));
 }
 
 FColor GetEditorInspectorLabelColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(58, 64, 72)
-        : FColor::FromBytes(224, 230, 237);
+    return GetEditorColorToken(
+        "Color.Editor.Inspector.Label",
+        IsLightEditorTheme() ? FColor::FromBytes(58, 64, 72) : FColor::FromBytes(224, 230, 237));
 }
 
 FColor GetEditorInspectorCompactLabelColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(120, 126, 136)
-        : FColor::FromBytes(158, 168, 180);
+    return GetEditorColorToken(
+        "Color.Editor.Inspector.CompactLabel",
+        IsLightEditorTheme() ? FColor::FromBytes(120, 126, 136) : FColor::FromBytes(158, 168, 180));
 }
 
 FColor GetEditorTitleBarIconColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(60, 66, 74)
-        : FColor::FromBytes(235, 242, 250);
+    return GetEditorColorToken(
+        "Color.Editor.TitleBar.Icon",
+        IsLightEditorTheme() ? FColor::FromBytes(60, 66, 74) : FColor::FromBytes(235, 242, 250));
 }
 
 FColor GetEditorTitleBarIconDisabledColor()
@@ -144,9 +235,9 @@ FColor GetEditorTitleBarIconDisabledColor()
 
 FColor GetEditorTreeIconColor()
 {
-    return IsLightEditorTheme()
-        ? FColor::FromBytes(96, 104, 114)
-        : FColor::FromBytes(214, 222, 234);
+    return GetEditorColorToken(
+        "Color.Editor.Tree.Icon",
+        IsLightEditorTheme() ? FColor::FromBytes(96, 104, 114) : FColor::FromBytes(214, 222, 234));
 }
 
 FButtonStyle MakeEditorTitleBarButtonStyle(bool bHighlighted)

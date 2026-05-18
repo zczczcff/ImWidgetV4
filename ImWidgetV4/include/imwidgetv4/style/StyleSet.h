@@ -1,5 +1,6 @@
 #pragma once
 #include <imwidgetv4/core/Types.h>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <memory>
@@ -64,6 +65,9 @@ public:
     std::vector<std::string> GetBoolKeys() const;
     std::vector<std::string> GetMarginKeys() const;
 
+    nlohmann::ordered_json ToJson() const;
+    bool FromJson(const nlohmann::ordered_json& json, std::string* outError = nullptr);
+
 private:
     std::unordered_map<std::string, FColor> Colors_;
     std::unordered_map<std::string, float> Floats_;
@@ -98,6 +102,11 @@ public:
 
     // 创建浅色主题
     static std::shared_ptr<FStyleSet> CreateLightTheme();
+
+    static FThemePack CreateThemePackFromJson(
+        const nlohmann::ordered_json& json,
+        std::string* outError = nullptr);
+    static nlohmann::ordered_json ThemePackToJson(const FThemePack& themePack);
 
 private:
     FStyleSetFactory() = default;

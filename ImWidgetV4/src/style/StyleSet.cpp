@@ -215,6 +215,14 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
     styleSet.SetFloat("Float.OutlineView.ThumbMinLength", 28.0f);
     styleSet.SetFloat("Float.OutlineView.WheelScrollStep", 28.0f);
 
+    styleSet.SetFloat("Float.HorizontalSplitter.BarWidth", 4.0f);
+    styleSet.SetFloat("Float.HorizontalSplitter.Rounding", 0.0f);
+
+    styleSet.SetFloat("Float.VerticalSplitter.BarHeight", 4.0f);
+    styleSet.SetFloat("Float.VerticalSplitter.Rounding", 0.0f);
+
+    styleSet.SetFloat("Float.TextBlock.FontSize", 16.0f);
+
     styleSet.SetFloat("Float.Switch.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.Switch.ThumbInset", 3.0f);
     styleSet.SetVector2("Vector2.Switch.DesiredSize", FVector2(52.0f, 28.0f));
@@ -374,6 +382,16 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.OutlineView.ScrollbarTrack", FColor::FromBytes(38, 45, 56));
     styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(88, 102, 119));
     styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 143, 168));
+
+    styleSet.SetColor("Color.HorizontalSplitter.Bar", FColor::FromBytes(63, 73, 86));
+    styleSet.SetColor("Color.HorizontalSplitter.BarHovered", FColor::FromBytes(93, 108, 126));
+    styleSet.SetColor("Color.HorizontalSplitter.BarActive", FColor::FromBytes(120, 144, 172));
+
+    styleSet.SetColor("Color.VerticalSplitter.Bar", FColor::FromBytes(63, 73, 86));
+    styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(93, 108, 126));
+    styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(120, 144, 172));
+
+    styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(238, 241, 245));
 
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(57, 64, 75));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(73, 82, 95));
@@ -567,6 +585,16 @@ void PopulateDarkTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(92, 92, 92));
     styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(122, 122, 122));
 
+    styleSet.SetColor("Color.HorizontalSplitter.Bar", FColor::FromBytes(76, 76, 76));
+    styleSet.SetColor("Color.HorizontalSplitter.BarHovered", FColor::FromBytes(108, 108, 108));
+    styleSet.SetColor("Color.HorizontalSplitter.BarActive", FColor::FromBytes(152, 152, 152));
+
+    styleSet.SetColor("Color.VerticalSplitter.Bar", FColor::FromBytes(76, 76, 76));
+    styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(108, 108, 108));
+    styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(152, 152, 152));
+
+    styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(220, 220, 220));
+
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(66, 66, 66));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(82, 82, 82));
     styleSet.SetColor("Color.Switch.OffTrackPressed", FColor::FromBytes(54, 54, 54));
@@ -758,6 +786,16 @@ void PopulateLightTheme(FStyleSet& styleSet)
     styleSet.SetColor("Color.OutlineView.ScrollbarTrack", FColor::FromBytes(232, 236, 241));
     styleSet.SetColor("Color.OutlineView.ScrollbarThumb", FColor::FromBytes(170, 178, 188));
     styleSet.SetColor("Color.OutlineView.ScrollbarThumbHovered", FColor::FromBytes(132, 146, 164));
+
+    styleSet.SetColor("Color.HorizontalSplitter.Bar", FColor::FromBytes(196, 202, 210));
+    styleSet.SetColor("Color.HorizontalSplitter.BarHovered", FColor::FromBytes(166, 175, 186));
+    styleSet.SetColor("Color.HorizontalSplitter.BarActive", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.VerticalSplitter.Bar", FColor::FromBytes(196, 202, 210));
+    styleSet.SetColor("Color.VerticalSplitter.BarHovered", FColor::FromBytes(166, 175, 186));
+    styleSet.SetColor("Color.VerticalSplitter.BarActive", FColor::FromBytes(0, 120, 215));
+
+    styleSet.SetColor("Color.TextBlock.Text", FColor::FromBytes(30, 30, 30));
 
     styleSet.SetColor("Color.Switch.OffTrack", FColor::FromBytes(196, 202, 210));
     styleSet.SetColor("Color.Switch.OffTrackHovered", FColor::FromBytes(182, 190, 200));

@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -114,6 +116,13 @@ ImHorizontalSplitter::ImHorizontalSplitter()
     : ImPanelWidget() {
 }
 
+void ImHorizontalSplitter::SetSplitterStyle(const FHorizontalSplitterStyle& style)
+{
+    m_Style = style;
+    m_bHasExplicitStyle = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
 void ImHorizontalSplitter::AddChild(const Ptr& child) {
     AddPart(child);
 }
@@ -185,7 +194,8 @@ FVector2 ImHorizontalSplitter::GetMinSize() const {
         return FVector2(0.0f, 0.0f);
     }
 
-    const float barWidth = SanitizeThickness(m_Style.BarWidth);
+    const FHorizontalSplitterStyle& style = GetEffectiveStyle();
+    const float barWidth = SanitizeThickness(style.BarWidth);
     float totalWidth = barWidth * static_cast<float>(children.size() > 0 ? children.size() - 1 : 0);
     float maxHeight = 0.0f;
 
@@ -271,7 +281,8 @@ void ImHorizontalSplitter::Relayout() {
         return;
     }
 
-    const float barWidth = SanitizeThickness(m_Style.BarWidth);
+    const FHorizontalSplitterStyle& style = GetEffectiveStyle();
+    const float barWidth = SanitizeThickness(style.BarWidth);
     const float totalBarWidth = barWidth * static_cast<float>(children.size() > 0 ? children.size() - 1 : 0);
     const float contentWidth = std::max(0.0f, m_Geometry.Size.X - totalBarWidth);
 
@@ -410,19 +421,34 @@ void ImHorizontalSplitter::EndDrag() {
     m_DragStartTotalRatio = 2.0f;
 }
 
+const FHorizontalSplitterStyle& ImHorizontalSplitter::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveHorizontalSplitterStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
 void ImHorizontalSplitter::RenderBars(const FPaintContext& paintContext) const {
+    const FHorizontalSplitterStyle& style = GetEffectiveStyle();
     for (std::size_t index = 0; index < m_BarGeometries.size(); ++index) {
         const FGeometry& barGeometry = m_BarGeometries[index];
         const FColor& color =
-            static_cast<int>(index) == m_DraggingBarIndex ? m_Style.ActiveColor :
-            static_cast<int>(index) == m_HoveredBarIndex ? m_Style.HoveredColor :
-            m_Style.Color;
+            static_cast<int>(index) == m_DraggingBarIndex ? style.ActiveColor :
+            static_cast<int>(index) == m_HoveredBarIndex ? style.HoveredColor :
+            style.Color;
 
         paintContext.DrawContext_.DrawRectFilled(
             barGeometry.GetMin(),
             barGeometry.GetMax(),
             color,
-            m_Style.Rounding
+            style.Rounding
         );
     }
 }

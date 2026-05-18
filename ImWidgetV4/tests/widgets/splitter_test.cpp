@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <memory>
@@ -340,4 +341,39 @@ TEST(SplitterTest, VerticalDragKeepsStableHeightsAcrossRepeatedMoves) {
 
     ExpectFloatNear(splitter->PartGeometries()[0].Size.Y, firstTopHeight);
     ExpectFloatNear(splitter->PartGeometries()[1].Size.Y, firstBottomHeight);
+}
+
+TEST(SplitterTest, HorizontalUsesThemeResolvedStyleByDefault)
+{
+    ImApplication app;
+    ASSERT_TRUE(app.SetActiveTheme("Dark"));
+
+    auto splitter = std::make_shared<TestHorizontalSplitter>();
+    app.SetRootWidget(splitter);
+
+    const FHorizontalSplitterStyle expectedStyle = ResolveHorizontalSplitterStyle(app.GetStyleSet());
+    const FHorizontalSplitterStyle& style = splitter->GetSplitterStyle();
+    EXPECT_FLOAT_EQ(style.BarWidth, expectedStyle.BarWidth);
+    EXPECT_EQ(style.Color.ToImU32(), expectedStyle.Color.ToImU32());
+    EXPECT_EQ(style.HoveredColor.ToImU32(), expectedStyle.HoveredColor.ToImU32());
+}
+
+TEST(SplitterTest, VerticalExplicitStyleOverridesTheme)
+{
+    ImApplication app;
+    ASSERT_TRUE(app.SetActiveTheme("Light"));
+
+    auto splitter = std::make_shared<TestVerticalSplitter>();
+    app.SetRootWidget(splitter);
+
+    FVerticalSplitterStyle explicitStyle;
+    explicitStyle.BarHeight = 9.0f;
+    explicitStyle.Color = FColor::FromBytes(10, 20, 30);
+    explicitStyle.HoveredColor = FColor::FromBytes(40, 50, 60);
+    splitter->SetSplitterStyle(explicitStyle);
+
+    const FVerticalSplitterStyle& style = splitter->GetSplitterStyle();
+    EXPECT_FLOAT_EQ(style.BarHeight, explicitStyle.BarHeight);
+    EXPECT_EQ(style.Color.ToImU32(), explicitStyle.Color.ToImU32());
+    EXPECT_EQ(style.HoveredColor.ToImU32(), explicitStyle.HoveredColor.ToImU32());
 }

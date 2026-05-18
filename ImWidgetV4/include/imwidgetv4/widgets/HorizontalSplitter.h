@@ -64,8 +64,8 @@ public:
         float minSize = 30.0f,
         const FMargin& padding = FMargin());
 
-    void SetSplitterStyle(const FHorizontalSplitterStyle& style) { m_Style = style; }
-    const FHorizontalSplitterStyle& GetSplitterStyle() const { return m_Style; }
+    void SetSplitterStyle(const FHorizontalSplitterStyle& style);
+    const FHorizontalSplitterStyle& GetSplitterStyle() const { return GetEffectiveStyle(); }
 
     void SetPartMinSize(int index, float minSize);
 
@@ -83,6 +83,7 @@ protected:
     const std::vector<FGeometry>& GetBarGeometries() const { return m_BarGeometries; }
 
 private:
+    const FHorizontalSplitterStyle& GetEffectiveStyle() const;
     void ClearHoveredBar();
     void UpdateHoveredBar(const FVector2& mousePosition);
     int HitTestBarIndex(const FVector2& mousePosition) const;
@@ -92,6 +93,7 @@ private:
     void RenderBars(const FPaintContext& paintContext) const;
 
     FHorizontalSplitterStyle m_Style;
+    mutable FHorizontalSplitterStyle m_ResolvedThemeStyle;
     int m_HoveredBarIndex = -1;
     int m_DraggingBarIndex = -1;
     float m_DragStartMouseX = 0.0f;
@@ -100,6 +102,7 @@ private:
     float m_DragStartTotalRatio = 2.0f;
     std::vector<FGeometry> m_PartGeometries;
     std::vector<FGeometry> m_BarGeometries;
+    bool m_bHasExplicitStyle = false;
 };
 
 } // namespace ImWidgetV4

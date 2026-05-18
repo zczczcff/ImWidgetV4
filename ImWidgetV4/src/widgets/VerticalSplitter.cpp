@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/VerticalSplitter.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
 
@@ -113,6 +115,13 @@ ImVerticalSplitter::ImVerticalSplitter()
     : ImPanelWidget() {
 }
 
+void ImVerticalSplitter::SetSplitterStyle(const FVerticalSplitterStyle& style)
+{
+    m_Style = style;
+    m_bHasExplicitStyle = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
 void ImVerticalSplitter::AddChild(const Ptr& child) {
     AddPart(child);
 }
@@ -184,7 +193,8 @@ FVector2 ImVerticalSplitter::GetMinSize() const {
         return FVector2(0.0f, 0.0f);
     }
 
-    const float barHeight = SanitizeThickness(m_Style.BarHeight);
+    const FVerticalSplitterStyle& style = GetEffectiveStyle();
+    const float barHeight = SanitizeThickness(style.BarHeight);
     float totalHeight = barHeight * static_cast<float>(children.size() > 0 ? children.size() - 1 : 0);
     float maxWidth = 0.0f;
 
@@ -270,7 +280,8 @@ void ImVerticalSplitter::Relayout() {
         return;
     }
 
-    const float barHeight = SanitizeThickness(m_Style.BarHeight);
+    const FVerticalSplitterStyle& style = GetEffectiveStyle();
+    const float barHeight = SanitizeThickness(style.BarHeight);
     const float totalBarHeight = barHeight * static_cast<float>(children.size() > 0 ? children.size() - 1 : 0);
     const float contentHeight = std::max(0.0f, m_Geometry.Size.Y - totalBarHeight);
 
@@ -409,19 +420,34 @@ void ImVerticalSplitter::EndDrag() {
     m_DragStartTotalRatio = 2.0f;
 }
 
+const FVerticalSplitterStyle& ImVerticalSplitter::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveVerticalSplitterStyle(application->GetStyleSet());
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
+}
+
 void ImVerticalSplitter::RenderBars(const FPaintContext& paintContext) const {
+    const FVerticalSplitterStyle& style = GetEffectiveStyle();
     for (std::size_t index = 0; index < m_BarGeometries.size(); ++index) {
         const FGeometry& barGeometry = m_BarGeometries[index];
         const FColor& color =
-            static_cast<int>(index) == m_DraggingBarIndex ? m_Style.ActiveColor :
-            static_cast<int>(index) == m_HoveredBarIndex ? m_Style.HoveredColor :
-            m_Style.Color;
+            static_cast<int>(index) == m_DraggingBarIndex ? style.ActiveColor :
+            static_cast<int>(index) == m_HoveredBarIndex ? style.HoveredColor :
+            style.Color;
 
         paintContext.DrawContext_.DrawRectFilled(
             barGeometry.GetMin(),
             barGeometry.GetMax(),
             color,
-            m_Style.Rounding
+            style.Rounding
         );
     }
 }

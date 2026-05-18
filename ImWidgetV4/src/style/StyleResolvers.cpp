@@ -377,6 +377,40 @@ FScrollBoxStyle ResolveScrollBoxStyle(const FStyleSet& styleSet)
     return style;
 }
 
+FHorizontalSplitterStyle ResolveHorizontalSplitterStyle(const FStyleSet& styleSet)
+{
+    FHorizontalSplitterStyle style;
+
+    style.BarWidth = styleSet.GetFloat("Float.HorizontalSplitter.BarWidth", style.BarWidth);
+    style.Color = styleSet.GetColor("Color.HorizontalSplitter.Bar", style.Color);
+    style.HoveredColor = styleSet.GetColor(
+        "Color.HorizontalSplitter.BarHovered",
+        style.HoveredColor);
+    style.ActiveColor = styleSet.GetColor(
+        "Color.HorizontalSplitter.BarActive",
+        style.ActiveColor);
+    style.Rounding = styleSet.GetFloat("Float.HorizontalSplitter.Rounding", style.Rounding);
+
+    return style;
+}
+
+FVerticalSplitterStyle ResolveVerticalSplitterStyle(const FStyleSet& styleSet)
+{
+    FVerticalSplitterStyle style;
+
+    style.BarHeight = styleSet.GetFloat("Float.VerticalSplitter.BarHeight", style.BarHeight);
+    style.Color = styleSet.GetColor("Color.VerticalSplitter.Bar", style.Color);
+    style.HoveredColor = styleSet.GetColor(
+        "Color.VerticalSplitter.BarHovered",
+        style.HoveredColor);
+    style.ActiveColor = styleSet.GetColor(
+        "Color.VerticalSplitter.BarActive",
+        style.ActiveColor);
+    style.Rounding = styleSet.GetFloat("Float.VerticalSplitter.Rounding", style.Rounding);
+
+    return style;
+}
+
 FSliderStyle ResolveSliderStyle(const FStyleSet& styleSet)
 {
     FSliderStyle style;
@@ -451,6 +485,16 @@ FSwitchStyle ResolveSwitchStyle(const FStyleSet& styleSet)
     style.BorderThickness = styleSet.GetFloat("Float.Switch.BorderThickness", style.BorderThickness);
     style.ThumbInset = styleSet.GetFloat("Float.Switch.ThumbInset", style.ThumbInset);
     style.DesiredSize = styleSet.GetVector2("Vector2.Switch.DesiredSize", style.DesiredSize);
+
+    return style;
+}
+
+FTextBlockStyle ResolveTextBlockStyle(const FStyleSet& styleSet)
+{
+    FTextBlockStyle style;
+
+    style.TextColor = styleSet.GetColor("Color.TextBlock.Text", style.TextColor);
+    style.FontSize = styleSet.GetFloat("Float.TextBlock.FontSize", style.FontSize);
 
     return style;
 }

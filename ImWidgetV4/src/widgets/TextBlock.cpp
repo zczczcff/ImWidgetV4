@@ -1,5 +1,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 #include <imgui.h>
 #include <cfloat>
@@ -10,8 +12,6 @@ ImTextBlock::ImTextBlock()
     : ImWidget()
     , m_Text("")
     , m_TextValue(FText::FromString(""))
-    , m_TextColor(FColor::White)
-    , m_FontSize(16.0f)
     , m_TextAlignment(ETextAlignment::Center)
     , m_VerticalAlignment(EVerticalAlignment::Center)
     , m_bWrapText(false)
@@ -44,23 +44,39 @@ std::string ImTextBlock::GetText() const
 }
 
 void ImTextBlock::SetTextColor(const FColor& color) {
-    if (m_TextColor.R == color.R &&
-        m_TextColor.G == color.G &&
-        m_TextColor.B == color.B &&
-        m_TextColor.A == color.A) {
+    const FTextBlockStyle effectiveStyle = GetEffectiveStyle();
+    if (effectiveStyle.TextColor.ToImU32() == color.ToImU32()) {
         return;
     }
 
-    m_TextColor = color;
+    if (!m_bHasExplicitStyle) {
+        m_Style = effectiveStyle;
+    }
+    m_Style.TextColor = color;
+    m_bHasExplicitTextColor = true;
     Invalidate(EInvalidateReason::Paint);
 }
 
 void ImTextBlock::SetFontSize(float size) {
-    if (m_FontSize == size) {
+    const float clampedSize = std::max(1.0f, size);
+    if (GetEffectiveStyle().FontSize == clampedSize) {
         return;
     }
 
-    m_FontSize = size;
+    if (!m_bHasExplicitStyle) {
+        m_Style = GetEffectiveStyle();
+    }
+    m_Style.FontSize = clampedSize;
+    m_bHasExplicitFontSize = true;
+    Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
+}
+
+void ImTextBlock::SetStyle(const FTextBlockStyle& style)
+{
+    m_Style = style;
+    m_bHasExplicitStyle = true;
+    m_bHasExplicitTextColor = true;
+    m_bHasExplicitFontSize = true;
     Invalidate(EInvalidateReason::Layout | EInvalidateReason::Paint);
 }
 
@@ -98,6 +114,18 @@ void ImTextBlock::SetTextAlignmentProperty(int& value) {
     SetTextAlignment(static_cast<ETextAlignment>(value));
 }
 
+FColor& ImTextBlock::GetTextColorProperty()
+{
+    m_TextColorPropertyCache = GetTextColor();
+    return m_TextColorPropertyCache;
+}
+
+float& ImTextBlock::GetFontSizeProperty()
+{
+    m_FontSizePropertyCache = GetFontSize();
+    return m_FontSizePropertyCache;
+}
+
 int& ImTextBlock::GetTextAlignmentProperty() {
     m_TextAlignmentValue = static_cast<int>(m_TextAlignment);
     return m_TextAlignmentValue;
@@ -122,15 +150,16 @@ void ImTextBlock::Paint(const FPaintContext& paintContext) {
 
     UpdateOverflowToolTip();
 
+    const FTextBlockStyle& style = GetEffectiveStyle();
     FVector2 textSize = CalculateTextSize();
     FVector2 textPos = CalculateTextPosition(textSize);
 
     paintContext.DrawContext_.PushClipRect(m_Geometry.GetMin(), m_Geometry.GetMax(), true);
     paintContext.DrawContext_.DrawText(
         textPos,
-        m_TextColor,
+        style.TextColor,
         text,
-        m_FontSize
+        style.FontSize
     );
     paintContext.DrawContext_.PopClipRect();
 }
@@ -152,18 +181,20 @@ FReply ImTextBlock::OnInputEvent(const FInputEvent& event)
 FVector2 ImTextBlock::CalculateTextSize() const {
     const std::string text = ResolveText();
     if (text.empty()) {
-        return FVector2(0.0f, m_FontSize);
+        return FVector2(0.0f, GetEffectiveStyle().FontSize);
     }
+
+    const float fontSize = GetEffectiveStyle().FontSize;
 
     if (ImGui::GetCurrentContext() == nullptr || ImGui::GetFont() == nullptr) {
         return FVector2(
-            m_FontSize * 0.55f * static_cast<float>(text.size()),
-            m_FontSize);
+            fontSize * 0.55f * static_cast<float>(text.size()),
+            fontSize);
     }
 
     const ImFont* font = ImGui::GetFont();
     const ImVec2 size = font->CalcTextSizeA(
-        m_FontSize,
+        fontSize,
         FLT_MAX,
         0.0f,
         text.c_str(),
@@ -171,6 +202,26 @@ FVector2 ImTextBlock::CalculateTextSize() const {
         nullptr);
 
     return FVector2(size.x, size.y);
+}
+
+const FTextBlockStyle& ImTextBlock::GetEffectiveStyle() const
+{
+    if (m_bHasExplicitStyle) {
+        return m_Style;
+    }
+
+    if (const ImApplication* application = GetApplication()) {
+        m_ResolvedThemeStyle = ResolveTextBlockStyle(application->GetStyleSet());
+        if (m_bHasExplicitTextColor) {
+            m_ResolvedThemeStyle.TextColor = m_Style.TextColor;
+        }
+        if (m_bHasExplicitFontSize) {
+            m_ResolvedThemeStyle.FontSize = m_Style.FontSize;
+        }
+        return m_ResolvedThemeStyle;
+    }
+
+    return m_Style;
 }
 
 std::string ImTextBlock::ResolveText() const

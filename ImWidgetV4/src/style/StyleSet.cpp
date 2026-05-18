@@ -271,6 +271,7 @@ void PopulateSharedThemeGeometry(FStyleSet& styleSet)
 
     styleSet.SetFloat("Float.TitleBar.Height", 34.0f);
     styleSet.SetFloat("Float.TitleBar.DragRegionMinWidth", 34.0f);
+    styleSet.SetFloat("Float.TitleBar.BorderThickness", 1.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSize", 34.0f);
     styleSet.SetFloat("Float.TitleBar.SystemButtonSpacing", 0.0f);
 }
@@ -475,6 +476,7 @@ void PopulateDefaultTheme(FStyleSet& styleSet)
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(28, 33, 41));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(16, 19, 24));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Glyph", FColor::FromBytes(244, 247, 251));
     styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 24));
     styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(255, 255, 255, 40));
     styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
@@ -681,6 +683,7 @@ void PopulateDarkTheme(FStyleSet& styleSet)
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(24, 24, 24));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(52, 52, 52));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Glyph", FColor::FromBytes(244, 247, 251));
     styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(255, 255, 255, 28));
     styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(255, 255, 255, 46));
     styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));
@@ -887,6 +890,7 @@ void PopulateLightTheme(FStyleSet& styleSet)
 
     styleSet.SetColor("Color.TitleBar.Background", FColor::FromBytes(246, 247, 249));
     styleSet.SetColor("Color.TitleBar.Border", FColor::FromBytes(210, 214, 220));
+    styleSet.SetColor("Color.TitleBar.SystemButton.Glyph", FColor::FromBytes(48, 52, 58));
     styleSet.SetColor("Color.TitleBar.SystemButton.Hovered", FColor::FromBytes(0, 0, 0, 18));
     styleSet.SetColor("Color.TitleBar.SystemButton.Pressed", FColor::FromBytes(0, 0, 0, 30));
     styleSet.SetColor("Color.TitleBar.CloseButton.Hovered", FColor::FromBytes(212, 58, 76, 224));

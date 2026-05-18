@@ -13,12 +13,14 @@ struct FTitleBarStyle : public ReflectableObject {
     registrar
         .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTitleBarStyle::BackgroundColor, "Title bar background color")
         .RegisterProperty(PropertyType::Color, "BorderColor", &FTitleBarStyle::BorderColor, "Title bar border color")
+        .RegisterProperty(PropertyType::Float, "BorderThickness", &FTitleBarStyle::BorderThickness, "Title bar border thickness")
         .RegisterProperty(PropertyType::Struct, "Padding", &FTitleBarStyle::Padding, "Title bar padding")
         .RegisterProperty(PropertyType::Float, "ItemSpacing", &FTitleBarStyle::ItemSpacing, "Spacing between title bar items")
         .RegisterProperty(PropertyType::Float, "Height", &FTitleBarStyle::Height, "Preferred title bar height")
         .RegisterProperty(PropertyType::Float, "DragRegionMinWidth", &FTitleBarStyle::DragRegionMinWidth, "Minimum drag region width")
         .RegisterProperty(PropertyType::Float, "SystemButtonSize", &FTitleBarStyle::SystemButtonSize, "System button size")
         .RegisterProperty(PropertyType::Float, "SystemButtonSpacing", &FTitleBarStyle::SystemButtonSpacing, "Spacing between system buttons")
+        .RegisterProperty(PropertyType::Color, "SystemButtonGlyphColor", &FTitleBarStyle::SystemButtonGlyphColor, "System button glyph color")
         .RegisterProperty(PropertyType::Color, "HoveredSystemButtonColor", &FTitleBarStyle::HoveredSystemButtonColor, "Hovered system button color")
         .RegisterProperty(PropertyType::Color, "PressedSystemButtonColor", &FTitleBarStyle::PressedSystemButtonColor, "Pressed system button color")
         .RegisterProperty(PropertyType::Color, "CloseButtonHoveredColor", &FTitleBarStyle::CloseButtonHoveredColor, "Hovered close button color")
@@ -29,12 +31,14 @@ struct FTitleBarStyle : public ReflectableObject {
 public:
     FColor BackgroundColor = FColor::FromBytes(28, 33, 41);
     FColor BorderColor = FColor::FromBytes(16, 19, 24);
+    float BorderThickness = 1.0f;
     FMargin Padding = FMargin(0.0f);
     float ItemSpacing = 0.0f;
     float Height = 34.0f;
     float DragRegionMinWidth = 34.0f;
     float SystemButtonSize = 34.0f;
     float SystemButtonSpacing = 0.0f;
+    FColor SystemButtonGlyphColor = FColor::FromBytes(244, 247, 251);
     FColor HoveredSystemButtonColor = FColor::FromBytes(255, 255, 255, 24);
     FColor PressedSystemButtonColor = FColor::FromBytes(255, 255, 255, 40);
     FColor CloseButtonHoveredColor = FColor::FromBytes(212, 58, 76, 224);

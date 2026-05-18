@@ -11,8 +11,6 @@ namespace ImWidgetV4 {
 
 namespace {
 
-constexpr float BorderThickness = 1.0f;
-
 float ClampNonNegative(float value)
 {
     return std::max(0.0f, value);
@@ -154,11 +152,14 @@ void ImTitleBar::Paint(const FPaintContext& paintContext)
     const FVector2 min = m_Geometry.GetMin();
     const FVector2 max = m_Geometry.GetMax();
     paintContext.DrawContext_.DrawRectFilled(min, max, style.BackgroundColor);
-    paintContext.DrawContext_.DrawLine(
-        FVector2(min.X, max.Y - BorderThickness),
-        FVector2(max.X, max.Y - BorderThickness),
-        style.BorderColor,
-        BorderThickness);
+    if (style.BorderThickness > 0.0f) {
+        const float borderThickness = ClampNonNegative(style.BorderThickness);
+        paintContext.DrawContext_.DrawLine(
+            FVector2(min.X, max.Y - borderThickness),
+            FVector2(max.X, max.Y - borderThickness),
+            style.BorderColor,
+            borderThickness);
+    }
 
     PaintChildren(paintContext);
     PaintSystemButtons(paintContext);
@@ -603,7 +604,7 @@ void ImTitleBar::PaintSystemButton(const FPaintContext& paintContext, ESystemBut
 void ImTitleBar::DrawSystemButtonGlyph(const FPaintContext& paintContext, ESystemButton button, const FGeometry& geometry) const
 {
     const ImApplicationBackend* backend = GetBackend();
-    const FColor glyphColor = FColor::FromBytes(244, 247, 251);
+    const FColor glyphColor = GetEffectiveStyle().SystemButtonGlyphColor;
     const FVector2 center(
         geometry.Position.X + geometry.Size.X * 0.5f,
         geometry.Position.Y + geometry.Size.Y * 0.5f);

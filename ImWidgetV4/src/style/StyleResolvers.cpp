@@ -667,6 +667,9 @@ FTitleBarStyle ResolveTitleBarStyle(const FStyleSet& styleSet)
 
     style.BackgroundColor = styleSet.GetColor("Color.TitleBar.Background", style.BackgroundColor);
     style.BorderColor = styleSet.GetColor("Color.TitleBar.Border", style.BorderColor);
+    style.SystemButtonGlyphColor = styleSet.GetColor(
+        "Color.TitleBar.SystemButton.Glyph",
+        style.SystemButtonGlyphColor);
     style.HoveredSystemButtonColor = styleSet.GetColor(
         "Color.TitleBar.SystemButton.Hovered",
         style.HoveredSystemButtonColor);
@@ -683,6 +686,9 @@ FTitleBarStyle ResolveTitleBarStyle(const FStyleSet& styleSet)
     style.DragRegionMinWidth = styleSet.GetFloat(
         "Float.TitleBar.DragRegionMinWidth",
         style.DragRegionMinWidth);
+    style.BorderThickness = styleSet.GetFloat(
+        "Float.TitleBar.BorderThickness",
+        style.BorderThickness);
     style.SystemButtonSize = styleSet.GetFloat("Float.TitleBar.SystemButtonSize", style.SystemButtonSize);
     style.SystemButtonSpacing = styleSet.GetFloat(
         "Float.TitleBar.SystemButtonSpacing",

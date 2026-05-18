@@ -298,6 +298,8 @@ TEST_F(TitleBarTest, UsesThemeResolvedStyleByDefault)
     const FTitleBarStyle& style = TitleBar->GetStyle();
     EXPECT_EQ(style.BackgroundColor.ToImU32(), expectedStyle.BackgroundColor.ToImU32());
     EXPECT_EQ(style.BorderColor.ToImU32(), expectedStyle.BorderColor.ToImU32());
+    EXPECT_FLOAT_EQ(style.BorderThickness, expectedStyle.BorderThickness);
+    EXPECT_EQ(style.SystemButtonGlyphColor.ToImU32(), expectedStyle.SystemButtonGlyphColor.ToImU32());
 }
 
 TEST_F(TitleBarTest, ExplicitStyleOverridesTheme)
@@ -307,8 +309,12 @@ TEST_F(TitleBarTest, ExplicitStyleOverridesTheme)
     FTitleBarStyle explicitStyle = TitleBar->GetStyle();
     explicitStyle.BackgroundColor = FColor::FromBytes(1, 2, 3);
     explicitStyle.BorderColor = FColor::FromBytes(4, 5, 6);
+    explicitStyle.BorderThickness = 3.0f;
+    explicitStyle.SystemButtonGlyphColor = FColor::FromBytes(7, 8, 9);
     TitleBar->SetStyle(explicitStyle);
 
     EXPECT_EQ(TitleBar->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
     EXPECT_EQ(TitleBar->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
+    EXPECT_FLOAT_EQ(TitleBar->GetStyle().BorderThickness, explicitStyle.BorderThickness);
+    EXPECT_EQ(TitleBar->GetStyle().SystemButtonGlyphColor.ToImU32(), explicitStyle.SystemButtonGlyphColor.ToImU32());
 }

@@ -25,8 +25,6 @@ namespace ImWidgetV4 {
 namespace {
 
 constexpr const char* GAndroidBackendLogTag = "ImWidgetV4";
-constexpr const char* GDefaultImGuiIniFileName = "imwidgetv4_imgui.ini";
-
 #ifndef EGL_OPENGL_ES3_BIT_KHR
 #define EGL_OPENGL_ES3_BIT_KHR 0x0040
 #endif
@@ -1095,13 +1093,6 @@ void ImAndroidGLES3Backend::ConfigureApplicationForAndroid()
 {
     if (Application_ == nullptr || App_ == nullptr || App_->activity == nullptr) {
         return;
-    }
-
-    if (Application_->GetIniSettingsPath().empty()) {
-        const char* internalDataPath = App_->activity->internalDataPath;
-        if (internalDataPath != nullptr && internalDataPath[0] != '\0') {
-            Application_->SetIniSettingsPath(std::filesystem::path(internalDataPath) / GDefaultImGuiIniFileName);
-        }
     }
 
     SetNativeBackendHandle(reinterpret_cast<std::intptr_t>(this));

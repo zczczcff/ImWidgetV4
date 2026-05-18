@@ -666,6 +666,23 @@ TEST(ApplicationIniSettingsTest, ApplicationSynchronizesIniFilenameWithCurrentCo
     ImGui::DestroyContext(context);
 }
 
+TEST(ApplicationIniSettingsTest, ApplicationDisablesIniFilenameByDefault) {
+    IMGUI_CHECKVERSION();
+    ImGuiContext* context = ImGui::CreateContext();
+    ASSERT_NE(context, nullptr);
+
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = "imgui.ini";
+
+    {
+        ImApplication application;
+        EXPECT_TRUE(application.GetIniSettingsPath().empty());
+        EXPECT_EQ(io.IniFilename, nullptr);
+    }
+
+    ImGui::DestroyContext(context);
+}
+
 TEST(ApplicationHostChromeTest, ApplicationTitleSynchronizesWhenBackendIsBound)
 {
     ImApplication application;

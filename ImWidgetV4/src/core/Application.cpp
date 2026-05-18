@@ -564,6 +564,7 @@ ImApplication::ImApplication()
     , ToolTipState_(std::make_unique<FToolTipState>())
     , DragDropState_(std::make_unique<FDragDropState>())
 {
+    SetIniSettingsPath({});
     EnsureDefaultFontConfigured();
 
     WindowManager_.SetOwnerApplication(this);

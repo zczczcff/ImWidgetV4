@@ -1,4 +1,5 @@
 #include "InputDialog.h"
+#include "EditorTheme.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
 #include <imwidgetv4/core/WindowManager.h>
@@ -14,11 +15,6 @@ using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
-
-FButtonStyle MakeDialogButtonStyle(bool bPrimary)
-{
-    return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
-}
 
 FVector2 MaxSize(const FVector2& left, const FVector2& right)
 {
@@ -38,18 +34,18 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     title->SetText(m_Options.HeadingText);
     title->SetWrapText(false);
     title->SetFontSize(16.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+    title->SetTextColor(GetEditorPanelTitleColor());
 
     auto editor = std::make_shared<ImEditableText>();
     ApplyInspectorEditableTextStyle(*editor, false);
     editor->SetText(m_Options.InitialText);
 
     auto confirmButton = std::make_shared<ImButton>();
-    confirmButton->SetStyle(MakeDialogButtonStyle(true));
+    confirmButton->SetStyle(MakeEditorDialogButtonStyle(true));
     confirmButton->SetText(m_Options.ConfirmText);
 
     auto cancelButton = std::make_shared<ImButton>();
-    cancelButton->SetStyle(MakeDialogButtonStyle(false));
+    cancelButton->SetStyle(MakeEditorDialogButtonStyle(false));
     cancelButton->SetText(m_Options.CancelText);
 
     auto buttonRow = std::make_shared<ImHorizontalBox>();
@@ -108,9 +104,7 @@ bool InputDialog::Open(ImApplication& app, const FInputDialogOptions& options)
     popupOptions.Size = MaxSize(m_Options.Size, popupContentMinSize);
     popupOptions.RootWidget = root;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_Root = root;
     m_Editor = editor;

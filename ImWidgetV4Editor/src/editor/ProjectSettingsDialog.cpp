@@ -1,5 +1,6 @@
 #include "ProjectSettingsDialog.h"
 
+#include "EditorTheme.h"
 #include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
@@ -19,11 +20,6 @@ using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
-
-FButtonStyle MakeDialogButtonStyle(bool bPrimary)
-{
-    return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
-}
 
 FVector2 MaxSize(const FVector2& left, const FVector2& right)
 {
@@ -106,7 +102,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     title->SetText(m_Options.HeadingText);
     title->SetWrapText(false);
     title->SetFontSize(16.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+    title->SetTextColor(GetEditorPanelTitleColor());
 
     auto projectNameField = MakeInspectorReadOnlyField(m_Options.ProjectName);
     auto namespaceField = MakeInspectorReadOnlyField(m_Options.NamespaceName);
@@ -140,11 +136,11 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidSdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidSdkRoot", "Override Android SDK root"));
 
     auto androidSdkBrowseButton = std::make_shared<ImButton>();
-    androidSdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
+    androidSdkBrowseButton->SetStyle(MakeEditorDialogButtonStyle(false));
     androidSdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidSdkClearButton = std::make_shared<ImButton>();
-    androidSdkClearButton->SetStyle(MakeDialogButtonStyle(false));
+    androidSdkClearButton->SetStyle(MakeEditorDialogButtonStyle(false));
     androidSdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto androidNdkRootEditor = std::make_shared<ImEditableText>();
@@ -152,11 +148,11 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidNdkRootEditor->SetHintText(EditorText("Build.OverrideAndroidNdkRoot", "Override Android NDK root"));
 
     auto androidNdkBrowseButton = std::make_shared<ImButton>();
-    androidNdkBrowseButton->SetStyle(MakeDialogButtonStyle(false));
+    androidNdkBrowseButton->SetStyle(MakeEditorDialogButtonStyle(false));
     androidNdkBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
 
     auto androidNdkClearButton = std::make_shared<ImButton>();
-    androidNdkClearButton->SetStyle(MakeDialogButtonStyle(false));
+    androidNdkClearButton->SetStyle(MakeEditorDialogButtonStyle(false));
     androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
@@ -180,37 +176,25 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
         FMargin(0.0f));
 
     auto probeText = std::make_shared<ImTextList>();
-    FTextListStyle probeStyle = probeText->GetStyle();
-    probeStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    probeStyle.BorderColor = FColor::FromBytes(16, 19, 23);
-    probeStyle.FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
-    probeStyle.TextColor = FColor::FromBytes(196, 205, 217);
-    probeStyle.SelectionBackgroundColor = FColor::FromBytes(72, 104, 146, 148);
-    probeStyle.Padding = FMargin(10.0f);
-    probeStyle.MinDesiredSize = FVector2(0.0f, 200.0f);
-    probeStyle.CornerRadius = 5.0f;
-    probeStyle.BorderThickness = 1.0f;
-    probeStyle.FontSize = 13.0f;
-    probeStyle.LineSpacing = 1.1f;
-    probeText->SetStyle(probeStyle);
+    probeText->SetStyle(MakeEditorInspectorProbeTextListStyle(probeText->GetStyle()));
     probeText->SetItems(std::vector<std::string>{});
 
     auto errorText = std::make_shared<ImTextBlock>();
     errorText->SetText("");
     errorText->SetWrapText(false);
     errorText->SetFontSize(12.0f);
-    errorText->SetTextColor(FColor::FromBytes(239, 103, 103));
+    errorText->SetTextColor(GetEditorDangerColor());
 
     auto confirmButton = std::make_shared<ImButton>();
-    confirmButton->SetStyle(MakeDialogButtonStyle(true));
+    confirmButton->SetStyle(MakeEditorDialogButtonStyle(true));
     confirmButton->SetText(EditorText("Build.Apply", "Apply"));
 
     auto reprobeButton = std::make_shared<ImButton>();
-    reprobeButton->SetStyle(MakeDialogButtonStyle(false));
+    reprobeButton->SetStyle(MakeEditorDialogButtonStyle(false));
     reprobeButton->SetText(EditorText("Build.ReProbe", "Re-Probe"));
 
     auto cancelButton = std::make_shared<ImButton>();
-    cancelButton->SetStyle(MakeDialogButtonStyle(false));
+    cancelButton->SetStyle(MakeEditorDialogButtonStyle(false));
     cancelButton->SetText(EditorText("Common.Close", "Close"));
 
     auto fields = std::make_shared<ImVerticalBox>();
@@ -423,9 +407,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     popupOptions.Size = MaxSize(m_Options.Size, popupContentMinSize);
     popupOptions.RootWidget = root;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_Window = app.GetWindowManager().CreatePopup(popupOptions);
     app.SetKeyboardFocus(profileComboBox);

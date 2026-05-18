@@ -1,4 +1,5 @@
 #include "NewAppProjectDialog.h"
+#include "EditorTheme.h"
 #include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
 
@@ -18,11 +19,6 @@ using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
-
-FButtonStyle MakeDialogButtonStyle(bool bPrimary)
-{
-    return bPrimary ? FButtonStyle::CreatePrimary() : FButtonStyle();
-}
 
 FVector2 MaxSize(const FVector2& left, const FVector2& right)
 {
@@ -113,7 +109,7 @@ bool NewAppProjectDialog::Open(ImApplication& app, const FNewAppProjectDialogOpt
     title->SetText(m_Options.HeadingText);
     title->SetWrapText(false);
     title->SetFontSize(16.0f);
-    title->SetTextColor(FColor::FromBytes(238, 242, 247));
+    title->SetTextColor(GetEditorPanelTitleColor());
 
     auto parentDirectoryField = MakeInspectorReadOnlyField(m_Options.ParentDirectory.string());
 
@@ -146,14 +142,14 @@ bool NewAppProjectDialog::Open(ImApplication& app, const FNewAppProjectDialogOpt
     errorText->SetText("");
     errorText->SetWrapText(false);
     errorText->SetFontSize(12.0f);
-    errorText->SetTextColor(FColor::FromBytes(239, 103, 103));
+    errorText->SetTextColor(GetEditorDangerColor());
 
     auto confirmButton = std::make_shared<ImButton>();
-    confirmButton->SetStyle(MakeDialogButtonStyle(true));
+    confirmButton->SetStyle(MakeEditorDialogButtonStyle(true));
     confirmButton->SetText(m_Options.ConfirmText);
 
     auto cancelButton = std::make_shared<ImButton>();
-    cancelButton->SetStyle(MakeDialogButtonStyle(false));
+    cancelButton->SetStyle(MakeEditorDialogButtonStyle(false));
     cancelButton->SetText(m_Options.CancelText);
 
     auto fields = std::make_shared<ImVerticalBox>();
@@ -272,9 +268,7 @@ bool NewAppProjectDialog::Open(ImApplication& app, const FNewAppProjectDialogOpt
     popupOptions.Size = MaxSize(m_Options.Size, popupContentMinSize);
     popupOptions.RootWidget = root;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_Window = app.GetWindowManager().CreatePopup(popupOptions);
     app.SetKeyboardFocus(projectNameEditor);

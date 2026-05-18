@@ -666,7 +666,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
     title->SetText(EditorText("App.Title", "ImWidgetV4 Editor"));
     title->SetFontSize(32.0f);
     title->SetWrapText(false);
-    title->SetTextColor(FColor::FromBytes(235, 240, 248));
+    title->SetTextColor(GetEditorPanelTitleColor());
     if (ImCanvasPanelSlot* slot = canvas->AddChildAt(title, FVector2(0.08f, 0.08f))) {
         slot->SetAutoSize(true);
     }
@@ -676,7 +676,7 @@ std::shared_ptr<ImWidget> BuildInitialDocumentRoot()
     hint->SetText(EditorText("App.InitialHint", "Drag widgets from the left palette into the designer surface."));
     hint->SetFontSize(18.0f);
     hint->SetWrapText(false);
-    hint->SetTextColor(FColor::FromBytes(162, 175, 191));
+    hint->SetTextColor(GetEditorPanelBodyColor());
     if (ImCanvasPanelSlot* slot = canvas->AddChildAt(hint, FVector2(0.08f, 0.16f))) {
         slot->SetAutoSize(true);
     }
@@ -697,22 +697,7 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs(FEditorShellWidgets& shell)
     tabView->SetSupportsKeyboardFocus(true);
     tabView->SetTabStripPlacement(ETabStripPlacement::Bottom);
 
-    FTabViewStyle style = tabView->GetStyle();
-    style.Padding = FMargin(0.0f);
-    style.TabPadding = FMargin(4.0f, 4.0f, 2.0f, 2.0f);
-    style.TabHeight = 20.0f;
-    style.TabMinWidth = 64.0f;
-    style.TabSpacing = 0.0f;
-    style.FontSize = 16.0f;
-    style.BorderThickness = 0.0f;
-    style.CornerRadius = 0.0f;
-    style.BackgroundColor = FColor::FromBytes(22, 27, 33);
-    style.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
-    style.TabColor = FColor::FromBytes(39, 45, 54);
-    style.TabHoveredColor = FColor::FromBytes(52, 60, 71);
-    style.TabPressedColor = FColor::FromBytes(33, 39, 47);
-    style.ActiveTabColor = FColor::FromBytes(66, 94, 134);
-    tabView->SetStyle(style);
+    tabView->SetStyle(MakeEditorDockTabStyle(tabView->GetStyle()));
 
     tabView->AddTab(EditorText("Dock.Controls", "Controls"), BuildControlPalettePanel());
     auto projectView = BuildProjectViewPanel();
@@ -731,26 +716,20 @@ FEditorShellWidgets BuildEditorShell()
     auto rootLayout = std::make_shared<ImVerticalBox>();
     rootLayout->SetSpacing(0.0f);
     auto titleBar = std::make_shared<ImTitleBar>();
-    FTitleBarStyle titleBarStyle = titleBar->GetStyle();
-    titleBarStyle.Height = 24.0f;
-    titleBarStyle.Padding = FMargin(4.0f, 0.0f, 0.0f, 0.0f);
-    titleBarStyle.ItemSpacing = 4.0f;
-    titleBarStyle.SystemButtonSize = 34.0f;
-    titleBarStyle.MinDesiredSize = FVector2(0.0f, 24.0f);
-    titleBar->SetStyle(titleBarStyle);
+    titleBar->SetStyle(MakeEditorTitleBarStyle(titleBar->GetStyle()));
 
     auto titleIcon = MakeTitleBarIcon(FImageBrush(), 18.0f);
     auto titleText = std::make_shared<ImTextBlock>();
     titleText->SetText(EditorText("App.Title", "ImWidgetV4 Editor"));
     titleText->SetFontSize(16.0f);
     titleText->SetWrapText(false);
-    titleText->SetTextColor(FColor::FromBytes(238, 242, 247));
+    titleText->SetTextColor(GetEditorPanelTitleColor());
 
     auto titleBarProfileStatusText = std::make_shared<ImTextBlock>();
     titleBarProfileStatusText->SetText("");
     titleBarProfileStatusText->SetFontSize(12.0f);
     titleBarProfileStatusText->SetWrapText(false);
-    titleBarProfileStatusText->SetTextColor(FColor::FromBytes(150, 160, 172));
+    titleBarProfileStatusText->SetTextColor(GetEditorTitleBarMutedTextColor());
 
     titleBar->AddLeadingItem(titleIcon);
     titleBar->AddLeadingItem(titleText);
@@ -766,19 +745,9 @@ FEditorShellWidgets BuildEditorShell()
     auto topWorkspace = std::make_shared<ImHorizontalSplitter>();
     topWorkspace->SetSupportsKeyboardFocus(false);
 
-    FHorizontalSplitterStyle horizontalStyle = topWorkspace->GetSplitterStyle();
-    horizontalStyle.BarWidth = 5.0f;
-    horizontalStyle.Color = FColor::FromBytes(44, 51, 61);
-    horizontalStyle.HoveredColor = FColor::FromBytes(70, 82, 99);
-    horizontalStyle.ActiveColor = FColor::FromBytes(103, 177, 255);
-    topWorkspace->SetSplitterStyle(horizontalStyle);
+    topWorkspace->SetSplitterStyle(MakeEditorHorizontalSplitterStyle(topWorkspace->GetSplitterStyle()));
 
-    FVerticalSplitterStyle verticalStyle = verticalShell->GetSplitterStyle();
-    verticalStyle.BarHeight = 5.0f;
-    verticalStyle.Color = FColor::FromBytes(44, 51, 61);
-    verticalStyle.HoveredColor = FColor::FromBytes(70, 82, 99);
-    verticalStyle.ActiveColor = FColor::FromBytes(103, 177, 255);
-    verticalShell->SetSplitterStyle(verticalStyle);
+    verticalShell->SetSplitterStyle(MakeEditorVerticalSplitterStyle(verticalShell->GetSplitterStyle()));
 
     auto leftDock = BuildLeftDockTabs(shell);
     auto projectView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(1)->Content);
@@ -787,16 +756,9 @@ FEditorShellWidgets BuildEditorShell()
 
     auto documentTabs = std::make_shared<ImTabView>();
     documentTabs->SetSupportsKeyboardFocus(true);
-    FTabViewStyle tabStyle = documentTabs->GetStyle();
-    tabStyle.Padding = FMargin(0.0f);
+    FTabViewStyle tabStyle = MakeEditorWorkspaceTabStyle(documentTabs->GetStyle());
     tabStyle.TabHeight = 36.0f;
     tabStyle.TabMinWidth = 150.0f;
-    tabStyle.TabSpacing = 0.0f;
-    tabStyle.BorderThickness = 0.0f;
-    tabStyle.CornerRadius = 0.0f;
-    tabStyle.TabStripBackgroundColor = FColor::FromBytes(27, 33, 41);
-    tabStyle.BackgroundColor = FColor::FromBytes(18, 23, 29);
-    tabStyle.ActiveTabColor = FColor::FromBytes(63, 90, 128);
     documentTabs->SetStyle(tabStyle);
 
     auto rightDock = std::make_shared<ImVerticalBox>();
@@ -1288,16 +1250,16 @@ void RebuildEditorTitleBar(
     shell.TitleBar->AddLeadingItem(viewButton);
 
     if (shell.UndoButton) {
-        shell.UndoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Undo, FColor::FromBytes(210, 219, 232)), 16.0f));
+        shell.UndoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Undo, GetEditorTitleBarIconColor()), 16.0f));
         shell.TitleBar->AddLeadingItem(shell.UndoButton);
     }
     if (shell.RedoButton) {
-        shell.RedoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Redo, FColor::FromBytes(210, 219, 232)), 16.0f));
+        shell.RedoButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Redo, GetEditorTitleBarIconColor()), 16.0f));
         shell.TitleBar->AddLeadingItem(shell.RedoButton);
     }
 
     auto searchButton = MakeTitleBarIconButton(
-        app.GetCoreIconBrush(ECoreIcon::Search, FColor::FromBytes(210, 219, 232)),
+        app.GetCoreIconBrush(ECoreIcon::Search, GetEditorTitleBarIconColor()),
         EditorText("TitleBar.Search", "Search"));
     BindPopupMenuButton(app, searchButton, []() {
         return BuildSimpleMenuItems("Search");
@@ -1317,7 +1279,7 @@ void UpdateEditorTitleBarActions(
         shell.bLastCanUndo = bCanUndo;
         shell.UndoButton->SetDisabled(!bCanUndo);
         shell.UndoButton->SetContent(MakeTitleBarIcon(
-            app.GetCoreIconBrush(ECoreIcon::Undo, bCanUndo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
+            app.GetCoreIconBrush(ECoreIcon::Undo, bCanUndo ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
             16.0f));
     }
 
@@ -1325,13 +1287,13 @@ void UpdateEditorTitleBarActions(
         shell.bLastCanRedo = bCanRedo;
         shell.RedoButton->SetDisabled(!bCanRedo);
         shell.RedoButton->SetContent(MakeTitleBarIcon(
-            app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? FColor::FromBytes(235, 242, 250) : FColor::FromBytes(132, 140, 150)),
+            app.GetCoreIconBrush(ECoreIcon::Redo, bCanRedo ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
             16.0f));
     }
 
     if (shell.TitleBarProfileStatusText) {
         std::string statusText = EditorText("Build.NoActiveBuildProfile", "No active build profile").Resolve();
-        FColor statusColor = FColor::FromBytes(150, 160, 172);
+        FColor statusColor = GetEditorTitleBarMutedTextColor();
 
         if (workspaceController) {
             const std::string activeProfileName = workspaceController->GetActiveBuildProfileName();
@@ -1340,20 +1302,20 @@ void UpdateEditorTitleBarActions(
                 if (workspaceController->IsBuildTaskRunning()) {
                     const std::string buildStatus = workspaceController->GetBuildTaskStatusText();
                     statusText += " | " + (buildStatus.empty() ? EditorText("Build.Running", "Running...").Resolve() : buildStatus);
-                    statusColor = FColor::FromBytes(103, 177, 255);
+                    statusColor = GetEditorAccentColor();
                 } else {
                     FEnvironmentProbeReport probeReport;
                     if (workspaceController->TryGetBuildProfileProbeReport(activeProfileName, probeReport)) {
                         if (probeReport.bReady) {
                             statusText += " | " + EditorText("Build.Ready", "Ready").Resolve();
-                            statusColor = FColor::FromBytes(125, 204, 138);
+                            statusColor = GetEditorSuccessColor();
                         } else {
                             statusText += " | " + EditorText("Build.NeedsSetup", "Needs Setup").Resolve();
-                            statusColor = FColor::FromBytes(230, 184, 104);
+                            statusColor = GetEditorWarningColor();
                         }
                     } else if (workspaceController->IsBuildProfileProbeRefreshing(activeProfileName)) {
                         statusText += " | " + EditorText("Build.Checking", "Checking...").Resolve();
-                        statusColor = FColor::FromBytes(103, 177, 255);
+                        statusColor = GetEditorAccentColor();
                     }
                 }
             }

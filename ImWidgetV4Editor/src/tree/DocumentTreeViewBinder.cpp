@@ -1,5 +1,6 @@
 #include "DocumentTreeViewBinder.h"
 #include "../editor/EditorDocument.h"
+#include "../editor/EditorTheme.h"
 #include "../editor/LogicalWidgetTree.h"
 #include "../editor/WidgetTypeIcon.h"
 #include "../palette/WidgetPaletteDragDrop.h"
@@ -41,7 +42,7 @@ std::shared_ptr<ImWidget> MakeTreeDragPreview(const FImageBrush& iconBrush, cons
     auto preview = std::make_shared<ImTextBlock>();
     preview->SetText(text);
     preview->SetFontSize(14.0f);
-    preview->SetTextColor(FColor::White);
+    preview->SetTextColor(GetEditorPanelTitleColor());
     preview->SetHitTestVisible(false);
     row->AddChild(preview);
     return row;
@@ -157,7 +158,7 @@ void DocumentTreeViewBinder::Bind(
             FImageBrush iconBrush;
             if (m_TreeView->GetApplication() != nullptr) {
                 if (const auto icon = TryGetWidgetTypeIcon(widget->GetTypeName())) {
-                    iconBrush = m_TreeView->GetApplication()->GetCoreIconBrush(*icon, FColor::FromBytes(228, 233, 241));
+                    iconBrush = m_TreeView->GetApplication()->GetCoreIconBrush(*icon, GetEditorPanelTitleColor());
                 }
             }
             operation->PreviewWidget = MakeTreeDragPreview(iconBrush, payload->Label);
@@ -237,11 +238,11 @@ void DocumentTreeViewBinder::RebuildFromRoot(
     if (const auto icon = TryGetWidgetTypeIcon(rootWidget->GetTypeName())) {
         rootItem->IconType = static_cast<int>(*icon);
     }
-    if (ImApplication* application = m_TreeView->GetApplication()) {
-        if (const auto icon = TryGetWidgetTypeIcon(rootWidget->GetTypeName())) {
-            rootItem->IconBrush = application->GetCoreIconBrush(*icon, FColor::FromBytes(214, 222, 234));
+        if (ImApplication* application = m_TreeView->GetApplication()) {
+            if (const auto icon = TryGetWidgetTypeIcon(rootWidget->GetTypeName())) {
+                rootItem->IconBrush = application->GetCoreIconBrush(*icon, GetEditorTreeIconColor());
+            }
         }
-    }
     rootItem->Expanded = true;
     m_ItemToWidget[rootItem] = rootWidget;
     m_WidgetToItem[rootWidget.get()] = rootItem;
@@ -324,7 +325,7 @@ void DocumentTreeViewBinder::RebuildChildren(
         }
         if (ImApplication* application = m_TreeView->GetApplication()) {
             if (const auto icon = TryGetWidgetTypeIcon(child->GetTypeName())) {
-                childItem->IconBrush = application->GetCoreIconBrush(*icon, FColor::FromBytes(214, 222, 234));
+                childItem->IconBrush = application->GetCoreIconBrush(*icon, GetEditorTreeIconColor());
             }
         }
         childItem->Expanded = true;

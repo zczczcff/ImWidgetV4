@@ -1,6 +1,7 @@
 #include "EditorSession.h"
 #include "EditorLocalization.h"
 #include "EditorPaths.h"
+#include "EditorTheme.h"
 #include "LogicalWidgetTree.h"
 #include "../codegen/WidgetTreeToCppGenerator.h"
 #include "../commands/AddWidgetCommand.h"
@@ -2293,7 +2294,7 @@ std::shared_ptr<ImWidget> EditorSession::CreatePaletteWidget(const std::string& 
         comboBox->SetItems({"Option A", "Option B", "Option C"});
         comboBox->SetSelectedIndex(0);
     } else if (auto colorPicker = std::dynamic_pointer_cast<ImColorPicker>(widget)) {
-        colorPicker->SetColor(FColor::FromBytes(66, 135, 245, 255));
+        colorPicker->SetColor(GetEditorAccentColor());
     } else if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
         auto header = std::make_shared<ImTextBlock>();
         header->SetName("Header");
@@ -3063,9 +3064,7 @@ void EditorSession::OpenStructureContextMenu(
         }
 
         auto popupMenu = std::make_shared<ImPopupMenu>();
-        FPopupMenuStyle style = popupMenu->GetStyle();
-        style.CornerRadius = 6.0f;
-        popupMenu->SetStyle(style);
+        popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
         std::vector<FPopupMenuItem> rootItems;
         for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
@@ -3107,9 +3106,7 @@ void EditorSession::OpenStructureContextMenu(
         popupOptions.Size = popupMenu->GetMinSize();
         popupOptions.RootWidget = popupMenu;
         popupOptions.bCloseOnClickOutside = true;
-        popupOptions.Style.CornerRadius = 6.0f;
-        popupOptions.Style.BorderThickness = 1.0f;
-        popupOptions.Style.bDrawShadow = false;
+        popupOptions.Style = MakeEditorPopupWindowStyle();
 
         m_WidgetTreeContextMenu = popupMenu;
         m_WidgetTreeContextMenuWindow = application->GetWindowManager().CreatePopup(popupOptions);
@@ -3117,9 +3114,7 @@ void EditorSession::OpenStructureContextMenu(
     }
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle style = popupMenu->GetStyle();
-    style.CornerRadius = 6.0f;
-    popupMenu->SetStyle(style);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     std::vector<FPopupMenuItem> items;
     std::vector<FPopupMenuItem> addChildItems;
@@ -3275,9 +3270,7 @@ void EditorSession::OpenStructureContextMenu(
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_WidgetTreeContextMenu = popupMenu;
     m_WidgetTreeContextMenuWindow = application->GetWindowManager().CreatePopup(popupOptions);

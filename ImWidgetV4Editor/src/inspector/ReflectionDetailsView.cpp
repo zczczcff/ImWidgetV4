@@ -1,4 +1,5 @@
 #include "ReflectionDetailsView.h"
+#include "../editor/EditorTheme.h"
 #include "../editor/EditorLocalization.h"
 #include "PropertyEditorWidgets.h"
 
@@ -306,7 +307,7 @@ std::shared_ptr<ImWidget> MakeSectionLabelWidget(const std::string& title)
     label->SetText(title);
     label->SetWrapText(false);
     label->SetFontSize(14.0f);
-    label->SetTextColor(FColor::FromBytes(242, 246, 250));
+    label->SetTextColor(GetEditorPanelTitleColor());
     return label;
 }
 
@@ -389,19 +390,7 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 
     auto outlineView = std::make_shared<ImOutlineView>();
     outlineView->SetSupportsKeyboardFocus(true);
-
-    FOutlineViewStyle style = outlineView->GetStyle();
-    style.Padding = FMargin(0.0f);
-    style.RowPadding = FMargin(6.0f, 8.0f, 4.0f, 4.0f);
-    style.BackgroundColor = FColor::FromBytes(24, 28, 34);
-    style.BorderThickness = 1.0f;
-    style.CornerRadius = 0.0f;
-    style.IndentWidth = 16.0f;
-    style.IndicatorSize = 10.0f;
-    style.IndicatorSpacing = 6.0f;
-    style.RowMinHeight = 30.0f;
-    style.MinDesiredSize = FVector2(280.0f, 220.0f);
-    outlineView->SetStyle(style);
+    outlineView->SetStyle(MakeEditorInspectorOutlineStyle(outlineView->GetStyle()));
 
     if (m_Target) {
         if (auto widget = std::dynamic_pointer_cast<ImWidget>(m_Target)) {
@@ -421,11 +410,7 @@ ImWidget::Ptr ReflectionDetailsView::RebuildWidget()
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
 {
     auto outlineView = std::make_shared<ImOutlineView>();
-    FOutlineViewStyle style = outlineView->GetStyle();
-    style.Padding = FMargin(0.0f);
-    style.BorderThickness = 1.0f;
-    style.CornerRadius = 0.0f;
-    outlineView->SetStyle(style);
+    outlineView->SetStyle(MakeEditorInspectorOutlineStyle(outlineView->GetStyle()));
 
     ImOutlineItem* rootItem = outlineView->AddRootItem(MakeSectionLabelWidget(EditorText("Details.Title", "Details").Resolve()));
     if (rootItem) {
@@ -435,7 +420,7 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildEmptyState() const
             MakeText(
                 EditorText("Details.EmptyHint", "Select a widget in the designer surface to inspect its reflected properties.").Resolve(),
                 13.0f,
-                FColor::FromBytes(178, 188, 201)));
+                GetEditorPanelBodyColor()));
     }
     return outlineView;
 }

@@ -1843,9 +1843,7 @@ void EditorWorkspaceController::PromptCloseDirtyDocument(ImApplication& app, int
     m_PendingCloseDocumentIndex = index;
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -1917,9 +1915,7 @@ void EditorWorkspaceController::PromptCloseDirtyDocument(ImApplication& app, int
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_CloseConfirmMenu = popupMenu;
     m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
@@ -1934,9 +1930,7 @@ void EditorWorkspaceController::PromptExitWithDirtyDocuments(ImApplication& app)
     m_ExitPromptAppLock = std::shared_ptr<ImApplication>(&app, [](ImApplication*) {});
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -2022,9 +2016,7 @@ void EditorWorkspaceController::PromptExitWithDirtyDocuments(ImApplication& app)
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_CloseConfirmMenu = popupMenu;
     m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
@@ -2040,9 +2032,7 @@ void EditorWorkspaceController::PromptProjectRootChangeWithDirtyDocuments(
     m_PendingProjectRootChange = projectRoot;
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -2119,9 +2109,7 @@ void EditorWorkspaceController::PromptProjectRootChangeWithDirtyDocuments(
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_CloseConfirmMenu = popupMenu;
     m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
@@ -2380,9 +2368,7 @@ void EditorWorkspaceController::PromptDeleteProjectItem(
     m_PendingDeleteProjectItemPath = path;
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -2432,9 +2418,7 @@ void EditorWorkspaceController::PromptDeleteProjectItem(
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_CloseConfirmMenu = popupMenu;
     m_CloseConfirmWindow = app.GetWindowManager().CreatePopup(popupOptions);
@@ -2591,9 +2575,7 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
     m_ContextMenuDocumentIndex = index;
 
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -2685,9 +2667,7 @@ void EditorWorkspaceController::OpenDocumentTabContextMenu(ImApplication& app, i
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_DocumentTabContextMenu = popupMenu;
     m_DocumentTabContextMenuWindow = app.GetWindowManager().CreatePopup(popupOptions);
@@ -2723,9 +2703,7 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
 
     const FProjectItemBinding binding = bindingIt->second;
     auto popupMenu = std::make_shared<ImPopupMenu>();
-    FPopupMenuStyle popupStyle = popupMenu->GetStyle();
-    popupStyle.CornerRadius = 6.0f;
-    popupMenu->SetStyle(popupStyle);
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
 
     auto weakThis = weak_from_this();
     std::vector<FPopupMenuItem> items;
@@ -2978,9 +2956,7 @@ void EditorWorkspaceController::OpenProjectItemContextMenu(
     popupOptions.Size = popupMenu->GetMinSize();
     popupOptions.RootWidget = popupMenu;
     popupOptions.bCloseOnClickOutside = true;
-    popupOptions.Style.CornerRadius = 6.0f;
-    popupOptions.Style.BorderThickness = 1.0f;
-    popupOptions.Style.bDrawShadow = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
 
     m_ProjectItemContextMenu = popupMenu;
     m_ProjectItemContextMenuWindow = app.GetWindowManager().CreatePopup(popupOptions);

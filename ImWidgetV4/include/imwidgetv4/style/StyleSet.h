@@ -106,6 +106,9 @@ public:
     static FThemePack CreateThemePackFromJson(
         const nlohmann::ordered_json& json,
         std::string* outError = nullptr);
+    static FThemePack CreateThemePackFromJsonString(
+        const std::string& jsonText,
+        std::string* outError = nullptr);
     static nlohmann::ordered_json ThemePackToJson(const FThemePack& themePack);
 
 private:

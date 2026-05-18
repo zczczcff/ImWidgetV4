@@ -1,5 +1,6 @@
 #include <imwidgetv4/style/StyleSet.h>
 #include <algorithm>
+#include <exception>
 
 namespace ImWidgetV4 {
 
@@ -1269,6 +1270,20 @@ void PopulateLightTheme(FStyleSet& styleSet)
 
 } // namespace
 
+std::shared_ptr<FStyleSet> ResolveBuiltInThemeStyleSet(const std::string& themeName)
+{
+    if (themeName == "Default") {
+        return FStyleSetFactory::CreateDefault();
+    }
+    if (themeName == "Dark") {
+        return FStyleSetFactory::CreateDarkTheme();
+    }
+    if (themeName == "Light") {
+        return FStyleSetFactory::CreateLightTheme();
+    }
+    return nullptr;
+}
+
 std::shared_ptr<FStyleSet> FStyleSetFactory::CreateDefault() {
     auto styleSet = std::make_shared<FStyleSet>();
     PopulateSharedThemeGeometry(*styleSet);
@@ -1306,16 +1321,40 @@ FThemePack FStyleSetFactory::CreateThemePackFromJson(
         return FThemePack();
     }
 
+    const std::string baseThemeName = json.value("BaseTheme", std::string());
+    if (!baseThemeName.empty()) {
+        std::shared_ptr<FStyleSet> baseStyleSet = ResolveBuiltInThemeStyleSet(baseThemeName);
+        if (!baseStyleSet) {
+            SetJsonError(outError, "Unknown BaseTheme: " + baseThemeName);
+            return FThemePack();
+        }
+        themePack.StyleSet.Merge(*baseStyleSet);
+    }
+
     const nlohmann::ordered_json* styleSetJson = &json;
     if (json.contains("StyleSet")) {
         styleSetJson = &json.at("StyleSet");
     }
 
-    if (!themePack.StyleSet.FromJson(*styleSetJson, outError)) {
+    FStyleSet overrideStyleSet;
+    if (!overrideStyleSet.FromJson(*styleSetJson, outError)) {
         return FThemePack();
     }
+    themePack.StyleSet.Merge(overrideStyleSet);
 
     return themePack;
+}
+
+FThemePack FStyleSetFactory::CreateThemePackFromJsonString(
+    const std::string& jsonText,
+    std::string* outError)
+{
+    try {
+        return CreateThemePackFromJson(nlohmann::ordered_json::parse(jsonText), outError);
+    } catch (const std::exception& exception) {
+        SetJsonError(outError, std::string("Failed to parse theme pack JSON: ") + exception.what());
+        return FThemePack();
+    }
 }
 
 nlohmann::ordered_json FStyleSetFactory::ThemePackToJson(const FThemePack& themePack)

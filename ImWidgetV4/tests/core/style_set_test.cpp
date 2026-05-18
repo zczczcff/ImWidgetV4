@@ -95,3 +95,52 @@ TEST(StyleSetTest, SerializesAndRestoresThemePackJson)
     EXPECT_FLOAT_EQ(restoredMargin.Top, expectedMargin.Top);
     EXPECT_FLOAT_EQ(restoredMargin.Bottom, expectedMargin.Bottom);
 }
+
+TEST(StyleSetTest, CreatesThemePackFromJsonStringWithBaseTheme)
+{
+    const std::string jsonText = R"json(
+{
+  "Name": "Custom Data Theme",
+  "BaseTheme": "Light",
+  "StyleSet": {
+    "Colors": {
+      "Color.Editor.Accent": [0.0, 0.5, 0.25, 1.0]
+    },
+    "Floats": {
+      "Float.Button.CornerRadius": 3.0
+    }
+  }
+}
+)json";
+
+    std::string error;
+    const FThemePack themePack = FStyleSetFactory::CreateThemePackFromJsonString(jsonText, &error);
+
+    EXPECT_TRUE(error.empty()) << error;
+    EXPECT_EQ(themePack.Name, "Custom Data Theme");
+    EXPECT_TRUE(themePack.StyleSet.HasColor("Color.Button.Normal.Background"));
+    EXPECT_FLOAT_EQ(themePack.StyleSet.GetFloat("Float.Button.CornerRadius"), 3.0f);
+
+    const FColor accent = themePack.StyleSet.GetColor("Color.Editor.Accent");
+    EXPECT_FLOAT_EQ(accent.R, 0.0f);
+    EXPECT_FLOAT_EQ(accent.G, 0.5f);
+    EXPECT_FLOAT_EQ(accent.B, 0.25f);
+    EXPECT_FLOAT_EQ(accent.A, 1.0f);
+}
+
+TEST(StyleSetTest, RejectsThemePackJsonStringWithUnknownBaseTheme)
+{
+    const std::string jsonText = R"json(
+{
+  "Name": "Broken Theme",
+  "BaseTheme": "Missing",
+  "StyleSet": {}
+}
+)json";
+
+    std::string error;
+    const FThemePack themePack = FStyleSetFactory::CreateThemePackFromJsonString(jsonText, &error);
+
+    EXPECT_TRUE(themePack.Name.empty());
+    EXPECT_NE(error.find("Unknown BaseTheme"), std::string::npos);
+}

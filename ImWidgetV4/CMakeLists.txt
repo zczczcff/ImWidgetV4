@@ -1,6 +1,8 @@
 ﻿cmake_minimum_required(VERSION 3.15)
 project(ImWidgetV4 VERSION 0.1.0 LANGUAGES CXX)
 
+include(CMakePackageConfigHelpers)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -37,8 +39,10 @@ function(imwidgetv4_set_target_folder target folder)
 endfunction()
 
 add_library(uectti INTERFACE)
+add_library(ImWidgetV4::uectti ALIAS uectti)
 target_include_directories(uectti INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/reflection
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/reflection>
+    $<INSTALL_INTERFACE:include/imwidgetv4/core/reflection>
 )
 imwidgetv4_set_target_folder(uectti "Libraries")
 
@@ -71,14 +75,21 @@ add_library(imwidgetv4_imgui STATIC
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
 )
+add_library(ImWidgetV4::imgui ALIAS imwidgetv4_imgui)
 target_include_directories(imwidgetv4_imgui PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
+    $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>
+    $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui>
+    $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui/backends>
 )
 imwidgetv4_set_target_folder(imwidgetv4_imgui "ThirdParty")
 
 add_library(stb_lib INTERFACE)
-target_include_directories(stb_lib INTERFACE ${stb_SOURCE_DIR})
+add_library(ImWidgetV4::stb ALIAS stb_lib)
+target_include_directories(stb_lib INTERFACE
+    $<BUILD_INTERFACE:${stb_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include/imwidgetv4/third_party/stb>
+)
 imwidgetv4_set_target_folder(stb_lib "ThirdParty")
 
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
@@ -218,15 +229,22 @@ add_library(imwidgetv4_core STATIC
     ${IMWIDGETV4_CORE_SOURCES}
     ${IMWIDGETV4_CORE_VS_ONLY_FILES}
 )
+add_library(ImWidgetV4::core ALIAS imwidgetv4_core)
+target_compile_features(imwidgetv4_core PUBLIC cxx_std_17)
 target_include_directories(imwidgetv4_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${json_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+    $<INSTALL_INTERFACE:include/imwidgetv4/third_party/json>
 )
 target_link_libraries(imwidgetv4_core PUBLIC
-    nlohmann_json::nlohmann_json
     imwidgetv4_imgui
     uectti
     stb_lib
 )
+if(MSVC)
+    target_compile_options(imwidgetv4_core PUBLIC /utf-8)
+endif()
 imwidgetv4_set_target_folder(imwidgetv4_core "Libraries")
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_CORE_PUBLIC_HEADERS})
@@ -244,8 +262,10 @@ add_library(imwidgetv4_platform_imgui STATIC
     ${IMWIDGETV4_PLATFORM_HEADERS}
     ${IMWIDGETV4_PLATFORM_SOURCES}
 )
+add_library(ImWidgetV4::platform_imgui ALIAS imwidgetv4_platform_imgui)
 target_include_directories(imwidgetv4_platform_imgui PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(imwidgetv4_platform_imgui PUBLIC
     imwidgetv4_core
@@ -273,9 +293,12 @@ if(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
     add_library(imwidgetv4_imgui_backend_win32 STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
     )
+    add_library(ImWidgetV4::imgui_backend_win32 ALIAS imwidgetv4_imgui_backend_win32)
     target_include_directories(imwidgetv4_imgui_backend_win32 PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui/backends>
     )
     target_link_libraries(imwidgetv4_imgui_backend_win32 PUBLIC
         imwidgetv4_imgui
@@ -285,9 +308,12 @@ if(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
     add_library(imwidgetv4_imgui_renderer_dx11 STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
     )
+    add_library(ImWidgetV4::imgui_renderer_dx11 ALIAS imwidgetv4_imgui_renderer_dx11)
     target_include_directories(imwidgetv4_imgui_renderer_dx11 PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui/backends>
     )
     target_link_libraries(imwidgetv4_imgui_renderer_dx11 PUBLIC
         imwidgetv4_imgui
@@ -301,8 +327,10 @@ if(IMWIDGETV4_BUILD_WIN32_DX11_BACKEND)
         ${IMWIDGETV4_PLATFORM_WIN32_DX11_HEADERS}
         ${IMWIDGETV4_PLATFORM_WIN32_DX11_SOURCES}
     )
+    add_library(ImWidgetV4::platform_win32_dx11 ALIAS imwidgetv4_platform_win32_dx11)
     target_include_directories(imwidgetv4_platform_win32_dx11 PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
     )
     target_link_libraries(imwidgetv4_platform_win32_dx11 PUBLIC
         imwidgetv4_platform_imgui
@@ -332,9 +360,12 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
     add_library(imwidgetv4_imgui_backend_android STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_android.cpp
     )
+    add_library(ImWidgetV4::imgui_backend_android ALIAS imwidgetv4_imgui_backend_android)
     target_include_directories(imwidgetv4_imgui_backend_android PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui/backends>
     )
     target_link_libraries(imwidgetv4_imgui_backend_android PUBLIC
         imwidgetv4_imgui
@@ -346,9 +377,12 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
     add_library(imwidgetv4_imgui_renderer_opengl3 STATIC
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
     )
+    add_library(ImWidgetV4::imgui_renderer_opengl3 ALIAS imwidgetv4_imgui_renderer_opengl3)
     target_include_directories(imwidgetv4_imgui_renderer_opengl3 PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}/backends>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui>
+        $<INSTALL_INTERFACE:include/imwidgetv4/third_party/imgui/backends>
     )
     target_compile_definitions(imwidgetv4_imgui_renderer_opengl3 PUBLIC IMGUI_IMPL_OPENGL_ES3=1)
     target_link_libraries(imwidgetv4_imgui_renderer_opengl3 PUBLIC
@@ -362,8 +396,10 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
         ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_HEADERS}
         ${IMWIDGETV4_PLATFORM_ANDROID_GLES3_SOURCES}
     )
+    add_library(ImWidgetV4::platform_android_gles3 ALIAS imwidgetv4_platform_android_gles3)
     target_include_directories(imwidgetv4_platform_android_gles3 PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
     )
     if(IMWIDGETV4_ANDROID_NDK_ROOT)
         target_include_directories(imwidgetv4_platform_android_gles3 PRIVATE
@@ -453,6 +489,34 @@ if(IMWIDGETV4_BUILD_TESTS)
     imwidgetv4_set_target_folder(text_outline_view_test "Tests/Widgets")
     imwidgetv4_set_target_folder(outline_view_test "Tests/Widgets")
     imwidgetv4_set_target_folder(user_widget_test "Tests/Widgets")
+
+    if(TARGET imwidgetv4_platform_win32_dx11)
+        add_test(
+            NAME sdk_build_tree_package_smoke
+            COMMAND
+                ${CMAKE_COMMAND}
+                -DIMWIDGETV4_PACKAGE_DIR=${CMAKE_CURRENT_BINARY_DIR}/cmake
+                -DIMWIDGETV4_MAIN_BINARY_DIR=${CMAKE_BINARY_DIR}
+                -DIMWIDGETV4_SMOKE_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/tests/sdk-package-smoke
+                -DIMWIDGETV4_SMOKE_GENERATOR=${CMAKE_GENERATOR}
+                -DIMWIDGETV4_SMOKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}
+                -DIMWIDGETV4_SMOKE_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}
+                -DIMWIDGETV4_SMOKE_CONFIG=$<CONFIG>
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/sdk_build_tree_package_smoke.cmake
+        )
+        add_test(
+            NAME sdk_install_tree_package_smoke
+            COMMAND
+                ${CMAKE_COMMAND}
+                -DIMWIDGETV4_MAIN_BINARY_DIR=${CMAKE_BINARY_DIR}
+                -DIMWIDGETV4_SMOKE_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/tests/sdk-install-smoke
+                -DIMWIDGETV4_SMOKE_GENERATOR=${CMAKE_GENERATOR}
+                -DIMWIDGETV4_SMOKE_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}
+                -DIMWIDGETV4_SMOKE_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}
+                -DIMWIDGETV4_SMOKE_CONFIG=$<CONFIG>
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/sdk_install_tree_package_smoke.cmake
+        )
+    endif()
 endif()
 
 if(IMWIDGETV4_BUILD_SAMPLES AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET imwidgetv4_platform_android_gles3))
@@ -476,3 +540,119 @@ if(IMWIDGETV4_BUILD_SAMPLES AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET
     imwidgetv4_set_target_folder(WindowDemo "Samples")
     imwidgetv4_set_target_folder(AndroidDemo "Samples")
 endif()
+
+set_target_properties(uectti PROPERTIES EXPORT_NAME uectti)
+set_target_properties(imwidgetv4_imgui PROPERTIES EXPORT_NAME imgui)
+set_target_properties(stb_lib PROPERTIES EXPORT_NAME stb)
+set_target_properties(imwidgetv4_core PROPERTIES EXPORT_NAME core)
+set_target_properties(imwidgetv4_platform_imgui PROPERTIES EXPORT_NAME platform_imgui)
+
+set(IMWIDGETV4_EXPORT_TARGETS
+    uectti
+    imwidgetv4_imgui
+    stb_lib
+    imwidgetv4_core
+    imwidgetv4_platform_imgui
+)
+
+if(TARGET imwidgetv4_imgui_backend_win32)
+    set_target_properties(imwidgetv4_imgui_backend_win32 PROPERTIES EXPORT_NAME imgui_backend_win32)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_backend_win32)
+endif()
+if(TARGET imwidgetv4_imgui_renderer_dx11)
+    set_target_properties(imwidgetv4_imgui_renderer_dx11 PROPERTIES EXPORT_NAME imgui_renderer_dx11)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_renderer_dx11)
+endif()
+if(TARGET imwidgetv4_platform_win32_dx11)
+    set_target_properties(imwidgetv4_platform_win32_dx11 PROPERTIES EXPORT_NAME platform_win32_dx11)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_platform_win32_dx11)
+endif()
+if(TARGET imwidgetv4_imgui_backend_android)
+    set_target_properties(imwidgetv4_imgui_backend_android PROPERTIES EXPORT_NAME imgui_backend_android)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_backend_android)
+endif()
+if(TARGET imwidgetv4_imgui_renderer_opengl3)
+    set_target_properties(imwidgetv4_imgui_renderer_opengl3 PROPERTIES EXPORT_NAME imgui_renderer_opengl3)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_renderer_opengl3)
+endif()
+if(TARGET imwidgetv4_platform_android_gles3)
+    set_target_properties(imwidgetv4_platform_android_gles3 PROPERTIES EXPORT_NAME platform_android_gles3)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_platform_android_gles3)
+endif()
+
+set(IMWIDGETV4_PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake")
+set(IMWIDGETV4_INSTALL_CMAKE_DIR cmake)
+
+file(MAKE_DIRECTORY "${IMWIDGETV4_PACKAGE_DIR}")
+export(
+    TARGETS ${IMWIDGETV4_EXPORT_TARGETS}
+    NAMESPACE ImWidgetV4::
+    FILE "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4Targets.cmake"
+)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ImWidgetV4Config.cmake.in"
+    "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4Config.cmake"
+    @ONLY
+)
+write_basic_package_version_file(
+    "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4ConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(
+    TARGETS ${IMWIDGETV4_EXPORT_TARGETS}
+    EXPORT ImWidgetV4Targets
+    ARCHIVE DESTINATION "lib/$<CONFIG>"
+    LIBRARY DESTINATION "lib/$<CONFIG>"
+    RUNTIME DESTINATION "bin/$<CONFIG>"
+    INCLUDES DESTINATION include
+)
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+    DESTINATION include
+)
+set(IMWIDGETV4_IMGUI_INSTALL_HEADERS
+    "${imgui_SOURCE_DIR}/imconfig.h"
+    "${imgui_SOURCE_DIR}/imgui.h"
+    "${imgui_SOURCE_DIR}/imgui_internal.h"
+    "${imgui_SOURCE_DIR}/imstb_rectpack.h"
+    "${imgui_SOURCE_DIR}/imstb_textedit.h"
+    "${imgui_SOURCE_DIR}/imstb_truetype.h"
+)
+set(IMWIDGETV4_IMGUI_BACKEND_INSTALL_HEADERS
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_android.h"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.h"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3_loader.h"
+    "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.h"
+)
+file(GLOB IMWIDGETV4_STB_INSTALL_HEADERS CONFIGURE_DEPENDS "${stb_SOURCE_DIR}/*.h")
+install(
+    FILES ${IMWIDGETV4_IMGUI_INSTALL_HEADERS}
+    DESTINATION include/imwidgetv4/third_party/imgui
+)
+install(
+    FILES ${IMWIDGETV4_IMGUI_BACKEND_INSTALL_HEADERS}
+    DESTINATION include/imwidgetv4/third_party/imgui/backends
+)
+install(
+    DIRECTORY "${json_SOURCE_DIR}/include/"
+    DESTINATION include/imwidgetv4/third_party/json
+)
+install(
+    FILES ${IMWIDGETV4_STB_INSTALL_HEADERS}
+    DESTINATION include/imwidgetv4/third_party/stb
+)
+install(
+    EXPORT ImWidgetV4Targets
+    NAMESPACE ImWidgetV4::
+    FILE ImWidgetV4Targets.cmake
+    DESTINATION "${IMWIDGETV4_INSTALL_CMAKE_DIR}"
+)
+install(
+    FILES
+        "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4Config.cmake"
+        "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4ConfigVersion.cmake"
+    DESTINATION "${IMWIDGETV4_INSTALL_CMAKE_DIR}"
+)

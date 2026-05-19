@@ -1,0 +1,3 @@
+include("${CMAKE_CURRENT_LIST_DIR}/ImWidgetV4Targets.cmake")
+
+set(ImWidgetV4_VERSION "@PROJECT_VERSION@")

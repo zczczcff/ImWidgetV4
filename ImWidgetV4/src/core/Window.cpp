@@ -102,9 +102,17 @@ FGeometry ImWindow::GetTitleBarGeometry() const
 
 FGeometry ImWindow::GetContentGeometry() const
 {
-    const float contentY = Position_.Y + (bHasTitleBar_ ? Style_.TitleBarHeight : 0.0f);
-    const float contentHeight = (std::max)(0.0f, Size_.Y - (contentY - Position_.Y));
-    return FGeometry(FVector2(Position_.X, contentY), FVector2(Size_.X, contentHeight));
+    const float borderInset = (std::max)(0.0f, Style_.BorderThickness);
+    const float leftInset = borderInset;
+    const float rightInset = borderInset;
+    const float topInset = bHasTitleBar_ ? Style_.TitleBarHeight : borderInset;
+    const float bottomInset = borderInset;
+
+    return FGeometry(
+        FVector2(Position_.X + leftInset, Position_.Y + topInset),
+        FVector2(
+            (std::max)(0.0f, Size_.X - leftInset - rightInset),
+            (std::max)(0.0f, Size_.Y - topInset - bottomInset)));
 }
 
 FGeometry ImWindow::GetCloseButtonGeometry() const

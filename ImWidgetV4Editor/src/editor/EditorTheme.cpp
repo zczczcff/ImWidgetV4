@@ -363,7 +363,7 @@ FPopupMenuStyle MakeEditorPopupMenuStyle(const FPopupMenuStyle& baseStyle)
 FWindowStyle MakeEditorPopupWindowStyle(const FWindowStyle& baseStyle)
 {
     FWindowStyle style = baseStyle;
-    style.CornerRadius = 6.0f;
+    style.CornerRadius = 0.0f;
     style.BorderThickness = 1.0f;
     style.bDrawShadow = false;
     style.BackgroundColor = IsLightEditorTheme() ? FColor::White : GetEditorSurfaceAltBackgroundColor();

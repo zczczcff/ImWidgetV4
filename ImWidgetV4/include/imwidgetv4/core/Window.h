@@ -21,7 +21,7 @@ struct FWindowStyle {
     float TitleBarHeight = 32.0f;
     float TitleFontSize = 16.0f;
     float CloseButtonSize = 14.0f;
-    float CornerRadius = 8.0f;
+    float CornerRadius = 0.0f;
     float BorderThickness = 1.0f;
     bool bDrawShadow = true;
     FVector2 ShadowOffset {4.0f, 8.0f};

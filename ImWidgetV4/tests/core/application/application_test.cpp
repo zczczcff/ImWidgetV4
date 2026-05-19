@@ -449,6 +449,22 @@ TEST_F(ApplicationTest, WindowManagerPreservesBringToFrontOrdering) {
     EXPECT_EQ(openWindows.back(), first);
 }
 
+TEST_F(ApplicationTest, WindowContentGeometryExcludesWindowBorder) {
+    FWindowOptions options;
+    options.Title = "Bordered";
+    options.Position = FVector2(20.0f, 30.0f);
+    options.Size = FVector2(180.0f, 120.0f);
+    options.bHasTitleBar = false;
+    options.Style.BorderThickness = 3.0f;
+    options.RootWidget = std::make_shared<TestWidget>("bordered-root");
+
+    const auto window = App->GetWindowManager().CreateWindow(options);
+    const FGeometry contentGeometry = window->GetContentGeometry();
+
+    EXPECT_EQ(contentGeometry.Position, FVector2(23.0f, 33.0f));
+    EXPECT_EQ(contentGeometry.Size, FVector2(174.0f, 114.0f));
+}
+
 TEST_F(ApplicationTest, ClickingWindowContentActivatesWindowAndRoutesToItsTree) {
     std::vector<std::string> leftLog;
     std::vector<std::string> rightLog;

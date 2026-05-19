@@ -9,6 +9,7 @@
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
@@ -22,13 +23,6 @@ using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
-
-FVector2 MaxSize(const FVector2& left, const FVector2& right)
-{
-    return FVector2(
-        std::max(left.X, right.X),
-        std::max(left.Y, right.Y));
-}
 
 std::vector<std::string> BuildProbeLines(const FEnvironmentProbeReport& report)
 {
@@ -318,12 +312,19 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     buttonRow->AddChild(confirmButton);
     buttonRow->AddChild(cancelButton);
 
+    auto scrollContent = std::make_shared<ImVerticalBox>();
+    scrollContent->SetSpacing(10.0f);
+    scrollContent->AddChild(title, FMargin(0.0f));
+    scrollContent->AddChild(fields, FMargin(0.0f));
+
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    scrollBox->SetStyle(MakeEditorHostScrollStyle(scrollBox->GetStyle(), FMargin(12.0f, 12.0f, 12.0f, 8.0f)));
+    scrollBox->SetContent(scrollContent);
+
     auto root = std::make_shared<ImVerticalBox>();
     root->SetSpacing(10.0f);
-    root->AddChild(title, FMargin(12.0f, 12.0f, 12.0f, 0.0f));
-    root->AddChild(fields, FMargin(12.0f, 0.0f, 12.0f, 0.0f));
+    root->AddChildFill(scrollBox, 1.0f, FMargin(0.0f));
     root->AddChild(buttonRow, FMargin(12.0f, 0.0f, 12.0f, 12.0f));
-    const FVector2 popupContentMinSize = root->GetMinSize();
 
     m_Root = root;
     m_ProfileComboBox = profileComboBox;
@@ -541,7 +542,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     FPopupOptions popupOptions;
     popupOptions.Title = m_Options.PopupTitle;
     popupOptions.Position = m_Options.Position;
-    popupOptions.Size = MaxSize(m_Options.Size, popupContentMinSize);
+    popupOptions.Size = m_Options.Size;
     popupOptions.RootWidget = root;
     popupOptions.bCloseOnClickOutside = true;
     popupOptions.Style = MakeEditorPopupWindowStyle();

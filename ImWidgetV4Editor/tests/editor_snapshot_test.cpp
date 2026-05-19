@@ -111,7 +111,7 @@ FFrameContext MakeFrameContext(float width, float height, double currentTime = 0
 std::filesystem::path GetEditorSnapshotOutputDirectory()
 {
     const std::filesystem::path outputDirectory =
-        std::filesystem::current_path() / "artifacts" / "snapshots" / "editor";
+        GetEditorExecutableDirectory() / "artifacts" / "snapshots" / "editor";
     std::error_code errorCode;
     std::filesystem::create_directories(outputDirectory, errorCode);
     return outputDirectory;

@@ -338,6 +338,49 @@ std::filesystem::path FindBuiltExecutablePath(
     return {};
 }
 
+std::filesystem::path ResolveExecutableDirectoryPath(
+    const EditorProject& project,
+    const FEditorBuildProfile& profile)
+{
+    if (profile.TargetPlatform != EEditorTargetPlatform::WindowsDesktop) {
+        return {};
+    }
+
+    if (const std::filesystem::path executablePath = FindBuiltExecutablePath(project, profile);
+        !executablePath.empty()) {
+        return executablePath.parent_path().lexically_normal();
+    }
+
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), profile);
+    const std::string executableName = NormalizeProjectIdentifier(project.GetProjectName(), "ImWidgetApp");
+    for (const std::filesystem::path& candidate : BuildExecutableCandidatePaths(
+             buildDirectory,
+             profile.Configuration,
+             executableName)) {
+        const std::filesystem::path parentPath = candidate.parent_path();
+        std::error_code errorCode;
+        if (!parentPath.empty() && std::filesystem::is_directory(parentPath, errorCode)) {
+            return parentPath.lexically_normal();
+        }
+    }
+
+    return {};
+}
+
+const FEditorBuildProfile* FindWindowsBuildProfileForConfiguration(
+    const EditorProject& project,
+    const std::string& configuration)
+{
+    for (const FEditorBuildProfile& profile : project.GetBuildProfiles()) {
+        if (profile.TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+            profile.Configuration == configuration) {
+            return &profile;
+        }
+    }
+
+    return nullptr;
+}
+
 bool ContainsPathSeparators(const std::string& text)
 {
     return text.find('/') != std::string::npos || text.find('\\') != std::string::npos;
@@ -1474,6 +1517,44 @@ bool EditorWorkspaceController::RevealProjectBuildDirectory(const std::string& p
     }
 
     return RevealProjectItemInExplorer(buildDirectory);
+}
+
+std::filesystem::path EditorWorkspaceController::ResolveExecutableDirectoryForConfiguration(
+    const std::string& configuration) const
+{
+    if (!m_Project || m_ProjectRoot.empty() || configuration.empty()) {
+        return {};
+    }
+
+    const FEditorBuildProfile* profile = FindWindowsBuildProfileForConfiguration(*m_Project, configuration);
+    if (profile == nullptr) {
+        return {};
+    }
+
+    return ResolveExecutableDirectoryPath(*m_Project, *profile);
+}
+
+bool EditorWorkspaceController::CanRevealExecutableDirectoryForConfiguration(
+    const std::string& configuration) const
+{
+    const std::filesystem::path directoryPath = ResolveExecutableDirectoryForConfiguration(configuration);
+    if (directoryPath.empty()) {
+        return false;
+    }
+
+    std::error_code errorCode;
+    return std::filesystem::is_directory(directoryPath, errorCode);
+}
+
+bool EditorWorkspaceController::RevealExecutableDirectoryForConfiguration(
+    const std::string& configuration) const
+{
+    const std::filesystem::path directoryPath = ResolveExecutableDirectoryForConfiguration(configuration);
+    if (directoryPath.empty()) {
+        return false;
+    }
+
+    return RevealProjectItemInExplorer(directoryPath);
 }
 
 bool EditorWorkspaceController::SaveDocument(ImApplication& app)

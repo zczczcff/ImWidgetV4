@@ -2357,6 +2357,46 @@ TEST(EditorSelectionTest, WorkspaceControllerStopRunningProjectReturnsFalseWhenI
     EXPECT_FALSE(workspaceController->StopRunningProject());
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerCanRevealExecutableDirectoryForConfiguration)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_executable_directory";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "ExecutableDirectoryProject"));
+    EXPECT_FALSE(workspaceController->CanRevealExecutableDirectoryForConfiguration("Debug"));
+
+    const std::filesystem::path debugExecutableDirectory =
+        workspaceController->GetProjectRoot() / "build" / "win32-debug" / "Debug";
+    std::filesystem::create_directories(debugExecutableDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EXPECT_TRUE(workspaceController->CanRevealExecutableDirectoryForConfiguration("Debug"));
+    EXPECT_EQ(
+        workspaceController->ResolveExecutableDirectoryForConfiguration("Debug"),
+        debugExecutableDirectory.lexically_normal());
+    EXPECT_FALSE(workspaceController->CanRevealExecutableDirectoryForConfiguration("Release"));
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
 {
     auto shellHost = std::make_shared<EditorShellHost>();

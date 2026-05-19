@@ -141,6 +141,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImButton> TitleBarConfigureButton;
     std::shared_ptr<ImButton> TitleBarBuildButton;
     std::shared_ptr<ImButton> TitleBarRunButton;
+    std::shared_ptr<ImButton> TitleBarOpenFolderButton;
     std::shared_ptr<ImButton> UndoButton;
     std::shared_ptr<ImButton> RedoButton;
     bool bLastCanUndo = false;
@@ -265,7 +266,7 @@ FApplicationMenuItem MakeEditorMenuItem(
 
 void BindPopupMenuButton(
     ImApplication& application,
-    const std::shared_ptr<FCompactTitleBarButton>& button,
+    const std::shared_ptr<ImButton>& button,
     const std::function<std::vector<FPopupMenuItem>()>& itemBuilder)
 {
     auto popupState = std::make_shared<FTitleBarPopupState>();
@@ -753,6 +754,7 @@ FEditorShellWidgets BuildEditorShell()
     auto titleBarConfigureButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Configure", "Configure"));
     auto titleBarBuildButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Build", "Build"));
     auto titleBarRunButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Run", "Run"));
+    auto titleBarOpenFolderButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.OpenFolder", "Open Folder"));
 
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
@@ -817,6 +819,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.TitleBarConfigureButton = titleBarConfigureButton;
     shell.TitleBarBuildButton = titleBarBuildButton;
     shell.TitleBarRunButton = titleBarRunButton;
+    shell.TitleBarOpenFolderButton = titleBarOpenFolderButton;
     shell.UndoButton = undoButton;
     shell.RedoButton = redoButton;
     return shell;
@@ -1162,6 +1165,47 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
     return items;
 }
 
+std::vector<FApplicationMenuItem> BuildOpenFolderMenuItems(
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+{
+    const bool bHasProject = workspaceController && !workspaceController->GetProjectRoot().empty();
+    const bool bCanOpenDebugExecutableDirectory =
+        workspaceController && workspaceController->CanRevealExecutableDirectoryForConfiguration("Debug");
+    const bool bCanOpenReleaseExecutableDirectory =
+        workspaceController && workspaceController->CanRevealExecutableDirectoryForConfiguration("Release");
+
+    return {
+        MakeEditorMenuItem(
+            "Menu.RevealProjectRoot",
+            "Reveal Project Root",
+            bHasProject,
+            [workspaceController]() {
+                if (workspaceController) {
+                    workspaceController->RevealProjectItemInExplorer(workspaceController->GetProjectRoot());
+                }
+            }),
+        FApplicationMenuItem {"", {}, {}, true, true, {}},
+        MakeEditorMenuItem(
+            "Menu.OpenDebugExecutableFolder",
+            "Open Debug Executable Folder",
+            bCanOpenDebugExecutableDirectory,
+            [workspaceController]() {
+                if (workspaceController) {
+                    workspaceController->RevealExecutableDirectoryForConfiguration("Debug");
+                }
+            }),
+        MakeEditorMenuItem(
+            "Menu.OpenReleaseExecutableFolder",
+            "Open Release Executable Folder",
+            bCanOpenReleaseExecutableDirectory,
+            [workspaceController]() {
+                if (workspaceController) {
+                    workspaceController->RevealExecutableDirectoryForConfiguration("Release");
+                }
+            })
+    };
+}
+
 std::vector<FPopupMenuItem> BuildProjectMenuItems(
     ImApplication& app,
     const std::shared_ptr<EditorWorkspaceController>& workspaceController)
@@ -1269,6 +1313,9 @@ void ApplyEditorThemeToShell(
     }
     if (shell.TitleBarRunButton) {
         shell.TitleBarRunButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
+    if (shell.TitleBarOpenFolderButton) {
+        shell.TitleBarOpenFolderButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
     }
     if (shell.VerticalShell) {
         shell.VerticalShell->SetSplitterStyle(MakeEditorVerticalSplitterStyle(shell.VerticalShell->GetSplitterStyle()));
@@ -1432,6 +1479,10 @@ void RebuildEditorTitleBar(
     if (shell.TitleBarRunButton) {
         shell.TitleBarRunButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Play, GetEditorTitleBarIconColor()), 16.0f));
         shell.TitleBar->AddLeadingItem(shell.TitleBarRunButton);
+    }
+    if (shell.TitleBarOpenFolderButton) {
+        shell.TitleBarOpenFolderButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::OpenBuildDirectory, GetEditorTitleBarIconColor()), 16.0f));
+        shell.TitleBar->AddLeadingItem(shell.TitleBarOpenFolderButton);
     }
 }
 
@@ -1807,6 +1858,15 @@ void UpdateBuildDockActions(
                     : (bCanRunActiveProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor())),
             16.0f));
     }
+    if (shell.TitleBarOpenFolderButton) {
+        const bool bCanOpenFolderMenu = bHasProject;
+        shell.TitleBarOpenFolderButton->SetDisabled(!bCanOpenFolderMenu);
+        shell.TitleBarOpenFolderButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(
+                ECoreIcon::OpenBuildDirectory,
+                bCanOpenFolderMenu ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            16.0f));
+    }
 }
 
 void RefreshLocalizedEditorShell(
@@ -2168,6 +2228,11 @@ public:
                         }
                     }
                 });
+        }
+        if (Shell_.TitleBarOpenFolderButton) {
+            BindPopupMenuButton(app, Shell_.TitleBarOpenFolderButton, [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
+                return BuildOpenFolderMenuItems(weakWorkspace.lock());
+            });
         }
         if (Shell_.BuildCleanButton) {
             Shell_.BuildCleanButton->OnClicked.AddLambda(

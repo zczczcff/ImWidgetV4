@@ -101,6 +101,9 @@ public:
     bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
     bool RevealProjectBuildDirectory() const;
     bool RevealProjectBuildDirectory(const std::string& profileName) const;
+    bool CanRevealExecutableDirectoryForConfiguration(const std::string& configuration) const;
+    bool RevealExecutableDirectoryForConfiguration(const std::string& configuration) const;
+    std::filesystem::path ResolveExecutableDirectoryForConfiguration(const std::string& configuration) const;
     bool SelectProjectRoot(ImWidgetV4::ImApplication& app);
     bool RequestProjectRootChange(ImWidgetV4::ImApplication& app, const std::filesystem::path& projectRoot);
     bool CreateAppProjectAt(const std::filesystem::path& parentDirectory, const std::string& projectName);

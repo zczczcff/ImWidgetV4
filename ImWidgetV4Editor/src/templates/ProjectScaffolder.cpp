@@ -205,7 +205,6 @@ std::string BuildGeneratedProjectCMakeText(
         << "    message(FATAL_ERROR \"IMWIDGETV4_LIBRARY_MODE must be SDK or Source.\")\n"
         << "endif()\n\n"
         << "if(IMWIDGETV4_LIBRARY_MODE STREQUAL \"SDK\")\n"
-        << "    message(FATAL_ERROR \"SDK integration is not ready for generated app projects yet: host main targets still need to be exported. Use Source mode for now.\")\n"
         << "    if(IMWIDGETV4_SDK_DIR STREQUAL \"\")\n"
         << "        find_package(ImWidgetV4 CONFIG REQUIRED)\n"
         << "    else()\n"
@@ -265,13 +264,6 @@ std::string BuildGeneratedProjectCMakeText(
         << "        ${IMWIDGETV4_APP_SOURCES}\n"
         << "    )\n"
         << "endif()\n\n"
-        << "if(IMWIDGETV4_LIBRARY_MODE STREQUAL \"Source\")\n"
-        << "    if(ANDROID)\n"
-        << "        target_sources(${PROJECT_NAME} PRIVATE ${IMWIDGETV4_ROOT}/src/app/AndroidHostedMain.cpp)\n"
-        << "    else()\n"
-        << "        target_sources(${PROJECT_NAME} PRIVATE ${IMWIDGETV4_ROOT}/src/app/Win32HostedMain.cpp)\n"
-        << "    endif()\n"
-        << "endif()\n\n"
         << "target_include_directories(${PROJECT_NAME} PRIVATE\n"
         << "    ${CMAKE_CURRENT_SOURCE_DIR}/generated\n"
         << ")\n\n"
@@ -279,11 +271,15 @@ std::string BuildGeneratedProjectCMakeText(
         << "    $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::core,imwidgetv4_core>\n"
         << ")\n\n"
         << "if(WIN32)\n"
-        << "    target_link_libraries(${PROJECT_NAME} PRIVATE $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::platform_win32_dx11,imwidgetv4_platform_win32_dx11>)\n"
+        << "    target_link_libraries(${PROJECT_NAME} PRIVATE\n"
+        << "        $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::platform_win32_dx11,imwidgetv4_platform_win32_dx11>\n"
+        << "        $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::app_host_win32_main,imwidgetv4_app_host_win32_main>\n"
+        << "    )\n"
         << "    set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)\n"
         << "elseif(ANDROID)\n"
         << "    target_link_libraries(${PROJECT_NAME} PRIVATE\n"
         << "        $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::platform_android_gles3,imwidgetv4_platform_android_gles3>\n"
+        << "        $<IF:$<STREQUAL:${IMWIDGETV4_LIBRARY_MODE},SDK>,ImWidgetV4::app_host_android_main,imwidgetv4_app_host_android_main>\n"
         << "        android\n"
         << "        log\n"
         << "    )\n"
@@ -305,15 +301,9 @@ std::string BuildMainCppText()
 {
     std::ostringstream stream;
     stream
-        << "#include <imwidgetv4/app/ApplicationHost.h>\n\n"
-        << "#if !defined(__ANDROID__)\n"
-        << "int main(int argc, char** argv)\n"
-        << "{\n"
-        << "    (void)argc;\n"
-        << "    (void)argv;\n"
-        << "    return ImWidgetV4::RunHostedDesktopApplication();\n"
-        << "}\n"
-        << "#endif\n";
+        << "// Stable user entry translation unit.\n"
+        << "// Platform entry points are provided by the selected ImWidgetV4 app host target.\n\n"
+        << "#include <imwidgetv4/app/ApplicationHost.h>\n";
     return stream.str();
 }
 

@@ -418,6 +418,35 @@ if(IMWIDGETV4_BUILD_ANDROID_GLES3_BACKEND)
     imwidgetv4_set_target_folder(imwidgetv4_platform_android_gles3 "Platforms")
 endif()
 
+if(TARGET imwidgetv4_platform_win32_dx11)
+    add_library(imwidgetv4_app_host_win32_main STATIC
+        ${IMWIDGETV4_APP_HOST_WIN32_MAIN_SOURCE}
+    )
+    add_library(ImWidgetV4::app_host_win32_main ALIAS imwidgetv4_app_host_win32_main)
+    target_link_libraries(imwidgetv4_app_host_win32_main PUBLIC
+        imwidgetv4_core
+        imwidgetv4_platform_win32_dx11
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_app_host_win32_main "Application")
+endif()
+
+if(TARGET imwidgetv4_platform_android_gles3)
+    add_library(imwidgetv4_app_host_android_main STATIC
+        ${IMWIDGETV4_APP_HOST_ANDROID_MAIN_SOURCE}
+    )
+    add_library(ImWidgetV4::app_host_android_main ALIAS imwidgetv4_app_host_android_main)
+    if(IMWIDGETV4_ANDROID_NDK_ROOT)
+        target_include_directories(imwidgetv4_app_host_android_main PRIVATE
+            ${IMWIDGETV4_ANDROID_NDK_ROOT}/sources/android/native_app_glue
+        )
+    endif()
+    target_link_libraries(imwidgetv4_app_host_android_main PUBLIC
+        imwidgetv4_core
+        imwidgetv4_platform_android_gles3
+    )
+    imwidgetv4_set_target_folder(imwidgetv4_app_host_android_main "Application")
+endif()
+
 source_group(
     TREE ${CMAKE_CURRENT_SOURCE_DIR}/include
     PREFIX "Header Files"
@@ -578,6 +607,14 @@ endif()
 if(TARGET imwidgetv4_platform_android_gles3)
     set_target_properties(imwidgetv4_platform_android_gles3 PROPERTIES EXPORT_NAME platform_android_gles3)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_platform_android_gles3)
+endif()
+if(TARGET imwidgetv4_app_host_win32_main)
+    set_target_properties(imwidgetv4_app_host_win32_main PROPERTIES EXPORT_NAME app_host_win32_main)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_app_host_win32_main)
+endif()
+if(TARGET imwidgetv4_app_host_android_main)
+    set_target_properties(imwidgetv4_app_host_android_main PROPERTIES EXPORT_NAME app_host_android_main)
+    list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_app_host_android_main)
 endif()
 
 set(IMWIDGETV4_PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake")

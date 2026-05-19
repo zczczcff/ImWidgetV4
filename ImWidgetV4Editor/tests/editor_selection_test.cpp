@@ -2300,7 +2300,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         std::stringstream buffer;
         buffer << stream.rdbuf();
         const std::string text = buffer.str();
-        EXPECT_NE(text.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_NE(text.find("Platform entry points are provided"), std::string::npos);
+        EXPECT_EQ(text.find("RunHostedDesktopApplication"), std::string::npos);
         EXPECT_EQ(text.find("#include \"MainView.h\""), std::string::npos);
         EXPECT_EQ(text.find("std::make_shared<SampleApp::MainView>()"), std::string::npos);
         EXPECT_EQ(text.find("config.Title = \"SampleApp\""), std::string::npos);
@@ -2439,7 +2440,8 @@ TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGenera
         std::stringstream buffer;
         buffer << stream.rdbuf();
         const std::string text = buffer.str();
-        EXPECT_NE(text.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_NE(text.find("Platform entry points are provided"), std::string::npos);
+        EXPECT_EQ(text.find("RunHostedDesktopApplication"), std::string::npos);
         EXPECT_EQ(text.find("std::make_shared<RegenerateApp::MainView>()"), std::string::npos);
     }
     {
@@ -2632,7 +2634,8 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
         std::stringstream mainBuffer;
         mainBuffer << mainStream.rdbuf();
         const std::string mainText = mainBuffer.str();
-        EXPECT_NE(mainText.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_NE(mainText.find("Platform entry points are provided"), std::string::npos);
+        EXPECT_EQ(mainText.find("RunHostedDesktopApplication"), std::string::npos);
         EXPECT_EQ(mainText.find("config.Title = \"Configured App\""), std::string::npos);
         EXPECT_EQ(mainText.find("std::make_shared<ConfiguredApp::MainView>()"), std::string::npos);
     }
@@ -2706,7 +2709,9 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
     EXPECT_NE(text.find("set(IMWIDGETV4_LIBRARY_MODE \"SDK\""), std::string::npos);
     EXPECT_NE(text.find("set(IMWIDGETV4_SDK_DIR \"vendor/ImWidgetV4-SDK/cmake\""), std::string::npos);
     EXPECT_NE(text.find("find_package(ImWidgetV4 CONFIG REQUIRED"), std::string::npos);
-    EXPECT_NE(text.find("SDK integration is not ready for generated app projects yet"), std::string::npos);
+    EXPECT_EQ(text.find("SDK integration is not ready for generated app projects yet"), std::string::npos);
+    EXPECT_NE(text.find("ImWidgetV4::app_host_win32_main"), std::string::npos);
+    EXPECT_NE(text.find("ImWidgetV4::app_host_android_main"), std::string::npos);
 
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }

@@ -26,26 +26,42 @@ project(ImWidgetV4SdkPackageSmoke LANGUAGES CXX)
 
 find_package(ImWidgetV4 CONFIG REQUIRED)
 
-add_executable(package_smoke main.cpp)
+add_executable(package_smoke WIN32 main.cpp)
 target_link_libraries(package_smoke PRIVATE
     ImWidgetV4::core
     ImWidgetV4::platform_win32_dx11
+    ImWidgetV4::app_host_win32_main
 )
 ]=])
 
 file(WRITE "${smoke_source_dir}/main.cpp" [=[
-#include <imwidgetv4/core/Types.h>
+#include <imwidgetv4/app/ApplicationHost.h>
+#include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 
 #include <memory>
 
-int main()
+class SmokeHostDelegate final : public ImWidgetV4::IApplicationHostDelegate
 {
-    auto widget = std::make_shared<ImWidgetV4::ImTextBlock>();
-    widget->SetText("SDK smoke");
+public:
+    ImWidgetV4::FApplicationHostConfig GetHostConfig() const override
+    {
+        ImWidgetV4::FApplicationHostConfig config;
+        config.Title = "SDK smoke";
+        return config;
+    }
 
-    ImWidgetV4::FVector2 value{1.0f, 2.0f};
-    return value.X > 0.0f ? 0 : 1;
+    void ConfigureApplication(ImWidgetV4::ImApplication& application) override
+    {
+        auto widget = std::make_shared<ImWidgetV4::ImTextBlock>();
+        widget->SetText("SDK smoke");
+        application.SetRootWidget(widget);
+    }
+};
+
+std::shared_ptr<ImWidgetV4::IApplicationHostDelegate> ImWidgetV4::CreateApplicationHostDelegate()
+{
+    return std::make_shared<SmokeHostDelegate>();
 }
 ]=])
 
@@ -54,7 +70,7 @@ execute_process(
         "${CMAKE_COMMAND}"
         --build "${IMWIDGETV4_MAIN_BINARY_DIR}"
         --config "${IMWIDGETV4_SMOKE_CONFIG}"
-        --target imwidgetv4_core imwidgetv4_platform_win32_dx11
+        --target imwidgetv4_core imwidgetv4_platform_win32_dx11 imwidgetv4_app_host_win32_main
     RESULT_VARIABLE build_library_result
 )
 if(NOT build_library_result EQUAL 0)

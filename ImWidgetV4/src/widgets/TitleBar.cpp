@@ -403,6 +403,12 @@ bool ImTitleBar::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& ou
     return true;
 }
 
+void ImTitleBar::FromJson(const json& j)
+{
+    ImWidget::FromJson(j);
+    MarkLayoutDirty();
+}
+
 void ImTitleBar::Relayout() const
 {
     const bool bGeometryChanged = !bHasLastLayoutGeometry_ ||

@@ -278,6 +278,27 @@ TEST_F(TitleBarTest, DisabledHostWindowActionsKeepSystemButtonsInteractiveWithou
     EXPECT_EQ(Backend.BeginDragCalls, 0);
 }
 
+TEST_F(TitleBarTest, FromJsonRelayoutsWhenSystemButtonsAreHidden)
+{
+    Advance();
+
+    const FTitleBarStyle& style = TitleBar->GetStyle();
+    const float closeX = 420.0f - style.Padding.Right - style.SystemButtonSize * 0.5f;
+    const float y = 18.0f;
+
+    json serialized = TitleBar->ToJson();
+    serialized["Properties"]["ImTitleBar::ShowSystemButtons"] = false;
+    TitleBar->FromJson(serialized);
+    Advance();
+
+    Advance({
+        MouseEvent(EInputEventType::MouseButtonDown, FVector2(closeX, y)),
+        MouseEvent(EInputEventType::MouseButtonUp, FVector2(closeX, y))
+    });
+
+    EXPECT_EQ(Backend.CloseCalls, 0);
+}
+
 TEST_F(TitleBarTest, UnsupportedBackendHidesSystemButtonsFromHitTesting)
 {
     Backend.bSupportsDrag = false;

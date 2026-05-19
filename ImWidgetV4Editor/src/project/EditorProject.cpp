@@ -20,6 +20,7 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
 {
     FEditorApplicationSettings settings;
     settings.Title = projectName;
+    settings.IconPath.clear();
     settings.InitialWidth = 1280;
     settings.InitialHeight = 720;
     settings.bEnableIniSettings = false;
@@ -27,8 +28,12 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
     settings.bUseCustomHostChrome = false;
     settings.bUseTitleBar = false;
     settings.bShowSystemButtons = true;
+    settings.bUseTitleBarMenus = false;
     settings.DefaultTheme.clear();
     settings.DefaultCulture.clear();
+    settings.StringTablePaths.clear();
+    settings.bGenerateInitializeStub = false;
+    settings.bGenerateTickStub = false;
     return settings;
 }
 
@@ -36,6 +41,7 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
 {
     json settingsJson;
     settingsJson["Title"] = settings.Title;
+    settingsJson["IconPath"] = NormalizeStoredRelativePath(settings.IconPath).generic_string();
     settingsJson["InitialWidth"] = settings.InitialWidth;
     settingsJson["InitialHeight"] = settings.InitialHeight;
     settingsJson["EnableIniSettings"] = settings.bEnableIniSettings;
@@ -43,8 +49,19 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
     settingsJson["UseCustomHostChrome"] = settings.bUseCustomHostChrome;
     settingsJson["UseTitleBar"] = settings.bUseTitleBar;
     settingsJson["ShowSystemButtons"] = settings.bShowSystemButtons;
+    settingsJson["UseTitleBarMenus"] = settings.bUseTitleBarMenus;
     settingsJson["DefaultTheme"] = settings.DefaultTheme;
     settingsJson["DefaultCulture"] = settings.DefaultCulture;
+    json stringTablePathsJson = json::array();
+    for (const std::filesystem::path& path : settings.StringTablePaths) {
+        const std::filesystem::path normalizedPath = NormalizeStoredRelativePath(path);
+        if (!normalizedPath.empty() && !normalizedPath.is_absolute()) {
+            stringTablePathsJson.push_back(normalizedPath.generic_string());
+        }
+    }
+    settingsJson["StringTablePaths"] = std::move(stringTablePathsJson);
+    settingsJson["GenerateInitializeStub"] = settings.bGenerateInitializeStub;
+    settingsJson["GenerateTickStub"] = settings.bGenerateTickStub;
     return settingsJson;
 }
 
@@ -58,6 +75,11 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
     }
 
     settings.Title = settingsJson.value("Title", settings.Title);
+    settings.IconPath = NormalizeStoredRelativePath(
+        std::filesystem::path(settingsJson.value("IconPath", std::string())));
+    if (settings.IconPath.is_absolute()) {
+        settings.IconPath.clear();
+    }
     settings.InitialWidth = std::max(1, settingsJson.value("InitialWidth", settings.InitialWidth));
     settings.InitialHeight = std::max(1, settingsJson.value("InitialHeight", settings.InitialHeight));
     settings.bEnableIniSettings = settingsJson.value("EnableIniSettings", settings.bEnableIniSettings);
@@ -69,8 +91,23 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
     settings.bUseCustomHostChrome = settingsJson.value("UseCustomHostChrome", settings.bUseCustomHostChrome);
     settings.bUseTitleBar = settingsJson.value("UseTitleBar", settings.bUseTitleBar);
     settings.bShowSystemButtons = settingsJson.value("ShowSystemButtons", settings.bShowSystemButtons);
+    settings.bUseTitleBarMenus = settingsJson.value("UseTitleBarMenus", settings.bUseTitleBarMenus);
     settings.DefaultTheme = settingsJson.value("DefaultTheme", settings.DefaultTheme);
     settings.DefaultCulture = settingsJson.value("DefaultCulture", settings.DefaultCulture);
+    const json stringTablePathsJson = settingsJson.value("StringTablePaths", json::array());
+    if (stringTablePathsJson.is_array()) {
+        for (const json& pathJson : stringTablePathsJson) {
+            if (!pathJson.is_string()) {
+                continue;
+            }
+            std::filesystem::path path = NormalizeStoredRelativePath(std::filesystem::path(pathJson.get<std::string>()));
+            if (!path.empty() && !path.is_absolute()) {
+                settings.StringTablePaths.push_back(std::move(path));
+            }
+        }
+    }
+    settings.bGenerateInitializeStub = settingsJson.value("GenerateInitializeStub", settings.bGenerateInitializeStub);
+    settings.bGenerateTickStub = settingsJson.value("GenerateTickStub", settings.bGenerateTickStub);
     return settings;
 }
 

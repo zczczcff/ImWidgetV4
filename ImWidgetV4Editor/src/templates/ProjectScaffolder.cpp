@@ -224,9 +224,12 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
     stream
         << "#include <imwidgetv4/app/ApplicationHost.h>\n"
         << "#include <imwidgetv4/core/Application.h>\n"
+        << "#include <imwidgetv4/core/FrameContext.h>\n"
+        << "#include <imwidgetv4/widgets/Button.h>\n"
         << "#include <imwidgetv4/widgets/TextBlock.h>\n"
         << "#include <imwidgetv4/widgets/TitleBar.h>\n"
         << "#include <imwidgetv4/widgets/VerticalBox.h>\n"
+        << "#include <filesystem>\n"
         << "#include <memory>\n"
         << "#include <string>\n\n"
         << "#include \"" << request.StartupWidgetClassName << ".h\"\n\n"
@@ -241,6 +244,10 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
         << "        config.InitialWidth = " << std::max(1, settings.InitialWidth) << ";\n"
         << "        config.InitialHeight = " << std::max(1, settings.InitialHeight) << ";\n"
         << "        config.bUseCustomHostChrome = " << (settings.bUseCustomHostChrome ? "true" : "false") << ";\n";
+    if (!settings.IconPath.empty()) {
+        stream
+            << "        // TODO: load application icon from " << settings.IconPath.generic_string() << " when a runtime image loader is available.\n";
+    }
     if (settings.bEnableIniSettings && !settings.IniSettingsPath.empty()) {
         stream
             << "        config.IniSettingsPath = std::filesystem::path(" << BuildPathLiteral(settings.IniSettingsPath) << ");\n";
@@ -258,6 +265,12 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
         stream
             << "        application.SetCulture(" << BuildStringLiteral(settings.DefaultCulture) << ");\n";
     }
+    for (const std::filesystem::path& stringTablePath : settings.StringTablePaths) {
+        if (!stringTablePath.empty()) {
+            stream
+                << "        application.LoadStringTable(std::filesystem::path(" << BuildPathLiteral(stringTablePath) << "));\n";
+        }
+    }
     stream
         << "        application.SetApplicationTitle(" << BuildStringLiteral(title) << ");\n";
 
@@ -270,7 +283,17 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
             << "        auto titleText = std::make_shared<ImWidgetV4::ImTextBlock>();\n"
             << "        titleText->SetText(" << BuildStringLiteral(title) << ");\n"
             << "        titleText->SetWrapText(false);\n"
-            << "        titleBar->AddLeadingItem(titleText);\n"
+            << "        titleBar->AddLeadingItem(titleText);\n";
+        if (settings.bUseTitleBarMenus) {
+            stream
+                << "        auto fileButton = std::make_shared<ImWidgetV4::ImButton>();\n"
+                << "        fileButton->SetText(\"File\");\n"
+                << "        titleBar->AddLeadingItem(fileButton);\n"
+                << "        auto viewButton = std::make_shared<ImWidgetV4::ImButton>();\n"
+                << "        viewButton->SetText(\"View\");\n"
+                << "        titleBar->AddLeadingItem(viewButton);\n";
+        }
+        stream
             << "        rootLayout->AddChild(titleBar, ImWidgetV4::FMargin(0.0f));\n"
             << "        rootLayout->AddChildFill(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">(), 1.0f, ImWidgetV4::FMargin(0.0f));\n"
             << "        application.SetRootWidget(rootLayout);\n";
@@ -280,7 +303,29 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
     }
 
     stream
-        << "    }\n"
+        << "    }\n";
+
+    if (settings.bGenerateInitializeStub) {
+        stream
+            << "\n"
+            << "    bool InitializeApplication(ImWidgetV4::ImApplication& application, ImWidgetV4::ImApplicationBackend& backend) override\n"
+            << "    {\n"
+            << "        (void)application;\n"
+            << "        (void)backend;\n"
+            << "        return true;\n"
+            << "    }\n";
+    }
+    if (settings.bGenerateTickStub) {
+        stream
+            << "\n"
+            << "    void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override\n"
+            << "    {\n"
+            << "        (void)application;\n"
+            << "        (void)frameInfo;\n"
+            << "    }\n";
+    }
+
+    stream
         << "};\n\n"
         << "} // namespace\n\n"
         << "namespace ImWidgetV4 {\n\n"

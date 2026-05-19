@@ -14,6 +14,7 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
+#include <sstream>
 
 namespace ImWidgetV4Editor {
 
@@ -77,6 +78,37 @@ std::vector<std::string> GetWindowsGeneratorOptions()
 std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
 {
     return generator.empty() ? EditorText("Common.Default", "Default").Resolve() : generator;
+}
+
+std::string JoinPathList(const std::vector<std::filesystem::path>& paths)
+{
+    std::string result;
+    for (const std::filesystem::path& path : paths) {
+        if (path.empty()) {
+            continue;
+        }
+        if (!result.empty()) {
+            result += ";";
+        }
+        result += path.generic_string();
+    }
+    return result;
+}
+
+std::vector<std::filesystem::path> ParsePathList(const std::string& text)
+{
+    std::vector<std::filesystem::path> paths;
+    std::stringstream stream(text);
+    std::string item;
+    while (std::getline(stream, item, ';')) {
+        const std::size_t first = item.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            continue;
+        }
+        const std::size_t last = item.find_last_not_of(" \t\r\n");
+        paths.emplace_back(item.substr(first, last - first + 1));
+    }
+    return paths;
 }
 
 std::shared_ptr<ImEditableText> MakeEditableTextField(const std::string& text = std::string())
@@ -173,6 +205,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto applicationTitleEditor = MakeEditableTextField(m_Options.ApplicationSettings.Title);
+    auto iconPathEditor = MakeEditableTextField(m_Options.ApplicationSettings.IconPath.generic_string());
+    iconPathEditor->SetHintText("assets/icon.png");
     auto initialWidthEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialWidth));
     auto initialHeightEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialHeight));
     auto enableIniSettingsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bEnableIniSettings);
@@ -181,10 +215,15 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto useCustomHostChromeSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseCustomHostChrome);
     auto useTitleBarSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBar);
     auto showSystemButtonsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bShowSystemButtons);
+    auto useTitleBarMenusSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBarMenus);
     auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
     defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
     auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
     defaultCultureEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
+    auto stringTablePathsEditor = MakeEditableTextField(JoinPathList(m_Options.ApplicationSettings.StringTablePaths));
+    stringTablePathsEditor->SetHintText("localization/en-US.json;localization/zh-CN.json");
+    auto generateInitializeStubSwitch = MakeSwitchField(m_Options.ApplicationSettings.bGenerateInitializeStub);
+    auto generateTickStubSwitch = MakeSwitchField(m_Options.ApplicationSettings.bGenerateTickStub);
 
     auto sizeRow = MakeInspectorCompactLabeledEditors({
         {EditorText("ProjectSettings.InitialWidth", "Width").Resolve(), initialWidthEditor},
@@ -194,6 +233,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto applicationSettingsGroup = std::make_shared<ImVerticalBox>();
     applicationSettingsGroup->SetSpacing(8.0f);
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.ApplicationTitle", "Application Title").Resolve(), applicationTitleEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.IconPath", "Icon Path").Resolve(), iconPathEditor), FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.InitialWindowSize", "Initial Window Size").Resolve(), sizeRow), FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.EnableIniSettings", "Enable .ini Settings").Resolve(), enableIniSettingsSwitch), FMargin(0.0f));
 
@@ -208,10 +248,14 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto titleBarSettingsGroup = std::make_shared<ImVerticalBox>();
     titleBarSettingsGroup->SetSpacing(8.0f);
     titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.ShowSystemButtons", "Show System Buttons").Resolve(), showSystemButtonsSwitch), FMargin(0.0f));
+    titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.UseTitleBarMenus", "Generate Title Bar Menus").Resolve(), useTitleBarMenusSwitch), FMargin(0.0f));
     applicationSettingsGroup->AddChild(titleBarSettingsGroup, FMargin(0.0f));
 
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultTheme", "Default Theme").Resolve(), defaultThemeEditor), FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultCulture", "Default Culture").Resolve(), defaultCultureEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.StringTablePaths", "String Table Paths").Resolve(), stringTablePathsEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.GenerateInitializeStub", "Generate Initialize Stub").Resolve(), generateInitializeStubSwitch), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.GenerateTickStub", "Generate Tick Stub").Resolve(), generateTickStubSwitch), FMargin(0.0f));
 
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(8.0f);
@@ -290,6 +334,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_AndroidSdkRootEditor = androidSdkRootEditor;
     m_AndroidNdkRootEditor = androidNdkRootEditor;
     m_ApplicationTitleEditor = applicationTitleEditor;
+    m_IconPathEditor = iconPathEditor;
     m_InitialWidthEditor = initialWidthEditor;
     m_InitialHeightEditor = initialHeightEditor;
     m_EnableIniSettingsSwitch = enableIniSettingsSwitch;
@@ -297,8 +342,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_UseCustomHostChromeSwitch = useCustomHostChromeSwitch;
     m_UseTitleBarSwitch = useTitleBarSwitch;
     m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
+    m_UseTitleBarMenusSwitch = useTitleBarMenusSwitch;
     m_DefaultThemeEditor = defaultThemeEditor;
     m_DefaultCultureEditor = defaultCultureEditor;
+    m_StringTablePathsEditor = stringTablePathsEditor;
+    m_GenerateInitializeStubSwitch = generateInitializeStubSwitch;
+    m_GenerateTickStubSwitch = generateTickStubSwitch;
     m_IniSettingsGroup = iniSettingsGroup;
     m_TitleBarSettingsGroup = titleBarSettingsGroup;
     m_WindowsSettingsGroup = windowsSettingsGroup;
@@ -527,6 +576,7 @@ void ProjectSettingsDialog::Reset()
     m_AndroidSdkRootEditor.reset();
     m_AndroidNdkRootEditor.reset();
     m_ApplicationTitleEditor.reset();
+    m_IconPathEditor.reset();
     m_InitialWidthEditor.reset();
     m_InitialHeightEditor.reset();
     m_EnableIniSettingsSwitch.reset();
@@ -534,8 +584,12 @@ void ProjectSettingsDialog::Reset()
     m_UseCustomHostChromeSwitch.reset();
     m_UseTitleBarSwitch.reset();
     m_ShowSystemButtonsSwitch.reset();
+    m_UseTitleBarMenusSwitch.reset();
     m_DefaultThemeEditor.reset();
     m_DefaultCultureEditor.reset();
+    m_StringTablePathsEditor.reset();
+    m_GenerateInitializeStubSwitch.reset();
+    m_GenerateTickStubSwitch.reset();
     m_IniSettingsGroup.reset();
     m_TitleBarSettingsGroup.reset();
     m_WindowsSettingsGroup.reset();
@@ -725,6 +779,14 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     if (settings.Title.empty()) {
         settings.Title = m_Options.ProjectName;
     }
+    settings.IconPath =
+        m_IconPathEditor ? std::filesystem::path(m_IconPathEditor->GetText()).lexically_normal() : std::filesystem::path();
+    if (settings.IconPath.is_absolute()) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.IconPathMustBeRelative", "Icon path must be relative to the project root.").Resolve();
+        }
+        return false;
+    }
 
     try {
         settings.InitialWidth = m_InitialWidthEditor ? std::stoi(m_InitialWidthEditor->GetText()) : 0;
@@ -762,8 +824,22 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     settings.bUseCustomHostChrome = m_UseCustomHostChromeSwitch && m_UseCustomHostChromeSwitch->IsChecked();
     settings.bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
     settings.bShowSystemButtons = m_ShowSystemButtonsSwitch && m_ShowSystemButtonsSwitch->IsChecked();
+    settings.bUseTitleBarMenus = m_UseTitleBarMenusSwitch && m_UseTitleBarMenusSwitch->IsChecked();
     settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
     settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
+    settings.StringTablePaths = ParsePathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());
+    for (const std::filesystem::path& stringTablePath : settings.StringTablePaths) {
+        if (stringTablePath.is_absolute()) {
+            if (outError) {
+                *outError = EditorText("ProjectSettings.StringTablePathMustBeRelative", "String table paths must be relative to the project root.").Resolve();
+            }
+            return false;
+        }
+    }
+    settings.bGenerateInitializeStub =
+        m_GenerateInitializeStubSwitch && m_GenerateInitializeStubSwitch->IsChecked();
+    settings.bGenerateTickStub =
+        m_GenerateTickStubSwitch && m_GenerateTickStubSwitch->IsChecked();
 
     m_Options.ApplicationSettings = settings;
     return true;

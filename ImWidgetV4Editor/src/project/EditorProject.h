@@ -11,6 +11,7 @@ namespace ImWidgetV4Editor {
 
 struct FEditorApplicationSettings {
     std::string Title;
+    std::filesystem::path IconPath;
     int InitialWidth = 1280;
     int InitialHeight = 720;
     bool bEnableIniSettings = false;
@@ -18,8 +19,12 @@ struct FEditorApplicationSettings {
     bool bUseCustomHostChrome = false;
     bool bUseTitleBar = false;
     bool bShowSystemButtons = true;
+    bool bUseTitleBarMenus = false;
     std::string DefaultTheme;
     std::string DefaultCulture;
+    std::vector<std::filesystem::path> StringTablePaths;
+    bool bGenerateInitializeStub = false;
+    bool bGenerateTickStub = false;
 };
 
 class EditorProject {

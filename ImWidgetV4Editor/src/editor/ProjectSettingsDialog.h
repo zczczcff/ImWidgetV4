@@ -70,6 +70,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidSdkRootEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidNdkRootEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_ApplicationTitleEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_IconPathEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialWidthEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialHeightEditor;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_EnableIniSettingsSwitch;
@@ -77,8 +78,12 @@ private:
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseCustomHostChromeSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_ShowSystemButtonsSwitch;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarMenusSwitch;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultThemeEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultCultureEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_StringTablePathsEditor;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_GenerateInitializeStubSwitch;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_GenerateTickStubSwitch;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_IniSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_TitleBarSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_WindowsSettingsGroup;

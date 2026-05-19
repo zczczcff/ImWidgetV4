@@ -17,6 +17,7 @@
 #include "../src/palette/WidgetPaletteDragDrop.h"
 #include "../src/palette/WidgetPaletteView.h"
 #include "../src/serialization/WidgetFactory.h"
+#include "../src/templates/ProjectScaffolder.h"
 #include "../src/tree/DocumentTreeViewBinder.h"
 #include "../src/tree/WidgetTreeDragDrop.h"
 
@@ -2143,6 +2144,7 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
 
     FEditorApplicationSettings settings;
     settings.Title = "Configured App";
+    settings.IconPath = std::filesystem::path("assets") / "icon.png";
     settings.InitialWidth = 1440;
     settings.InitialHeight = 900;
     settings.bEnableIniSettings = true;
@@ -2150,8 +2152,15 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     settings.bUseCustomHostChrome = true;
     settings.bUseTitleBar = true;
     settings.bShowSystemButtons = false;
+    settings.bUseTitleBarMenus = true;
     settings.DefaultTheme = "Light";
     settings.DefaultCulture = "zh-CN";
+    settings.StringTablePaths = {
+        std::filesystem::path("localization") / "en-US.json",
+        std::filesystem::path("localization") / "zh-CN.json"
+    };
+    settings.bGenerateInitializeStub = true;
+    settings.bGenerateTickStub = true;
     project.SetApplicationSettings(settings);
 
     std::string saveError;
@@ -2162,6 +2171,7 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
     const FEditorApplicationSettings& restoredSettings = restoredProject.GetApplicationSettings();
     EXPECT_EQ(restoredSettings.Title, "Configured App");
+    EXPECT_EQ(restoredSettings.IconPath.generic_string(), "assets/icon.png");
     EXPECT_EQ(restoredSettings.InitialWidth, 1440);
     EXPECT_EQ(restoredSettings.InitialHeight, 900);
     EXPECT_TRUE(restoredSettings.bEnableIniSettings);
@@ -2169,10 +2179,73 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     EXPECT_TRUE(restoredSettings.bUseCustomHostChrome);
     EXPECT_TRUE(restoredSettings.bUseTitleBar);
     EXPECT_FALSE(restoredSettings.bShowSystemButtons);
+    EXPECT_TRUE(restoredSettings.bUseTitleBarMenus);
     EXPECT_EQ(restoredSettings.DefaultTheme, "Light");
     EXPECT_EQ(restoredSettings.DefaultCulture, "zh-CN");
+    ASSERT_EQ(restoredSettings.StringTablePaths.size(), 2U);
+    EXPECT_EQ(restoredSettings.StringTablePaths[0].generic_string(), "localization/en-US.json");
+    EXPECT_EQ(restoredSettings.StringTablePaths[1].generic_string(), "localization/zh-CN.json");
+    EXPECT_TRUE(restoredSettings.bGenerateInitializeStub);
+    EXPECT_TRUE(restoredSettings.bGenerateTickStub);
 
     std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
+{
+    auto rootWidget = std::make_shared<ImCanvasPanel>();
+    rootWidget->SetName("RootCanvas");
+
+    FProjectScaffoldRequest request;
+    request.ProjectRoot = std::filesystem::temp_directory_path() / "imwidgetv4_editor_scaffold_app_settings";
+    request.ProjectName = "ConfiguredApp";
+    request.NamespaceName = "ConfiguredApp";
+    request.StartupWidgetClassName = "MainView";
+    request.StartupRootWidget = rootWidget;
+    request.ApplicationSettings.Title = "Configured App";
+    request.ApplicationSettings.IconPath = std::filesystem::path("assets") / "icon.png";
+    request.ApplicationSettings.InitialWidth = 1440;
+    request.ApplicationSettings.InitialHeight = 900;
+    request.ApplicationSettings.bEnableIniSettings = true;
+    request.ApplicationSettings.IniSettingsPath = std::filesystem::path("data") / "configured.ini";
+    request.ApplicationSettings.bUseCustomHostChrome = true;
+    request.ApplicationSettings.bUseTitleBar = true;
+    request.ApplicationSettings.bShowSystemButtons = false;
+    request.ApplicationSettings.bUseTitleBarMenus = true;
+    request.ApplicationSettings.DefaultTheme = "Light";
+    request.ApplicationSettings.DefaultCulture = "zh-CN";
+    request.ApplicationSettings.StringTablePaths = {
+        std::filesystem::path("localization") / "en-US.json",
+        std::filesystem::path("localization") / "zh-CN.json"
+    };
+    request.ApplicationSettings.bGenerateInitializeStub = true;
+    request.ApplicationSettings.bGenerateTickStub = true;
+
+    std::error_code errorCode;
+    std::filesystem::remove_all(request.ProjectRoot, errorCode);
+    const FProjectScaffoldResult result = ProjectScaffolder::Scaffold(request);
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+
+    const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
+    std::ifstream stream(mainCppPath, std::ios::binary);
+    std::stringstream buffer;
+    buffer << stream.rdbuf();
+    const std::string text = buffer.str();
+
+    EXPECT_NE(text.find("config.Title = \"Configured App\""), std::string::npos);
+    EXPECT_NE(text.find("config.InitialWidth = 1440"), std::string::npos);
+    EXPECT_NE(text.find("config.InitialHeight = 900"), std::string::npos);
+    EXPECT_NE(text.find("config.bUseCustomHostChrome = true"), std::string::npos);
+    EXPECT_NE(text.find("config.IniSettingsPath = std::filesystem::path(\"data/configured.ini\")"), std::string::npos);
+    EXPECT_NE(text.find("application.SetActiveTheme(\"Light\")"), std::string::npos);
+    EXPECT_NE(text.find("application.SetCulture(\"zh-CN\")"), std::string::npos);
+    EXPECT_NE(text.find("application.LoadStringTable(std::filesystem::path(\"localization/en-US.json\"))"), std::string::npos);
+    EXPECT_NE(text.find("titleBar->SetShowSystemButtons(false)"), std::string::npos);
+    EXPECT_NE(text.find("fileButton->SetText(\"File\")"), std::string::npos);
+    EXPECT_NE(text.find("bool InitializeApplication"), std::string::npos);
+    EXPECT_NE(text.find("void Tick"), std::string::npos);
+
+    std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }
 
 TEST(EditorSelectionTest, EditorProjectPersistsActiveBuildProfileChanges)

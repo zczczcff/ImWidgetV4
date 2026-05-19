@@ -75,6 +75,8 @@ public:
     bool ConfigureProject(const std::string& profileName);
     bool BuildProject();
     bool BuildProject(const std::string& profileName);
+    bool RunProject();
+    bool RunProject(const std::string& profileName);
     bool CleanProject();
     bool CleanProject(const std::string& profileName);
     bool RebuildProject();
@@ -133,6 +135,7 @@ private:
     enum class EBackgroundBuildTaskKind {
         Configure,
         Build,
+        Run,
         Clean,
         Rebuild
     };

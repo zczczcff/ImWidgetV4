@@ -16,6 +16,7 @@
 #include "../toolchains/EnvironmentProbe.h"
 
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/platform/PlatformProcess.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imwidgetv4/widgets/PopupMenu.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
@@ -305,6 +306,38 @@ std::string NormalizeProjectIdentifier(const std::string& rawText, const std::st
     return normalized;
 }
 
+std::vector<std::filesystem::path> BuildExecutableCandidatePaths(
+    const std::filesystem::path& buildDirectory,
+    const std::string& configuration,
+    const std::string& executableName)
+{
+    return {
+        buildDirectory / configuration / (executableName + ".exe"),
+        buildDirectory / (executableName + ".exe"),
+        buildDirectory / "bin" / configuration / (executableName + ".exe"),
+        buildDirectory / "bin" / (executableName + ".exe")
+    };
+}
+
+std::filesystem::path FindBuiltExecutablePath(
+    const EditorProject& project,
+    const FEditorBuildProfile& profile)
+{
+    const std::filesystem::path buildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), profile);
+    const std::string executableName = NormalizeProjectIdentifier(project.GetProjectName(), "ImWidgetApp");
+    for (const std::filesystem::path& candidate : BuildExecutableCandidatePaths(
+             buildDirectory,
+             profile.Configuration,
+             executableName)) {
+        std::error_code errorCode;
+        if (std::filesystem::is_regular_file(candidate, errorCode)) {
+            return candidate.lexically_normal();
+        }
+    }
+
+    return {};
+}
+
 bool ContainsPathSeparators(const std::string& text)
 {
     return text.find('/') != std::string::npos || text.find('\\') != std::string::npos;
@@ -398,8 +431,10 @@ std::string BuildBackgroundTaskDisplayName(int kind)
     case 1:
         return EditorText("Build.Build", "Build").Resolve();
     case 2:
-        return EditorText("Build.Clean", "Clean").Resolve();
+        return EditorText("Build.Run", "Run").Resolve();
     case 3:
+        return EditorText("Build.Clean", "Clean").Resolve();
+    case 4:
         return EditorText("Build.Rebuild", "Rebuild").Resolve();
     default:
         return EditorText("Build.Build", "Build").Resolve();
@@ -496,6 +531,11 @@ void HandleBackgroundBuildOutputLine(
 
     if (StartsWith(line, "[build]")) {
         UpdateBackgroundBuildTaskStatus(task, "Starting build...");
+        return;
+    }
+
+    if (StartsWith(line, "[run]")) {
+        UpdateBackgroundBuildTaskStatus(task, "Running application...");
         return;
     }
 
@@ -1089,6 +1129,33 @@ bool EditorWorkspaceController::BuildProject(const std::string& profileName)
     }
 
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Build, resolvedProfileName);
+}
+
+bool EditorWorkspaceController::RunProject()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine(EditorText("Build.RunFailedProjectRootNotConfigured", "Run failed: project root not configured.").Resolve());
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Run, m_Project->GetActiveBuildProfileName());
+}
+
+bool EditorWorkspaceController::RunProject(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine(EditorText("Build.RunFailedProjectRootNotConfigured", "Run failed: project root not configured.").Resolve());
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine(EditorText("Build.RunFailedProfileNotFound", "Run failed: build profile not found.").Resolve());
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Run, resolvedProfileName);
 }
 
 bool EditorWorkspaceController::CleanProject()
@@ -3331,6 +3398,29 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     auto task = std::make_shared<FBackgroundBuildTaskState>();
     task->Kind = kind;
     task->ProfileName = profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    const FEditorBuildProfile* selectedProfile = project->FindBuildProfile(task->ProfileName);
+    if (task->ProfileName.empty() || selectedProfile == nullptr) {
+        AppendOutputLine(LocalizedEditorString("Build.RequestIgnoredProfileNotFound", "Build request ignored: build profile not found."));
+        m_BackgroundBuildTask.reset();
+        return false;
+    }
+
+    if (kind == EBackgroundBuildTaskKind::Run &&
+        selectedProfile->TargetPlatform != EEditorTargetPlatform::WindowsDesktop) {
+        AppendOutputLine(LocalizedEditorString("Build.RunUnsupportedPlatform", "Run failed: direct launch is only supported for Windows Desktop build profiles."));
+        m_BackgroundBuildTask.reset();
+        return false;
+    }
+
+    if (kind == EBackgroundBuildTaskKind::Run) {
+        const std::filesystem::path executablePath = FindBuiltExecutablePath(*project, *selectedProfile);
+        if (executablePath.empty()) {
+            AppendOutputLine(LocalizedEditorString("Build.RunExecutableNotFound", "Run failed: executable not found. Build the project first."));
+            m_BackgroundBuildTask.reset();
+            return false;
+        }
+    }
+
     const std::string taskDisplayName = BuildBackgroundTaskDisplayName(static_cast<int>(kind));
     task->StatusText = taskDisplayName + " " + EditorText("Build.Queued", "queued...").Resolve();
     task->bStatusDirty = true;
@@ -3362,6 +3452,28 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
         case EBackgroundBuildTaskKind::Build:
             result = controller.BuildProject(*project, task->ProfileName, outputCallback);
             break;
+        case EBackgroundBuildTaskKind::Run: {
+            const FEditorBuildProfile* profile = project->FindBuildProfile(task->ProfileName);
+            std::filesystem::path executablePath;
+            if (profile != nullptr) {
+                executablePath = FindBuiltExecutablePath(*project, *profile);
+            }
+            if (profile == nullptr || executablePath.empty()) {
+                result.ErrorMessage = EditorText("Build.RunExecutableNotFound", "Run failed: executable not found. Build the project first.").Resolve();
+                break;
+            }
+
+            result.BuildDirectory = ResolveBuildDirectoryPath(project->GetProjectRoot(), *profile);
+            outputCallback("[run:" + profile->Name + "] " + executablePath.string());
+            const FProcessExecutionResult processResult = ImWidgetV4::ExecuteProcess(
+                executablePath.parent_path(),
+                {executablePath.string()},
+                outputCallback);
+            result.bSuccess = processResult.bSuccess;
+            result.ExitCode = processResult.ExitCode;
+            result.ErrorMessage = processResult.ErrorMessage;
+            break;
+        }
         case EBackgroundBuildTaskKind::Clean:
             result = controller.CleanProject(*project, task->ProfileName, outputCallback);
             break;

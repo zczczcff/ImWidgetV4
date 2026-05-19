@@ -2262,6 +2262,81 @@ TEST(EditorSelectionTest, WorkspaceControllerSetActiveBuildProfilePersistsSelect
     std::filesystem::remove_all(tempRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerRunProjectReportsMissingExecutable)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_run_missing_exe";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "RunMissingExeProject"));
+    ASSERT_FALSE(workspaceController->RunProject());
+
+    const std::vector<std::string> outputLines = workspaceController->GetOutputLines();
+    EXPECT_NE(
+        std::find(
+            outputLines.begin(),
+            outputLines.end(),
+            "Run failed: executable not found. Build the project first."),
+        outputLines.end());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerRunProjectRejectsAndroidProfile)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_run_android_profile";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "RunAndroidProfileProject"));
+    ASSERT_TRUE(workspaceController->SetActiveBuildProfile("Android Debug"));
+    ASSERT_FALSE(workspaceController->RunProject());
+
+    const std::vector<std::string> outputLines = workspaceController->GetOutputLines();
+    EXPECT_NE(
+        std::find(
+            outputLines.begin(),
+            outputLines.end(),
+            "Run failed: direct launch is only supported for Windows Desktop build profiles."),
+        outputLines.end());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
 {
     auto shellHost = std::make_shared<EditorShellHost>();

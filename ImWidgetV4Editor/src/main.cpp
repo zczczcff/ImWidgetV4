@@ -118,6 +118,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImEditableText> BuildAndroidSdkRootEditor;
     std::shared_ptr<ImEditableText> BuildAndroidNdkRootEditor;
     std::shared_ptr<ImButton> BuildConfigureButton;
+    std::shared_ptr<ImButton> BuildBuildButton;
     std::shared_ptr<ImButton> BuildRunButton;
     std::shared_ptr<ImButton> BuildCleanButton;
     std::shared_ptr<ImButton> BuildRebuildButton;
@@ -137,6 +138,9 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImImage> TitleBarIcon;
     std::shared_ptr<ImTextBlock> TitleBarText;
     std::shared_ptr<ImTextBlock> TitleBarProfileStatusText;
+    std::shared_ptr<ImButton> TitleBarConfigureButton;
+    std::shared_ptr<ImButton> TitleBarBuildButton;
+    std::shared_ptr<ImButton> TitleBarRunButton;
     std::shared_ptr<ImButton> UndoButton;
     std::shared_ptr<ImButton> RedoButton;
     bool bLastCanUndo = false;
@@ -567,6 +571,9 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto buildButton = std::make_shared<ImButton>();
     buildButton->SetText(EditorText("Build.Build", "Build"));
 
+    auto runButton = std::make_shared<ImButton>();
+    runButton->SetText(EditorText("Build.Run", "Run"));
+
     auto cleanButton = std::make_shared<ImButton>();
     cleanButton->SetText(EditorText("Build.Clean", "Clean"));
 
@@ -617,6 +624,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     buttonRow->SetSpacing(6.0f);
     buttonRow->AddChildFill(configureButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(runButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(cleanButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(rebuildButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(revealButton, 1.0f, FMargin(0.0f));
@@ -642,7 +650,8 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     shell.BuildAndroidSdkRootEditor = androidSdkRootEditor;
     shell.BuildAndroidNdkRootEditor = androidNdkRootEditor;
     shell.BuildConfigureButton = configureButton;
-    shell.BuildRunButton = buildButton;
+    shell.BuildBuildButton = buildButton;
+    shell.BuildRunButton = runButton;
     shell.BuildCleanButton = cleanButton;
     shell.BuildRebuildButton = rebuildButton;
     shell.BuildApplyProfileButton = applyProfileButton;
@@ -741,6 +750,9 @@ FEditorShellWidgets BuildEditorShell()
 
     auto undoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Undo", "Undo"));
     auto redoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Redo", "Redo"));
+    auto titleBarConfigureButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Configure", "Configure"));
+    auto titleBarBuildButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Build", "Build"));
+    auto titleBarRunButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Run", "Run"));
 
     auto verticalShell = std::make_shared<ImVerticalSplitter>();
     verticalShell->SetSupportsKeyboardFocus(false);
@@ -802,6 +814,9 @@ FEditorShellWidgets BuildEditorShell()
     shell.TitleBarIcon = titleIcon;
     shell.TitleBarText = titleText;
     shell.TitleBarProfileStatusText = titleBarProfileStatusText;
+    shell.TitleBarConfigureButton = titleBarConfigureButton;
+    shell.TitleBarBuildButton = titleBarBuildButton;
+    shell.TitleBarRunButton = titleBarRunButton;
     shell.UndoButton = undoButton;
     shell.RedoButton = redoButton;
     return shell;
@@ -1246,6 +1261,15 @@ void ApplyEditorThemeToShell(
     if (shell.RedoButton) {
         shell.RedoButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
     }
+    if (shell.TitleBarConfigureButton) {
+        shell.TitleBarConfigureButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
+    if (shell.TitleBarBuildButton) {
+        shell.TitleBarBuildButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
+    if (shell.TitleBarRunButton) {
+        shell.TitleBarRunButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
     if (shell.VerticalShell) {
         shell.VerticalShell->SetSplitterStyle(MakeEditorVerticalSplitterStyle(shell.VerticalShell->GetSplitterStyle()));
     }
@@ -1396,6 +1420,19 @@ void RebuildEditorTitleBar(
         return BuildSimpleMenuItems("Search");
     });
     shell.TitleBar->AddLeadingItem(searchButton);
+
+    if (shell.TitleBarConfigureButton) {
+        shell.TitleBarConfigureButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Configure, GetEditorTitleBarIconColor()), 16.0f));
+        shell.TitleBar->AddLeadingItem(shell.TitleBarConfigureButton);
+    }
+    if (shell.TitleBarBuildButton) {
+        shell.TitleBarBuildButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Build, GetEditorTitleBarIconColor()), 16.0f));
+        shell.TitleBar->AddLeadingItem(shell.TitleBarBuildButton);
+    }
+    if (shell.TitleBarRunButton) {
+        shell.TitleBarRunButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Play, GetEditorTitleBarIconColor()), 16.0f));
+        shell.TitleBar->AddLeadingItem(shell.TitleBarRunButton);
+    }
 }
 
 void UpdateEditorTitleBarActions(
@@ -1707,8 +1744,17 @@ void UpdateBuildDockActions(
     if (shell.BuildConfigureButton) {
         shell.BuildConfigureButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
+    if (shell.BuildBuildButton) {
+        shell.BuildBuildButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
     if (shell.BuildRunButton) {
-        shell.BuildRunButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+        const bool bEnableRun =
+            bHasProject &&
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+            !activeProfileName.empty() &&
+            !bBuildRunning;
+        shell.BuildRunButton->SetDisabled(!bEnableRun);
     }
     if (shell.BuildCleanButton) {
         shell.BuildCleanButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
@@ -1721,6 +1767,32 @@ void UpdateBuildDockActions(
     }
     if (shell.BuildRevealButton) {
         shell.BuildRevealButton->SetDisabled(!bHasProject || activeProfileName.empty());
+    }
+
+    const bool bCanRunActiveProfile =
+        bHasProject &&
+        activeProfile != nullptr &&
+        activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+        !activeProfileName.empty() &&
+        !bBuildRunning;
+    const bool bCanUseActiveBuildProfile = bHasProject && !activeProfileName.empty() && !bBuildRunning;
+    if (shell.TitleBarConfigureButton) {
+        shell.TitleBarConfigureButton->SetDisabled(!bCanUseActiveBuildProfile);
+        shell.TitleBarConfigureButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Configure, bCanUseActiveBuildProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            16.0f));
+    }
+    if (shell.TitleBarBuildButton) {
+        shell.TitleBarBuildButton->SetDisabled(!bCanUseActiveBuildProfile);
+        shell.TitleBarBuildButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Build, bCanUseActiveBuildProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            16.0f));
+    }
+    if (shell.TitleBarRunButton) {
+        shell.TitleBarRunButton->SetDisabled(!bCanRunActiveProfile);
+        shell.TitleBarRunButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Play, bCanRunActiveProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            16.0f));
     }
 }
 
@@ -2036,11 +2108,43 @@ public:
                     }
                 });
         }
+        if (Shell_.BuildBuildButton) {
+            Shell_.BuildBuildButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->BuildProject();
+                    }
+                });
+        }
         if (Shell_.BuildRunButton) {
             Shell_.BuildRunButton->OnClicked.AddLambda(
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RunProject();
+                    }
+                });
+        }
+        if (Shell_.TitleBarConfigureButton) {
+            Shell_.TitleBarConfigureButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->ConfigureProject();
+                    }
+                });
+        }
+        if (Shell_.TitleBarBuildButton) {
+            Shell_.TitleBarBuildButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
                         lockedWorkspace->BuildProject();
+                    }
+                });
+        }
+        if (Shell_.TitleBarRunButton) {
+            Shell_.TitleBarRunButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RunProject();
                     }
                 });
         }

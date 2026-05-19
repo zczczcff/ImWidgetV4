@@ -2719,6 +2719,66 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerReportsSdkVersionStatusOnOpenProject)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_sdk_version_status";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "SdkStatusProject"));
+    const std::filesystem::path projectRoot = tempRoot / "SdkStatusProject";
+    const std::filesystem::path sdkPackagePath = projectRoot / "sdk" / "cmake";
+    std::filesystem::create_directories(sdkPackagePath, errorCode);
+    ASSERT_FALSE(errorCode);
+    {
+        std::ofstream stream(sdkPackagePath / "ImWidgetV4ConfigVersion.cmake", std::ios::binary | std::ios::trunc);
+        stream << "set(PACKAGE_VERSION \"0.3.0\")\n";
+    }
+
+    ASSERT_TRUE(workspaceController->GetProject());
+    FEditorApplicationSettings settings = workspaceController->GetProject()->GetApplicationSettings();
+    settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+    settings.SdkPackagePath = sdkPackagePath;
+    settings.MinimumSdkVersion = "0.2.0";
+    workspaceController->GetProject()->SetApplicationSettings(settings);
+    std::string saveError;
+    ASSERT_TRUE(workspaceController->GetProject()->Save(&saveError)) << saveError;
+
+    auto reopenedOutputText = std::make_shared<ImTextList>();
+    auto reopenedWorkspaceController = CreateBoundWorkspaceController(
+        std::make_shared<EditorShellHost>(),
+        std::make_shared<ImTabView>(),
+        std::make_shared<ImTextOutlineView>(),
+        std::make_shared<ImTextOutlineView>(),
+        std::make_shared<ReflectionDetailsView>(),
+        reopenedOutputText);
+
+    ASSERT_TRUE(reopenedWorkspaceController->OpenAppProjectAt(projectRoot));
+    const std::vector<std::string>& items = reopenedOutputText->GetItems();
+    ASSERT_GE(items.size(), 2U);
+    EXPECT_NE(items.back().find("SDK version check passed"), std::string::npos);
+    EXPECT_NE(items.back().find("0.3.0 >= 0.2.0"), std::string::npos);
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
 TEST(EditorSelectionTest, EditorProjectPersistsActiveBuildProfileChanges)
 {
     const std::filesystem::path tempRoot =

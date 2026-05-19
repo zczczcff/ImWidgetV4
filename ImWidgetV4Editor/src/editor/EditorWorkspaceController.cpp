@@ -31,6 +31,7 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <regex>
 #include <sstream>
 #include <system_error>
 
@@ -46,6 +47,80 @@ std::shared_ptr<ImTextBlock> MakePanelTitle(const std::string& text)
     title->SetFontSize(18.0f);
     title->SetTextColor(GetEditorPanelTitleColor());
     return title;
+}
+
+std::string TrimCopy(const std::string& text)
+{
+    const auto first = std::find_if_not(text.begin(), text.end(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    });
+    const auto last = std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    }).base();
+    return first < last ? std::string(first, last) : std::string();
+}
+
+std::vector<int> ParseVersionParts(const std::string& version)
+{
+    std::vector<int> parts;
+    std::string current;
+    for (char c : version) {
+        if (std::isdigit(static_cast<unsigned char>(c)) != 0) {
+            current.push_back(c);
+            continue;
+        }
+        if (!current.empty()) {
+            parts.push_back(std::stoi(current));
+            current.clear();
+        }
+        if (c != '.') {
+            break;
+        }
+    }
+    if (!current.empty()) {
+        parts.push_back(std::stoi(current));
+    }
+    return parts;
+}
+
+int CompareVersions(const std::string& lhs, const std::string& rhs)
+{
+    const std::vector<int> lhsParts = ParseVersionParts(lhs);
+    const std::vector<int> rhsParts = ParseVersionParts(rhs);
+    const std::size_t count = std::max(lhsParts.size(), rhsParts.size());
+    for (std::size_t index = 0; index < count; ++index) {
+        const int lhsValue = index < lhsParts.size() ? lhsParts[index] : 0;
+        const int rhsValue = index < rhsParts.size() ? rhsParts[index] : 0;
+        if (lhsValue < rhsValue) {
+            return -1;
+        }
+        if (lhsValue > rhsValue) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+std::string ReadSdkPackageVersion(const std::filesystem::path& sdkPackagePath)
+{
+    if (sdkPackagePath.empty()) {
+        return {};
+    }
+
+    std::ifstream stream(sdkPackagePath / "ImWidgetV4ConfigVersion.cmake", std::ios::binary);
+    if (!stream.is_open()) {
+        return {};
+    }
+
+    std::stringstream buffer;
+    buffer << stream.rdbuf();
+    const std::string text = buffer.str();
+    const std::regex packageVersionRegex(R"VERSION(set\(PACKAGE_VERSION\s+"([^"]+)")VERSION");
+    std::smatch match;
+    if (std::regex_search(text, match, packageVersionRegex) && match.size() > 1) {
+        return match[1].str();
+    }
+    return {};
 }
 
 std::shared_ptr<ImTextBlock> MakePanelBody(const std::string& text, float fontSize = 14.0f)
@@ -1325,6 +1400,7 @@ bool EditorWorkspaceController::OpenAppProjectAt(const std::filesystem::path& pr
     if (m_OutputText) {
         m_OutputText->SetItems({FText::FromString(EditorText("Project.OpenedAppProject", "Opened app project").Resolve() + " " + project->GetProjectName())});
     }
+    ReportSdkCompatibilityStatus();
     return true;
 }
 
@@ -3802,6 +3878,49 @@ void EditorWorkspaceController::AppendOutputLine(const std::string& text) const
     }
 }
 
+void EditorWorkspaceController::ReportSdkCompatibilityStatus() const
+{
+    if (!m_Project) {
+        return;
+    }
+
+    const FEditorApplicationSettings& settings = m_Project->GetApplicationSettings();
+    if (settings.LibraryIntegrationMode != EEditorLibraryIntegrationMode::SDK) {
+        return;
+    }
+
+    const std::string minimumVersion = TrimCopy(settings.MinimumSdkVersion.empty()
+        ? std::string("0.1.0")
+        : settings.MinimumSdkVersion);
+    if (settings.SdkPackagePath.empty()) {
+        AppendOutputLine(EditorText(
+            "Project.SdkMissingPath",
+            "SDK mode is enabled, but no SDK package path is configured.").Resolve());
+        return;
+    }
+
+    const std::string detectedVersion = ReadSdkPackageVersion(settings.SdkPackagePath);
+    if (detectedVersion.empty()) {
+        AppendOutputLine(EditorText(
+            "Project.SdkVersionUnavailable",
+            "SDK version check skipped: ImWidgetV4ConfigVersion.cmake was not found.").Resolve());
+        return;
+    }
+
+    if (CompareVersions(detectedVersion, minimumVersion) < 0) {
+        AppendOutputLine(EditorText(
+            "Project.SdkVersionTooOld",
+            "SDK version is older than this project requires.").Resolve() +
+            " Found " + detectedVersion + ", required " + minimumVersion + ".");
+        return;
+    }
+
+    AppendOutputLine(EditorText(
+        "Project.SdkVersionReady",
+        "SDK version check passed.").Resolve() +
+        " " + detectedVersion + " >= " + minimumVersion + ".");
+}
+
 void EditorWorkspaceController::InvalidateBuildProfileProbeCache()
 {
     ShutdownBackgroundProbeTask();
@@ -4280,6 +4399,7 @@ bool EditorWorkspaceController::LoadProjectManifestAtRoot(
 
     m_Project = project;
     RequestBuildProfileProbeRefresh();
+    ReportSdkCompatibilityStatus();
     return true;
 }
 

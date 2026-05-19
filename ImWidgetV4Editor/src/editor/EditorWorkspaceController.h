@@ -261,6 +261,7 @@ private:
         const std::string& defaultText,
         const std::string& suffix = std::string()) const;
     void AppendOutputLine(const std::string& text) const;
+    void ReportSdkCompatibilityStatus() const;
     bool StartBackgroundBuildTask(EBackgroundBuildTaskKind kind, const std::string& profileName);
     void TickBackgroundBuildTask();
     void ShutdownBackgroundBuildTask();

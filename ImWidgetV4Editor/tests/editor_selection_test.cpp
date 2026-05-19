@@ -1795,6 +1795,44 @@ TEST(EditorSelectionTest, WorkspaceControllerOpenDocumentFromPathDeduplicatesAnd
     std::filesystem::remove(filePath, removeError);
 }
 
+TEST(EditorSelectionTest, FocusedTextListHandlesCopyBeforeEditorShortcut)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    outputText->SetItems(std::vector<std::string>{"first log line", "second log line"});
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto app = std::make_shared<ImApplication>();
+    shellHost->SetRootWidget(outputText);
+    app->SetRootWidget(shellHost);
+    app->SetKeyboardFocus(outputText);
+
+    FInputEvent copyEvent;
+    copyEvent.Type = EInputEventType::KeyDown;
+    copyEvent.Key = EKey::C;
+    copyEvent.Modifiers.bCtrl = true;
+    AdvanceAppWithDraw(*app, {copyEvent}, FVector2(640.0f, 360.0f));
+
+    const auto outputLines = workspaceController->GetOutputLines();
+    EXPECT_TRUE(std::none_of(
+        outputLines.begin(),
+        outputLines.end(),
+        [](const std::string& line) {
+            return line.find("Copy skipped") != std::string::npos ||
+                line.find("已跳过复制") != std::string::npos;
+        }));
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerCloseActiveDocumentPromotesRemainingTab)
 {
     auto shellHost = std::make_shared<EditorShellHost>();

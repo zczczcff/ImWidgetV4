@@ -5,6 +5,7 @@
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/widgets/EditableText.h>
+#include <imwidgetv4/widgets/TextList.h>
 
 namespace ImWidgetV4Editor {
 
@@ -38,7 +39,8 @@ FReply EditorShellHost::OnPreviewInputEvent(const FInputEvent& event)
     ImApplication* application = GetApplication();
     if (application) {
         std::shared_ptr<ImWidget> focusedWidget = application->GetKeyboardFocus();
-        if (std::dynamic_pointer_cast<ImEditableText>(focusedWidget)) {
+        if (std::dynamic_pointer_cast<ImEditableText>(focusedWidget) ||
+            std::dynamic_pointer_cast<ImTextList>(focusedWidget)) {
             return ImUserWidget::OnPreviewInputEvent(event);
         }
     }

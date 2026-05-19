@@ -276,7 +276,6 @@ private:
     void UpdateOpenDocumentPathsForRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
     bool HasDirtyDocuments() const;
     bool LoadProjectManifestAtRoot(const std::filesystem::path& projectRoot, bool bLogErrors = true);
-    bool EnsureGeneratedSourceInCMakeLists(const std::string& generatedSourceFileName);
     void ClearOpenDocuments();
     void RebuildProjectView();
     void RequestProjectViewRefresh();

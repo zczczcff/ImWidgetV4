@@ -34,6 +34,7 @@ struct FProjectScaffoldResult {
 
 class ProjectScaffolder {
 public:
+    static FProjectScaffoldResult GenerateCMake(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult GenerateCode(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult Scaffold(const FProjectScaffoldRequest& request);
 };

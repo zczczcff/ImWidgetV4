@@ -1956,10 +1956,6 @@ bool EditorWorkspaceController::RegenerateProjectCode()
         return false;
     }
 
-    if (scaffoldRequest.TitleBarRootWidget) {
-        EnsureGeneratedSourceInCMakeLists(scaffoldRequest.TitleBarWidgetClassName + ".cpp");
-    }
-
     SetLocalizedOutputLine("Project.RegeneratedCode", "Regenerated project code.");
     RefreshProjectTree();
     return true;
@@ -1968,47 +1964,6 @@ bool EditorWorkspaceController::RegenerateProjectCode()
 bool EditorWorkspaceController::CloseActiveDocument(ImApplication& app)
 {
     return CloseDocumentAt(app, m_ActiveDocumentIndex);
-}
-
-bool EditorWorkspaceController::EnsureGeneratedSourceInCMakeLists(const std::string& generatedSourceFileName)
-{
-    if (m_ProjectRoot.empty() || generatedSourceFileName.empty()) {
-        return false;
-    }
-
-    const std::filesystem::path cmakeListsPath = m_ProjectRoot / "CMakeLists.txt";
-    std::ifstream input(cmakeListsPath, std::ios::binary);
-    if (!input.is_open()) {
-        return false;
-    }
-
-    std::stringstream buffer;
-    buffer << input.rdbuf();
-    std::string text = buffer.str();
-    const std::string sourceLine = "    generated/" + generatedSourceFileName;
-    if (text.find(sourceLine) != std::string::npos) {
-        return true;
-    }
-
-    const std::size_t appSourcesPos = text.find("set(IMWIDGETV4_APP_SOURCES");
-    if (appSourcesPos == std::string::npos) {
-        return false;
-    }
-
-    const std::size_t listEnd = text.find(")\n", appSourcesPos);
-    if (listEnd == std::string::npos) {
-        return false;
-    }
-
-    text.insert(listEnd, sourceLine + "\n");
-    std::ofstream output(cmakeListsPath, std::ios::binary | std::ios::trunc);
-    if (!output.is_open()) {
-        return false;
-    }
-
-    output << text;
-    output.flush();
-    return output.good();
 }
 
 bool EditorWorkspaceController::ActivateDocumentAt(int index)

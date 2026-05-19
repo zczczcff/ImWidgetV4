@@ -64,6 +64,23 @@ std::vector<std::string> SplitLinesPreserveOrder(const std::string& text)
     return lines;
 }
 
+void SetTitleBarHostActionsEnabledRecursive(
+    const std::shared_ptr<ImWidget>& widget,
+    bool bEnabled)
+{
+    if (!widget) {
+        return;
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        titleBar->SetHostWindowActionsEnabled(bEnabled);
+    }
+
+    for (const auto& child : widget->GetChildren()) {
+        SetTitleBarHostActionsEnabledRecursive(child, bEnabled);
+    }
+}
+
 std::string LocalizedEditorString(
     const std::string& key,
     const std::string& defaultText,
@@ -1723,6 +1740,9 @@ void EditorSession::ApplyDocumentToUi()
     }
 
     if (m_DesignerSurface) {
+        SetTitleBarHostActionsEnabledRecursive(
+            m_Document ? m_Document->GetRootWidget() : nullptr,
+            false);
         m_DesignerSurface->SetContentRoot(m_Document ? m_Document->GetRootWidget() : nullptr);
         m_DesignerSurface->ClearSelection();
     } else if (m_DocumentHost) {
@@ -2918,6 +2938,7 @@ void EditorSession::RefreshPreview()
         return;
     }
 
+    SetTitleBarHostActionsEnabledRecursive(previewResult.Widget, false);
     m_PreviewHost->SetContent(previewResult.Widget);
 }
 

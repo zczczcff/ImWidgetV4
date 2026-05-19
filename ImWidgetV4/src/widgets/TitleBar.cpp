@@ -202,6 +202,19 @@ void ImTitleBar::SetShowCloseButton(bool value)
     MarkLayoutDirty();
 }
 
+void ImTitleBar::SetHostWindowActionsEnabled(bool bEnabled)
+{
+    if (bHostWindowActionsEnabled_ == bEnabled) {
+        return;
+    }
+
+    bHostWindowActionsEnabled_ = bEnabled;
+    if (!bHostWindowActionsEnabled_) {
+        PressedSystemButton_ = ESystemButton::None;
+    }
+    Invalidate(EInvalidateReason::Paint);
+}
+
 void ImTitleBar::SetDragRegionMinWidth(float width)
 {
     const float clampedWidth = ClampNonNegative(width);
@@ -342,6 +355,10 @@ FReply ImTitleBar::OnInputEvent(const FInputEvent& event)
 
             if (ImApplication* application = GetApplication()) {
                 application->ClearKeyboardFocus();
+            }
+
+            if (!bHostWindowActionsEnabled_) {
+                return FReply::Handled();
             }
 
             ImApplicationBackend* backend = GetBackend();
@@ -845,6 +862,10 @@ ImApplicationBackend* ImTitleBar::GetBackend() const
 
 bool ImTitleBar::HandleSystemButtonClick(ESystemButton button)
 {
+    if (!bHostWindowActionsEnabled_) {
+        return false;
+    }
+
     ImApplicationBackend* backend = GetBackend();
     if (backend == nullptr) {
         return false;

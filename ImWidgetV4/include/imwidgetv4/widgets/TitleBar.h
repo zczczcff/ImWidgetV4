@@ -82,6 +82,8 @@ public:
     bool GetShowMinimizeButton() const { return bShowMinimizeButton_; }
     bool GetShowMaximizeButton() const { return bShowMaximizeButton_; }
     bool GetShowCloseButton() const { return bShowCloseButton_; }
+    void SetHostWindowActionsEnabled(bool bEnabled);
+    bool AreHostWindowActionsEnabled() const { return bHostWindowActionsEnabled_; }
     void SetDragRegionMinWidth(float width);
     void SetStyle(const FTitleBarStyle& style);
     const FTitleBarStyle& GetStyle() const { return GetEffectiveStyle(); }
@@ -145,6 +147,7 @@ private:
     bool bShowMaximizeButton_ = true;
     bool bShowCloseButton_ = true;
     bool bHasExplicitStyle_ = false;
+    bool bHostWindowActionsEnabled_ = true;
     float ReflectedDragRegionMinWidth_ = -1.0f;
     ESystemButton HoveredSystemButton_ = ESystemButton::None;
     ESystemButton PressedSystemButton_ = ESystemButton::None;

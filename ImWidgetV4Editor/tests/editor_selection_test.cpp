@@ -30,6 +30,7 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/OutlineView.h>
+#include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/TabView.h>
@@ -1443,6 +1444,39 @@ TEST(EditorSelectionTest, PaletteCreatedWidgetsReceiveUniqueTypeNumberNames)
     ASSERT_EQ(root->GetChildren().size(), 3u);
     EXPECT_EQ(root->GetChildren()[1]->GetName(), "Button1");
     EXPECT_EQ(root->GetChildren()[2]->GetName(), "Button2");
+}
+
+TEST(EditorSelectionTest, PreviewTitleBarDoesNotExposeHostWindowActions)
+{
+    auto session = std::make_shared<EditorSession>([]() {
+        auto titleBar = std::make_shared<ImTitleBar>();
+        titleBar->SetName("RootTitleBar");
+        return titleBar;
+    });
+    auto previewHost = std::make_shared<ImScrollBox>();
+    auto workspaceTabs = std::make_shared<ImTabView>();
+    workspaceTabs->AddTab("Designer", std::make_shared<ImTextBlock>());
+    workspaceTabs->AddTab("Preview", previewHost);
+    workspaceTabs->SetActiveTab(1);
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        previewHost,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        workspaceTabs);
+
+    session->TickDeferredRefreshes();
+
+    auto previewTitleBar = std::dynamic_pointer_cast<ImTitleBar>(previewHost->GetContent());
+    ASSERT_TRUE(previewTitleBar);
+    EXPECT_FALSE(previewTitleBar->AreHostWindowActionsEnabled());
 }
 
 TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)

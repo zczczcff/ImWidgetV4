@@ -493,6 +493,33 @@ bool StartsWith(const std::string& text, const std::string& prefix)
            std::equal(prefix.begin(), prefix.end(), text.begin());
 }
 
+bool ContainsIgnoreCase(const std::string& text, const std::string& pattern)
+{
+    if (pattern.empty() || text.size() < pattern.size()) {
+        return false;
+    }
+
+    auto toLower = [](unsigned char character) {
+        return static_cast<char>(std::tolower(character));
+    };
+
+    for (std::size_t offset = 0; offset + pattern.size() <= text.size(); ++offset) {
+        bool bMatch = true;
+        for (std::size_t index = 0; index < pattern.size(); ++index) {
+            if (toLower(static_cast<unsigned char>(text[offset + index])) !=
+                toLower(static_cast<unsigned char>(pattern[index]))) {
+                bMatch = false;
+                break;
+            }
+        }
+        if (bMatch) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 std::string ToLowerAscii(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char character) {
@@ -650,6 +677,41 @@ void HandleBackgroundBuildOutputLine(
     const std::string& line)
 {
     if (!task || line.empty()) {
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Performing download step")) {
+        UpdateBackgroundBuildTaskStatus(task, "Downloading third-party dependencies...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Performing update step")) {
+        UpdateBackgroundBuildTaskStatus(task, "Updating third-party dependencies...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Performing patch step")) {
+        UpdateBackgroundBuildTaskStatus(task, "Patching third-party dependencies...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Performing configure step")) {
+        UpdateBackgroundBuildTaskStatus(task, "Configuring dependency project...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Configuring done")) {
+        UpdateBackgroundBuildTaskStatus(task, "Generating project files...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Generating done")) {
+        UpdateBackgroundBuildTaskStatus(task, "Generating project files...");
+        return;
+    }
+
+    if (ContainsIgnoreCase(line, "Build files have been written to")) {
+        UpdateBackgroundBuildTaskStatus(task, "Generating project files...");
         return;
     }
 

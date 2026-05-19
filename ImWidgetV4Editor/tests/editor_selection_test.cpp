@@ -2337,6 +2337,26 @@ TEST(EditorSelectionTest, WorkspaceControllerRunProjectRejectsAndroidProfile)
     std::filesystem::remove_all(tempRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, WorkspaceControllerStopRunningProjectReturnsFalseWhenIdle)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    EXPECT_FALSE(workspaceController->IsRunTaskRunning());
+    EXPECT_FALSE(workspaceController->StopRunningProject());
+}
+
 TEST(EditorSelectionTest, WorkspaceControllerOpenAppProjectAtLoadsManifestAndStartupDocument)
 {
     auto shellHost = std::make_shared<EditorShellHost>();

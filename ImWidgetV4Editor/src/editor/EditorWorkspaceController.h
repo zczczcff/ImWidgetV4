@@ -29,6 +29,10 @@ class ImWidget;
 class ImWindow;
 }
 
+namespace ImWidgetV4 {
+class FProcessCancelToken;
+}
+
 namespace ImWidgetV4Editor {
 
 struct FCreateAppProjectOptions;
@@ -77,12 +81,14 @@ public:
     bool BuildProject(const std::string& profileName);
     bool RunProject();
     bool RunProject(const std::string& profileName);
+    bool StopRunningProject();
     bool CleanProject();
     bool CleanProject(const std::string& profileName);
     bool RebuildProject();
     bool RebuildProject(const std::string& profileName);
     void TickBackgroundTasks();
     bool IsBuildTaskRunning() const;
+    bool IsRunTaskRunning() const;
     std::string GetBuildTaskStatusText() const;
     std::string GetActiveBuildProfileName() const;
     FEnvironmentProbeReport GetActiveBuildProfileProbeReport() const;
@@ -178,6 +184,7 @@ private:
         mutable std::mutex Mutex;
         std::vector<std::string> PendingOutputLines;
         FBuildResult Result;
+        std::shared_ptr<ImWidgetV4::FProcessCancelToken> ProcessCancelToken;
         std::string StatusText;
         bool bStatusDirty = false;
         bool bFinished = false;

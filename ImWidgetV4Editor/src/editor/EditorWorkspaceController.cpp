@@ -1158,6 +1158,30 @@ bool EditorWorkspaceController::RunProject(const std::string& profileName)
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Run, resolvedProfileName);
 }
 
+bool EditorWorkspaceController::StopRunningProject()
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
+        return false;
+    }
+
+    std::shared_ptr<FProcessCancelToken> cancelToken;
+    {
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        if (task->Kind != EBackgroundBuildTaskKind::Run || task->bFinished || !task->ProcessCancelToken) {
+            return false;
+        }
+
+        cancelToken = task->ProcessCancelToken;
+        UpdateBackgroundBuildTaskStatus(task, EditorText("Build.StoppingRun", "Stopping run...").Resolve());
+    }
+
+    cancelToken->RequestCancel();
+    AppendOutputLine(LocalizedEditorString("Build.StoppingRun", "Stopping run..."));
+    NotifyProjectStateChanged();
+    return true;
+}
+
 bool EditorWorkspaceController::CleanProject()
 {
     if (!m_Project || m_ProjectRoot.empty()) {
@@ -1233,6 +1257,17 @@ bool EditorWorkspaceController::IsBuildTaskRunning() const
 
     std::lock_guard<std::mutex> lock(task->Mutex);
     return !task->bFinished;
+}
+
+bool EditorWorkspaceController::IsRunTaskRunning() const
+{
+    const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
+    if (!task) {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(task->Mutex);
+    return task->Kind == EBackgroundBuildTaskKind::Run && !task->bFinished;
 }
 
 std::string EditorWorkspaceController::GetBuildTaskStatusText() const
@@ -3398,6 +3433,9 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
     auto task = std::make_shared<FBackgroundBuildTaskState>();
     task->Kind = kind;
     task->ProfileName = profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (kind == EBackgroundBuildTaskKind::Run) {
+        task->ProcessCancelToken = std::make_shared<FProcessCancelToken>();
+    }
     const FEditorBuildProfile* selectedProfile = project->FindBuildProfile(task->ProfileName);
     if (task->ProfileName.empty() || selectedProfile == nullptr) {
         AppendOutputLine(LocalizedEditorString("Build.RequestIgnoredProfileNotFound", "Build request ignored: build profile not found."));
@@ -3468,8 +3506,10 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
             const FProcessExecutionResult processResult = ImWidgetV4::ExecuteProcess(
                 executablePath.parent_path(),
                 {executablePath.string()},
-                outputCallback);
+                outputCallback,
+                task->ProcessCancelToken);
             result.bSuccess = processResult.bSuccess;
+            result.bCancelled = processResult.bCancelled;
             result.ExitCode = processResult.ExitCode;
             result.ErrorMessage = processResult.ErrorMessage;
             break;
@@ -3493,7 +3533,9 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
             BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         UpdateBackgroundBuildTaskStatus(
             task,
-            task->Result.bSuccess
+            task->Result.bCancelled
+                ? (completedTaskDisplayName + " " + EditorText("Build.Stopped", "stopped.").Resolve())
+                : task->Result.bSuccess
                 ? (completedTaskDisplayName + " " + EditorText("Build.Finished", "finished.").Resolve())
                 : (completedTaskDisplayName + " " + EditorText("Build.Failed", "failed.").Resolve()));
     });
@@ -3545,7 +3587,11 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
         task->Worker.join();
     }
 
-    if (result.bSuccess) {
+    if (result.bCancelled) {
+        const std::string completedTaskDisplayName =
+            BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
+        AppendOutputLine(completedTaskDisplayName + " " + EditorText("Build.Stopped", "stopped.").Resolve());
+    } else if (result.bSuccess) {
         const std::string completedTaskDisplayName =
             BuildBackgroundTaskDisplayName(static_cast<int>(task->Kind));
         AppendOutputLine(
@@ -3574,6 +3620,13 @@ void EditorWorkspaceController::ShutdownBackgroundBuildTask()
     const std::shared_ptr<FBackgroundBuildTaskState> task = m_BackgroundBuildTask;
     if (!task) {
         return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(task->Mutex);
+        if (task->Kind == EBackgroundBuildTaskKind::Run && !task->bFinished && task->ProcessCancelToken) {
+            task->ProcessCancelToken->RequestCancel();
+        }
     }
 
     if (task->Worker.joinable()) {

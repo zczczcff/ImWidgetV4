@@ -1617,6 +1617,7 @@ void UpdateBuildDockActions(
 {
     const bool bHasProject = workspaceController && workspaceController->GetProject();
     const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
+    const bool bRunRunning = workspaceController && workspaceController->IsRunTaskRunning();
     const std::string activeProfileName =
         workspaceController ? workspaceController->GetActiveBuildProfileName() : std::string();
     const std::shared_ptr<EditorProject> project =
@@ -1749,12 +1750,16 @@ void UpdateBuildDockActions(
     }
     if (shell.BuildRunButton) {
         const bool bEnableRun =
-            bHasProject &&
-            activeProfile != nullptr &&
-            activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
-            !activeProfileName.empty() &&
-            !bBuildRunning;
+            bRunRunning ||
+            (bHasProject &&
+                activeProfile != nullptr &&
+                activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+                !activeProfileName.empty() &&
+                !bBuildRunning);
         shell.BuildRunButton->SetDisabled(!bEnableRun);
+        shell.BuildRunButton->SetText(bRunRunning
+            ? EditorText("Build.Stop", "Stop")
+            : EditorText("Build.Run", "Run"));
     }
     if (shell.BuildCleanButton) {
         shell.BuildCleanButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
@@ -1770,11 +1775,12 @@ void UpdateBuildDockActions(
     }
 
     const bool bCanRunActiveProfile =
-        bHasProject &&
-        activeProfile != nullptr &&
-        activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
-        !activeProfileName.empty() &&
-        !bBuildRunning;
+        bRunRunning ||
+        (bHasProject &&
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+            !activeProfileName.empty() &&
+            !bBuildRunning);
     const bool bCanUseActiveBuildProfile = bHasProject && !activeProfileName.empty() && !bBuildRunning;
     if (shell.TitleBarConfigureButton) {
         shell.TitleBarConfigureButton->SetDisabled(!bCanUseActiveBuildProfile);
@@ -1790,8 +1796,15 @@ void UpdateBuildDockActions(
     }
     if (shell.TitleBarRunButton) {
         shell.TitleBarRunButton->SetDisabled(!bCanRunActiveProfile);
+        shell.TitleBarRunButton->SetToolTipText(bRunRunning
+            ? EditorText("Build.Stop", "Stop")
+            : EditorText("Build.Run", "Run"));
         shell.TitleBarRunButton->SetContent(MakeTitleBarIcon(
-            app.GetCoreIconBrush(ECoreIcon::Play, bCanRunActiveProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            app.GetCoreIconBrush(
+                bRunRunning ? ECoreIcon::Stop : ECoreIcon::Play,
+                bRunRunning
+                    ? GetEditorDangerColor()
+                    : (bCanRunActiveProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor())),
             16.0f));
     }
 }
@@ -2120,7 +2133,11 @@ public:
             Shell_.BuildRunButton->OnClicked.AddLambda(
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
-                        lockedWorkspace->RunProject();
+                        if (lockedWorkspace->IsRunTaskRunning()) {
+                            lockedWorkspace->StopRunningProject();
+                        } else {
+                            lockedWorkspace->RunProject();
+                        }
                     }
                 });
         }
@@ -2144,7 +2161,11 @@ public:
             Shell_.TitleBarRunButton->OnClicked.AddLambda(
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
-                        lockedWorkspace->RunProject();
+                        if (lockedWorkspace->IsRunTaskRunning()) {
+                            lockedWorkspace->StopRunningProject();
+                        } else {
+                            lockedWorkspace->RunProject();
+                        }
                     }
                 });
         }

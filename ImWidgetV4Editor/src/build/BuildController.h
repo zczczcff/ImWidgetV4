@@ -12,6 +12,7 @@ namespace ImWidgetV4Editor {
 
 struct FBuildResult {
     bool bSuccess = false;
+    bool bCancelled = false;
     int ExitCode = -1;
     std::filesystem::path BuildDirectory;
     std::string ErrorMessage;

@@ -158,10 +158,29 @@ std::string BuildProcessCommandLineForDisplay(const std::vector<std::string>& ar
     return JoinArgumentsForDisplay(arguments);
 }
 
+void FProcessCancelToken::RequestCancel()
+{
+    bCancelRequested_.store(true, std::memory_order_release);
+}
+
+bool FProcessCancelToken::IsCancellationRequested() const
+{
+    return bCancelRequested_.load(std::memory_order_acquire);
+}
+
 FProcessExecutionResult ExecuteProcess(
     const std::filesystem::path& workingDirectory,
     const std::vector<std::string>& arguments,
     const FProcessOutputCallback& outputCallback)
+{
+    return ExecuteProcess(workingDirectory, arguments, outputCallback, nullptr);
+}
+
+FProcessExecutionResult ExecuteProcess(
+    const std::filesystem::path& workingDirectory,
+    const std::vector<std::string>& arguments,
+    const FProcessOutputCallback& outputCallback,
+    const std::shared_ptr<FProcessCancelToken>& cancelToken)
 {
     FProcessExecutionResult result;
     if (arguments.empty()) {
@@ -214,8 +233,38 @@ FProcessExecutionResult ExecuteProcess(
 
     std::string pendingLine;
     char buffer[4096];
-    DWORD bytesRead = 0;
-    while (ReadFile(readPipe, buffer, static_cast<DWORD>(sizeof(buffer)), &bytesRead, nullptr) && bytesRead > 0) {
+    bool bTerminationRequested = false;
+    bool bProcessExited = false;
+    while (!bProcessExited) {
+        if (cancelToken && cancelToken->IsCancellationRequested() && !bTerminationRequested) {
+            TerminateProcess(processInformation.hProcess, 1);
+            bTerminationRequested = true;
+        }
+
+        DWORD availableBytes = 0;
+        if (PeekNamedPipe(readPipe, nullptr, 0, nullptr, &availableBytes, nullptr) && availableBytes > 0) {
+            DWORD bytesRead = 0;
+            const DWORD bytesToRead = std::min<DWORD>(availableBytes, static_cast<DWORD>(sizeof(buffer)));
+            if (ReadFile(readPipe, buffer, bytesToRead, &bytesRead, nullptr) && bytesRead > 0) {
+                EmitOutputLines(std::string(buffer, buffer + bytesRead), pendingLine, outputCallback);
+                continue;
+            }
+        }
+
+        bProcessExited = WaitForSingleObject(processInformation.hProcess, 25) == WAIT_OBJECT_0;
+    }
+
+    for (;;) {
+        DWORD availableBytes = 0;
+        if (!PeekNamedPipe(readPipe, nullptr, 0, nullptr, &availableBytes, nullptr) || availableBytes == 0) {
+            break;
+        }
+
+        DWORD bytesRead = 0;
+        const DWORD bytesToRead = std::min<DWORD>(availableBytes, static_cast<DWORD>(sizeof(buffer)));
+        if (!ReadFile(readPipe, buffer, bytesToRead, &bytesRead, nullptr) || bytesRead == 0) {
+            break;
+        }
         EmitOutputLines(std::string(buffer, buffer + bytesRead), pendingLine, outputCallback);
     }
 
@@ -226,8 +275,6 @@ FProcessExecutionResult ExecuteProcess(
         }
     }
 
-    WaitForSingleObject(processInformation.hProcess, INFINITE);
-
     DWORD exitCode = 0;
     GetExitCodeProcess(processInformation.hProcess, &exitCode);
     CloseHandle(processInformation.hThread);
@@ -235,7 +282,12 @@ FProcessExecutionResult ExecuteProcess(
     CloseHandle(readPipe);
 
     result.ExitCode = static_cast<int>(exitCode);
-    result.bSuccess = exitCode == 0;
+    result.bCancelled = bTerminationRequested;
+    result.bSuccess = !result.bCancelled && exitCode == 0;
+    if (result.bCancelled) {
+        result.ErrorMessage = "Process was stopped.";
+        return result;
+    }
     if (!result.bSuccess) {
         std::ostringstream error;
         error << "Process exited with code " << exitCode << ".";
@@ -259,6 +311,9 @@ FProcessExecutionResult ExecuteProcess(
     std::string pendingLine;
     char buffer[4096];
     while (fgets(buffer, static_cast<int>(sizeof(buffer)), pipe) != nullptr) {
+        if (cancelToken && cancelToken->IsCancellationRequested()) {
+            break;
+        }
         EmitOutputLines(buffer, pendingLine, outputCallback);
     }
 
@@ -276,7 +331,12 @@ FProcessExecutionResult ExecuteProcess(
     }
 
     result.ExitCode = exitCode;
-    result.bSuccess = exitCode == 0;
+    result.bCancelled = cancelToken && cancelToken->IsCancellationRequested();
+    result.bSuccess = !result.bCancelled && exitCode == 0;
+    if (result.bCancelled) {
+        result.ErrorMessage = "Process was stopped.";
+        return result;
+    }
     if (!result.bSuccess) {
         std::ostringstream error;
         error << "Process exited with code " << exitCode << ".";
@@ -287,4 +347,3 @@ FProcessExecutionResult ExecuteProcess(
 }
 
 } // namespace ImWidgetV4
-

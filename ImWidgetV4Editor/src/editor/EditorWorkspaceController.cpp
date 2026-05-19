@@ -479,6 +479,8 @@ std::string BuildBackgroundTaskDisplayName(int kind)
     case 3:
         return EditorText("Build.Clean", "Clean").Resolve();
     case 4:
+        return EditorText("Build.ClearCache", "Clear Cache").Resolve();
+    case 5:
         return EditorText("Build.Rebuild", "Rebuild").Resolve();
     default:
         return EditorText("Build.Build", "Build").Resolve();
@@ -489,6 +491,89 @@ bool StartsWith(const std::string& text, const std::string& prefix)
 {
     return text.size() >= prefix.size() &&
            std::equal(prefix.begin(), prefix.end(), text.begin());
+}
+
+std::string ToLowerAscii(std::string text)
+{
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char character) {
+        return static_cast<char>(std::tolower(character));
+    });
+    return text;
+}
+
+bool IsFetchContentCacheRemovalFailureLine(const std::string& line)
+{
+    const std::string lowerLine = ToLowerAscii(line);
+    return lowerLine.find("error removing directory") != std::string::npos &&
+           lowerLine.find("_deps") != std::string::npos &&
+           lowerLine.find("-src") != std::string::npos;
+}
+
+bool IsBuildDirectoryInsideProjectRoot(
+    const std::filesystem::path& projectRoot,
+    const std::filesystem::path& buildDirectory)
+{
+    if (projectRoot.empty() || buildDirectory.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path normalizedProjectRoot = projectRoot.lexically_normal();
+    const std::filesystem::path normalizedBuildDirectory = buildDirectory.lexically_normal();
+    if (normalizedProjectRoot == normalizedBuildDirectory) {
+        return false;
+    }
+
+    auto rootIterator = normalizedProjectRoot.begin();
+    auto buildIterator = normalizedBuildDirectory.begin();
+    for (; rootIterator != normalizedProjectRoot.end(); ++rootIterator, ++buildIterator) {
+        if (buildIterator == normalizedBuildDirectory.end() || *rootIterator != *buildIterator) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+FBuildResult ClearBuildDirectoryCache(
+    const EditorProject& project,
+    const FEditorBuildProfile& profile,
+    const BuildController::FOutputCallback& outputCallback)
+{
+    FBuildResult result;
+    result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), profile);
+
+    if (!IsBuildDirectoryInsideProjectRoot(project.GetProjectRoot(), result.BuildDirectory)) {
+        result.ErrorMessage = EditorText("Build.ClearCacheRefusedOutsideProject", "Clear cache refused: build directory is outside the project root.").Resolve();
+        return result;
+    }
+
+    if (outputCallback) {
+        outputCallback("[clear-cache:" + profile.Name + "] " + result.BuildDirectory.string());
+    }
+
+    std::error_code errorCode;
+    if (!std::filesystem::exists(result.BuildDirectory, errorCode)) {
+        result.bSuccess = true;
+        result.ExitCode = 0;
+        if (outputCallback) {
+            outputCallback(EditorText("Build.ClearCacheDirectoryAlreadyAbsent", "Build cache directory does not exist.").Resolve());
+        }
+        return result;
+    }
+
+    std::filesystem::remove_all(result.BuildDirectory, errorCode);
+    if (errorCode) {
+        result.ErrorMessage =
+            EditorText("Build.ClearCacheFailed", "Clear cache failed").Resolve() + ": " + errorCode.message();
+        return result;
+    }
+
+    result.bSuccess = true;
+    result.ExitCode = 0;
+    if (outputCallback) {
+        outputCallback(EditorText("Build.ClearCacheComplete", "Build cache directory removed.").Resolve());
+    }
+    return result;
 }
 
 bool TryParseBracketProgress(const std::string& line, int& outCurrent, int& outTotal)
@@ -568,19 +653,33 @@ void HandleBackgroundBuildOutputLine(
         return;
     }
 
-    if (StartsWith(line, "[configure]")) {
+    if (StartsWith(line, "[configure")) {
         UpdateBackgroundBuildTaskStatus(task, "Configuring project...");
         return;
     }
 
-    if (StartsWith(line, "[build]")) {
+    if (StartsWith(line, "[build")) {
         UpdateBackgroundBuildTaskStatus(task, "Starting build...");
         return;
     }
 
-    if (StartsWith(line, "[run]")) {
+    if (StartsWith(line, "[run")) {
         UpdateBackgroundBuildTaskStatus(task, "Running application...");
         return;
+    }
+
+    if (StartsWith(line, "[clean")) {
+        UpdateBackgroundBuildTaskStatus(task, "Cleaning project...");
+        return;
+    }
+
+    if (StartsWith(line, "[clear-cache")) {
+        UpdateBackgroundBuildTaskStatus(task, "Clearing build cache...");
+        return;
+    }
+
+    if (IsFetchContentCacheRemovalFailureLine(line)) {
+        task->bSawFetchContentCacheRemovalFailure = true;
     }
 
     int current = 0;
@@ -1252,6 +1351,33 @@ bool EditorWorkspaceController::CleanProject(const std::string& profileName)
     }
 
     return StartBackgroundBuildTask(EBackgroundBuildTaskKind::Clean, resolvedProfileName);
+}
+
+bool EditorWorkspaceController::ClearBuildCache()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine(EditorText("Build.ClearCacheFailedProjectRootNotConfigured", "Clear cache failed: project root not configured.").Resolve());
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::ClearCache, m_Project->GetActiveBuildProfileName());
+}
+
+bool EditorWorkspaceController::ClearBuildCache(const std::string& profileName)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        AppendOutputLine(EditorText("Build.ClearCacheFailedProjectRootNotConfigured", "Clear cache failed: project root not configured.").Resolve());
+        return false;
+    }
+
+    const std::string resolvedProfileName =
+        profileName.empty() ? m_Project->GetActiveBuildProfileName() : profileName;
+    if (resolvedProfileName.empty() || m_Project->FindBuildProfile(resolvedProfileName) == nullptr) {
+        AppendOutputLine(EditorText("Build.ClearCacheFailedProfileNotFound", "Clear cache failed: build profile not found.").Resolve());
+        return false;
+    }
+
+    return StartBackgroundBuildTask(EBackgroundBuildTaskKind::ClearCache, resolvedProfileName);
 }
 
 bool EditorWorkspaceController::RebuildProject()
@@ -3645,6 +3771,15 @@ bool EditorWorkspaceController::StartBackgroundBuildTask(
         case EBackgroundBuildTaskKind::Clean:
             result = controller.CleanProject(*project, task->ProfileName, outputCallback);
             break;
+        case EBackgroundBuildTaskKind::ClearCache: {
+            const FEditorBuildProfile* profile = project->FindBuildProfile(task->ProfileName);
+            if (profile == nullptr) {
+                result.ErrorMessage = EditorText("Build.ClearCacheFailedProfileNotFound", "Clear cache failed: build profile not found.").Resolve();
+                break;
+            }
+            result = ClearBuildDirectoryCache(*project, *profile, outputCallback);
+            break;
+        }
         case EBackgroundBuildTaskKind::Rebuild:
             result = controller.RebuildProject(*project, task->ProfileName, outputCallback);
             break;
@@ -3683,6 +3818,7 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
     FBuildResult result;
     bool bFinished = false;
     bool bRefreshProjectTree = false;
+    bool bSawFetchContentCacheRemovalFailure = false;
 
     {
         std::lock_guard<std::mutex> lock(task->Mutex);
@@ -3693,6 +3829,7 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
         }
         bFinished = task->bFinished;
         bRefreshProjectTree = task->bRefreshProjectTreeOnCompletion;
+        bSawFetchContentCacheRemovalFailure = task->bSawFetchContentCacheRemovalFailure;
         if (bFinished) {
             result = task->Result;
         }
@@ -3733,6 +3870,11 @@ void EditorWorkspaceController::TickBackgroundBuildTask()
             (result.ErrorMessage.empty()
                 ? (EditorText("Build.ProcessExitedWithCode", "Process exited with code").Resolve() + " " + std::to_string(result.ExitCode) + ".")
                 : result.ErrorMessage));
+        if (bSawFetchContentCacheRemovalFailure) {
+            AppendOutputLine(EditorText(
+                "Build.FetchContentCacheRemovalHint",
+                "Hint: CMake could not remove a FetchContent dependency cache directory. Stop any running CMake/MSBuild/Git process, then use Clear Cache for this profile and configure again.").Resolve());
+        }
     }
 
     if (bRefreshProjectTree) {

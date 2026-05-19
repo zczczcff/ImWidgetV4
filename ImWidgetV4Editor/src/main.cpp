@@ -123,6 +123,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImButton> BuildBuildButton;
     std::shared_ptr<ImButton> BuildRunButton;
     std::shared_ptr<ImButton> BuildCleanButton;
+    std::shared_ptr<ImButton> BuildClearCacheButton;
     std::shared_ptr<ImButton> BuildRebuildButton;
     std::shared_ptr<ImButton> BuildApplyProfileButton;
     std::shared_ptr<ImButton> BuildReprobeButton;
@@ -580,6 +581,9 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto cleanButton = std::make_shared<ImButton>();
     cleanButton->SetText(EditorText("Build.Clean", "Clean"));
 
+    auto clearCacheButton = std::make_shared<ImButton>();
+    clearCacheButton->SetText(EditorText("Build.ClearCache", "Clear Cache"));
+
     auto rebuildButton = std::make_shared<ImButton>();
     rebuildButton->SetText(EditorText("Build.Rebuild", "Rebuild"));
 
@@ -629,6 +633,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(runButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(cleanButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(clearCacheButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(rebuildButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(revealButton, 1.0f, FMargin(0.0f));
 
@@ -656,6 +661,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     shell.BuildBuildButton = buildButton;
     shell.BuildRunButton = runButton;
     shell.BuildCleanButton = cleanButton;
+    shell.BuildClearCacheButton = clearCacheButton;
     shell.BuildRebuildButton = rebuildButton;
     shell.BuildApplyProfileButton = applyProfileButton;
     shell.BuildReprobeButton = reprobeButton;
@@ -1006,6 +1012,11 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                 workspaceController->CleanProject();
             }
         }),
+        MakeEditorMenuItem("Build.ClearCacheActiveProfile", "Clear Active Profile Cache", bHasProject && !bBuildRunning, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->ClearBuildCache();
+            }
+        }),
         MakeEditorMenuItem("Build.RebuildActiveProfile", "Rebuild Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RebuildProject();
@@ -1078,6 +1089,15 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
                         [workspaceController, profileName = profile.Name]() {
                             if (workspaceController) {
                                 workspaceController->CleanProject(profileName);
+                            }
+                        }),
+                    MakeEditorMenuItem(
+                        "Menu.ClearThisProfileCache",
+                        "Clear This Profile Cache",
+                        !bBuildRunning,
+                        [workspaceController, profileName = profile.Name]() {
+                            if (workspaceController) {
+                                workspaceController->ClearBuildCache(profileName);
                             }
                         }),
                     MakeEditorMenuItem(
@@ -1820,6 +1840,9 @@ void UpdateBuildDockActions(
     if (shell.BuildCleanButton) {
         shell.BuildCleanButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
+    if (shell.BuildClearCacheButton) {
+        shell.BuildClearCacheButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
+    }
     if (shell.BuildRebuildButton) {
         shell.BuildRebuildButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
@@ -2247,6 +2270,14 @@ public:
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
                         lockedWorkspace->CleanProject();
+                    }
+                });
+        }
+        if (Shell_.BuildClearCacheButton) {
+            Shell_.BuildClearCacheButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->ClearBuildCache();
                     }
                 });
         }

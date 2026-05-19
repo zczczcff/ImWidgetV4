@@ -85,6 +85,8 @@ public:
     bool StopRunningProject();
     bool CleanProject();
     bool CleanProject(const std::string& profileName);
+    bool ClearBuildCache();
+    bool ClearBuildCache(const std::string& profileName);
     bool RebuildProject();
     bool RebuildProject(const std::string& profileName);
     void TickBackgroundTasks();
@@ -151,6 +153,7 @@ private:
         Build,
         Run,
         Clean,
+        ClearCache,
         Rebuild
     };
 
@@ -198,6 +201,7 @@ private:
         bool bStatusDirty = false;
         bool bFinished = false;
         bool bRefreshProjectTreeOnCompletion = false;
+        bool bSawFetchContentCacheRemovalFailure = false;
         int LastReportedPercent = -1;
     };
 

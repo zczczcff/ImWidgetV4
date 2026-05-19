@@ -9,6 +9,11 @@
 
 namespace ImWidgetV4Editor {
 
+enum class EEditorLibraryIntegrationMode {
+    Source,
+    SDK
+};
+
 struct FEditorApplicationSettings {
     std::string Title;
     std::filesystem::path IconPath;
@@ -21,6 +26,8 @@ struct FEditorApplicationSettings {
     std::filesystem::path TitleBarDocumentRelativePath;
     bool bShowSystemButtons = true;
     bool bUseTitleBarMenus = false;
+    EEditorLibraryIntegrationMode LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
+    std::filesystem::path SdkPackagePath;
     std::string DefaultTheme;
     std::string DefaultCulture;
     std::vector<std::filesystem::path> StringTablePaths;

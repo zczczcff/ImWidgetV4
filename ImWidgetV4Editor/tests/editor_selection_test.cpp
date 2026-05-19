@@ -2537,6 +2537,8 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     settings.bUseTitleBar = true;
     settings.bShowSystemButtons = false;
     settings.bUseTitleBarMenus = true;
+    settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+    settings.SdkPackagePath = std::filesystem::path("sdk") / "cmake";
     settings.DefaultTheme = "Light";
     settings.DefaultCulture = "zh-CN";
     settings.StringTablePaths = {
@@ -2565,6 +2567,8 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     EXPECT_EQ(restoredSettings.TitleBarDocumentRelativePath.generic_string(), "ui/TitleBar.ui.json");
     EXPECT_FALSE(restoredSettings.bShowSystemButtons);
     EXPECT_TRUE(restoredSettings.bUseTitleBarMenus);
+    EXPECT_EQ(restoredSettings.LibraryIntegrationMode, EEditorLibraryIntegrationMode::SDK);
+    EXPECT_EQ(restoredSettings.SdkPackagePath.generic_string(), "sdk/cmake");
     EXPECT_EQ(restoredSettings.DefaultTheme, "Light");
     EXPECT_EQ(restoredSettings.DefaultCulture, "zh-CN");
     ASSERT_EQ(restoredSettings.StringTablePaths.size(), 2U);
@@ -2605,6 +2609,7 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     request.ApplicationSettings.bUseTitleBar = true;
     request.ApplicationSettings.bShowSystemButtons = false;
     request.ApplicationSettings.bUseTitleBarMenus = true;
+    request.ApplicationSettings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
     request.ApplicationSettings.DefaultTheme = "Light";
     request.ApplicationSettings.DefaultCulture = "zh-CN";
     request.ApplicationSettings.StringTablePaths = {
@@ -2653,12 +2658,55 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     EXPECT_NE(text.find("bool InitializeApplication"), std::string::npos);
     EXPECT_NE(text.find("void Tick"), std::string::npos);
 
+    const std::filesystem::path generatedCMakePath =
+        request.ProjectRoot / "cmake" / "ImWidgetV4GeneratedProject.cmake";
+    std::ifstream cmakeStream(generatedCMakePath, std::ios::binary);
+    std::stringstream cmakeBuffer;
+    cmakeBuffer << cmakeStream.rdbuf();
+    const std::string cmakeText = cmakeBuffer.str();
+    EXPECT_NE(cmakeText.find("set(IMWIDGETV4_LIBRARY_MODE \"Source\""), std::string::npos);
+    EXPECT_NE(cmakeText.find("add_subdirectory(\"${IMWIDGETV4_ROOT}\""), std::string::npos);
+
     const std::filesystem::path titleBarSourcePath = request.ProjectRoot / "generated" / "TitleBarView.cpp";
     std::ifstream titleBarStream(titleBarSourcePath, std::ios::binary);
     std::stringstream titleBarBuffer;
     titleBarBuffer << titleBarStream.rdbuf();
     const std::string titleBarText = titleBarBuffer.str();
     EXPECT_NE(titleBarText.find("RootTitleBar->AddLeadingItem(TitleText);"), std::string::npos);
+
+    std::filesystem::remove_all(request.ProjectRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
+{
+    auto rootWidget = std::make_shared<ImCanvasPanel>();
+    rootWidget->SetName("RootCanvas");
+
+    FProjectScaffoldRequest request;
+    request.ProjectRoot = std::filesystem::temp_directory_path() / "imwidgetv4_editor_scaffold_sdk_integration";
+    request.ProjectName = "SdkApp";
+    request.NamespaceName = "SdkApp";
+    request.StartupWidgetClassName = "MainView";
+    request.StartupRootWidget = rootWidget;
+    request.ApplicationSettings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+    request.ApplicationSettings.SdkPackagePath = std::filesystem::path("vendor") / "ImWidgetV4-SDK" / "cmake";
+
+    std::error_code errorCode;
+    std::filesystem::remove_all(request.ProjectRoot, errorCode);
+    const FProjectScaffoldResult result = ProjectScaffolder::Scaffold(request);
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+
+    const std::filesystem::path generatedCMakePath =
+        request.ProjectRoot / "cmake" / "ImWidgetV4GeneratedProject.cmake";
+    std::ifstream stream(generatedCMakePath, std::ios::binary);
+    std::stringstream buffer;
+    buffer << stream.rdbuf();
+    const std::string text = buffer.str();
+
+    EXPECT_NE(text.find("set(IMWIDGETV4_LIBRARY_MODE \"SDK\""), std::string::npos);
+    EXPECT_NE(text.find("set(IMWIDGETV4_SDK_DIR \"vendor/ImWidgetV4-SDK/cmake\""), std::string::npos);
+    EXPECT_NE(text.find("find_package(ImWidgetV4 CONFIG REQUIRED"), std::string::npos);
+    EXPECT_NE(text.find("SDK integration is not ready for generated app projects yet"), std::string::npos);
 
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }

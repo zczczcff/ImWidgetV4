@@ -78,6 +78,8 @@ private:
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseCustomHostChromeSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_ShowSystemButtonsSwitch;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_LibraryIntegrationModeComboBox;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_SdkPackagePathEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultThemeEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultCultureEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_StringTablePathsEditor;
@@ -85,6 +87,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImSwitch> m_GenerateTickStubSwitch;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_IniSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_TitleBarSettingsGroup;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_SdkSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_WindowsSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_AndroidSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImTextList> m_ProbeText;

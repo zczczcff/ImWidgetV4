@@ -74,6 +74,21 @@ std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
     return generator.empty() ? EditorText("Common.Default", "Default").Resolve() : generator;
 }
 
+std::vector<std::string> GetLibraryIntegrationModeOptions()
+{
+    return {"Source", "SDK"};
+}
+
+int GetLibraryIntegrationModeIndex(EEditorLibraryIntegrationMode mode)
+{
+    return mode == EEditorLibraryIntegrationMode::SDK ? 1 : 0;
+}
+
+EEditorLibraryIntegrationMode GetLibraryIntegrationModeFromIndex(int index)
+{
+    return index == 1 ? EEditorLibraryIntegrationMode::SDK : EEditorLibraryIntegrationMode::Source;
+}
+
 std::string JoinPathList(const std::vector<std::filesystem::path>& paths)
 {
     std::string result;
@@ -209,6 +224,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto useCustomHostChromeSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseCustomHostChrome);
     auto useTitleBarSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBar);
     auto showSystemButtonsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bShowSystemButtons);
+    auto libraryIntegrationModeComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*libraryIntegrationModeComboBox);
+    libraryIntegrationModeComboBox->SetItems(GetLibraryIntegrationModeOptions());
+    libraryIntegrationModeComboBox->SetSelectedIndex(GetLibraryIntegrationModeIndex(m_Options.ApplicationSettings.LibraryIntegrationMode));
+    auto sdkPackagePathEditor = MakeEditableTextField(m_Options.ApplicationSettings.SdkPackagePath.generic_string());
+    sdkPackagePathEditor->SetHintText("path/to/ImWidgetV4-SDK/cmake");
     auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
     defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
     auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
@@ -242,6 +263,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     titleBarSettingsGroup->SetSpacing(8.0f);
     titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.ShowSystemButtons", "Show System Buttons").Resolve(), showSystemButtonsSwitch), FMargin(0.0f));
     applicationSettingsGroup->AddChild(titleBarSettingsGroup, FMargin(0.0f));
+
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.LibraryIntegration", "Library Integration").Resolve(), libraryIntegrationModeComboBox), FMargin(0.0f));
+    auto sdkSettingsGroup = std::make_shared<ImVerticalBox>();
+    sdkSettingsGroup->SetSpacing(8.0f);
+    sdkSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.SdkPackagePath", "SDK Package Path").Resolve(), sdkPackagePathEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(sdkSettingsGroup, FMargin(0.0f));
 
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultTheme", "Default Theme").Resolve(), defaultThemeEditor), FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultCulture", "Default Culture").Resolve(), defaultCultureEditor), FMargin(0.0f));
@@ -341,6 +368,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_UseCustomHostChromeSwitch = useCustomHostChromeSwitch;
     m_UseTitleBarSwitch = useTitleBarSwitch;
     m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
+    m_LibraryIntegrationModeComboBox = libraryIntegrationModeComboBox;
+    m_SdkPackagePathEditor = sdkPackagePathEditor;
     m_DefaultThemeEditor = defaultThemeEditor;
     m_DefaultCultureEditor = defaultCultureEditor;
     m_StringTablePathsEditor = stringTablePathsEditor;
@@ -348,6 +377,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_GenerateTickStubSwitch = generateTickStubSwitch;
     m_IniSettingsGroup = iniSettingsGroup;
     m_TitleBarSettingsGroup = titleBarSettingsGroup;
+    m_SdkSettingsGroup = sdkSettingsGroup;
     m_WindowsSettingsGroup = windowsSettingsGroup;
     m_AndroidSettingsGroup = androidSettingsGroup;
     m_ProbeText = probeText;
@@ -417,6 +447,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     });
 
     useTitleBarSwitch->OnCheckStateChanged.AddLambda([weakThis](ImSwitch&, bool) {
+        if (auto self = weakThis.lock()) {
+            self->RefreshApplicationEditorVisibility();
+        }
+    });
+
+    libraryIntegrationModeComboBox->OnSelectionChanged.AddLambda([weakThis](ImComboBox&, int) {
         if (auto self = weakThis.lock()) {
             self->RefreshApplicationEditorVisibility();
         }
@@ -582,6 +618,8 @@ void ProjectSettingsDialog::Reset()
     m_UseCustomHostChromeSwitch.reset();
     m_UseTitleBarSwitch.reset();
     m_ShowSystemButtonsSwitch.reset();
+    m_LibraryIntegrationModeComboBox.reset();
+    m_SdkPackagePathEditor.reset();
     m_DefaultThemeEditor.reset();
     m_DefaultCultureEditor.reset();
     m_StringTablePathsEditor.reset();
@@ -589,6 +627,7 @@ void ProjectSettingsDialog::Reset()
     m_GenerateTickStubSwitch.reset();
     m_IniSettingsGroup.reset();
     m_TitleBarSettingsGroup.reset();
+    m_SdkSettingsGroup.reset();
     m_WindowsSettingsGroup.reset();
     m_AndroidSettingsGroup.reset();
     m_ProbeText.reset();
@@ -822,6 +861,10 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     settings.bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
     settings.bShowSystemButtons = m_ShowSystemButtonsSwitch && m_ShowSystemButtonsSwitch->IsChecked();
     settings.bUseTitleBarMenus = false;
+    settings.LibraryIntegrationMode = GetLibraryIntegrationModeFromIndex(
+        m_LibraryIntegrationModeComboBox ? m_LibraryIntegrationModeComboBox->GetSelectedIndex() : 0);
+    settings.SdkPackagePath =
+        m_SdkPackagePathEditor ? std::filesystem::path(m_SdkPackagePathEditor->GetText()).lexically_normal() : std::filesystem::path();
     settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
     settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
     settings.StringTablePaths = ParsePathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());
@@ -871,11 +914,17 @@ void ProjectSettingsDialog::RefreshApplicationEditorVisibility()
 {
     const bool bEnableIniSettings = m_EnableIniSettingsSwitch && m_EnableIniSettingsSwitch->IsChecked();
     const bool bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
+    const bool bUseSdk =
+        m_LibraryIntegrationModeComboBox &&
+        GetLibraryIntegrationModeFromIndex(m_LibraryIntegrationModeComboBox->GetSelectedIndex()) == EEditorLibraryIntegrationMode::SDK;
     if (m_IniSettingsGroup) {
         m_IniSettingsGroup->SetVisible(bEnableIniSettings);
     }
     if (m_TitleBarSettingsGroup) {
         m_TitleBarSettingsGroup->SetVisible(bUseTitleBar);
+    }
+    if (m_SdkSettingsGroup) {
+        m_SdkSettingsGroup->SetVisible(bUseSdk);
     }
 }
 

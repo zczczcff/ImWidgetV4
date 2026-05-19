@@ -16,6 +16,33 @@ std::filesystem::path NormalizeStoredRelativePath(const std::filesystem::path& r
     return relativePath.lexically_normal();
 }
 
+std::filesystem::path NormalizeStoredPath(const std::filesystem::path& path)
+{
+    if (path.empty()) {
+        return {};
+    }
+
+    return path.lexically_normal();
+}
+
+std::string LibraryIntegrationModeToString(EEditorLibraryIntegrationMode mode)
+{
+    switch (mode) {
+    case EEditorLibraryIntegrationMode::SDK:
+        return "SDK";
+    case EEditorLibraryIntegrationMode::Source:
+    default:
+        return "Source";
+    }
+}
+
+EEditorLibraryIntegrationMode LibraryIntegrationModeFromString(const std::string& mode)
+{
+    return mode == "SDK"
+        ? EEditorLibraryIntegrationMode::SDK
+        : EEditorLibraryIntegrationMode::Source;
+}
+
 FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& projectName = std::string())
 {
     FEditorApplicationSettings settings;
@@ -30,6 +57,8 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
     settings.TitleBarDocumentRelativePath = std::filesystem::path("ui") / "TitleBar.ui.json";
     settings.bShowSystemButtons = true;
     settings.bUseTitleBarMenus = false;
+    settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
+    settings.SdkPackagePath.clear();
     settings.DefaultTheme.clear();
     settings.DefaultCulture.clear();
     settings.StringTablePaths.clear();
@@ -52,6 +81,8 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
     settingsJson["TitleBarDocument"] = NormalizeStoredRelativePath(settings.TitleBarDocumentRelativePath).generic_string();
     settingsJson["ShowSystemButtons"] = settings.bShowSystemButtons;
     settingsJson["UseTitleBarMenus"] = settings.bUseTitleBarMenus;
+    settingsJson["LibraryIntegrationMode"] = LibraryIntegrationModeToString(settings.LibraryIntegrationMode);
+    settingsJson["SdkPackagePath"] = NormalizeStoredPath(settings.SdkPackagePath).generic_string();
     settingsJson["DefaultTheme"] = settings.DefaultTheme;
     settingsJson["DefaultCulture"] = settings.DefaultCulture;
     json stringTablePathsJson = json::array();
@@ -99,6 +130,10 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
     }
     settings.bShowSystemButtons = settingsJson.value("ShowSystemButtons", settings.bShowSystemButtons);
     settings.bUseTitleBarMenus = settingsJson.value("UseTitleBarMenus", settings.bUseTitleBarMenus);
+    settings.LibraryIntegrationMode =
+        LibraryIntegrationModeFromString(settingsJson.value("LibraryIntegrationMode", std::string("Source")));
+    settings.SdkPackagePath = NormalizeStoredPath(
+        std::filesystem::path(settingsJson.value("SdkPackagePath", std::string())));
     settings.DefaultTheme = settingsJson.value("DefaultTheme", settings.DefaultTheme);
     settings.DefaultCulture = settingsJson.value("DefaultCulture", settings.DefaultCulture);
     const json stringTablePathsJson = settingsJson.value("StringTablePaths", json::array());

@@ -27,6 +27,7 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
     settings.IniSettingsPath.clear();
     settings.bUseCustomHostChrome = false;
     settings.bUseTitleBar = false;
+    settings.TitleBarDocumentRelativePath = std::filesystem::path("ui") / "TitleBar.ui.json";
     settings.bShowSystemButtons = true;
     settings.bUseTitleBarMenus = false;
     settings.DefaultTheme.clear();
@@ -48,6 +49,7 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
     settingsJson["IniSettingsPath"] = NormalizeStoredRelativePath(settings.IniSettingsPath).generic_string();
     settingsJson["UseCustomHostChrome"] = settings.bUseCustomHostChrome;
     settingsJson["UseTitleBar"] = settings.bUseTitleBar;
+    settingsJson["TitleBarDocument"] = NormalizeStoredRelativePath(settings.TitleBarDocumentRelativePath).generic_string();
     settingsJson["ShowSystemButtons"] = settings.bShowSystemButtons;
     settingsJson["UseTitleBarMenus"] = settings.bUseTitleBarMenus;
     settingsJson["DefaultTheme"] = settings.DefaultTheme;
@@ -90,6 +92,11 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
     }
     settings.bUseCustomHostChrome = settingsJson.value("UseCustomHostChrome", settings.bUseCustomHostChrome);
     settings.bUseTitleBar = settingsJson.value("UseTitleBar", settings.bUseTitleBar);
+    settings.TitleBarDocumentRelativePath = NormalizeStoredRelativePath(
+        std::filesystem::path(settingsJson.value("TitleBarDocument", settings.TitleBarDocumentRelativePath.generic_string())));
+    if (settings.TitleBarDocumentRelativePath.empty() || settings.TitleBarDocumentRelativePath.is_absolute()) {
+        settings.TitleBarDocumentRelativePath = std::filesystem::path("ui") / "TitleBar.ui.json";
+    }
     settings.bShowSystemButtons = settingsJson.value("ShowSystemButtons", settings.bShowSystemButtons);
     settings.bUseTitleBarMenus = settingsJson.value("UseTitleBarMenus", settings.bUseTitleBarMenus);
     settings.DefaultTheme = settingsJson.value("DefaultTheme", settings.DefaultTheme);
@@ -277,7 +284,7 @@ bool EditorProject::FromJson(
     }
 
     const int version = projectJson.value("Version", 0);
-    if (version != 1 && version != 2 && version != FormatVersion) {
+    if (version != 1 && version != 2 && version != 4 && version != FormatVersion) {
         if (outError) {
             *outError = "Unsupported project manifest version.";
         }
@@ -357,6 +364,15 @@ std::filesystem::path EditorProject::GetStartupDocumentPath() const
     }
 
     return (m_ProjectRoot / m_StartupDocumentRelativePath).lexically_normal();
+}
+
+std::filesystem::path EditorProject::GetTitleBarDocumentPath() const
+{
+    if (m_ProjectRoot.empty() || m_ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
+        return {};
+    }
+
+    return (m_ProjectRoot / m_ApplicationSettings.TitleBarDocumentRelativePath).lexically_normal();
 }
 
 bool EditorProject::SetActiveBuildProfileName(const std::string& profileName)

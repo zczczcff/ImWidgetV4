@@ -19,6 +19,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 
@@ -58,6 +59,7 @@ void WidgetFactory::RegisterDefaults()
     Register("ImTextBlock", []() { return std::make_shared<ImTextBlock>(); });
     Register("ImTextList", []() { return std::make_shared<ImTextList>(); });
     Register("ImTextOutlineView", []() { return std::make_shared<ImTextOutlineView>(); });
+    Register("ImTitleBar", []() { return std::make_shared<ImTitleBar>(); });
     Register("ImVerticalBox", []() { return std::make_shared<ImVerticalBox>(); });
     Register("ImVerticalSplitter", []() { return std::make_shared<ImVerticalSplitter>(); });
 }

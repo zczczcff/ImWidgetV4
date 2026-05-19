@@ -78,7 +78,6 @@ private:
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseCustomHostChromeSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarSwitch;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_ShowSystemButtonsSwitch;
-    std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarMenusSwitch;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultThemeEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultCultureEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_StringTablePathsEditor;

@@ -82,6 +82,86 @@ void ImTitleBar::ClearTrailingItems()
     MarkLayoutDirty();
 }
 
+std::shared_ptr<ImWidget> ImTitleBar::GetLeadingItemAt(std::size_t index) const
+{
+    return index < LeadingItems_.size() ? LeadingItems_[index] : nullptr;
+}
+
+std::shared_ptr<ImWidget> ImTitleBar::GetTrailingItemAt(std::size_t index) const
+{
+    return index < TrailingItems_.size() ? TrailingItems_[index] : nullptr;
+}
+
+bool ImTitleBar::RemoveLeadingItem(const std::shared_ptr<ImWidget>& widget)
+{
+    auto it = std::find(LeadingItems_.begin(), LeadingItems_.end(), widget);
+    if (it == LeadingItems_.end()) {
+        return false;
+    }
+
+    if (widget) {
+        ImWidget::RemoveChild(widget);
+    }
+    LeadingItems_.erase(it);
+    MarkLayoutDirty();
+    return true;
+}
+
+bool ImTitleBar::RemoveTrailingItem(const std::shared_ptr<ImWidget>& widget)
+{
+    auto it = std::find(TrailingItems_.begin(), TrailingItems_.end(), widget);
+    if (it == TrailingItems_.end()) {
+        return false;
+    }
+
+    if (widget) {
+        ImWidget::RemoveChild(widget);
+    }
+    TrailingItems_.erase(it);
+    MarkLayoutDirty();
+    return true;
+}
+
+bool ImTitleBar::InsertLeadingItem(std::size_t index, const std::shared_ptr<ImWidget>& widget)
+{
+    if (!widget) {
+        return false;
+    }
+
+    AttachItem(LeadingItems_, widget);
+    auto it = std::find(LeadingItems_.begin(), LeadingItems_.end(), widget);
+    if (it == LeadingItems_.end()) {
+        return false;
+    }
+
+    const Ptr item = *it;
+    LeadingItems_.erase(it);
+    const std::size_t clampedIndex = std::min(index, LeadingItems_.size());
+    LeadingItems_.insert(LeadingItems_.begin() + static_cast<std::ptrdiff_t>(clampedIndex), item);
+    MarkLayoutDirty();
+    return true;
+}
+
+bool ImTitleBar::InsertTrailingItem(std::size_t index, const std::shared_ptr<ImWidget>& widget)
+{
+    if (!widget) {
+        return false;
+    }
+
+    AttachItem(TrailingItems_, widget);
+    auto it = std::find(TrailingItems_.begin(), TrailingItems_.end(), widget);
+    if (it == TrailingItems_.end()) {
+        return false;
+    }
+
+    const Ptr item = *it;
+    TrailingItems_.erase(it);
+    const std::size_t clampedIndex = std::min(index, TrailingItems_.size());
+    TrailingItems_.insert(TrailingItems_.begin() + static_cast<std::ptrdiff_t>(clampedIndex), item);
+    MarkLayoutDirty();
+    return true;
+}
+
 void ImTitleBar::SetShowSystemButtons(bool value)
 {
     if (bShowSystemButtons_ == value) {

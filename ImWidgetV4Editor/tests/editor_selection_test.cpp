@@ -33,6 +33,7 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -173,6 +174,11 @@ ImCanvasPanelSlot* GetCanvasDocumentButtonSlot(const std::shared_ptr<EditorSessi
     }
 
     return dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(button));
+}
+
+std::shared_ptr<ImCanvasPanel> GetCanvasDocumentCanvas(const std::shared_ptr<EditorSession>& session)
+{
+    return std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
 }
 
 void BindEditorSessionForTests(
@@ -1472,6 +1478,12 @@ TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)
     const FVector2 beforePosition = slot->GetRelativePosition();
     const FVector2 beforeSize = slot->GetRelativeSize();
     const bool beforeAutoSize = slot->GetAutoSize();
+    const auto canvas = GetCanvasDocumentCanvas(session);
+    ASSERT_TRUE(canvas);
+    const FVector2 canvasSize = canvas->GetGeometry().Size;
+    ASSERT_GT(canvasSize.X, 0.0f);
+    ASSERT_GT(canvasSize.Y, 0.0f);
+    const FVector2 expectedDelta(40.0f / canvasSize.X, 30.0f / canvasSize.Y);
 
     const FVector2 dragTarget = selectPoint + FVector2(40.0f, 30.0f);
     AdvanceAppWithDraw(
@@ -1487,8 +1499,8 @@ TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)
         {MouseEvent(EInputEventType::MouseButtonUp, dragTarget)},
         kViewportSize);
 
-    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + 0.10f, 0.0001f);
-    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + 0.10f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + expectedDelta.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + expectedDelta.Y, 0.0001f);
     EXPECT_EQ(slot->GetRelativeSize(), beforeSize);
     EXPECT_EQ(slot->GetAutoSize(), beforeAutoSize);
     EXPECT_TRUE(session->CanUndo());
@@ -1500,8 +1512,8 @@ TEST(EditorSelectionTest, DesignerMoveTransformSupportsUndoRedo)
     EXPECT_EQ(slot->GetAutoSize(), beforeAutoSize);
 
     ASSERT_TRUE(session->Redo());
-    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + 0.10f, 0.0001f);
-    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + 0.10f, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X + expectedDelta.X, 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y + expectedDelta.Y, 0.0001f);
 }
 
 TEST(EditorSelectionTest, DesignerMoveHandleTakesPriorityOverButtonTextChild)
@@ -1642,9 +1654,14 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
     const FVector2 beforeRelativeSize = slot->GetRelativeSize();
     const bool beforeAutoSize = slot->GetAutoSize();
     const FVector2 beforePixelSize = button->GetGeometry().Size;
+    const auto canvas = GetCanvasDocumentCanvas(session);
+    ASSERT_TRUE(canvas);
+    const FVector2 canvasSize = canvas->GetGeometry().Size;
+    ASSERT_GT(canvasSize.X, 0.0f);
+    ASSERT_GT(canvasSize.Y, 0.0f);
     const FVector2 beforeEffectiveRelativeSize(
-        beforePixelSize.X / kViewportSize.X,
-        beforePixelSize.Y / kViewportSize.Y);
+        beforePixelSize.X / canvasSize.X,
+        beforePixelSize.Y / canvasSize.Y);
 
     const FVector2 resizeHandlePoint = button->GetGeometry().GetMax() - FVector2(2.0f, 2.0f);
     const FVector2 resizeTarget = resizeHandlePoint + FVector2(40.0f, 30.0f);
@@ -1663,8 +1680,8 @@ TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAuto
         kViewportSize);
 
     const FVector2 expectedRelativeSize(
-        beforeEffectiveRelativeSize.X + (40.0f / kViewportSize.X),
-        beforeEffectiveRelativeSize.Y + (30.0f / kViewportSize.Y));
+        beforeEffectiveRelativeSize.X + (40.0f / canvasSize.X),
+        beforeEffectiveRelativeSize.Y + (30.0f / canvasSize.Y));
 
     EXPECT_EQ(slot->GetRelativePosition(), beforePosition);
     EXPECT_FALSE(slot->GetAutoSize());
@@ -1715,8 +1732,13 @@ TEST(EditorSelectionTest, DesignerTopLeftResizeUpdatesPositionAndSize)
 
     const FVector2 beforePosition = slot->GetRelativePosition();
     const FVector2 beforePixelSize = button->GetGeometry().Size;
+    const auto canvas = GetCanvasDocumentCanvas(session);
+    ASSERT_TRUE(canvas);
+    const FVector2 canvasSize = canvas->GetGeometry().Size;
+    ASSERT_GT(canvasSize.X, 0.0f);
+    ASSERT_GT(canvasSize.Y, 0.0f);
     const FVector2 beforeRelativeSize = slot->GetAutoSize()
-        ? FVector2(beforePixelSize.X / kViewportSize.X, beforePixelSize.Y / kViewportSize.Y)
+        ? FVector2(beforePixelSize.X / canvasSize.X, beforePixelSize.Y / canvasSize.Y)
         : slot->GetRelativeSize();
 
     const FVector2 resizeHandlePoint = button->GetGeometry().GetMin() + FVector2(1.0f, 1.0f);
@@ -1735,10 +1757,10 @@ TEST(EditorSelectionTest, DesignerTopLeftResizeUpdatesPositionAndSize)
         {MouseEvent(EInputEventType::MouseButtonUp, resizeTarget)},
         kViewportSize);
 
-    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X - 0.05f, 0.0001f);
-    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y - (10.0f / kViewportSize.Y), 0.0001f);
-    EXPECT_NEAR(slot->GetRelativeSize().X, beforeRelativeSize.X + 0.05f, 0.0001f);
-    EXPECT_NEAR(slot->GetRelativeSize().Y, beforeRelativeSize.Y + (10.0f / kViewportSize.Y), 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().X, beforePosition.X - (20.0f / canvasSize.X), 0.0001f);
+    EXPECT_NEAR(slot->GetRelativePosition().Y, beforePosition.Y - (10.0f / canvasSize.Y), 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().X, beforeRelativeSize.X + (20.0f / canvasSize.X), 0.0001f);
+    EXPECT_NEAR(slot->GetRelativeSize().Y, beforeRelativeSize.Y + (10.0f / canvasSize.Y), 0.0001f);
     EXPECT_FALSE(slot->GetAutoSize());
     EXPECT_TRUE(session->CanUndo());
 
@@ -2180,12 +2202,15 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     const std::filesystem::path projectRoot = tempRoot / "SampleApp";
     const std::filesystem::path manifestPath = EditorProject::BuildManifestFilePath(projectRoot);
     const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+    const std::filesystem::path titleBarDocumentPath = projectRoot / "ui" / "TitleBar.ui.json";
     const std::filesystem::path rootCMakeListsPath = projectRoot / "CMakeLists.txt";
     const std::filesystem::path mainCppPath = projectRoot / "src" / "main.cpp";
     const std::filesystem::path appProjectConfigHeaderPath = projectRoot / "generated" / "AppProjectConfig.h";
     const std::filesystem::path appProjectConfigSourcePath = projectRoot / "generated" / "AppProjectConfig.cpp";
     const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "MainView.h";
     const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "MainView.cpp";
+    const std::filesystem::path titleBarGeneratedHeaderPath = projectRoot / "generated" / "TitleBarView.h";
+    const std::filesystem::path titleBarGeneratedSourcePath = projectRoot / "generated" / "TitleBarView.cpp";
 
     EXPECT_EQ(workspaceController->GetProjectRoot().lexically_normal(), projectRoot.lexically_normal());
     EXPECT_TRUE(std::filesystem::exists(projectRoot / "src"));
@@ -2195,12 +2220,15 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_TRUE(std::filesystem::exists(projectRoot / "cmake"));
     EXPECT_TRUE(std::filesystem::exists(manifestPath));
     EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
+    EXPECT_TRUE(std::filesystem::exists(titleBarDocumentPath));
     EXPECT_TRUE(std::filesystem::exists(rootCMakeListsPath));
     EXPECT_TRUE(std::filesystem::exists(mainCppPath));
     EXPECT_TRUE(std::filesystem::exists(appProjectConfigHeaderPath));
     EXPECT_TRUE(std::filesystem::exists(appProjectConfigSourcePath));
     EXPECT_TRUE(std::filesystem::exists(generatedHeaderPath));
     EXPECT_TRUE(std::filesystem::exists(generatedSourcePath));
+    EXPECT_TRUE(std::filesystem::exists(titleBarGeneratedHeaderPath));
+    EXPECT_TRUE(std::filesystem::exists(titleBarGeneratedSourcePath));
     {
         std::ifstream stream(rootCMakeListsPath, std::ios::binary);
         std::stringstream buffer;
@@ -2209,6 +2237,7 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         EXPECT_NE(text.find("add_subdirectory(\"${IMWIDGETV4_ROOT}\""), std::string::npos);
         EXPECT_NE(text.find("generated/AppProjectConfig.cpp"), std::string::npos);
         EXPECT_NE(text.find("generated/MainView.cpp"), std::string::npos);
+        EXPECT_NE(text.find("generated/TitleBarView.cpp"), std::string::npos);
     }
     {
         std::ifstream stream(mainCppPath, std::ios::binary);
@@ -2228,7 +2257,9 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         buffer << stream.rdbuf();
         const std::string text = buffer.str();
         EXPECT_NE(text.find("#include \"MainView.h\""), std::string::npos);
+        EXPECT_NE(text.find("#include \"TitleBarView.h\""), std::string::npos);
         EXPECT_NE(text.find("std::make_shared<SampleApp::MainView>()"), std::string::npos);
+        EXPECT_NE(text.find("std::make_shared<SampleApp::TitleBarView>()"), std::string::npos);
         EXPECT_NE(text.find("config.Title = \"SampleApp\""), std::string::npos);
         EXPECT_NE(text.find("config.InitialWidth = 1280"), std::string::npos);
         EXPECT_NE(text.find("config.InitialHeight = 720"), std::string::npos);
@@ -2242,6 +2273,16 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_EQ(
         workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
         std::string("ui/Main.ui.json"));
+    EXPECT_TRUE(workspaceController->GetProject()->GetApplicationSettings().bUseTitleBar);
+    EXPECT_EQ(
+        workspaceController->GetProject()->GetTitleBarDocumentRelativePath().generic_string(),
+        std::string("ui/TitleBar.ui.json"));
+    {
+        EditorDocument titleBarDocument;
+        std::string loadError;
+        ASSERT_TRUE(titleBarDocument.Load(titleBarDocumentPath, &loadError)) << loadError;
+        ASSERT_TRUE(std::dynamic_pointer_cast<ImTitleBar>(titleBarDocument.GetRootWidget()));
+    }
     ASSERT_TRUE(workspaceController->GetActiveSession());
     ASSERT_TRUE(workspaceController->GetActiveSession()->GetDocument());
     EXPECT_EQ(
@@ -2279,6 +2320,7 @@ TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGenera
     const std::filesystem::path mainCppPath = projectRoot / "src" / "main.cpp";
     const std::filesystem::path appProjectConfigSourcePath = projectRoot / "generated" / "AppProjectConfig.cpp";
     const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "MainView.cpp";
+    const std::filesystem::path titleBarGeneratedSourcePath = projectRoot / "generated" / "TitleBarView.cpp";
 
     {
         std::ofstream stream(appProjectConfigSourcePath, std::ios::binary | std::ios::trunc);
@@ -2287,6 +2329,10 @@ TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGenera
     {
         std::ofstream stream(generatedSourcePath, std::ios::binary | std::ios::trunc);
         stream << "// stale generated view\n";
+    }
+    {
+        std::ofstream stream(titleBarGeneratedSourcePath, std::ios::binary | std::ios::trunc);
+        stream << "// stale generated title bar\n";
     }
 
     ASSERT_TRUE(workspaceController->RegenerateProjectCode());
@@ -2307,6 +2353,7 @@ TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGenera
         EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
         EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
         EXPECT_NE(text.find("std::make_shared<RegenerateApp::MainView>()"), std::string::npos);
+        EXPECT_NE(text.find("std::make_shared<RegenerateApp::TitleBarView>()"), std::string::npos);
     }
     {
         std::ifstream stream(generatedSourcePath, std::ios::binary);
@@ -2316,6 +2363,16 @@ TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGenera
         EXPECT_EQ(text.find("stale generated view"), std::string::npos);
         EXPECT_NE(text.find("namespace RegenerateApp"), std::string::npos);
         EXPECT_NE(text.find("MainView::"), std::string::npos);
+    }
+    {
+        std::ifstream stream(titleBarGeneratedSourcePath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_EQ(text.find("stale generated title bar"), std::string::npos);
+        EXPECT_NE(text.find("namespace RegenerateApp"), std::string::npos);
+        EXPECT_NE(text.find("TitleBarView::"), std::string::npos);
+        EXPECT_NE(text.find("AddLeadingItem"), std::string::npos);
     }
 
     std::filesystem::remove_all(tempRoot, errorCode);
@@ -2408,6 +2465,7 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     EXPECT_EQ(restoredSettings.IniSettingsPath.generic_string(), "data/configured.ini");
     EXPECT_TRUE(restoredSettings.bUseCustomHostChrome);
     EXPECT_TRUE(restoredSettings.bUseTitleBar);
+    EXPECT_EQ(restoredSettings.TitleBarDocumentRelativePath.generic_string(), "ui/TitleBar.ui.json");
     EXPECT_FALSE(restoredSettings.bShowSystemButtons);
     EXPECT_TRUE(restoredSettings.bUseTitleBarMenus);
     EXPECT_EQ(restoredSettings.DefaultTheme, "Light");
@@ -2425,13 +2483,21 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
 {
     auto rootWidget = std::make_shared<ImCanvasPanel>();
     rootWidget->SetName("RootCanvas");
+    auto titleBarRoot = std::make_shared<ImTitleBar>();
+    titleBarRoot->SetName("RootTitleBar");
+    auto titleText = std::make_shared<ImTextBlock>();
+    titleText->SetName("TitleText");
+    titleText->SetText("Configured App");
+    titleBarRoot->AddLeadingItem(titleText);
 
     FProjectScaffoldRequest request;
     request.ProjectRoot = std::filesystem::temp_directory_path() / "imwidgetv4_editor_scaffold_app_settings";
     request.ProjectName = "ConfiguredApp";
     request.NamespaceName = "ConfiguredApp";
     request.StartupWidgetClassName = "MainView";
+    request.TitleBarWidgetClassName = "TitleBarView";
     request.StartupRootWidget = rootWidget;
+    request.TitleBarRootWidget = titleBarRoot;
     request.ApplicationSettings.Title = "Configured App";
     request.ApplicationSettings.IconPath = std::filesystem::path("assets") / "icon.png";
     request.ApplicationSettings.InitialWidth = 1440;
@@ -2482,12 +2548,20 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     EXPECT_NE(text.find("application.SetActiveTheme(\"Light\")"), std::string::npos);
     EXPECT_NE(text.find("application.SetCulture(\"zh-CN\")"), std::string::npos);
     EXPECT_NE(text.find("application.LoadStringTable(std::filesystem::path(\"localization/en-US.json\"))"), std::string::npos);
-    EXPECT_NE(text.find("titleBar->SetShowSystemButtons(false)"), std::string::npos);
-    EXPECT_NE(text.find("fileButton->SetText(\"File\")"), std::string::npos);
+    EXPECT_NE(text.find("#include \"TitleBarView.h\""), std::string::npos);
+    EXPECT_NE(text.find("std::make_shared<ConfiguredApp::TitleBarView>()"), std::string::npos);
+    EXPECT_EQ(text.find("fileButton->SetText(\"File\")"), std::string::npos);
     EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
     EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
     EXPECT_NE(text.find("bool InitializeApplication"), std::string::npos);
     EXPECT_NE(text.find("void Tick"), std::string::npos);
+
+    const std::filesystem::path titleBarSourcePath = request.ProjectRoot / "generated" / "TitleBarView.cpp";
+    std::ifstream titleBarStream(titleBarSourcePath, std::ios::binary);
+    std::stringstream titleBarBuffer;
+    titleBarBuffer << titleBarStream.rdbuf();
+    const std::string titleBarText = titleBarBuffer.str();
+    EXPECT_NE(titleBarText.find("RootTitleBar->AddLeadingItem(TitleText);"), std::string::npos);
 
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }

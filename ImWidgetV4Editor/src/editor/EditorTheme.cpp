@@ -10,7 +10,8 @@ using namespace ImWidgetV4;
 namespace {
 
 std::string GEditorActiveThemeName = "Default";
-const FStyleSet* GEditorActiveStyleSet = nullptr;
+FStyleSet GEditorActiveStyleSet;
+bool bHasEditorActiveStyleSet = false;
 
 bool IsLightEditorTheme()
 {
@@ -20,8 +21,8 @@ bool IsLightEditorTheme()
 
 FColor GetEditorColorToken(const char* token, const FColor& fallback)
 {
-    return GEditorActiveStyleSet != nullptr
-        ? GEditorActiveStyleSet->GetColor(token, fallback)
+    return bHasEditorActiveStyleSet
+        ? GEditorActiveStyleSet.GetColor(token, fallback)
         : fallback;
 }
 
@@ -101,13 +102,16 @@ void RegisterEditorThemePacks(ImApplication& application)
 void SetEditorActiveThemeName(const std::string& themeName)
 {
     GEditorActiveThemeName = themeName.empty() ? "Default" : themeName;
-    GEditorActiveStyleSet = nullptr;
+    GEditorActiveStyleSet.Clear();
+    bHasEditorActiveStyleSet = false;
 }
 
 void SetEditorActiveTheme(const std::string& themeName, const FStyleSet& styleSet)
 {
     GEditorActiveThemeName = themeName.empty() ? "Default" : themeName;
-    GEditorActiveStyleSet = &styleSet;
+    GEditorActiveStyleSet.Clear();
+    GEditorActiveStyleSet.Merge(styleSet);
+    bHasEditorActiveStyleSet = true;
 }
 
 const std::string& GetEditorActiveThemeName()

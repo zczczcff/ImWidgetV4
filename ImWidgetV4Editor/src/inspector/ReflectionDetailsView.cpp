@@ -1047,25 +1047,33 @@ std::string ReflectionDetailsView::BuildCurrentStateKey() const
 
 void ReflectionDetailsView::CaptureCurrentViewState()
 {
+    if (m_CurrentStateKey.empty()) {
+        return;
+    }
+
     auto outlineView = GetCurrentOutlineView();
-    if (!outlineView || m_CurrentStateKey.empty()) {
+    if (!outlineView) {
         return;
     }
 
     FInspectorViewState& state = m_ViewStatesByKey[m_CurrentStateKey];
     state.ScrollOffset = outlineView->GetScrollOffset();
     state.ExpandedByPath.clear();
-    for (const auto& entry : m_CurrentItemPaths) {
-        if (entry.first != nullptr) {
-            state.ExpandedByPath[entry.second] = entry.first->Expanded;
+    for (const auto& entry : m_CurrentPathItems) {
+        if (entry.second != nullptr) {
+            state.ExpandedByPath[entry.first] = entry.second->Expanded;
         }
     }
 }
 
 void ReflectionDetailsView::RestoreCurrentViewState()
 {
+    if (m_CurrentStateKey.empty()) {
+        return;
+    }
+
     auto outlineView = GetCurrentOutlineView();
-    if (!outlineView || m_CurrentStateKey.empty()) {
+    if (!outlineView) {
         return;
     }
 

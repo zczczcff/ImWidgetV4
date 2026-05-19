@@ -25,6 +25,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
 #include <cctype>
@@ -433,6 +434,21 @@ std::string BuildStartupWidgetClassName(const std::string& startupDocumentFileNa
         className += "View";
     }
     return className;
+}
+
+std::shared_ptr<ImTitleBar> BuildDefaultTitleBarRoot(const std::string& projectName)
+{
+    auto titleBar = std::make_shared<ImTitleBar>();
+    titleBar->SetName("RootTitleBar");
+    titleBar->SetShowSystemButtons(true);
+
+    auto titleText = std::make_shared<ImTextBlock>();
+    titleText->SetName("ProjectTitleText");
+    titleText->SetText(projectName.empty() ? std::string("Application") : projectName);
+    titleText->SetWrapText(false);
+    titleBar->AddLeadingItem(titleText);
+
+    return titleBar;
 }
 
 std::vector<std::string> GetAvailableProjectTemplateNames()
@@ -968,6 +984,10 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             std::filesystem::path("ui") / normalizedStartupDocumentFileName;
         const std::filesystem::path startupDocumentPath =
             (projectRoot / startupDocumentRelativePath).lexically_normal();
+        const std::filesystem::path titleBarDocumentRelativePath =
+            std::filesystem::path("ui") / "TitleBar.ui.json";
+        const std::filesystem::path titleBarDocumentPath =
+            (projectRoot / titleBarDocumentRelativePath).lexically_normal();
         const std::string startupWidgetClassName =
             BuildStartupWidgetClassName(normalizedStartupDocumentFileName);
         std::shared_ptr<EditorSession> bootstrapSession = CreateSession();
@@ -984,6 +1004,13 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             return false;
         }
 
+        EditorDocument titleBarDocument;
+        titleBarDocument.NewDocument(BuildDefaultTitleBarRoot(trimmedProjectName), "TitleBar");
+        if (!titleBarDocument.SaveAs(titleBarDocumentPath, &documentError)) {
+            SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + documentError);
+            return false;
+        }
+
         FProjectScaffoldRequest scaffoldRequest;
         scaffoldRequest.ProjectRoot = projectRoot;
         scaffoldRequest.ProjectName = trimmedProjectName;
@@ -992,7 +1019,11 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         scaffoldRequest.StartupDocumentFileName = normalizedStartupDocumentFileName;
         scaffoldRequest.StartupWidgetClassName = startupWidgetClassName;
         scaffoldRequest.ApplicationSettings.Title = trimmedProjectName;
+        scaffoldRequest.ApplicationSettings.bUseTitleBar = true;
+        scaffoldRequest.ApplicationSettings.bShowSystemButtons = true;
+        scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
         scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
+        scaffoldRequest.TitleBarRootWidget = titleBarDocument.GetRootWidget();
         const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
         if (!scaffoldResult.bSuccess) {
             SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + scaffoldResult.ErrorMessage);
@@ -1009,6 +1040,11 @@ bool EditorWorkspaceController::CreateAppProjectAt(
             SetLocalizedOutputLine("NewProject.InvalidMetadata", "Create project failed: invalid project metadata.");
             return false;
         }
+        FEditorApplicationSettings projectSettings = project->GetApplicationSettings();
+        projectSettings.bUseTitleBar = true;
+        projectSettings.bShowSystemButtons = true;
+        projectSettings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
+        project->SetApplicationSettings(projectSettings);
 
         std::string manifestError;
         if (!project->Save(&manifestError)) {
@@ -1847,16 +1883,81 @@ bool EditorWorkspaceController::RegenerateProjectCode()
     scaffoldRequest.StartupDocumentFileName = m_Project->GetStartupDocumentRelativePath().filename().string();
     scaffoldRequest.StartupWidgetClassName =
         BuildStartupWidgetClassName(scaffoldRequest.StartupDocumentFileName);
+    scaffoldRequest.TitleBarWidgetClassName = "TitleBarView";
     scaffoldRequest.ApplicationSettings = m_Project->GetApplicationSettings();
     if (scaffoldRequest.ApplicationSettings.Title.empty()) {
         scaffoldRequest.ApplicationSettings.Title = scaffoldRequest.ProjectName;
     }
     scaffoldRequest.StartupRootWidget = startupDocument->GetRootWidget();
 
+    if (scaffoldRequest.ApplicationSettings.bUseTitleBar) {
+        if (scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
+            scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath =
+                std::filesystem::path("ui") / "TitleBar.ui.json";
+        }
+
+        const std::filesystem::path titleBarDocumentPath =
+            (m_ProjectRoot / scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath).lexically_normal();
+        std::shared_ptr<EditorDocument> titleBarDocument;
+        for (const FDocumentEntry& entry : m_Documents) {
+            if (entry.Session &&
+                entry.Session->GetDocument() &&
+                entry.Session->GetDocument()->GetFilePath().lexically_normal() == titleBarDocumentPath) {
+                titleBarDocument = entry.Session->GetDocument();
+                break;
+            }
+        }
+
+        if (!titleBarDocument) {
+            titleBarDocument = std::make_shared<EditorDocument>();
+            std::string loadError;
+            if (!std::filesystem::exists(titleBarDocumentPath)) {
+                titleBarDocument->NewDocument(BuildDefaultTitleBarRoot(scaffoldRequest.ProjectName), "TitleBar");
+                std::string saveError;
+                if (!titleBarDocument->SaveAs(titleBarDocumentPath, &saveError)) {
+                    SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + saveError);
+                    return false;
+                }
+
+                FEditorApplicationSettings updatedSettings = m_Project->GetApplicationSettings();
+                updatedSettings.TitleBarDocumentRelativePath = scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath;
+                m_Project->SetApplicationSettings(updatedSettings);
+                std::string projectSaveError;
+                if (!m_Project->Save(&projectSaveError)) {
+                    SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + projectSaveError);
+                    return false;
+                }
+            } else if (!titleBarDocument->Load(titleBarDocumentPath, &loadError)) {
+                SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + loadError);
+                return false;
+            }
+        }
+
+        if (!std::dynamic_pointer_cast<ImTitleBar>(titleBarDocument->GetRootWidget())) {
+            SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": title bar document root must be ImTitleBar.");
+            return false;
+        }
+
+        if (auto titleBarRoot = std::dynamic_pointer_cast<ImTitleBar>(titleBarDocument->GetRootWidget())) {
+            titleBarRoot->SetShowSystemButtons(scaffoldRequest.ApplicationSettings.bShowSystemButtons);
+            std::string saveError;
+            if (titleBarRoot->GetShowSystemButtons() != scaffoldRequest.ApplicationSettings.bShowSystemButtons ||
+                (titleBarDocument->HasFilePath() && !titleBarDocument->Save(&saveError))) {
+                SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + saveError);
+                return false;
+            }
+        }
+        scaffoldRequest.TitleBarRootWidget = titleBarDocument->GetRootWidget();
+    }
+
     const FProjectScaffoldResult result = ProjectScaffolder::GenerateCode(scaffoldRequest);
     if (!result.bSuccess) {
         SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + result.ErrorMessage);
         return false;
+    }
+
+    if (scaffoldRequest.TitleBarRootWidget) {
+        EnsureGeneratedSourceInCMakeLists(scaffoldRequest.TitleBarWidgetClassName + ".cpp");
     }
 
     SetLocalizedOutputLine("Project.RegeneratedCode", "Regenerated project code.");
@@ -1867,6 +1968,47 @@ bool EditorWorkspaceController::RegenerateProjectCode()
 bool EditorWorkspaceController::CloseActiveDocument(ImApplication& app)
 {
     return CloseDocumentAt(app, m_ActiveDocumentIndex);
+}
+
+bool EditorWorkspaceController::EnsureGeneratedSourceInCMakeLists(const std::string& generatedSourceFileName)
+{
+    if (m_ProjectRoot.empty() || generatedSourceFileName.empty()) {
+        return false;
+    }
+
+    const std::filesystem::path cmakeListsPath = m_ProjectRoot / "CMakeLists.txt";
+    std::ifstream input(cmakeListsPath, std::ios::binary);
+    if (!input.is_open()) {
+        return false;
+    }
+
+    std::stringstream buffer;
+    buffer << input.rdbuf();
+    std::string text = buffer.str();
+    const std::string sourceLine = "    generated/" + generatedSourceFileName;
+    if (text.find(sourceLine) != std::string::npos) {
+        return true;
+    }
+
+    const std::size_t appSourcesPos = text.find("set(IMWIDGETV4_APP_SOURCES");
+    if (appSourcesPos == std::string::npos) {
+        return false;
+    }
+
+    const std::size_t listEnd = text.find(")\n", appSourcesPos);
+    if (listEnd == std::string::npos) {
+        return false;
+    }
+
+    text.insert(listEnd, sourceLine + "\n");
+    std::ofstream output(cmakeListsPath, std::ios::binary | std::ios::trunc);
+    if (!output.is_open()) {
+        return false;
+    }
+
+    output << text;
+    output.flush();
+    return output.good();
 }
 
 bool EditorWorkspaceController::ActivateDocumentAt(int index)
@@ -4370,9 +4512,27 @@ void EditorWorkspaceController::RebuildProjectView()
                 "Template: " + m_Project->GetTemplateName());
         }
         if (!m_Project->GetStartupDocumentRelativePath().empty()) {
-            m_ProjectView->AddChildItem(
+            ImTextOutlineItem* startupItem = m_ProjectView->AddChildItem(
                 workspaceRootItem,
                 "Startup UI: " + m_Project->GetStartupDocumentRelativePath().generic_string());
+            if (startupItem) {
+                m_ProjectItemBindings[startupItem] = FProjectItemBinding {
+                    EProjectItemKind::WorkspaceFile,
+                    -1,
+                    m_Project->GetStartupDocumentPath()};
+            }
+        }
+        if (m_Project->GetApplicationSettings().bUseTitleBar &&
+            !m_Project->GetTitleBarDocumentRelativePath().empty()) {
+            ImTextOutlineItem* titleBarItem = m_ProjectView->AddChildItem(
+                workspaceRootItem,
+                "Title Bar UI: " + m_Project->GetTitleBarDocumentRelativePath().generic_string());
+            if (titleBarItem) {
+                m_ProjectItemBindings[titleBarItem] = FProjectItemBinding {
+                    EProjectItemKind::WorkspaceFile,
+                    -1,
+                    m_Project->GetTitleBarDocumentPath()};
+            }
         }
         if (!m_Project->GetActiveBuildProfileName().empty()) {
             m_ProjectView->AddChildItem(

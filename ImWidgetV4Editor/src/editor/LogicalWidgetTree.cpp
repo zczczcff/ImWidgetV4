@@ -3,6 +3,7 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 
 namespace ImWidgetV4Editor::LogicalWidgetTree {
 
@@ -34,6 +35,10 @@ std::size_t GetLogicalChildCount(const std::shared_ptr<ImWidget>& widget)
         return static_cast<std::size_t>(tabView->GetTabCount());
     }
 
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        return titleBar->GetLeadingItemCount() + titleBar->GetTrailingItemCount();
+    }
+
     return widget->GetChildren().size();
 }
 
@@ -46,6 +51,14 @@ std::shared_ptr<ImWidget> GetLogicalChildAt(const std::shared_ptr<ImWidget>& wid
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
         const FTabViewItem* tab = tabView->GetTab(static_cast<int>(childIndex));
         return tab ? tab->Content : nullptr;
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        if (childIndex < leadingCount) {
+            return titleBar->GetLeadingItemAt(childIndex);
+        }
+        return titleBar->GetTrailingItemAt(childIndex - leadingCount);
     }
 
     if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
@@ -78,6 +91,10 @@ const char* GetLogicalChildRoleName(const std::shared_ptr<ImWidget>& widget, std
 
     if (std::dynamic_pointer_cast<ImTabView>(widget)) {
         return "Tab";
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        return childIndex < titleBar->GetLeadingItemCount() ? "Leading" : "Trailing";
     }
 
     if (std::dynamic_pointer_cast<ImButton>(widget)) {
@@ -117,6 +134,21 @@ int FindLogicalChildIndex(const std::shared_ptr<ImWidget>& parent, const std::sh
 
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
         return FindTabContentIndex(tabView, child);
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
+        for (std::size_t index = 0; index < titleBar->GetLeadingItemCount(); ++index) {
+            if (titleBar->GetLeadingItemAt(index) == child) {
+                return static_cast<int>(index);
+            }
+        }
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        for (std::size_t index = 0; index < titleBar->GetTrailingItemCount(); ++index) {
+            if (titleBar->GetTrailingItemAt(index) == child) {
+                return static_cast<int>(leadingCount + index);
+            }
+        }
+        return -1;
     }
 
     const auto& children = parent->GetChildren();
@@ -188,6 +220,21 @@ json* ResolveMutableLogicalChildJson(
         return &tabItem["Content"];
     }
 
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        const char* fieldName = childIndex < leadingCount ? "LeadingItems" : "TrailingItems";
+        const std::size_t localIndex = childIndex < leadingCount ? childIndex : (childIndex - leadingCount);
+        if (!widgetJson.contains(fieldName) || !widgetJson[fieldName].is_array()) {
+            return nullptr;
+        }
+
+        json& items = widgetJson[fieldName];
+        if (localIndex >= items.size()) {
+            return nullptr;
+        }
+        return &items[localIndex];
+    }
+
     if (std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
         if (childIndex == 0) {
             if (!widgetJson.contains("Header")) {
@@ -254,6 +301,21 @@ const json* ResolveConstLogicalChildJson(
         }
 
         return &tabItem["Content"];
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        const char* fieldName = childIndex < leadingCount ? "LeadingItems" : "TrailingItems";
+        const std::size_t localIndex = childIndex < leadingCount ? childIndex : (childIndex - leadingCount);
+        if (!widgetJson.contains(fieldName) || !widgetJson[fieldName].is_array()) {
+            return nullptr;
+        }
+
+        const json& items = widgetJson[fieldName];
+        if (localIndex >= items.size()) {
+            return nullptr;
+        }
+        return &items[localIndex];
     }
 
     if (std::dynamic_pointer_cast<ImExpandableBox>(widget)) {

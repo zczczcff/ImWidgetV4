@@ -18,6 +18,7 @@ struct FEditorApplicationSettings {
     std::filesystem::path IniSettingsPath;
     bool bUseCustomHostChrome = false;
     bool bUseTitleBar = false;
+    std::filesystem::path TitleBarDocumentRelativePath;
     bool bShowSystemButtons = true;
     bool bUseTitleBarMenus = false;
     std::string DefaultTheme;
@@ -29,7 +30,7 @@ struct FEditorApplicationSettings {
 
 class EditorProject {
 public:
-    static constexpr int FormatVersion = 4;
+    static constexpr int FormatVersion = 5;
 
     static std::string GetManifestFileName();
     static std::filesystem::path BuildManifestFilePath(const std::filesystem::path& projectRoot);
@@ -71,6 +72,15 @@ public:
         m_StartupDocumentRelativePath = startupDocumentRelativePath;
     }
 
+    const std::filesystem::path& GetTitleBarDocumentRelativePath() const
+    {
+        return m_ApplicationSettings.TitleBarDocumentRelativePath;
+    }
+    void SetTitleBarDocumentRelativePath(const std::filesystem::path& titleBarDocumentRelativePath)
+    {
+        m_ApplicationSettings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
+    }
+
     const FEditorApplicationSettings& GetApplicationSettings() const { return m_ApplicationSettings; }
     FEditorApplicationSettings& GetApplicationSettings() { return m_ApplicationSettings; }
     void SetApplicationSettings(const FEditorApplicationSettings& settings) { m_ApplicationSettings = settings; }
@@ -87,6 +97,7 @@ public:
 
     std::filesystem::path GetManifestFilePath() const;
     std::filesystem::path GetStartupDocumentPath() const;
+    std::filesystem::path GetTitleBarDocumentPath() const;
 
 private:
     void EnsureBuildProfiles();

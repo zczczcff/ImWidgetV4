@@ -1,5 +1,6 @@
 #include "../src/codegen/WidgetTreeToCppGenerator.h"
 #include "../src/editor/EditorSession.h"
+#include "../src/serialization/WidgetSerializer.h"
 
 #include <gtest/gtest.h>
 
@@ -10,6 +11,7 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 
 using namespace ImWidgetV4;
@@ -78,6 +80,23 @@ std::shared_ptr<ImWidget> BuildCanvasGeneratedRoot()
 
     canvas->AddChildAt(child, FVector2(0.25f, 0.50f));
     return canvas;
+}
+
+std::shared_ptr<ImWidget> BuildTitleBarGeneratedRoot()
+{
+    auto titleBar = std::make_shared<ImTitleBar>();
+    titleBar->SetName("RootTitleBar");
+
+    auto title = std::make_shared<ImTextBlock>();
+    title->SetName("TitleText");
+    title->SetText("Project");
+    titleBar->AddLeadingItem(title);
+
+    auto action = std::make_shared<ImButton>();
+    action->SetName("ActionButton");
+    action->SetText("Run");
+    titleBar->AddTrailingItem(action);
+    return titleBar;
 }
 
 } // namespace
@@ -155,6 +174,39 @@ TEST(EditorCodeGenTest, GeneratesSlotRestorationForPanelChildren)
     EXPECT_NE(
         result.Files.SourceText.find("slot->FromJson(ParseGeneratedJson("),
         std::string::npos);
+}
+
+TEST(EditorCodeGenTest, GeneratesTitleBarLeadingAndTrailingItems)
+{
+    FCodeGenOptions options;
+    options.ClassName = "GeneratedTitleBar";
+
+    const FCodeGenResult result =
+        WidgetTreeToCppGenerator::Generate(BuildTitleBarGeneratedRoot(), options);
+
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    EXPECT_NE(result.Files.SourceText.find("RootTitleBar->AddLeadingItem(TitleText);"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("RootTitleBar->AddTrailingItem(ActionButton);"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("#include <imwidgetv4/widgets/TitleBar.h>"), std::string::npos);
+}
+
+TEST(EditorCodeGenTest, SerializesTitleBarLeadingAndTrailingItems)
+{
+    const auto root = BuildTitleBarGeneratedRoot();
+    const json serialized = WidgetSerializer::SerializeWidgetTree(root);
+    ASSERT_TRUE(serialized.contains("LeadingItems"));
+    ASSERT_TRUE(serialized.contains("TrailingItems"));
+    ASSERT_EQ(serialized.at("LeadingItems").size(), 1U);
+    ASSERT_EQ(serialized.at("TrailingItems").size(), 1U);
+
+    const FWidgetSerializationResult result = WidgetSerializer::DeserializeWidgetTree(serialized);
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    auto restoredTitleBar = std::dynamic_pointer_cast<ImTitleBar>(result.Widget);
+    ASSERT_TRUE(restoredTitleBar);
+    EXPECT_EQ(restoredTitleBar->GetLeadingItemCount(), 1U);
+    EXPECT_EQ(restoredTitleBar->GetTrailingItemCount(), 1U);
+    ASSERT_TRUE(std::dynamic_pointer_cast<ImTextBlock>(restoredTitleBar->GetLeadingItemAt(0)));
+    ASSERT_TRUE(std::dynamic_pointer_cast<ImButton>(restoredTitleBar->GetTrailingItemAt(0)));
 }
 
 TEST(EditorCodeGenTest, RejectsInvalidClassName)

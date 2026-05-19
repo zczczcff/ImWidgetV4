@@ -24,6 +24,7 @@ public:
     FImGuiScope()
     {
         IMGUI_CHECKVERSION();
+        PreviousContext_ = ImGui::GetCurrentContext();
         Context_ = ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.Fonts->Build();
@@ -34,9 +35,11 @@ public:
     ~FImGuiScope()
     {
         ImGui::DestroyContext(Context_);
+        ImGui::SetCurrentContext(PreviousContext_);
     }
 
 private:
+    ImGuiContext* PreviousContext_ = nullptr;
     ImGuiContext* Context_ = nullptr;
 };
 
@@ -131,6 +134,13 @@ void AdvanceEditorHost(IApplicationHostDelegate& delegate, ImApplication& applic
     }
 }
 
+void ShutdownEditorHostForTest(IApplicationHostDelegate& delegate, ImApplication& application)
+{
+    delegate.OnShutdown(application);
+    application.SetRootWidget(nullptr);
+    application.SetBackend(nullptr);
+}
+
 void ExportEditorThemeSnapshot(
     const std::filesystem::path& outputDirectory,
     const std::string& themeName,
@@ -141,8 +151,8 @@ void ExportEditorThemeSnapshot(
     std::shared_ptr<IApplicationHostDelegate> delegate = CreateApplicationHostDelegate();
     ASSERT_NE(delegate, nullptr);
 
-    ImApplication application;
     FSnapshotTestBackend backend;
+    ImApplication application;
     backend.SetApplication(&application);
     application.SetIniSettingsPath({});
     delegate->ConfigureApplication(application);
@@ -159,7 +169,7 @@ void ExportEditorThemeSnapshot(
         outputPath,
         MakeFrameContext(1440.0f, 900.0f, 1.0),
         FSnapshotOptions {1440, 900, FColor::FromBytes(8, 10, 14, 255)});
-    delegate->OnShutdown(application);
+    ShutdownEditorHostForTest(*delegate, application);
 
     ASSERT_TRUE(bExported);
     ASSERT_TRUE(std::filesystem::exists(outputPath));
@@ -206,8 +216,8 @@ TEST(EditorSnapshotTest, PaletteButtonUsesEditorExplicitStyle)
     std::shared_ptr<IApplicationHostDelegate> delegate = CreateApplicationHostDelegate();
     ASSERT_NE(delegate, nullptr);
 
-    ImApplication application;
     FSnapshotTestBackend backend;
+    ImApplication application;
     backend.SetApplication(&application);
     application.SetIniSettingsPath({});
     delegate->ConfigureApplication(application);
@@ -229,5 +239,5 @@ TEST(EditorSnapshotTest, PaletteButtonUsesEditorExplicitStyle)
     EXPECT_FLOAT_EQ(style.Normal.TextColor.B, expectedTextColor.B);
     EXPECT_FLOAT_EQ(style.Normal.TextColor.A, expectedTextColor.A);
 
-    delegate->OnShutdown(application);
+    ShutdownEditorHostForTest(*delegate, application);
 }

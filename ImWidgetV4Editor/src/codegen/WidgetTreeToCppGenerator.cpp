@@ -22,7 +22,9 @@ enum class EGeneratedChildRelation {
     ScrollContent,
     ExpandableHeader,
     ExpandableBody,
-    TabContent
+    TabContent,
+    TitleBarLeadingItem,
+    TitleBarTrailingItem
 };
 
 struct FTabRelationData {
@@ -371,6 +373,36 @@ void CollectGeneratedNodesRecursive(
         return;
     }
 
+    if (widgetNode.contains("LeadingItems") && widgetNode.at("LeadingItems").is_array()) {
+        for (const auto& itemJson : widgetNode.at("LeadingItems")) {
+            CollectGeneratedNodesRecursive(
+                itemJson,
+                currentIndex,
+                EGeneratedChildRelation::TitleBarLeadingItem,
+                json(),
+                nullptr,
+                outNodes,
+                usedVarNameCounts);
+        }
+    }
+
+    if (widgetNode.contains("TrailingItems") && widgetNode.at("TrailingItems").is_array()) {
+        for (const auto& itemJson : widgetNode.at("TrailingItems")) {
+            CollectGeneratedNodesRecursive(
+                itemJson,
+                currentIndex,
+                EGeneratedChildRelation::TitleBarTrailingItem,
+                json(),
+                nullptr,
+                outNodes,
+                usedVarNameCounts);
+        }
+    }
+
+    if (widgetNode.contains("LeadingItems") || widgetNode.contains("TrailingItems")) {
+        return;
+    }
+
     if (widgetNode.contains("Content")) {
         CollectGeneratedNodesRecursive(
             widgetNode.at("Content"),
@@ -628,6 +660,14 @@ void EmitRelationCode(FCodeWriter& writer, const FGeneratedNode& parent, const F
             std::string(child.TabData.bDirty ? "true" : "false") + ");");
         break;
     }
+
+    case EGeneratedChildRelation::TitleBarLeadingItem:
+        writer.WriteLine(parent.VarName + "->AddLeadingItem(" + child.VarName + ");");
+        break;
+
+    case EGeneratedChildRelation::TitleBarTrailingItem:
+        writer.WriteLine(parent.VarName + "->AddTrailingItem(" + child.VarName + ");");
+        break;
     }
 }
 

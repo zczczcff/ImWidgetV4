@@ -23,6 +23,7 @@ class ImTextBlock;
 class ImTextList;
 class ImTextOutlineItem;
 class ImTextOutlineView;
+class ImTitleBar;
 class ImWidget;
 class ImWindow;
 }
@@ -198,6 +199,11 @@ private:
         const std::string& label,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,
         ImWidgetV4::ETextOutlineDropZone zone);
+    bool CreatePaletteWidgetInTitleBar(
+        const std::string& widgetTypeName,
+        const std::string& label,
+        const std::shared_ptr<ImWidgetV4::ImTitleBar>& titleBar,
+        bool bTrailing);
     bool CreatePaletteWidgetAsRoot(
         const std::string& widgetTypeName,
         const std::string& label);

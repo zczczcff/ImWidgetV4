@@ -20,8 +20,10 @@ struct FProjectScaffoldRequest {
     std::string TemplateName = "Blank App";
     std::string StartupDocumentFileName = "Main.ui.json";
     std::string StartupWidgetClassName = "MainView";
+    std::string TitleBarWidgetClassName = "TitleBarView";
     FEditorApplicationSettings ApplicationSettings;
     std::shared_ptr<ImWidgetV4::ImWidget> StartupRootWidget;
+    std::shared_ptr<ImWidgetV4::ImWidget> TitleBarRootWidget;
 };
 
 struct FProjectScaffoldResult {

@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/UserWidget.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 
@@ -98,6 +99,10 @@ bool RemoveWidgetCommand::CaptureRemovalState(const std::shared_ptr<EditorSessio
         if (const ImSlot* slot = panelParent->GetSlotForChild(m_Widget)) {
             m_SlotJson = slot->ToJson();
         }
+    } else if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        m_SlotJson = json::object();
+        m_SlotJson["Role"] = m_ReinsertionIndex < static_cast<int>(leadingCount) ? "Leading" : "Trailing";
     } else {
         m_SlotJson = json();
     }
@@ -179,6 +184,14 @@ bool RemoveWidgetCommand::RestoreRemovedWidget(const std::shared_ptr<EditorSessi
         if (insertedIndex >= 0) {
             tabView->SetActiveTab(insertedIndex);
             bInserted = true;
+        }
+    } else if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
+        const std::string role = m_SlotJson.is_object() ? m_SlotJson.value("Role", "Leading") : "Leading";
+        if (role == "Trailing") {
+            const int trailingIndex = std::max(0, m_ReinsertionIndex - static_cast<int>(titleBar->GetLeadingItemCount()));
+            bInserted = titleBar->InsertTrailingItem(static_cast<std::size_t>(trailingIndex), m_Widget);
+        } else {
+            bInserted = titleBar->InsertLeadingItem(static_cast<std::size_t>(std::max(0, m_ReinsertionIndex)), m_Widget);
         }
     } else if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
         if (!userWidget->GetRootWidget()) {

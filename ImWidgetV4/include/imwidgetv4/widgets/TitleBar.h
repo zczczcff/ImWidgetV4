@@ -65,11 +65,23 @@ public:
     void AddTrailingItem(const std::shared_ptr<ImWidget>& widget);
     void ClearLeadingItems();
     void ClearTrailingItems();
+    std::size_t GetLeadingItemCount() const { return LeadingItems_.size(); }
+    std::size_t GetTrailingItemCount() const { return TrailingItems_.size(); }
+    std::shared_ptr<ImWidget> GetLeadingItemAt(std::size_t index) const;
+    std::shared_ptr<ImWidget> GetTrailingItemAt(std::size_t index) const;
+    bool RemoveLeadingItem(const std::shared_ptr<ImWidget>& widget);
+    bool RemoveTrailingItem(const std::shared_ptr<ImWidget>& widget);
+    bool InsertLeadingItem(std::size_t index, const std::shared_ptr<ImWidget>& widget);
+    bool InsertTrailingItem(std::size_t index, const std::shared_ptr<ImWidget>& widget);
 
     void SetShowSystemButtons(bool value);
     void SetShowMinimizeButton(bool value);
     void SetShowMaximizeButton(bool value);
     void SetShowCloseButton(bool value);
+    bool GetShowSystemButtons() const { return bShowSystemButtons_; }
+    bool GetShowMinimizeButton() const { return bShowMinimizeButton_; }
+    bool GetShowMaximizeButton() const { return bShowMaximizeButton_; }
+    bool GetShowCloseButton() const { return bShowCloseButton_; }
     void SetDragRegionMinWidth(float width);
     void SetStyle(const FTitleBarStyle& style);
     const FTitleBarStyle& GetStyle() const { return GetEffectiveStyle(); }

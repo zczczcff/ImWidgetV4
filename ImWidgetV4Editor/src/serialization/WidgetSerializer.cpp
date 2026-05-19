@@ -10,6 +10,7 @@
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <stdexcept>
 
@@ -47,6 +48,24 @@ json SerializeTabItems(const std::shared_ptr<ImTabView>& tabView)
     }
 
     return tabItems;
+}
+
+json SerializeTitleBarItems(const std::shared_ptr<ImTitleBar>& titleBar, bool bTrailing)
+{
+    json items = json::array();
+    if (!titleBar) {
+        return items;
+    }
+
+    const std::size_t count = bTrailing
+        ? titleBar->GetTrailingItemCount()
+        : titleBar->GetLeadingItemCount();
+    for (std::size_t index = 0; index < count; ++index) {
+        items.push_back(WidgetSerializer::SerializeWidgetTree(
+            bTrailing ? titleBar->GetTrailingItemAt(index) : titleBar->GetLeadingItemAt(index)));
+    }
+
+    return items;
 }
 
 int FindSerializedIntProperty(const json& widgetJson, const std::string& propertySuffix, int defaultValue)
@@ -171,6 +190,12 @@ json WidgetSerializer::SerializeWidgetNode(const std::shared_ptr<ImWidget>& widg
         return node;
     }
 
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+        node["LeadingItems"] = SerializeTitleBarItems(titleBar, false);
+        node["TrailingItems"] = SerializeTitleBarItems(titleBar, true);
+        return node;
+    }
+
     if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
         node["Content"] = SerializeWidgetNode(button->GetContent());
         return node;
@@ -283,6 +308,53 @@ FWidgetSerializationResult WidgetSerializer::DeserializeWidgetNode(const json& w
 
             if (activeTabIndex >= 0) {
                 tabView->SetActiveTab(activeTabIndex);
+            }
+
+            result.bSuccess = true;
+            result.Widget = std::move(widget);
+            return result;
+        }
+
+        if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
+            auto deserializeItems = [&](const char* fieldName, bool bTrailing) {
+                if (!widgetJson.contains(fieldName)) {
+                    return true;
+                }
+
+                const json& itemsJson = widgetJson.at(fieldName);
+                if (!itemsJson.is_array()) {
+                    result.ErrorMessage = std::string(fieldName) + " must be an array.";
+                    return false;
+                }
+
+                if (bTrailing) {
+                    titleBar->ClearTrailingItems();
+                } else {
+                    titleBar->ClearLeadingItems();
+                }
+
+                for (const auto& itemJson : itemsJson) {
+                    FWidgetSerializationResult itemResult = DeserializeWidgetNode(itemJson);
+                    if (!itemResult.bSuccess) {
+                        result.ErrorMessage = itemResult.ErrorMessage.empty()
+                            ? std::string("Failed to deserialize title bar item.")
+                            : itemResult.ErrorMessage;
+                        return false;
+                    }
+                    if (itemResult.Widget) {
+                        if (bTrailing) {
+                            titleBar->AddTrailingItem(itemResult.Widget);
+                        } else {
+                            titleBar->AddLeadingItem(itemResult.Widget);
+                        }
+                    }
+                }
+
+                return true;
+            };
+
+            if (!deserializeItems("LeadingItems", false) || !deserializeItems("TrailingItems", true)) {
+                return result;
             }
 
             result.bSuccess = true;

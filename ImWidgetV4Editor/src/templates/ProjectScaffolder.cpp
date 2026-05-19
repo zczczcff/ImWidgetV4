@@ -162,7 +162,12 @@ std::string BuildRootCMakeListsText(
         << "set(IMWIDGETV4_APP_SOURCES\n"
         << "    src/main.cpp\n"
         << "    generated/AppProjectConfig.cpp\n"
-        << "    generated/" << request.StartupWidgetClassName << ".cpp\n"
+        << "    generated/" << request.StartupWidgetClassName << ".cpp\n";
+    if (request.TitleBarRootWidget) {
+        stream
+            << "    generated/" << request.TitleBarWidgetClassName << ".cpp\n";
+    }
+    stream
         << ")\n\n"
         << "if(ANDROID)\n"
         << "    set(IMWIDGETV4_ANDROID_NDK_ROOT \"\")\n"
@@ -258,7 +263,13 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
         << "#include <filesystem>\n"
         << "#include <memory>\n"
         << "#include <string>\n\n"
-        << "#include \"" << request.StartupWidgetClassName << ".h\"\n\n"
+        << "#include \"" << request.StartupWidgetClassName << ".h\"\n";
+    if (settings.bUseTitleBar && request.TitleBarRootWidget) {
+        stream
+            << "#include \"" << request.TitleBarWidgetClassName << ".h\"\n";
+    }
+    stream
+        << "\n"
         << "namespace {\n\n"
         << "class FGeneratedAppHostDelegate final : public ImWidgetV4::IApplicationHostDelegate\n"
         << "{\n"
@@ -300,27 +311,12 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     stream
         << "        application.SetApplicationTitle(" << BuildStringLiteral(title) << ");\n";
 
-    if (settings.bUseTitleBar) {
+    if (settings.bUseTitleBar && request.TitleBarRootWidget) {
         stream
             << "        auto rootLayout = std::make_shared<ImWidgetV4::ImVerticalBox>();\n"
             << "        rootLayout->SetSpacing(0.0f);\n"
-            << "        auto titleBar = std::make_shared<ImWidgetV4::ImTitleBar>();\n"
-            << "        titleBar->SetShowSystemButtons(" << (settings.bShowSystemButtons ? "true" : "false") << ");\n"
-            << "        auto titleText = std::make_shared<ImWidgetV4::ImTextBlock>();\n"
-            << "        titleText->SetText(" << BuildStringLiteral(title) << ");\n"
-            << "        titleText->SetWrapText(false);\n"
-            << "        titleBar->AddLeadingItem(titleText);\n";
-        if (settings.bUseTitleBarMenus) {
-            stream
-                << "        auto fileButton = std::make_shared<ImWidgetV4::ImButton>();\n"
-                << "        fileButton->SetText(\"File\");\n"
-                << "        titleBar->AddLeadingItem(fileButton);\n"
-                << "        auto viewButton = std::make_shared<ImWidgetV4::ImButton>();\n"
-                << "        viewButton->SetText(\"View\");\n"
-                << "        titleBar->AddLeadingItem(viewButton);\n";
-        }
-        stream
-            << "        rootLayout->AddChild(titleBar, ImWidgetV4::FMargin(0.0f));\n"
+            << "        auto titleBarView = std::make_shared<" << request.NamespaceName << "::" << request.TitleBarWidgetClassName << ">();\n"
+            << "        rootLayout->AddChild(titleBarView, ImWidgetV4::FMargin(0.0f));\n"
             << "        rootLayout->AddChildFill(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">(), 1.0f, ImWidgetV4::FMargin(0.0f));\n"
             << "        application.SetRootWidget(rootLayout);\n";
     } else {
@@ -387,6 +383,22 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
         return result;
     }
 
+    FCodeGenResult generatedTitleBarCode;
+    if (request.TitleBarRootWidget) {
+        FCodeGenOptions titleBarCodeGenOptions;
+        titleBarCodeGenOptions.ClassName = request.TitleBarWidgetClassName;
+        titleBarCodeGenOptions.Namespace = request.NamespaceName;
+        generatedTitleBarCode = WidgetTreeToCppGenerator::Generate(
+            request.TitleBarRootWidget,
+            titleBarCodeGenOptions);
+        if (!generatedTitleBarCode.bSuccess) {
+            result.ErrorMessage = generatedTitleBarCode.ErrorMessage.empty()
+                ? std::string("Title bar widget code generation failed.")
+                : generatedTitleBarCode.ErrorMessage;
+            return result;
+        }
+    }
+
     std::string errorMessage;
 
     const std::filesystem::path appProjectConfigHeaderPath =
@@ -420,6 +432,24 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
         return result;
     }
     result.GeneratedFiles.push_back(generatedSourcePath);
+
+    if (request.TitleBarRootWidget) {
+        const std::filesystem::path titleBarHeaderPath =
+            request.ProjectRoot / "generated" / generatedTitleBarCode.Files.HeaderFileName;
+        if (!WriteTextFile(titleBarHeaderPath, generatedTitleBarCode.Files.HeaderText, errorMessage)) {
+            result.ErrorMessage = errorMessage;
+            return result;
+        }
+        result.GeneratedFiles.push_back(titleBarHeaderPath);
+
+        const std::filesystem::path titleBarSourcePath =
+            request.ProjectRoot / "generated" / generatedTitleBarCode.Files.SourceFileName;
+        if (!WriteTextFile(titleBarSourcePath, generatedTitleBarCode.Files.SourceText, errorMessage)) {
+            result.ErrorMessage = errorMessage;
+            return result;
+        }
+        result.GeneratedFiles.push_back(titleBarSourcePath);
+    }
 
     result.bSuccess = true;
     return result;

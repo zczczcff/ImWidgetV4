@@ -34,6 +34,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
+#include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
 #include <cctype>
@@ -551,6 +552,18 @@ bool TryInsertIntoTarget(
         return false;
     }
 
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(target)) {
+        const FGeometry geometry = titleBar->GetGeometry();
+        const bool bTrailing = geometry.Size.X > 0.0f &&
+            dropPosition.X >= geometry.Position.X + geometry.Size.X * 0.5f;
+        if (bTrailing) {
+            titleBar->AddTrailingItem(widget);
+        } else {
+            titleBar->AddLeadingItem(widget);
+        }
+        return true;
+    }
+
     return false;
 }
 
@@ -566,7 +579,8 @@ bool CanInsertIntoTarget(
         std::dynamic_pointer_cast<ImVerticalBox>(target) != nullptr ||
         std::dynamic_pointer_cast<ImHorizontalBox>(target) != nullptr ||
         std::dynamic_pointer_cast<ImScrollBox>(target) != nullptr ||
-        std::dynamic_pointer_cast<ImTabView>(target) != nullptr) {
+        std::dynamic_pointer_cast<ImTabView>(target) != nullptr ||
+        std::dynamic_pointer_cast<ImTitleBar>(target) != nullptr) {
         return true;
     }
 
@@ -1129,6 +1143,52 @@ bool EditorSession::CreatePaletteWidgetAtTreeTarget(
     return true;
 }
 
+bool EditorSession::CreatePaletteWidgetInTitleBar(
+    const std::string& widgetTypeName,
+    const std::string& label,
+    const std::shared_ptr<ImTitleBar>& titleBar,
+    bool bTrailing)
+{
+    if (!titleBar) {
+        LogStatus(LocalizedEditorString("Session.CreateRejectedByTargetContainer", "Create rejected by target container."));
+        return false;
+    }
+
+    auto widget = CreatePaletteWidget(widgetTypeName);
+    if (!widget) {
+        LogStatus(LocalizedEditorString("Session.CreateFailedUnsupportedWidgetType", "Create failed: unsupported widget type", " " + widgetTypeName));
+        return false;
+    }
+
+    AssignGeneratedUniqueNamesToSubtree(m_Document, widget);
+
+    const FGeometry geometry = titleBar->GetGeometry();
+    const FVector2 dropPosition = bTrailing
+        ? FVector2(geometry.Position.X + std::max(1.0f, geometry.Size.X) * 0.75f, geometry.Position.Y)
+        : FVector2(geometry.Position.X, geometry.Position.Y);
+    const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
+    const bool bHandled = ApplyWidgetInsertion(widget, titleBar, dropPosition, widget, true);
+    if (!bHandled) {
+        LogStatus(LocalizedEditorString("Session.CreateRejectedByTargetContainer", "Create rejected by target container."));
+        return false;
+    }
+
+    m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
+        shared_from_this(),
+        EditorText("Session.Command.AddWidget", "Add Widget").Resolve(),
+        widget,
+        titleBar,
+        dropPosition,
+        ETextOutlineDropZone::OnItem,
+        AddWidgetCommand::EInsertionMode::DesignerDrop,
+        widget,
+        bBeforeDirty,
+        true));
+    RefreshDocumentViews(widget);
+    LogStatus(LocalizedEditorString("Session.Created", "Created", " " + label));
+    return true;
+}
+
 bool EditorSession::CreatePaletteWidgetAsRoot(
     const std::string& widgetTypeName,
     const std::string& label)
@@ -1291,7 +1351,8 @@ bool EditorSession::CanInsertWidgetAtTreeTarget(
             std::dynamic_pointer_cast<ImVerticalBox>(targetWidget) != nullptr ||
             std::dynamic_pointer_cast<ImHorizontalBox>(targetWidget) != nullptr ||
             std::dynamic_pointer_cast<ImScrollBox>(targetWidget) != nullptr ||
-            std::dynamic_pointer_cast<ImTabView>(targetWidget) != nullptr;
+            std::dynamic_pointer_cast<ImTabView>(targetWidget) != nullptr ||
+            std::dynamic_pointer_cast<ImTitleBar>(targetWidget) != nullptr;
     }
 
     const std::shared_ptr<ImWidget> targetParent = m_Document->FindLogicalParent(targetWidget);
@@ -1312,7 +1373,8 @@ bool EditorSession::CanInsertIntoParentAt(const std::shared_ptr<ImWidget>& paren
     return std::dynamic_pointer_cast<ImVerticalBox>(parent) != nullptr ||
         std::dynamic_pointer_cast<ImHorizontalBox>(parent) != nullptr ||
         std::dynamic_pointer_cast<ImScrollBox>(parent) != nullptr ||
-        std::dynamic_pointer_cast<ImTabView>(parent) != nullptr;
+        std::dynamic_pointer_cast<ImTabView>(parent) != nullptr ||
+        std::dynamic_pointer_cast<ImTitleBar>(parent) != nullptr;
 }
 
 bool EditorSession::DeleteSelectedWidget()
@@ -1321,6 +1383,12 @@ bool EditorSession::DeleteSelectedWidget()
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
         LogStatus(LocalizedEditorString("Session.DeleteSkippedNoWidgetSelected", "Delete skipped: no widget selected."));
+        return false;
+    }
+    if (m_Document &&
+        selectedWidget == m_Document->GetRootWidget() &&
+        std::dynamic_pointer_cast<ImTitleBar>(selectedWidget)) {
+        LogStatus(LocalizedEditorString("Session.DeleteSkippedTitleBarRoot", "Delete skipped: title bar root cannot be removed."));
         return false;
     }
 
@@ -1354,6 +1422,12 @@ bool EditorSession::CutSelectedWidget()
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
         LogStatus(LocalizedEditorString("Session.CutSkippedNoWidgetSelected", "Cut skipped: no widget selected."));
+        return false;
+    }
+    if (m_Document &&
+        selectedWidget == m_Document->GetRootWidget() &&
+        std::dynamic_pointer_cast<ImTitleBar>(selectedWidget)) {
+        LogStatus(LocalizedEditorString("Session.CutSkippedTitleBarRoot", "Cut skipped: title bar root cannot be removed."));
         return false;
     }
 
@@ -1421,6 +1495,13 @@ bool EditorSession::PasteCopiedWidget()
     std::shared_ptr<ImWidget> selectedWidget = m_DesignerSurface
         ? m_DesignerSurface->GetSelectedWidget()
         : nullptr;
+    if (m_Document &&
+        selectedWidget == m_Document->GetRootWidget() &&
+        std::dynamic_pointer_cast<ImTitleBar>(selectedWidget) &&
+        std::dynamic_pointer_cast<ImTitleBar>(cloneResult.Widget)) {
+        LogStatus(LocalizedEditorString("Session.PasteRejectedTitleBarRoot", "Paste rejected: title bar root cannot be replaced."));
+        return false;
+    }
     FVector2 pastePosition(24.0f, 24.0f);
     if (selectedWidget) {
         pastePosition = selectedWidget->GetGeometry().Position + FVector2(24.0f, 24.0f);
@@ -1460,6 +1541,12 @@ bool EditorSession::DuplicateSelectedWidget()
     auto selectedWidget = m_DesignerSurface ? m_DesignerSurface->GetSelectedWidget() : nullptr;
     if (!selectedWidget) {
         LogStatus(LocalizedEditorString("Session.DuplicateSkippedNoWidgetSelected", "Duplicate skipped: no widget selected."));
+        return false;
+    }
+    if (m_Document &&
+        selectedWidget == m_Document->GetRootWidget() &&
+        std::dynamic_pointer_cast<ImTitleBar>(selectedWidget)) {
+        LogStatus(LocalizedEditorString("Session.DuplicateSkippedTitleBarRoot", "Duplicate skipped: title bar root cannot be duplicated."));
         return false;
     }
 
@@ -2507,6 +2594,10 @@ bool EditorSession::RemoveWidgetFromParent(
         return false;
     }
 
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
+        return titleBar->RemoveLeadingItem(widget) || titleBar->RemoveTrailingItem(widget);
+    }
+
     if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
         if (userWidget->GetRootWidget() == widget) {
             userWidget->SetRootWidget(nullptr);
@@ -2657,6 +2748,17 @@ bool EditorSession::InsertWidgetIntoParentAt(
             return true;
         }
         return false;
+    }
+
+    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
+        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
+        if (insertIndex <= static_cast<int>(leadingCount)) {
+            return titleBar->InsertLeadingItem(static_cast<std::size_t>(std::max(0, insertIndex)), widget);
+        }
+
+        return titleBar->InsertTrailingItem(
+            static_cast<std::size_t>(std::max(0, insertIndex - static_cast<int>(leadingCount))),
+            widget);
     }
 
     if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
@@ -3121,6 +3223,9 @@ void EditorSession::OpenStructureContextMenu(
     std::vector<FPopupMenuItem> insertBeforeItems;
     std::vector<FPopupMenuItem> insertAfterItems;
     std::vector<FPopupMenuItem> pasteItems;
+    std::vector<FPopupMenuItem> addTitleBarLeadingItems;
+    std::vector<FPopupMenuItem> addTitleBarTrailingItems;
+    const auto targetTitleBar = std::dynamic_pointer_cast<ImTitleBar>(targetWidget);
     for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
         const std::string label = ResolvePaletteEntryLabel(entry);
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::OnItem)) {
@@ -3134,6 +3239,30 @@ void EditorSession::OpenStructureContextMenu(
                 CloseWidgetTreeContextMenu();
             };
             addChildItems.push_back(std::move(item));
+        }
+
+        if (targetTitleBar) {
+            FPopupMenuItem leadingItem;
+            leadingItem.Text = label;
+            leadingItem.TextValue = entry.LabelText;
+            leadingItem.bEnabled = true;
+            leadingItem.bIsSeparator = false;
+            leadingItem.OnInvoked = [this, targetTitleBar, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetInTitleBar(typeName, label, targetTitleBar, false);
+                CloseWidgetTreeContextMenu();
+            };
+            addTitleBarLeadingItems.push_back(std::move(leadingItem));
+
+            FPopupMenuItem trailingItem;
+            trailingItem.Text = label;
+            trailingItem.TextValue = entry.LabelText;
+            trailingItem.bEnabled = true;
+            trailingItem.bIsSeparator = false;
+            trailingItem.OnInvoked = [this, targetTitleBar, typeName = entry.TypeName, label]() {
+                CreatePaletteWidgetInTitleBar(typeName, label, targetTitleBar, true);
+                CloseWidgetTreeContextMenu();
+            };
+            addTitleBarTrailingItems.push_back(std::move(trailingItem));
         }
 
         if (CanInsertWidgetAtTreeTarget(targetWidget, ETextOutlineDropZone::BeforeItem)) {
@@ -3197,6 +3326,12 @@ void EditorSession::OpenStructureContextMenu(
 
     if (!addChildItems.empty()) {
         items.push_back(MakeLocalizedSubMenuItem("Menu.AddChild", "Add Child", std::move(addChildItems)));
+    }
+    if (!addTitleBarLeadingItems.empty()) {
+        items.push_back(MakeLocalizedSubMenuItem("Menu.AddLeadingItem", "Add Leading Item", std::move(addTitleBarLeadingItems)));
+    }
+    if (!addTitleBarTrailingItems.empty()) {
+        items.push_back(MakeLocalizedSubMenuItem("Menu.AddTrailingItem", "Add Trailing Item", std::move(addTitleBarTrailingItems)));
     }
     if (!insertBeforeItems.empty()) {
         items.push_back(MakeLocalizedSubMenuItem("Menu.InsertBefore", "Insert Before", std::move(insertBeforeItems)));

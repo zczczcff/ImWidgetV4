@@ -209,7 +209,6 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto useCustomHostChromeSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseCustomHostChrome);
     auto useTitleBarSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBar);
     auto showSystemButtonsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bShowSystemButtons);
-    auto useTitleBarMenusSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBarMenus);
     auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
     defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
     auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
@@ -242,7 +241,6 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto titleBarSettingsGroup = std::make_shared<ImVerticalBox>();
     titleBarSettingsGroup->SetSpacing(8.0f);
     titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.ShowSystemButtons", "Show System Buttons").Resolve(), showSystemButtonsSwitch), FMargin(0.0f));
-    titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.UseTitleBarMenus", "Generate Title Bar Menus").Resolve(), useTitleBarMenusSwitch), FMargin(0.0f));
     applicationSettingsGroup->AddChild(titleBarSettingsGroup, FMargin(0.0f));
 
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultTheme", "Default Theme").Resolve(), defaultThemeEditor), FMargin(0.0f));
@@ -343,7 +341,6 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_UseCustomHostChromeSwitch = useCustomHostChromeSwitch;
     m_UseTitleBarSwitch = useTitleBarSwitch;
     m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
-    m_UseTitleBarMenusSwitch = useTitleBarMenusSwitch;
     m_DefaultThemeEditor = defaultThemeEditor;
     m_DefaultCultureEditor = defaultCultureEditor;
     m_StringTablePathsEditor = stringTablePathsEditor;
@@ -585,7 +582,6 @@ void ProjectSettingsDialog::Reset()
     m_UseCustomHostChromeSwitch.reset();
     m_UseTitleBarSwitch.reset();
     m_ShowSystemButtonsSwitch.reset();
-    m_UseTitleBarMenusSwitch.reset();
     m_DefaultThemeEditor.reset();
     m_DefaultCultureEditor.reset();
     m_StringTablePathsEditor.reset();
@@ -825,7 +821,7 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     settings.bUseCustomHostChrome = m_UseCustomHostChromeSwitch && m_UseCustomHostChromeSwitch->IsChecked();
     settings.bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
     settings.bShowSystemButtons = m_ShowSystemButtonsSwitch && m_ShowSystemButtonsSwitch->IsChecked();
-    settings.bUseTitleBarMenus = m_UseTitleBarMenusSwitch && m_UseTitleBarMenusSwitch->IsChecked();
+    settings.bUseTitleBarMenus = false;
     settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
     settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
     settings.StringTablePaths = ParsePathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());

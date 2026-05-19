@@ -1022,6 +1022,11 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         scaffoldRequest.ApplicationSettings.bUseTitleBar = true;
         scaffoldRequest.ApplicationSettings.bShowSystemButtons = true;
         scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
+        const std::filesystem::path defaultSdkPackagePath = FindDefaultImWidgetV4SdkPackageDirectory();
+        if (!defaultSdkPackagePath.empty()) {
+            scaffoldRequest.ApplicationSettings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+            scaffoldRequest.ApplicationSettings.SdkPackagePath = defaultSdkPackagePath;
+        }
         scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
         scaffoldRequest.TitleBarRootWidget = titleBarDocument.GetRootWidget();
         const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
@@ -1044,6 +1049,10 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         projectSettings.bUseTitleBar = true;
         projectSettings.bShowSystemButtons = true;
         projectSettings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
+        if (!defaultSdkPackagePath.empty()) {
+            projectSettings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+            projectSettings.SdkPackagePath = defaultSdkPackagePath;
+        }
         project->SetApplicationSettings(projectSettings);
 
         std::string manifestError;

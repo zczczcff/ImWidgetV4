@@ -170,3 +170,9 @@ if(MSVC)
         target_compile_options(editor_selection_test PRIVATE /FS)
     endif()
 endif()
+
+install(
+    TARGETS ImWidgetV4Editor
+    RUNTIME DESTINATION tools
+    LIBRARY DESTINATION tools
+)

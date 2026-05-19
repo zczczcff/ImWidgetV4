@@ -230,6 +230,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     libraryIntegrationModeComboBox->SetSelectedIndex(GetLibraryIntegrationModeIndex(m_Options.ApplicationSettings.LibraryIntegrationMode));
     auto sdkPackagePathEditor = MakeEditableTextField(m_Options.ApplicationSettings.SdkPackagePath.generic_string());
     sdkPackagePathEditor->SetHintText("path/to/ImWidgetV4-SDK/cmake");
+    auto minimumSdkVersionEditor = MakeEditableTextField(m_Options.ApplicationSettings.MinimumSdkVersion);
+    minimumSdkVersionEditor->SetHintText("0.1.0");
     auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
     defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
     auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
@@ -268,6 +270,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto sdkSettingsGroup = std::make_shared<ImVerticalBox>();
     sdkSettingsGroup->SetSpacing(8.0f);
     sdkSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.SdkPackagePath", "SDK Package Path").Resolve(), sdkPackagePathEditor), FMargin(0.0f));
+    sdkSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.MinimumSdkVersion", "Minimum SDK Version").Resolve(), minimumSdkVersionEditor), FMargin(0.0f));
     applicationSettingsGroup->AddChild(sdkSettingsGroup, FMargin(0.0f));
 
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultTheme", "Default Theme").Resolve(), defaultThemeEditor), FMargin(0.0f));
@@ -370,6 +373,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
     m_LibraryIntegrationModeComboBox = libraryIntegrationModeComboBox;
     m_SdkPackagePathEditor = sdkPackagePathEditor;
+    m_MinimumSdkVersionEditor = minimumSdkVersionEditor;
     m_DefaultThemeEditor = defaultThemeEditor;
     m_DefaultCultureEditor = defaultCultureEditor;
     m_StringTablePathsEditor = stringTablePathsEditor;
@@ -620,6 +624,7 @@ void ProjectSettingsDialog::Reset()
     m_ShowSystemButtonsSwitch.reset();
     m_LibraryIntegrationModeComboBox.reset();
     m_SdkPackagePathEditor.reset();
+    m_MinimumSdkVersionEditor.reset();
     m_DefaultThemeEditor.reset();
     m_DefaultCultureEditor.reset();
     m_StringTablePathsEditor.reset();
@@ -865,6 +870,7 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
         m_LibraryIntegrationModeComboBox ? m_LibraryIntegrationModeComboBox->GetSelectedIndex() : 0);
     settings.SdkPackagePath =
         m_SdkPackagePathEditor ? std::filesystem::path(m_SdkPackagePathEditor->GetText()).lexically_normal() : std::filesystem::path();
+    settings.MinimumSdkVersion = m_MinimumSdkVersionEditor ? m_MinimumSdkVersionEditor->GetText() : std::string("0.1.0");
     settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
     settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
     settings.StringTablePaths = ParsePathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());

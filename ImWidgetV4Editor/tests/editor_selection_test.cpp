@@ -2541,6 +2541,7 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     settings.bUseTitleBarMenus = true;
     settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
     settings.SdkPackagePath = std::filesystem::path("sdk") / "cmake";
+    settings.MinimumSdkVersion = "0.2.0";
     settings.DefaultTheme = "Light";
     settings.DefaultCulture = "zh-CN";
     settings.StringTablePaths = {
@@ -2571,6 +2572,7 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     EXPECT_TRUE(restoredSettings.bUseTitleBarMenus);
     EXPECT_EQ(restoredSettings.LibraryIntegrationMode, EEditorLibraryIntegrationMode::SDK);
     EXPECT_EQ(restoredSettings.SdkPackagePath.generic_string(), "sdk/cmake");
+    EXPECT_EQ(restoredSettings.MinimumSdkVersion, "0.2.0");
     EXPECT_EQ(restoredSettings.DefaultTheme, "Light");
     EXPECT_EQ(restoredSettings.DefaultCulture, "zh-CN");
     ASSERT_EQ(restoredSettings.StringTablePaths.size(), 2U);
@@ -2693,6 +2695,7 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
     request.StartupRootWidget = rootWidget;
     request.ApplicationSettings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
     request.ApplicationSettings.SdkPackagePath = std::filesystem::path("vendor") / "ImWidgetV4-SDK" / "cmake";
+    request.ApplicationSettings.MinimumSdkVersion = "0.2.0";
 
     std::error_code errorCode;
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
@@ -2708,7 +2711,7 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
 
     EXPECT_NE(text.find("set(IMWIDGETV4_LIBRARY_MODE \"SDK\""), std::string::npos);
     EXPECT_NE(text.find("set(IMWIDGETV4_SDK_DIR \"vendor/ImWidgetV4-SDK/cmake\""), std::string::npos);
-    EXPECT_NE(text.find("find_package(ImWidgetV4 CONFIG REQUIRED"), std::string::npos);
+    EXPECT_NE(text.find("find_package(ImWidgetV4 0.2.0 CONFIG REQUIRED"), std::string::npos);
     EXPECT_EQ(text.find("SDK integration is not ready for generated app projects yet"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_win32_main"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_android_main"), std::string::npos);

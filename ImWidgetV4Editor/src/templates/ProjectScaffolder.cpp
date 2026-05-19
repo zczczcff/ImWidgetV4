@@ -68,6 +68,19 @@ std::string BuildCMakeQuotedPath(const std::filesystem::path& value)
     return result;
 }
 
+std::string BuildCMakeVersionArgument(const std::string& value)
+{
+    std::string result;
+    result.reserve(value.size() + 1);
+    for (char c : value) {
+        const unsigned char ch = static_cast<unsigned char>(c);
+        if (std::isalnum(ch) != 0 || c == '.' || c == '_' || c == '-') {
+            result.push_back(c);
+        }
+    }
+    return result.empty() ? "0.1.0" : result;
+}
+
 bool IsIdentifierStartChar(char c)
 {
     const unsigned char value = static_cast<unsigned char>(c);
@@ -189,6 +202,7 @@ std::string BuildGeneratedProjectCMakeText(
     const FEditorApplicationSettings& settings = request.ApplicationSettings;
     const std::string integrationMode = GetLibraryIntegrationModeToken(settings.LibraryIntegrationMode);
     const std::string sdkPackagePath = BuildCMakeQuotedPath(settings.SdkPackagePath);
+    const std::string minimumSdkVersion = BuildCMakeVersionArgument(settings.MinimumSdkVersion);
 
     std::ostringstream stream;
     stream
@@ -206,9 +220,9 @@ std::string BuildGeneratedProjectCMakeText(
         << "endif()\n\n"
         << "if(IMWIDGETV4_LIBRARY_MODE STREQUAL \"SDK\")\n"
         << "    if(IMWIDGETV4_SDK_DIR STREQUAL \"\")\n"
-        << "        find_package(ImWidgetV4 CONFIG REQUIRED)\n"
+        << "        find_package(ImWidgetV4 " << minimumSdkVersion << " CONFIG REQUIRED)\n"
         << "    else()\n"
-        << "        find_package(ImWidgetV4 CONFIG REQUIRED PATHS \"${IMWIDGETV4_SDK_DIR}\" NO_DEFAULT_PATH)\n"
+        << "        find_package(ImWidgetV4 " << minimumSdkVersion << " CONFIG REQUIRED PATHS \"${IMWIDGETV4_SDK_DIR}\" NO_DEFAULT_PATH)\n"
         << "    endif()\n"
         << "else()\n"
         << "    if(IMWIDGETV4_ROOT STREQUAL \"\")\n"

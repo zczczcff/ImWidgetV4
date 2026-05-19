@@ -1,6 +1,7 @@
 #include "EditorProject.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 
 namespace ImWidgetV4Editor {
@@ -43,6 +44,20 @@ EEditorLibraryIntegrationMode LibraryIntegrationModeFromString(const std::string
         : EEditorLibraryIntegrationMode::Source;
 }
 
+std::string NormalizeSdkVersion(const std::string& version)
+{
+    const auto first = std::find_if_not(version.begin(), version.end(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    });
+    const auto last = std::find_if_not(version.rbegin(), version.rend(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    }).base();
+    if (first >= last) {
+        return "0.1.0";
+    }
+    return std::string(first, last);
+}
+
 FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& projectName = std::string())
 {
     FEditorApplicationSettings settings;
@@ -59,6 +74,7 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
     settings.bUseTitleBarMenus = false;
     settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
     settings.SdkPackagePath.clear();
+    settings.MinimumSdkVersion = "0.1.0";
     settings.DefaultTheme.clear();
     settings.DefaultCulture.clear();
     settings.StringTablePaths.clear();
@@ -83,6 +99,7 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
     settingsJson["UseTitleBarMenus"] = settings.bUseTitleBarMenus;
     settingsJson["LibraryIntegrationMode"] = LibraryIntegrationModeToString(settings.LibraryIntegrationMode);
     settingsJson["SdkPackagePath"] = NormalizeStoredPath(settings.SdkPackagePath).generic_string();
+    settingsJson["MinimumSdkVersion"] = NormalizeSdkVersion(settings.MinimumSdkVersion);
     settingsJson["DefaultTheme"] = settings.DefaultTheme;
     settingsJson["DefaultCulture"] = settings.DefaultCulture;
     json stringTablePathsJson = json::array();
@@ -134,6 +151,8 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
         LibraryIntegrationModeFromString(settingsJson.value("LibraryIntegrationMode", std::string("Source")));
     settings.SdkPackagePath = NormalizeStoredPath(
         std::filesystem::path(settingsJson.value("SdkPackagePath", std::string())));
+    settings.MinimumSdkVersion = NormalizeSdkVersion(
+        settingsJson.value("MinimumSdkVersion", settings.MinimumSdkVersion));
     settings.DefaultTheme = settingsJson.value("DefaultTheme", settings.DefaultTheme);
     settings.DefaultCulture = settingsJson.value("DefaultCulture", settings.DefaultCulture);
     const json stringTablePathsJson = settingsJson.value("StringTablePaths", json::array());
@@ -319,7 +338,7 @@ bool EditorProject::FromJson(
     }
 
     const int version = projectJson.value("Version", 0);
-    if (version != 1 && version != 2 && version != 4 && version != FormatVersion) {
+    if (version != 1 && version != 2 && version != 4 && version != 5 && version != FormatVersion) {
         if (outError) {
             *outError = "Unsupported project manifest version.";
         }

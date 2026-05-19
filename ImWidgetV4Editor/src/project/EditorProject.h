@@ -28,6 +28,7 @@ struct FEditorApplicationSettings {
     bool bUseTitleBarMenus = false;
     EEditorLibraryIntegrationMode LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
     std::filesystem::path SdkPackagePath;
+    std::string MinimumSdkVersion;
     std::string DefaultTheme;
     std::string DefaultCulture;
     std::vector<std::filesystem::path> StringTablePaths;
@@ -37,7 +38,7 @@ struct FEditorApplicationSettings {
 
 class EditorProject {
 public:
-    static constexpr int FormatVersion = 5;
+    static constexpr int FormatVersion = 6;
 
     static std::string GetManifestFileName();
     static std::filesystem::path BuildManifestFilePath(const std::filesystem::path& projectRoot);

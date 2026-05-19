@@ -1800,6 +1800,70 @@ bool EditorWorkspaceController::GenerateActiveDocumentCpp(ImApplication& app)
     return session ? session->GenerateCppFiles(app) : false;
 }
 
+bool EditorWorkspaceController::RegenerateProjectCode()
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        SetLocalizedOutputLine("Project.RegenerateCodeFailedNoProject", "Regenerate code failed: no app project is open.");
+        return false;
+    }
+
+    if (m_Project->GetStartupDocumentRelativePath().empty()) {
+        SetLocalizedOutputLine("Project.RegenerateCodeFailedNoStartupDocument", "Regenerate code failed: startup document is not configured.");
+        return false;
+    }
+
+    const std::filesystem::path startupDocumentPath =
+        (m_ProjectRoot / m_Project->GetStartupDocumentRelativePath()).lexically_normal();
+
+    std::shared_ptr<EditorDocument> startupDocument;
+    for (const FDocumentEntry& entry : m_Documents) {
+        if (entry.Session &&
+            entry.Session->GetDocument() &&
+            entry.Session->GetDocument()->GetFilePath().lexically_normal() == startupDocumentPath) {
+            startupDocument = entry.Session->GetDocument();
+            break;
+        }
+    }
+
+    if (!startupDocument) {
+        startupDocument = std::make_shared<EditorDocument>();
+        std::string loadError;
+        if (!startupDocument->Load(startupDocumentPath, &loadError)) {
+            SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + loadError);
+            return false;
+        }
+    }
+
+    if (!startupDocument->GetRootWidget()) {
+        SetLocalizedOutputLine("Project.RegenerateCodeFailedNoRootWidget", "Regenerate code failed: startup document has no root widget.");
+        return false;
+    }
+
+    FProjectScaffoldRequest scaffoldRequest;
+    scaffoldRequest.ProjectRoot = m_ProjectRoot;
+    scaffoldRequest.ProjectName = m_Project->GetProjectName();
+    scaffoldRequest.NamespaceName = m_Project->GetNamespaceName();
+    scaffoldRequest.TemplateName = m_Project->GetTemplateName();
+    scaffoldRequest.StartupDocumentFileName = m_Project->GetStartupDocumentRelativePath().filename().string();
+    scaffoldRequest.StartupWidgetClassName =
+        BuildStartupWidgetClassName(scaffoldRequest.StartupDocumentFileName);
+    scaffoldRequest.ApplicationSettings = m_Project->GetApplicationSettings();
+    if (scaffoldRequest.ApplicationSettings.Title.empty()) {
+        scaffoldRequest.ApplicationSettings.Title = scaffoldRequest.ProjectName;
+    }
+    scaffoldRequest.StartupRootWidget = startupDocument->GetRootWidget();
+
+    const FProjectScaffoldResult result = ProjectScaffolder::GenerateCode(scaffoldRequest);
+    if (!result.bSuccess) {
+        SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + result.ErrorMessage);
+        return false;
+    }
+
+    SetLocalizedOutputLine("Project.RegeneratedCode", "Regenerated project code.");
+    RefreshProjectTree();
+    return true;
+}
+
 bool EditorWorkspaceController::CloseActiveDocument(ImApplication& app)
 {
     return CloseDocumentAt(app, m_ActiveDocumentIndex);

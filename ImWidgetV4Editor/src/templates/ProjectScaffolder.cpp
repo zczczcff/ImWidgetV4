@@ -161,6 +161,7 @@ std::string BuildRootCMakeListsText(
         << "add_subdirectory(\"${IMWIDGETV4_ROOT}\" \"${CMAKE_BINARY_DIR}/ImWidgetV4\")\n\n"
         << "set(IMWIDGETV4_APP_SOURCES\n"
         << "    src/main.cpp\n"
+        << "    generated/AppProjectConfig.cpp\n"
         << "    generated/" << request.StartupWidgetClassName << ".cpp\n"
         << ")\n\n"
         << "if(ANDROID)\n"
@@ -216,15 +217,40 @@ std::string BuildRootCMakeListsText(
     return stream.str();
 }
 
-std::string BuildMainCppText(const FProjectScaffoldRequest& request)
+std::string BuildMainCppText()
+{
+    std::ostringstream stream;
+    stream
+        << "#include <imwidgetv4/app/ApplicationHost.h>\n\n"
+        << "#if !defined(__ANDROID__)\n"
+        << "int main(int argc, char** argv)\n"
+        << "{\n"
+        << "    (void)argc;\n"
+        << "    (void)argv;\n"
+        << "    return ImWidgetV4::RunHostedDesktopApplication();\n"
+        << "}\n"
+        << "#endif\n";
+    return stream.str();
+}
+
+std::string BuildAppProjectConfigHeaderText()
+{
+    std::ostringstream stream;
+    stream
+        << "#pragma once\n\n"
+        << "#include <imwidgetv4/app/ApplicationHost.h>\n\n";
+    return stream.str();
+}
+
+std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& request)
 {
     const FEditorApplicationSettings& settings = request.ApplicationSettings;
     const std::string title = settings.Title.empty() ? request.ProjectName : settings.Title;
     std::ostringstream stream;
     stream
-        << "#include <imwidgetv4/app/ApplicationHost.h>\n"
+        << "#include \"AppProjectConfig.h\"\n\n"
         << "#include <imwidgetv4/core/Application.h>\n"
-        << "#include <imwidgetv4/core/FrameContext.h>\n"
+        << "#include <imwidgetv4/core/Types.h>\n"
         << "#include <imwidgetv4/widgets/Button.h>\n"
         << "#include <imwidgetv4/widgets/TextBlock.h>\n"
         << "#include <imwidgetv4/widgets/TitleBar.h>\n"
@@ -333,19 +359,11 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
         << "{\n"
         << "    return std::make_shared<FGeneratedAppHostDelegate>();\n"
         << "}\n\n"
-        << "} // namespace ImWidgetV4\n\n"
-        << "#if !defined(__ANDROID__)\n"
-        << "int main(int argc, char** argv)\n"
-        << "{\n"
-        << "    (void)argc;\n"
-        << "    (void)argv;\n"
-        << "    return ImWidgetV4::RunHostedDesktopApplication();\n"
-        << "}\n"
-        << "#endif\n";
+        << "} // namespace ImWidgetV4\n";
     return stream.str();
 }
 
-FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
+FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& request)
 {
     FProjectScaffoldResult result;
     if (request.ProjectRoot.empty()) {
@@ -369,22 +387,23 @@ FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
         return result;
     }
 
-    const std::string cmakeProjectName = NormalizeIdentifier(request.ProjectName, "ImWidgetApp");
     std::string errorMessage;
 
-    const std::filesystem::path rootCMakeListsPath = request.ProjectRoot / "CMakeLists.txt";
-    if (!WriteTextFile(rootCMakeListsPath, BuildRootCMakeListsText(request, cmakeProjectName), errorMessage)) {
+    const std::filesystem::path appProjectConfigHeaderPath =
+        request.ProjectRoot / "generated" / "AppProjectConfig.h";
+    if (!WriteTextFile(appProjectConfigHeaderPath, BuildAppProjectConfigHeaderText(), errorMessage)) {
         result.ErrorMessage = errorMessage;
         return result;
     }
-    result.GeneratedFiles.push_back(rootCMakeListsPath);
+    result.GeneratedFiles.push_back(appProjectConfigHeaderPath);
 
-    const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
-    if (!WriteTextFile(mainCppPath, BuildMainCppText(request), errorMessage)) {
+    const std::filesystem::path appProjectConfigSourcePath =
+        request.ProjectRoot / "generated" / "AppProjectConfig.cpp";
+    if (!WriteTextFile(appProjectConfigSourcePath, BuildAppProjectConfigSourceText(request), errorMessage)) {
         result.ErrorMessage = errorMessage;
         return result;
     }
-    result.GeneratedFiles.push_back(mainCppPath);
+    result.GeneratedFiles.push_back(appProjectConfigSourcePath);
 
     const std::filesystem::path generatedHeaderPath =
         request.ProjectRoot / "generated" / generatedCode.Files.HeaderFileName;
@@ -406,7 +425,55 @@ FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
     return result;
 }
 
+FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
+{
+    FProjectScaffoldResult result;
+    if (request.ProjectRoot.empty()) {
+        result.ErrorMessage = "Project root is empty.";
+        return result;
+    }
+
+    const std::string cmakeProjectName = NormalizeIdentifier(request.ProjectName, "ImWidgetApp");
+    std::string errorMessage;
+
+    const std::filesystem::path rootCMakeListsPath = request.ProjectRoot / "CMakeLists.txt";
+    if (!WriteTextFile(rootCMakeListsPath, BuildRootCMakeListsText(request, cmakeProjectName), errorMessage)) {
+        result.ErrorMessage = errorMessage;
+        return result;
+    }
+    result.GeneratedFiles.push_back(rootCMakeListsPath);
+
+    const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
+    if (!WriteTextFile(mainCppPath, BuildMainCppText(), errorMessage)) {
+        result.ErrorMessage = errorMessage;
+        return result;
+    }
+    result.GeneratedFiles.push_back(mainCppPath);
+
+    FProjectScaffoldResult codeResult = GenerateBlankAppCode(request);
+    if (!codeResult.bSuccess) {
+        return codeResult;
+    }
+    result.GeneratedFiles.insert(
+        result.GeneratedFiles.end(),
+        codeResult.GeneratedFiles.begin(),
+        codeResult.GeneratedFiles.end());
+    result.bSuccess = true;
+    return result;
+}
+
 } // namespace
+
+FProjectScaffoldResult ProjectScaffolder::GenerateCode(const FProjectScaffoldRequest& request)
+{
+    if (request.TemplateName.empty() || request.TemplateName == "Blank App") {
+        return GenerateBlankAppCode(request);
+    }
+
+    FProjectScaffoldResult result;
+    result.ErrorMessage = "Unsupported project template: " + request.TemplateName;
+    return result;
+}
 
 FProjectScaffoldResult ProjectScaffolder::Scaffold(const FProjectScaffoldRequest& request)
 {

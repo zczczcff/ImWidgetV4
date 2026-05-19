@@ -32,6 +32,7 @@ struct FProjectScaffoldResult {
 
 class ProjectScaffolder {
 public:
+    static FProjectScaffoldResult GenerateCode(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult Scaffold(const FProjectScaffoldRequest& request);
 };
 

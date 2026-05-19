@@ -125,6 +125,7 @@ public:
     bool SaveDocument(ImWidgetV4::ImApplication& app);
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool GenerateActiveDocumentCpp(ImWidgetV4::ImApplication& app);
+    bool RegenerateProjectCode();
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
     bool ActivateDocumentAt(int index);
     bool ActivateAdjacentDocument(int direction);

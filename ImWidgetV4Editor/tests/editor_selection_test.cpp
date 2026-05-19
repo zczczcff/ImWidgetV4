@@ -2182,6 +2182,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
     const std::filesystem::path rootCMakeListsPath = projectRoot / "CMakeLists.txt";
     const std::filesystem::path mainCppPath = projectRoot / "src" / "main.cpp";
+    const std::filesystem::path appProjectConfigHeaderPath = projectRoot / "generated" / "AppProjectConfig.h";
+    const std::filesystem::path appProjectConfigSourcePath = projectRoot / "generated" / "AppProjectConfig.cpp";
     const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "MainView.h";
     const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "MainView.cpp";
 
@@ -2195,6 +2197,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_TRUE(std::filesystem::exists(startupDocumentPath));
     EXPECT_TRUE(std::filesystem::exists(rootCMakeListsPath));
     EXPECT_TRUE(std::filesystem::exists(mainCppPath));
+    EXPECT_TRUE(std::filesystem::exists(appProjectConfigHeaderPath));
+    EXPECT_TRUE(std::filesystem::exists(appProjectConfigSourcePath));
     EXPECT_TRUE(std::filesystem::exists(generatedHeaderPath));
     EXPECT_TRUE(std::filesystem::exists(generatedSourcePath));
     {
@@ -2203,10 +2207,23 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         buffer << stream.rdbuf();
         const std::string text = buffer.str();
         EXPECT_NE(text.find("add_subdirectory(\"${IMWIDGETV4_ROOT}\""), std::string::npos);
+        EXPECT_NE(text.find("generated/AppProjectConfig.cpp"), std::string::npos);
         EXPECT_NE(text.find("generated/MainView.cpp"), std::string::npos);
     }
     {
         std::ifstream stream(mainCppPath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_NE(text.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_EQ(text.find("#include \"MainView.h\""), std::string::npos);
+        EXPECT_EQ(text.find("std::make_shared<SampleApp::MainView>()"), std::string::npos);
+        EXPECT_EQ(text.find("config.Title = \"SampleApp\""), std::string::npos);
+        EXPECT_EQ(text.find("config.InitialWidth = 1280"), std::string::npos);
+        EXPECT_EQ(text.find("config.InitialHeight = 720"), std::string::npos);
+    }
+    {
+        std::ifstream stream(appProjectConfigSourcePath, std::ios::binary);
         std::stringstream buffer;
         buffer << stream.rdbuf();
         const std::string text = buffer.str();
@@ -2215,6 +2232,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         EXPECT_NE(text.find("config.Title = \"SampleApp\""), std::string::npos);
         EXPECT_NE(text.find("config.InitialWidth = 1280"), std::string::npos);
         EXPECT_NE(text.find("config.InitialHeight = 720"), std::string::npos);
+        EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
+        EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
     }
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
@@ -2228,6 +2247,76 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_EQ(
         workspaceController->GetActiveSession()->GetDocument()->GetFilePath().lexically_normal(),
         startupDocumentPath.lexically_normal());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, WorkspaceControllerRegenerateProjectCodeRewritesGeneratedFiles)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_regenerate_code";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "RegenerateApp"));
+    const std::filesystem::path projectRoot = tempRoot / "RegenerateApp";
+    const std::filesystem::path mainCppPath = projectRoot / "src" / "main.cpp";
+    const std::filesystem::path appProjectConfigSourcePath = projectRoot / "generated" / "AppProjectConfig.cpp";
+    const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "MainView.cpp";
+
+    {
+        std::ofstream stream(appProjectConfigSourcePath, std::ios::binary | std::ios::trunc);
+        stream << "#include <imwidgetv4/core/FrameContext.h>\n";
+    }
+    {
+        std::ofstream stream(generatedSourcePath, std::ios::binary | std::ios::trunc);
+        stream << "// stale generated view\n";
+    }
+
+    ASSERT_TRUE(workspaceController->RegenerateProjectCode());
+
+    {
+        std::ifstream stream(mainCppPath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_NE(text.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_EQ(text.find("std::make_shared<RegenerateApp::MainView>()"), std::string::npos);
+    }
+    {
+        std::ifstream stream(appProjectConfigSourcePath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
+        EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
+        EXPECT_NE(text.find("std::make_shared<RegenerateApp::MainView>()"), std::string::npos);
+    }
+    {
+        std::ifstream stream(generatedSourcePath, std::ios::binary);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        const std::string text = buffer.str();
+        EXPECT_EQ(text.find("stale generated view"), std::string::npos);
+        EXPECT_NE(text.find("namespace RegenerateApp"), std::string::npos);
+        EXPECT_NE(text.find("MainView::"), std::string::npos);
+    }
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }
@@ -2368,7 +2457,19 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
 
     const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
-    std::ifstream stream(mainCppPath, std::ios::binary);
+    const std::filesystem::path appProjectConfigSourcePath =
+        request.ProjectRoot / "generated" / "AppProjectConfig.cpp";
+    {
+        std::ifstream mainStream(mainCppPath, std::ios::binary);
+        std::stringstream mainBuffer;
+        mainBuffer << mainStream.rdbuf();
+        const std::string mainText = mainBuffer.str();
+        EXPECT_NE(mainText.find("RunHostedDesktopApplication"), std::string::npos);
+        EXPECT_EQ(mainText.find("config.Title = \"Configured App\""), std::string::npos);
+        EXPECT_EQ(mainText.find("std::make_shared<ConfiguredApp::MainView>()"), std::string::npos);
+    }
+
+    std::ifstream stream(appProjectConfigSourcePath, std::ios::binary);
     std::stringstream buffer;
     buffer << stream.rdbuf();
     const std::string text = buffer.str();
@@ -2383,6 +2484,8 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     EXPECT_NE(text.find("application.LoadStringTable(std::filesystem::path(\"localization/en-US.json\"))"), std::string::npos);
     EXPECT_NE(text.find("titleBar->SetShowSystemButtons(false)"), std::string::npos);
     EXPECT_NE(text.find("fileButton->SetText(\"File\")"), std::string::npos);
+    EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
+    EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
     EXPECT_NE(text.find("bool InitializeApplication"), std::string::npos);
     EXPECT_NE(text.find("void Tick"), std::string::npos);
 

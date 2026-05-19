@@ -120,6 +120,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImEditableText> BuildAndroidSdkRootEditor;
     std::shared_ptr<ImEditableText> BuildAndroidNdkRootEditor;
     std::shared_ptr<ImButton> BuildConfigureButton;
+    std::shared_ptr<ImButton> BuildRegenerateCodeButton;
     std::shared_ptr<ImButton> BuildBuildButton;
     std::shared_ptr<ImButton> BuildRunButton;
     std::shared_ptr<ImButton> BuildCleanButton;
@@ -142,6 +143,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextBlock> TitleBarText;
     std::shared_ptr<ImTextBlock> TitleBarProfileStatusText;
     std::shared_ptr<ImButton> TitleBarConfigureButton;
+    std::shared_ptr<ImButton> TitleBarRegenerateCodeButton;
     std::shared_ptr<ImButton> TitleBarBuildButton;
     std::shared_ptr<ImButton> TitleBarRunButton;
     std::shared_ptr<ImButton> TitleBarOpenFolderButton;
@@ -572,6 +574,9 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto configureButton = std::make_shared<ImButton>();
     configureButton->SetText(EditorText("Build.Configure", "Configure"));
 
+    auto regenerateCodeButton = std::make_shared<ImButton>();
+    regenerateCodeButton->SetText(EditorText("Build.RegenerateCode", "Regenerate Code"));
+
     auto buildButton = std::make_shared<ImButton>();
     buildButton->SetText(EditorText("Build.Build", "Build"));
 
@@ -630,6 +635,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     auto buttonRow = std::make_shared<ImHorizontalBox>();
     buttonRow->SetSpacing(6.0f);
     buttonRow->AddChildFill(configureButton, 1.0f, FMargin(0.0f));
+    buttonRow->AddChildFill(regenerateCodeButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(buildButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(runButton, 1.0f, FMargin(0.0f));
     buttonRow->AddChildFill(cleanButton, 1.0f, FMargin(0.0f));
@@ -658,6 +664,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     shell.BuildAndroidSdkRootEditor = androidSdkRootEditor;
     shell.BuildAndroidNdkRootEditor = androidNdkRootEditor;
     shell.BuildConfigureButton = configureButton;
+    shell.BuildRegenerateCodeButton = regenerateCodeButton;
     shell.BuildBuildButton = buildButton;
     shell.BuildRunButton = runButton;
     shell.BuildCleanButton = cleanButton;
@@ -765,6 +772,7 @@ FEditorShellWidgets BuildEditorShell()
     auto undoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Undo", "Undo"));
     auto redoButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.Redo", "Redo"));
     auto titleBarConfigureButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Configure", "Configure"));
+    auto titleBarRegenerateCodeButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.RegenerateCode", "Regenerate Code"));
     auto titleBarBuildButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Build", "Build"));
     auto titleBarRunButton = MakeTitleBarIconButton(FImageBrush(), EditorText("Build.Run", "Run"));
     auto titleBarOpenFolderButton = MakeTitleBarIconButton(FImageBrush(), EditorText("TitleBar.OpenFolder", "Open Folder"));
@@ -828,6 +836,7 @@ FEditorShellWidgets BuildEditorShell()
     shell.TitleBarText = titleText;
     shell.TitleBarProfileStatusText = titleBarProfileStatusText;
     shell.TitleBarConfigureButton = titleBarConfigureButton;
+    shell.TitleBarRegenerateCodeButton = titleBarRegenerateCodeButton;
     shell.TitleBarBuildButton = titleBarBuildButton;
     shell.TitleBarRunButton = titleBarRunButton;
     shell.TitleBarOpenFolderButton = titleBarOpenFolderButton;
@@ -1000,6 +1009,11 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
         MakeEditorMenuItem("Build.ConfigureActiveProfile", "Configure Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->ConfigureProject();
+            }
+        }),
+        MakeEditorMenuItem("Build.RegenerateProjectCode", "Regenerate Project Code", bHasProject && !bBuildRunning, [workspaceController]() {
+            if (workspaceController) {
+                workspaceController->RegenerateProjectCode();
             }
         }),
         MakeEditorMenuItem("Build.BuildActiveProfile", "Build Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
@@ -1333,6 +1347,9 @@ void ApplyEditorThemeToShell(
     if (shell.TitleBarConfigureButton) {
         shell.TitleBarConfigureButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
     }
+    if (shell.TitleBarRegenerateCodeButton) {
+        shell.TitleBarRegenerateCodeButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
+    }
     if (shell.TitleBarBuildButton) {
         shell.TitleBarBuildButton->SetStyle(MakeEditorTitleBarIconButtonStyle());
     }
@@ -1496,6 +1513,10 @@ void RebuildEditorTitleBar(
     if (shell.TitleBarConfigureButton) {
         shell.TitleBarConfigureButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Configure, GetEditorTitleBarIconColor()), 16.0f));
         shell.TitleBar->AddLeadingItem(shell.TitleBarConfigureButton);
+    }
+    if (shell.TitleBarRegenerateCodeButton) {
+        shell.TitleBarRegenerateCodeButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Generate, GetEditorTitleBarIconColor()), 16.0f));
+        shell.TitleBar->AddLeadingItem(shell.TitleBarRegenerateCodeButton);
     }
     if (shell.TitleBarBuildButton) {
         shell.TitleBarBuildButton->SetContent(MakeTitleBarIcon(app.GetCoreIconBrush(ECoreIcon::Build, GetEditorTitleBarIconColor()), 16.0f));
@@ -1821,6 +1842,9 @@ void UpdateBuildDockActions(
     if (shell.BuildConfigureButton) {
         shell.BuildConfigureButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
+    if (shell.BuildRegenerateCodeButton) {
+        shell.BuildRegenerateCodeButton->SetDisabled(!bHasProject || bBuildRunning);
+    }
     if (shell.BuildBuildButton) {
         shell.BuildBuildButton->SetDisabled(!bHasProject || activeProfileName.empty() || bBuildRunning);
     }
@@ -1865,6 +1889,13 @@ void UpdateBuildDockActions(
         shell.TitleBarConfigureButton->SetDisabled(!bCanUseActiveBuildProfile);
         shell.TitleBarConfigureButton->SetContent(MakeTitleBarIcon(
             app.GetCoreIconBrush(ECoreIcon::Configure, bCanUseActiveBuildProfile ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
+            16.0f));
+    }
+    if (shell.TitleBarRegenerateCodeButton) {
+        const bool bCanRegenerateCode = bHasProject && !bBuildRunning;
+        shell.TitleBarRegenerateCodeButton->SetDisabled(!bCanRegenerateCode);
+        shell.TitleBarRegenerateCodeButton->SetContent(MakeTitleBarIcon(
+            app.GetCoreIconBrush(ECoreIcon::Generate, bCanRegenerateCode ? GetEditorTitleBarIconColor() : GetEditorTitleBarIconDisabledColor()),
             16.0f));
     }
     if (shell.TitleBarBuildButton) {
@@ -2212,6 +2243,14 @@ public:
                     }
                 });
         }
+        if (Shell_.BuildRegenerateCodeButton) {
+            Shell_.BuildRegenerateCodeButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RegenerateProjectCode();
+                    }
+                });
+        }
         if (Shell_.BuildBuildButton) {
             Shell_.BuildBuildButton->OnClicked.AddLambda(
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
@@ -2237,6 +2276,14 @@ public:
                 [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
                     if (auto lockedWorkspace = weakWorkspace.lock()) {
                         lockedWorkspace->ConfigureProject();
+                    }
+                });
+        }
+        if (Shell_.TitleBarRegenerateCodeButton) {
+            Shell_.TitleBarRegenerateCodeButton->OnClicked.AddLambda(
+                [weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)](ImButton&) {
+                    if (auto lockedWorkspace = weakWorkspace.lock()) {
+                        lockedWorkspace->RegenerateProjectCode();
                     }
                 });
         }

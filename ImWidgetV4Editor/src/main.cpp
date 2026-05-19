@@ -3,6 +3,7 @@
 #include "editor/EditorLocalization.h"
 #include "editor/EditorPaths.h"
 #include "editor/EditorTheme.h"
+#include "editor/EditorWidgetTreeHost.h"
 #include "editor/EditorWorkspaceController.h"
 #include "inspector/ReflectionDetailsView.h"
 #include "inspector/PropertyEditorWidgets.h"
@@ -109,6 +110,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImScrollBox> ControlPaletteHost;
     std::shared_ptr<ImTabView> DocumentTabs;
     std::shared_ptr<ImTextOutlineView> ProjectView;
+    std::shared_ptr<EditorWidgetTreeHost> WidgetTreeHost;
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ImComboBox> BuildProfileComboBox;
     std::shared_ptr<ImComboBox> BuildWindowsGeneratorComboBox;
@@ -356,7 +358,7 @@ std::shared_ptr<ImTextOutlineView> BuildProjectViewPanel()
     return outline;
 }
 
-std::shared_ptr<ImWidget> BuildWidgetTreePanel()
+std::shared_ptr<ImTextOutlineView> BuildWidgetTreePanel()
 {
     auto outline = std::make_shared<ImTextOutlineView>();
     outline->SetSupportsKeyboardFocus(true);
@@ -717,7 +719,12 @@ std::shared_ptr<ImTabView> BuildLeftDockTabs(FEditorShellWidgets& shell)
     auto projectView = BuildProjectViewPanel();
     tabView->AddTab(EditorText("Dock.Project", "Project"), projectView);
     tabView->AddTab(EditorText("Dock.Build", "Build"), BuildBuildDockPanel(shell));
-    tabView->AddTab(EditorText("Dock.WidgetTree", "Widget Tree"), BuildWidgetTreePanel());
+    auto widgetTreeView = BuildWidgetTreePanel();
+    auto widgetTreeHost = std::make_shared<EditorWidgetTreeHost>();
+    widgetTreeHost->SetWidgetTreeView(widgetTreeView);
+    shell.WidgetTreeHost = widgetTreeHost;
+    shell.WidgetTreeView = widgetTreeView;
+    tabView->AddTab(EditorText("Dock.WidgetTree", "Widget Tree"), widgetTreeHost);
     tabView->SetActiveTab(0);
     return tabView;
 }
@@ -770,7 +777,6 @@ FEditorShellWidgets BuildEditorShell()
     auto leftDock = BuildLeftDockTabs(shell);
     auto projectView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(1)->Content);
     auto buildOverviewText = std::dynamic_pointer_cast<ImTextList>(leftDock->GetTab(2)->Content);
-    auto widgetTreeView = std::dynamic_pointer_cast<ImTextOutlineView>(leftDock->GetTab(3)->Content);
 
     auto documentTabs = std::make_shared<ImTabView>();
     documentTabs->SetSupportsKeyboardFocus(true);
@@ -809,7 +815,6 @@ FEditorShellWidgets BuildEditorShell()
     shell.ControlPaletteHost = std::dynamic_pointer_cast<ImScrollBox>(leftDock->GetTab(0)->Content);
     shell.DocumentTabs = documentTabs;
     shell.ProjectView = projectView;
-    shell.WidgetTreeView = widgetTreeView;
     shell.BuildOverviewText = buildOverviewText;
     shell.DetailsView = detailsView;
     shell.OutputText = outputText;
@@ -1922,6 +1927,9 @@ public:
         Shell_ = BuildEditorShell();
         WorkspaceController_ = std::make_shared<EditorWorkspaceController>(&BuildInitialDocumentRoot);
         Shell_.ShellHost->SetWorkspaceController(WorkspaceController_);
+        if (Shell_.WidgetTreeHost) {
+            Shell_.WidgetTreeHost->SetWorkspaceController(WorkspaceController_);
+        }
         WorkspaceController_->SetOnProjectStateChanged([this, appPtr = &app, weakWorkspace = std::weak_ptr<EditorWorkspaceController>(WorkspaceController_)]() {
             auto lockedWorkspace = weakWorkspace.lock();
             if (appPtr == nullptr || !lockedWorkspace) {

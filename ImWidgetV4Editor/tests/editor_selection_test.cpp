@@ -7,10 +7,12 @@
 #include "../src/commands/RemoveWidgetCommand.h"
 #include "../src/build/BuildController.h"
 #include "../src/editor/EditorDocument.h"
+#include "../src/editor/EditorDesignerSurfaceHost.h"
 #include "../src/editor/EditorLocalization.h"
 #include "../src/editor/EditorShellHost.h"
 #include "../src/editor/EditorSession.h"
 #include "../src/editor/EditorWorkspaceController.h"
+#include "../src/editor/EditorWidgetTreeHost.h"
 #include "../src/editor/NewAppProjectDialog.h"
 #include "../src/project/EditorProject.h"
 #include "../src/editor/SelectionModel.h"
@@ -1831,6 +1833,107 @@ TEST(EditorSelectionTest, FocusedTextListHandlesCopyBeforeEditorShortcut)
             return line.find("Copy skipped") != std::string::npos ||
                 line.find("已跳过复制") != std::string::npos;
         }));
+}
+
+TEST(EditorSelectionTest, DesignerHostHandlesPanelEditShortcuts)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto session = workspaceController->GetActiveSession();
+    ASSERT_TRUE(session);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    auto designerHost = std::make_shared<EditorDesignerSurfaceHost>();
+    designerHost->SetWorkspaceController(workspaceController);
+    designerHost->SetDesignerSurface(designerSurface);
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        std::make_shared<ImTextList>(),
+        designerSurface,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(designerHost);
+    auto root = session->GetDocument()->GetRootWidget();
+    ASSERT_TRUE(root);
+    ASSERT_EQ(root->GetChildren().size(), 1u);
+    designerSurface->SetSelectedWidget(root->GetChildren().front());
+    app->SetKeyboardFocus(designerSurface);
+
+    FInputEvent duplicateEvent;
+    duplicateEvent.Type = EInputEventType::KeyDown;
+    duplicateEvent.Key = EKey::D;
+    duplicateEvent.Modifiers.bCtrl = true;
+    AdvanceAppWithDraw(*app, {duplicateEvent}, FVector2(640.0f, 360.0f));
+
+    EXPECT_EQ(root->GetChildren().size(), 2u);
+}
+
+TEST(EditorSelectionTest, WidgetTreeHostHandlesPanelEditShortcuts)
+{
+    auto shellHost = std::make_shared<EditorShellHost>();
+    auto documentTabs = std::make_shared<ImTabView>();
+    auto projectView = std::make_shared<ImTextOutlineView>();
+    auto widgetTreeView = std::make_shared<ImTextOutlineView>();
+    auto detailsView = std::make_shared<ReflectionDetailsView>();
+    auto outputText = std::make_shared<ImTextList>();
+    auto workspaceController = CreateBoundWorkspaceController(
+        shellHost,
+        documentTabs,
+        projectView,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto session = workspaceController->GetActiveSession();
+    ASSERT_TRUE(session);
+    auto designerSurface = std::make_shared<ImDesignerSurface>();
+    session->BindDocumentWidgets(
+        nullptr,
+        -1,
+        nullptr,
+        nullptr,
+        std::make_shared<ImTextList>(),
+        designerSurface,
+        widgetTreeView,
+        detailsView,
+        outputText);
+
+    auto widgetTreeHost = std::make_shared<EditorWidgetTreeHost>();
+    widgetTreeHost->SetWorkspaceController(workspaceController);
+    widgetTreeHost->SetWidgetTreeView(widgetTreeView);
+
+    auto app = std::make_shared<ImApplication>();
+    app->SetRootWidget(widgetTreeHost);
+    auto root = session->GetDocument()->GetRootWidget();
+    ASSERT_TRUE(root);
+    ASSERT_EQ(root->GetChildren().size(), 1u);
+    designerSurface->SetSelectedWidget(root->GetChildren().front());
+    app->SetKeyboardFocus(widgetTreeView);
+
+    FInputEvent duplicateEvent;
+    duplicateEvent.Type = EInputEventType::KeyDown;
+    duplicateEvent.Key = EKey::D;
+    duplicateEvent.Modifiers.bCtrl = true;
+    AdvanceAppWithDraw(*app, {duplicateEvent}, FVector2(640.0f, 360.0f));
+
+    EXPECT_EQ(root->GetChildren().size(), 2u);
 }
 
 TEST(EditorSelectionTest, WorkspaceControllerCloseActiveDocumentPromotesRemainingTab)

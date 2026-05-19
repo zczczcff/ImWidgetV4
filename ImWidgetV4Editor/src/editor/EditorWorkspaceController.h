@@ -38,6 +38,7 @@ namespace ImWidgetV4Editor {
 struct FCreateAppProjectOptions;
 
 class EditorProject;
+class EditorDesignerSurfaceHost;
 class EditorSession;
 class EditorShellHost;
 class InputDialog;
@@ -169,6 +170,7 @@ private:
         std::shared_ptr<ImWidgetV4::ImTextList> SchemaText;
         std::shared_ptr<ImWidgetV4::ImTextList> HeaderPreviewText;
         std::shared_ptr<ImWidgetV4::ImTextList> SourcePreviewText;
+        std::shared_ptr<EditorDesignerSurfaceHost> DesignerHost;
         std::shared_ptr<ImWidgetV4::ImDesignerSurface> DesignerSurface;
     };
 
@@ -207,7 +209,7 @@ private:
     };
 
     std::shared_ptr<EditorSession> CreateSession() const;
-    FSessionWidgets CreateSessionWidgets() const;
+    FSessionWidgets CreateSessionWidgets();
     bool AddSession(const std::shared_ptr<EditorSession>& session, bool bActivateNewTab);
     bool CloseDocumentAt(ImWidgetV4::ImApplication& app, int index);
     void ActivateDocumentTab(int index);

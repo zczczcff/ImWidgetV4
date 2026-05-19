@@ -3,6 +3,7 @@
 #include "EditorLocalization.h"
 #include "EditorSession.h"
 #include "EditorPaths.h"
+#include "EditorDesignerSurfaceHost.h"
 #include "EditorShellHost.h"
 #include "EditorTheme.h"
 #include "InputDialog.h"
@@ -1778,7 +1779,7 @@ std::shared_ptr<EditorSession> EditorWorkspaceController::CreateSession() const
     return std::make_shared<EditorSession>(m_CreateDefaultDocumentRoot);
 }
 
-EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSessionWidgets() const
+EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSessionWidgets()
 {
     FSessionWidgets widgets;
 
@@ -1788,7 +1789,10 @@ EditorWorkspaceController::FSessionWidgets EditorWorkspaceController::CreateSess
     widgets.HeaderPreviewText = CreateCodePreviewText();
     widgets.SourcePreviewText = CreateCodePreviewText();
     widgets.DesignerSurface = std::make_shared<ImDesignerSurface>();
-    widgets.DocumentHost->SetContent(widgets.DesignerSurface);
+    widgets.DesignerHost = std::make_shared<EditorDesignerSurfaceHost>();
+    widgets.DesignerHost->SetWorkspaceController(shared_from_this());
+    widgets.DesignerHost->SetDesignerSurface(widgets.DesignerSurface);
+    widgets.DocumentHost->SetContent(widgets.DesignerHost);
 
     widgets.WorkspaceTabs = std::make_shared<ImTabView>();
     widgets.WorkspaceTabs->SetSupportsKeyboardFocus(true);
@@ -1846,6 +1850,9 @@ void EditorWorkspaceController::ActivateDocumentTab(int index)
     FDocumentEntry& entry = m_Documents[static_cast<std::size_t>(index)];
     if (m_ShellHost) {
         m_ShellHost->SetSession(entry.Session);
+    }
+    if (entry.Widgets.DesignerHost) {
+        entry.Widgets.DesignerHost->SetWorkspaceController(shared_from_this());
     }
 
     entry.Session->BindDocumentWidgets(

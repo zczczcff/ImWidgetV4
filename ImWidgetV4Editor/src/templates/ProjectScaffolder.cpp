@@ -2,6 +2,7 @@
 
 #include "../codegen/WidgetTreeToCppGenerator.h"
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -40,6 +41,11 @@ std::string BuildStringLiteral(const std::string& value)
 
     result.push_back('\"');
     return result;
+}
+
+std::string BuildPathLiteral(const std::filesystem::path& value)
+{
+    return BuildStringLiteral(value.generic_string());
 }
 
 bool IsIdentifierStartChar(char c)
@@ -212,10 +218,15 @@ std::string BuildRootCMakeListsText(
 
 std::string BuildMainCppText(const FProjectScaffoldRequest& request)
 {
+    const FEditorApplicationSettings& settings = request.ApplicationSettings;
+    const std::string title = settings.Title.empty() ? request.ProjectName : settings.Title;
     std::ostringstream stream;
     stream
         << "#include <imwidgetv4/app/ApplicationHost.h>\n"
         << "#include <imwidgetv4/core/Application.h>\n"
+        << "#include <imwidgetv4/widgets/TextBlock.h>\n"
+        << "#include <imwidgetv4/widgets/TitleBar.h>\n"
+        << "#include <imwidgetv4/widgets/VerticalBox.h>\n"
         << "#include <memory>\n"
         << "#include <string>\n\n"
         << "#include \"" << request.StartupWidgetClassName << ".h\"\n\n"
@@ -226,14 +237,49 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
         << "    ImWidgetV4::FApplicationHostConfig GetHostConfig() const override\n"
         << "    {\n"
         << "        ImWidgetV4::FApplicationHostConfig config;\n"
-        << "        config.Title = " << BuildStringLiteral(request.ProjectName) << ";\n"
-        << "        config.InitialWidth = 1280;\n"
-        << "        config.InitialHeight = 720;\n"
+        << "        config.Title = " << BuildStringLiteral(title) << ";\n"
+        << "        config.InitialWidth = " << std::max(1, settings.InitialWidth) << ";\n"
+        << "        config.InitialHeight = " << std::max(1, settings.InitialHeight) << ";\n"
+        << "        config.bUseCustomHostChrome = " << (settings.bUseCustomHostChrome ? "true" : "false") << ";\n";
+    if (settings.bEnableIniSettings && !settings.IniSettingsPath.empty()) {
+        stream
+            << "        config.IniSettingsPath = std::filesystem::path(" << BuildPathLiteral(settings.IniSettingsPath) << ");\n";
+    }
+    stream
         << "        return config;\n"
         << "    }\n\n"
         << "    void ConfigureApplication(ImWidgetV4::ImApplication& application) override\n"
-        << "    {\n"
-        << "        application.SetRootWidget(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">());\n"
+        << "    {\n";
+    if (!settings.DefaultTheme.empty()) {
+        stream
+            << "        application.SetActiveTheme(" << BuildStringLiteral(settings.DefaultTheme) << ");\n";
+    }
+    if (!settings.DefaultCulture.empty()) {
+        stream
+            << "        application.SetCulture(" << BuildStringLiteral(settings.DefaultCulture) << ");\n";
+    }
+    stream
+        << "        application.SetApplicationTitle(" << BuildStringLiteral(title) << ");\n";
+
+    if (settings.bUseTitleBar) {
+        stream
+            << "        auto rootLayout = std::make_shared<ImWidgetV4::ImVerticalBox>();\n"
+            << "        rootLayout->SetSpacing(0.0f);\n"
+            << "        auto titleBar = std::make_shared<ImWidgetV4::ImTitleBar>();\n"
+            << "        titleBar->SetShowSystemButtons(" << (settings.bShowSystemButtons ? "true" : "false") << ");\n"
+            << "        auto titleText = std::make_shared<ImWidgetV4::ImTextBlock>();\n"
+            << "        titleText->SetText(" << BuildStringLiteral(title) << ");\n"
+            << "        titleText->SetWrapText(false);\n"
+            << "        titleBar->AddLeadingItem(titleText);\n"
+            << "        rootLayout->AddChild(titleBar, ImWidgetV4::FMargin(0.0f));\n"
+            << "        rootLayout->AddChildFill(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">(), 1.0f, ImWidgetV4::FMargin(0.0f));\n"
+            << "        application.SetRootWidget(rootLayout);\n";
+    } else {
+        stream
+            << "        application.SetRootWidget(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">());\n";
+    }
+
+    stream
         << "    }\n"
         << "};\n\n"
         << "} // namespace\n\n"

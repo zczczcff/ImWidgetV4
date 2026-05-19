@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../project/EditorProject.h"
+
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -18,6 +20,7 @@ struct FProjectScaffoldRequest {
     std::string TemplateName = "Blank App";
     std::string StartupDocumentFileName = "Main.ui.json";
     std::string StartupWidgetClassName = "MainView";
+    FEditorApplicationSettings ApplicationSettings;
     std::shared_ptr<ImWidgetV4::ImWidget> StartupRootWidget;
 };
 

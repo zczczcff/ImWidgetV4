@@ -99,6 +99,10 @@ public:
     std::vector<std::string> GetBuildProfileNames() const;
     bool SetActiveBuildProfile(const std::string& profileName);
     bool UpdateBuildProfile(const FEditorBuildProfile& profile, bool bMakeActive);
+    bool UpdateProjectSettings(
+        const FEditorBuildProfile& profile,
+        bool bMakeActive,
+        const FEditorApplicationSettings& applicationSettings);
     bool RevealProjectBuildDirectory() const;
     bool RevealProjectBuildDirectory(const std::string& profileName) const;
     bool CanRevealExecutableDirectoryForConfiguration(const std::string& configuration) const;

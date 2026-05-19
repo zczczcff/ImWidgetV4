@@ -829,6 +829,7 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         scaffoldRequest.TemplateName = trimmedTemplateName;
         scaffoldRequest.StartupDocumentFileName = normalizedStartupDocumentFileName;
         scaffoldRequest.StartupWidgetClassName = startupWidgetClassName;
+        scaffoldRequest.ApplicationSettings.Title = trimmedProjectName;
         scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
         const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
         if (!scaffoldResult.bSuccess) {
@@ -1464,6 +1465,41 @@ bool EditorWorkspaceController::UpdateBuildProfile(const FEditorBuildProfile& pr
         return false;
     }
 
+    std::string saveError;
+    if (!m_Project->Save(&saveError)) {
+        AppendOutputLine(LocalizedEditorString(
+            "Build.SaveProfileChangesFailed",
+            "Failed to save build profile changes",
+            ": " + saveError));
+        return false;
+    }
+
+    RequestBuildProfileProbeRefresh();
+    RebuildProjectView();
+    NotifyProjectStateChanged();
+    return true;
+}
+
+bool EditorWorkspaceController::UpdateProjectSettings(
+    const FEditorBuildProfile& profile,
+    bool bMakeActive,
+    const FEditorApplicationSettings& applicationSettings)
+{
+    if (!m_Project) {
+        return false;
+    }
+
+    FEditorBuildProfile* existingProfile = m_Project->FindBuildProfile(profile.Name);
+    if (existingProfile == nullptr) {
+        return false;
+    }
+
+    *existingProfile = profile;
+    if (bMakeActive && !m_Project->SetActiveBuildProfileName(profile.Name)) {
+        return false;
+    }
+
+    m_Project->SetApplicationSettings(applicationSettings);
     std::string saveError;
     if (!m_Project->Save(&saveError)) {
         AppendOutputLine(LocalizedEditorString(
@@ -2469,11 +2505,15 @@ void EditorWorkspaceController::OpenProjectSettingsDialog(ImApplication& app)
     dialogOptions.ProjectName = m_Project->GetProjectName();
     dialogOptions.NamespaceName = m_Project->GetNamespaceName();
     dialogOptions.StartupDocument = m_Project->GetStartupDocumentRelativePath().generic_string();
+    dialogOptions.ApplicationSettings = m_Project->GetApplicationSettings();
     dialogOptions.BuildProfiles = m_Project->GetBuildProfiles();
     dialogOptions.ActiveBuildProfileName = m_Project->GetActiveBuildProfileName();
-    dialogOptions.OnConfirm = [weakThis = weak_from_this()](const FEditorBuildProfile& profile, bool bMakeActive) {
+    dialogOptions.OnConfirm = [weakThis = weak_from_this()](
+        const FEditorBuildProfile& profile,
+        bool bMakeActive,
+        const FEditorApplicationSettings& applicationSettings) {
         if (auto self = weakThis.lock()) {
-            return self->UpdateBuildProfile(profile, bMakeActive);
+            return self->UpdateProjectSettings(profile, bMakeActive, applicationSettings);
         }
         return false;
     };

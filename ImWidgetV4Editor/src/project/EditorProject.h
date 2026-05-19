@@ -9,9 +9,22 @@
 
 namespace ImWidgetV4Editor {
 
+struct FEditorApplicationSettings {
+    std::string Title;
+    int InitialWidth = 1280;
+    int InitialHeight = 720;
+    bool bEnableIniSettings = false;
+    std::filesystem::path IniSettingsPath;
+    bool bUseCustomHostChrome = false;
+    bool bUseTitleBar = false;
+    bool bShowSystemButtons = true;
+    std::string DefaultTheme;
+    std::string DefaultCulture;
+};
+
 class EditorProject {
 public:
-    static constexpr int FormatVersion = 3;
+    static constexpr int FormatVersion = 4;
 
     static std::string GetManifestFileName();
     static std::filesystem::path BuildManifestFilePath(const std::filesystem::path& projectRoot);
@@ -53,6 +66,10 @@ public:
         m_StartupDocumentRelativePath = startupDocumentRelativePath;
     }
 
+    const FEditorApplicationSettings& GetApplicationSettings() const { return m_ApplicationSettings; }
+    FEditorApplicationSettings& GetApplicationSettings() { return m_ApplicationSettings; }
+    void SetApplicationSettings(const FEditorApplicationSettings& settings) { m_ApplicationSettings = settings; }
+
     const std::vector<FEditorBuildProfile>& GetBuildProfiles() const { return m_BuildProfiles; }
     std::vector<FEditorBuildProfile>& GetBuildProfiles() { return m_BuildProfiles; }
 
@@ -74,6 +91,7 @@ private:
     std::string m_TemplateName = "Blank App";
     std::filesystem::path m_ProjectRoot;
     std::filesystem::path m_StartupDocumentRelativePath;
+    FEditorApplicationSettings m_ApplicationSettings;
     std::vector<FEditorBuildProfile> m_BuildProfiles;
     std::string m_ActiveBuildProfileName;
 };

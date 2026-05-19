@@ -9,6 +9,7 @@
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
@@ -76,6 +77,22 @@ std::vector<std::string> GetWindowsGeneratorOptions()
 std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
 {
     return generator.empty() ? EditorText("Common.Default", "Default").Resolve() : generator;
+}
+
+std::shared_ptr<ImEditableText> MakeEditableTextField(const std::string& text = std::string())
+{
+    auto editor = std::make_shared<ImEditableText>();
+    ApplyInspectorEditableTextStyle(*editor, false);
+    editor->SetText(text);
+    return editor;
+}
+
+std::shared_ptr<ImSwitch> MakeSwitchField(bool bChecked)
+{
+    auto toggle = std::make_shared<ImSwitch>();
+    ApplyInspectorSwitchStyle(*toggle);
+    toggle->SetChecked(bChecked);
+    return toggle;
 }
 
 std::shared_ptr<ImHorizontalBox> MakePathOverrideEditorRow(
@@ -155,6 +172,47 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidNdkClearButton->SetStyle(MakeEditorDialogButtonStyle(false));
     androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
+    auto applicationTitleEditor = MakeEditableTextField(m_Options.ApplicationSettings.Title);
+    auto initialWidthEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialWidth));
+    auto initialHeightEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialHeight));
+    auto enableIniSettingsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bEnableIniSettings);
+    auto iniSettingsPathEditor = MakeEditableTextField(m_Options.ApplicationSettings.IniSettingsPath.generic_string());
+    iniSettingsPathEditor->SetHintText("data/app.ini");
+    auto useCustomHostChromeSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseCustomHostChrome);
+    auto useTitleBarSwitch = MakeSwitchField(m_Options.ApplicationSettings.bUseTitleBar);
+    auto showSystemButtonsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bShowSystemButtons);
+    auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
+    defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
+    auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
+    defaultCultureEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
+
+    auto sizeRow = MakeInspectorCompactLabeledEditors({
+        {EditorText("ProjectSettings.InitialWidth", "Width").Resolve(), initialWidthEditor},
+        {EditorText("ProjectSettings.InitialHeight", "Height").Resolve(), initialHeightEditor}
+    });
+
+    auto applicationSettingsGroup = std::make_shared<ImVerticalBox>();
+    applicationSettingsGroup->SetSpacing(8.0f);
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.ApplicationTitle", "Application Title").Resolve(), applicationTitleEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.InitialWindowSize", "Initial Window Size").Resolve(), sizeRow), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.EnableIniSettings", "Enable .ini Settings").Resolve(), enableIniSettingsSwitch), FMargin(0.0f));
+
+    auto iniSettingsGroup = std::make_shared<ImVerticalBox>();
+    iniSettingsGroup->SetSpacing(8.0f);
+    iniSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.IniSettingsPath", ".ini Settings Path").Resolve(), iniSettingsPathEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(iniSettingsGroup, FMargin(0.0f));
+
+    applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.UseCustomHostChrome", "Use Custom Host Chrome").Resolve(), useCustomHostChromeSwitch), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.UseTitleBar", "Generate Title Bar").Resolve(), useTitleBarSwitch), FMargin(0.0f));
+
+    auto titleBarSettingsGroup = std::make_shared<ImVerticalBox>();
+    titleBarSettingsGroup->SetSpacing(8.0f);
+    titleBarSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.ShowSystemButtons", "Show System Buttons").Resolve(), showSystemButtonsSwitch), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(titleBarSettingsGroup, FMargin(0.0f));
+
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultTheme", "Default Theme").Resolve(), defaultThemeEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.DefaultCulture", "Default Culture").Resolve(), defaultCultureEditor), FMargin(0.0f));
+
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(8.0f);
     windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.WindowsGenerator", "Windows Generator").Resolve(), windowsGeneratorComboBox), FMargin(0.0f));
@@ -202,6 +260,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("TitleBar.Project", "Project").Resolve(), projectNameField), FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.Namespace", "Namespace").Resolve(), namespaceField), FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("NewProject.StartupUI", "Startup UI").Resolve(), startupField), FMargin(0.0f));
+    fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.Application", "Application").Resolve(), applicationSettingsGroup), FMargin(0.0f));
     fields->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.ActiveBuildProfile", "Active Build Profile").Resolve(), profileComboBox), FMargin(0.0f));
     fields->AddChild(windowsSettingsGroup, FMargin(0.0f));
     fields->AddChild(androidSettingsGroup, FMargin(0.0f));
@@ -230,6 +289,18 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_AndroidStlComboBox = androidStlComboBox;
     m_AndroidSdkRootEditor = androidSdkRootEditor;
     m_AndroidNdkRootEditor = androidNdkRootEditor;
+    m_ApplicationTitleEditor = applicationTitleEditor;
+    m_InitialWidthEditor = initialWidthEditor;
+    m_InitialHeightEditor = initialHeightEditor;
+    m_EnableIniSettingsSwitch = enableIniSettingsSwitch;
+    m_IniSettingsPathEditor = iniSettingsPathEditor;
+    m_UseCustomHostChromeSwitch = useCustomHostChromeSwitch;
+    m_UseTitleBarSwitch = useTitleBarSwitch;
+    m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
+    m_DefaultThemeEditor = defaultThemeEditor;
+    m_DefaultCultureEditor = defaultCultureEditor;
+    m_IniSettingsGroup = iniSettingsGroup;
+    m_TitleBarSettingsGroup = titleBarSettingsGroup;
     m_WindowsSettingsGroup = windowsSettingsGroup;
     m_AndroidSettingsGroup = androidSettingsGroup;
     m_ProbeText = probeText;
@@ -241,6 +312,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     PopulateProfileComboBox();
     UpdateProfileEditorsFromSelection();
     RefreshAndroidEditorVisibility();
+    RefreshApplicationEditorVisibility();
     RefreshProbeReport();
 
     const std::weak_ptr<ProjectSettingsDialog> weakThis = weak_from_this();
@@ -252,6 +324,10 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
                 self->SetErrorMessage(error);
                 return;
             }
+            if (!self->ApplyApplicationEditorValues(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
 
             FEditorBuildProfile* selectedProfile = self->GetSelectedProfile();
             if (selectedProfile == nullptr) {
@@ -259,8 +335,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
                 return;
             }
 
-            const std::function<bool(const FEditorBuildProfile&, bool)> onConfirm = self->m_Options.OnConfirm;
-            if (onConfirm && !onConfirm(*selectedProfile, true)) {
+            const auto onConfirm = self->m_Options.OnConfirm;
+            if (onConfirm && !onConfirm(*selectedProfile, true, self->m_Options.ApplicationSettings)) {
                 return;
             }
 
@@ -284,6 +360,18 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
             self->UpdateProfileEditorsFromSelection();
             self->RefreshAndroidEditorVisibility();
             self->RefreshProbeReport();
+        }
+    });
+
+    enableIniSettingsSwitch->OnCheckStateChanged.AddLambda([weakThis](ImSwitch&, bool) {
+        if (auto self = weakThis.lock()) {
+            self->RefreshApplicationEditorVisibility();
+        }
+    });
+
+    useTitleBarSwitch->OnCheckStateChanged.AddLambda([weakThis](ImSwitch&, bool) {
+        if (auto self = weakThis.lock()) {
+            self->RefreshApplicationEditorVisibility();
         }
     });
 
@@ -438,6 +526,18 @@ void ProjectSettingsDialog::Reset()
     m_AndroidStlComboBox.reset();
     m_AndroidSdkRootEditor.reset();
     m_AndroidNdkRootEditor.reset();
+    m_ApplicationTitleEditor.reset();
+    m_InitialWidthEditor.reset();
+    m_InitialHeightEditor.reset();
+    m_EnableIniSettingsSwitch.reset();
+    m_IniSettingsPathEditor.reset();
+    m_UseCustomHostChromeSwitch.reset();
+    m_UseTitleBarSwitch.reset();
+    m_ShowSystemButtonsSwitch.reset();
+    m_DefaultThemeEditor.reset();
+    m_DefaultCultureEditor.reset();
+    m_IniSettingsGroup.reset();
+    m_TitleBarSettingsGroup.reset();
     m_WindowsSettingsGroup.reset();
     m_AndroidSettingsGroup.reset();
     m_ProbeText.reset();
@@ -618,6 +718,57 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
     return true;
 }
 
+bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
+{
+    FEditorApplicationSettings settings = m_Options.ApplicationSettings;
+    settings.Title = m_ApplicationTitleEditor ? m_ApplicationTitleEditor->GetText() : std::string();
+    if (settings.Title.empty()) {
+        settings.Title = m_Options.ProjectName;
+    }
+
+    try {
+        settings.InitialWidth = m_InitialWidthEditor ? std::stoi(m_InitialWidthEditor->GetText()) : 0;
+        settings.InitialHeight = m_InitialHeightEditor ? std::stoi(m_InitialHeightEditor->GetText()) : 0;
+    } catch (...) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.InitialSizeInvalid", "Initial window size must be valid integers.").Resolve();
+        }
+        return false;
+    }
+
+    if (settings.InitialWidth <= 0 || settings.InitialHeight <= 0) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.InitialSizeInvalid", "Initial window size must be valid integers.").Resolve();
+        }
+        return false;
+    }
+
+    settings.bEnableIniSettings = m_EnableIniSettingsSwitch && m_EnableIniSettingsSwitch->IsChecked();
+    settings.IniSettingsPath =
+        m_IniSettingsPathEditor ? std::filesystem::path(m_IniSettingsPathEditor->GetText()).lexically_normal() : std::filesystem::path();
+    if (settings.bEnableIniSettings && settings.IniSettingsPath.empty()) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.IniPathRequired", ".ini settings path is required when .ini settings are enabled.").Resolve();
+        }
+        return false;
+    }
+    if (settings.IniSettingsPath.is_absolute()) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.IniPathMustBeRelative", ".ini settings path must be relative to the project root.").Resolve();
+        }
+        return false;
+    }
+
+    settings.bUseCustomHostChrome = m_UseCustomHostChromeSwitch && m_UseCustomHostChromeSwitch->IsChecked();
+    settings.bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
+    settings.bShowSystemButtons = m_ShowSystemButtonsSwitch && m_ShowSystemButtonsSwitch->IsChecked();
+    settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
+    settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
+
+    m_Options.ApplicationSettings = settings;
+    return true;
+}
+
 void ProjectSettingsDialog::RefreshProbeReport()
 {
     const FEditorBuildProfile* selectedProfile = GetSelectedProfile();
@@ -640,6 +791,18 @@ void ProjectSettingsDialog::RefreshAndroidEditorVisibility()
     }
     if (m_AndroidSettingsGroup) {
         m_AndroidSettingsGroup->SetVisible(bShowAndroidSettings);
+    }
+}
+
+void ProjectSettingsDialog::RefreshApplicationEditorVisibility()
+{
+    const bool bEnableIniSettings = m_EnableIniSettingsSwitch && m_EnableIniSettingsSwitch->IsChecked();
+    const bool bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
+    if (m_IniSettingsGroup) {
+        m_IniSettingsGroup->SetVisible(bEnableIniSettings);
+    }
+    if (m_TitleBarSettingsGroup) {
+        m_TitleBarSettingsGroup->SetVisible(bUseTitleBar);
     }
 }
 

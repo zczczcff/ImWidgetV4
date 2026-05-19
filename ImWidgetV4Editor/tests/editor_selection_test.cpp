@@ -2070,6 +2070,9 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         const std::string text = buffer.str();
         EXPECT_NE(text.find("#include \"MainView.h\""), std::string::npos);
         EXPECT_NE(text.find("std::make_shared<SampleApp::MainView>()"), std::string::npos);
+        EXPECT_NE(text.find("config.Title = \"SampleApp\""), std::string::npos);
+        EXPECT_NE(text.find("config.InitialWidth = 1280"), std::string::npos);
+        EXPECT_NE(text.find("config.InitialHeight = 720"), std::string::npos);
     }
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "SampleApp");
@@ -2118,6 +2121,56 @@ TEST(EditorSelectionTest, EditorProjectLoadRestoresSavedManifestData)
     ASSERT_EQ(restoredProject.GetBuildProfiles().size(), 3U);
     EXPECT_EQ(restoredProject.GetActiveBuildProfileName(), "Windows Debug");
     ASSERT_NE(restoredProject.FindBuildProfile("Android Debug"), nullptr);
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_project_app_settings";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "AppSettingsProject",
+        "AppSettingsProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+
+    FEditorApplicationSettings settings;
+    settings.Title = "Configured App";
+    settings.InitialWidth = 1440;
+    settings.InitialHeight = 900;
+    settings.bEnableIniSettings = true;
+    settings.IniSettingsPath = std::filesystem::path("data") / "configured.ini";
+    settings.bUseCustomHostChrome = true;
+    settings.bUseTitleBar = true;
+    settings.bShowSystemButtons = false;
+    settings.DefaultTheme = "Light";
+    settings.DefaultCulture = "zh-CN";
+    project.SetApplicationSettings(settings);
+
+    std::string saveError;
+    ASSERT_TRUE(project.Save(&saveError)) << saveError;
+
+    EditorProject restoredProject;
+    std::string loadError;
+    ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
+    const FEditorApplicationSettings& restoredSettings = restoredProject.GetApplicationSettings();
+    EXPECT_EQ(restoredSettings.Title, "Configured App");
+    EXPECT_EQ(restoredSettings.InitialWidth, 1440);
+    EXPECT_EQ(restoredSettings.InitialHeight, 900);
+    EXPECT_TRUE(restoredSettings.bEnableIniSettings);
+    EXPECT_EQ(restoredSettings.IniSettingsPath.generic_string(), "data/configured.ini");
+    EXPECT_TRUE(restoredSettings.bUseCustomHostChrome);
+    EXPECT_TRUE(restoredSettings.bUseTitleBar);
+    EXPECT_FALSE(restoredSettings.bShowSystemButtons);
+    EXPECT_EQ(restoredSettings.DefaultTheme, "Light");
+    EXPECT_EQ(restoredSettings.DefaultCulture, "zh-CN");
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }

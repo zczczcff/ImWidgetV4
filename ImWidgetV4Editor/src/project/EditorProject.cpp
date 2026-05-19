@@ -1,5 +1,6 @@
 #include "EditorProject.h"
 
+#include <algorithm>
 #include <fstream>
 
 namespace ImWidgetV4Editor {
@@ -13,6 +14,64 @@ std::filesystem::path NormalizeStoredRelativePath(const std::filesystem::path& r
     }
 
     return relativePath.lexically_normal();
+}
+
+FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& projectName = std::string())
+{
+    FEditorApplicationSettings settings;
+    settings.Title = projectName;
+    settings.InitialWidth = 1280;
+    settings.InitialHeight = 720;
+    settings.bEnableIniSettings = false;
+    settings.IniSettingsPath.clear();
+    settings.bUseCustomHostChrome = false;
+    settings.bUseTitleBar = false;
+    settings.bShowSystemButtons = true;
+    settings.DefaultTheme.clear();
+    settings.DefaultCulture.clear();
+    return settings;
+}
+
+json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
+{
+    json settingsJson;
+    settingsJson["Title"] = settings.Title;
+    settingsJson["InitialWidth"] = settings.InitialWidth;
+    settingsJson["InitialHeight"] = settings.InitialHeight;
+    settingsJson["EnableIniSettings"] = settings.bEnableIniSettings;
+    settingsJson["IniSettingsPath"] = NormalizeStoredRelativePath(settings.IniSettingsPath).generic_string();
+    settingsJson["UseCustomHostChrome"] = settings.bUseCustomHostChrome;
+    settingsJson["UseTitleBar"] = settings.bUseTitleBar;
+    settingsJson["ShowSystemButtons"] = settings.bShowSystemButtons;
+    settingsJson["DefaultTheme"] = settings.DefaultTheme;
+    settingsJson["DefaultCulture"] = settings.DefaultCulture;
+    return settingsJson;
+}
+
+FEditorApplicationSettings ApplicationSettingsFromJson(
+    const json& settingsJson,
+    const std::string& projectName)
+{
+    FEditorApplicationSettings settings = BuildDefaultApplicationSettings(projectName);
+    if (!settingsJson.is_object()) {
+        return settings;
+    }
+
+    settings.Title = settingsJson.value("Title", settings.Title);
+    settings.InitialWidth = std::max(1, settingsJson.value("InitialWidth", settings.InitialWidth));
+    settings.InitialHeight = std::max(1, settingsJson.value("InitialHeight", settings.InitialHeight));
+    settings.bEnableIniSettings = settingsJson.value("EnableIniSettings", settings.bEnableIniSettings);
+    settings.IniSettingsPath = NormalizeStoredRelativePath(
+        std::filesystem::path(settingsJson.value("IniSettingsPath", std::string())));
+    if (settings.IniSettingsPath.is_absolute()) {
+        settings.IniSettingsPath.clear();
+    }
+    settings.bUseCustomHostChrome = settingsJson.value("UseCustomHostChrome", settings.bUseCustomHostChrome);
+    settings.bUseTitleBar = settingsJson.value("UseTitleBar", settings.bUseTitleBar);
+    settings.bShowSystemButtons = settingsJson.value("ShowSystemButtons", settings.bShowSystemButtons);
+    settings.DefaultTheme = settingsJson.value("DefaultTheme", settings.DefaultTheme);
+    settings.DefaultCulture = settingsJson.value("DefaultCulture", settings.DefaultCulture);
+    return settings;
 }
 
 } // namespace
@@ -34,6 +93,7 @@ void EditorProject::Reset()
     m_TemplateName = "Blank App";
     m_ProjectRoot.clear();
     m_StartupDocumentRelativePath.clear();
+    m_ApplicationSettings = BuildDefaultApplicationSettings();
     m_BuildProfiles.clear();
     m_ActiveBuildProfileName.clear();
 }
@@ -51,6 +111,7 @@ bool EditorProject::CreateNew(
     m_NamespaceName = namespaceName;
     m_TemplateName = templateName.empty() ? std::string("Blank App") : templateName;
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(startupDocumentRelativePath);
+    m_ApplicationSettings = BuildDefaultApplicationSettings(m_ProjectName);
     EnsureBuildProfiles();
     return IsValid();
 }
@@ -149,6 +210,7 @@ json EditorProject::ToJson() const
     projectSection["StartupDocument"] = m_StartupDocumentRelativePath.generic_string();
     projectSection["ActiveBuildProfile"] = m_ActiveBuildProfileName;
     projectJson["Project"] = std::move(projectSection);
+    projectJson["Application"] = ApplicationSettingsToJson(m_ApplicationSettings);
 
     json buildProfilesJson = json::array();
     for (const FEditorBuildProfile& profile : m_BuildProfiles) {
@@ -201,6 +263,9 @@ bool EditorProject::FromJson(
     m_StartupDocumentRelativePath = NormalizeStoredRelativePath(
         std::filesystem::path(projectSection.value("StartupDocument", std::string())));
     m_ActiveBuildProfileName = projectSection.value("ActiveBuildProfile", std::string());
+    m_ApplicationSettings = ApplicationSettingsFromJson(
+        projectJson.value("Application", json::object()),
+        m_ProjectName);
 
     const json buildProfilesJson = projectJson.value("BuildProfiles", json::array());
     if (buildProfilesJson.is_array()) {

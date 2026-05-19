@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../project/EditorProject.h"
 #include "../toolchains/EnvironmentProbe.h"
 #include "../toolchains/PlatformConfiguration.h"
 
@@ -13,6 +14,7 @@ namespace ImWidgetV4 {
 class ImButton;
 class ImComboBox;
 class ImEditableText;
+class ImSwitch;
 class ImTextBlock;
 class ImTextList;
 class ImVerticalBox;
@@ -28,11 +30,12 @@ struct FProjectSettingsDialogOptions {
     std::string ProjectName;
     std::string NamespaceName;
     std::string StartupDocument;
+    FEditorApplicationSettings ApplicationSettings;
     std::vector<FEditorBuildProfile> BuildProfiles;
     std::string ActiveBuildProfileName;
     ImWidgetV4::FVector2 Position {240.0f, 120.0f};
-    ImWidgetV4::FVector2 Size {620.0f, 540.0f};
-    std::function<bool(const FEditorBuildProfile& profile, bool bMakeActive)> OnConfirm;
+    ImWidgetV4::FVector2 Size {680.0f, 700.0f};
+    std::function<bool(const FEditorBuildProfile& profile, bool bMakeActive, const FEditorApplicationSettings& applicationSettings)> OnConfirm;
     std::function<void()> OnCancel;
 };
 
@@ -50,8 +53,10 @@ private:
     void PopulateProfileComboBox();
     void UpdateProfileEditorsFromSelection();
     bool ApplyEditorValuesToSelection(std::string* outError = nullptr);
+    bool ApplyApplicationEditorValues(std::string* outError = nullptr);
     void RefreshProbeReport();
     void RefreshAndroidEditorVisibility();
+    void RefreshApplicationEditorVisibility();
     void Reset();
     void SetErrorMessage(const std::string& message);
 
@@ -64,6 +69,18 @@ private:
     std::shared_ptr<ImWidgetV4::ImComboBox> m_AndroidStlComboBox;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidSdkRootEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidNdkRootEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_ApplicationTitleEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialWidthEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialHeightEditor;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_EnableIniSettingsSwitch;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_IniSettingsPathEditor;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_UseCustomHostChromeSwitch;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_UseTitleBarSwitch;
+    std::shared_ptr<ImWidgetV4::ImSwitch> m_ShowSystemButtonsSwitch;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultThemeEditor;
+    std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultCultureEditor;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_IniSettingsGroup;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_TitleBarSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_WindowsSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> m_AndroidSettingsGroup;
     std::shared_ptr<ImWidgetV4::ImTextList> m_ProbeText;

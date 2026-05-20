@@ -12,16 +12,11 @@ enum class EImageStretchMode {
 };
 
 struct FImageStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FImageStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FImageStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FImageStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FImageStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FImageStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Color, "Tint", &FImageStyle::Tint, "Tint color");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FImageStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(34, 40, 49);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     float BorderThickness = 1.0f;
@@ -40,49 +35,11 @@ struct FImageBrush {
 };
 
 class ImImage : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImImage, ImWidget)
-    registrar
-        .RegisterProperty(PropertyType::Vec2, "DesiredSize", &ImImage::m_DesiredSize, "Desired image size")
-        .RegisterProperty(
-            PropertyType::Color,
-            "BackgroundColor",
-            static_cast<void (ImImage::*)(FColor&)>(&ImImage::SetBackgroundColorProperty),
-            static_cast<FColor& (ImImage::*)()>(&ImImage::GetBackgroundColorProperty),
-            "Background color")
-        .RegisterProperty(
-            PropertyType::Color,
-            "BorderColor",
-            static_cast<void (ImImage::*)(FColor&)>(&ImImage::SetBorderColorProperty),
-            static_cast<FColor& (ImImage::*)()>(&ImImage::GetBorderColorProperty),
-            "Border color")
-        .RegisterProperty(
-            PropertyType::Float,
-            "BorderThickness",
-            static_cast<void (ImImage::*)(float&)>(&ImImage::SetBorderThicknessProperty),
-            static_cast<float& (ImImage::*)()>(&ImImage::GetBorderThicknessProperty),
-            "Border thickness")
-        .RegisterProperty(
-            PropertyType::Float,
-            "CornerRadius",
-            static_cast<void (ImImage::*)(float&)>(&ImImage::SetCornerRadiusProperty),
-            static_cast<float& (ImImage::*)()>(&ImImage::GetCornerRadiusProperty),
-            "Corner radius")
-        .RegisterProperty(
-            PropertyType::Color,
-            "Tint",
-            static_cast<void (ImImage::*)(FColor&)>(&ImImage::SetTintProperty),
-            static_cast<FColor& (ImImage::*)()>(&ImImage::GetTintProperty),
-            "Tint color")
-        .RegisterOptionalProperty(
-            PropertyType::Enum,
-            "StretchMode",
-            static_cast<void (ImImage::*)(int&)>(&ImImage::SetStretchModeProperty),
-            static_cast<int& (ImImage::*)()>(&ImImage::GetStretchModeProperty),
-            {"KeepAspect", "Fill"},
-            "Image stretch mode");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImImage"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImImage();
     virtual ~ImImage() = default;
 

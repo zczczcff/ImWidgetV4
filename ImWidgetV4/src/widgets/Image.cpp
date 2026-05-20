@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui_internal.h>
 #include <algorithm>
@@ -35,6 +37,121 @@ float ResolveSafeImageRounding(float rounding)
 
     return rounding;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FImageStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FImageStyle, FColor, &FImageStyle::BackgroundColor>(
+            "FImageStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FImageStyle, FColor, &FImageStyle::BorderColor>(
+            "FImageStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FImageStyle, float, &FImageStyle::BorderThickness>(
+            "FImageStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FImageStyle, float, &FImageStyle::CornerRadius>(
+            "FImageStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FImageStyle, FColor, &FImageStyle::Tint>(
+            "FImageStyle",
+            "Tint",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Tint color")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FImageStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImImage::StaticTypeDesc()
+{
+    static const char* const stretchModeOptions[] = {"KeepAspect", "Fill"};
+
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImImage, FVector2, &ImImage::m_DesiredSize>(
+            "ImImage",
+            "DesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Desired image size"),
+        Reflection::MakeObjectAccessorProperty<ImImage, FColor, &ImImage::SetBackgroundColorProperty, &ImImage::GetBackgroundColorProperty>(
+            "ImImage",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeObjectAccessorProperty<ImImage, FColor, &ImImage::SetBorderColorProperty, &ImImage::GetBorderColorProperty>(
+            "ImImage",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeObjectAccessorProperty<ImImage, float, &ImImage::SetBorderThicknessProperty, &ImImage::GetBorderThicknessProperty>(
+            "ImImage",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeObjectAccessorProperty<ImImage, float, &ImImage::SetCornerRadiusProperty, &ImImage::GetCornerRadiusProperty>(
+            "ImImage",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeObjectAccessorProperty<ImImage, FColor, &ImImage::SetTintProperty, &ImImage::GetTintProperty>(
+            "ImImage",
+            "Tint",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Tint color"),
+        Reflection::MakeObjectAccessorProperty<ImImage, int, &ImImage::SetStretchModeProperty, &ImImage::GetStretchModeProperty>(
+            "ImImage",
+            "StretchMode",
+            Reflection::EPropertyKind::Enum,
+            "int",
+            "Image stretch mode",
+            nullptr,
+            {stretchModeOptions, sizeof(stretchModeOptions) / sizeof(stretchModeOptions[0])})
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImImage",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FImageStyleReflectionTypeDesc = FImageStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImImageReflectionTypeDesc = ImImage::StaticTypeDesc();
 
 } // namespace
 

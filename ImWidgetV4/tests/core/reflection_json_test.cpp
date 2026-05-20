@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/reflection/ReflectionBuilder.h>
 #include <imwidgetv4/reflection/ReflectionJson.h>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 

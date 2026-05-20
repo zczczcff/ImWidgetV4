@@ -1,5 +1,6 @@
 #include <imwidgetv4/reflection/ReflectionJson.h>
 
+#include <nlohmann/json.hpp>
 #include <sstream>
 
 namespace ImWidgetV4::Reflection {

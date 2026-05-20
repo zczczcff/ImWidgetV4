@@ -1,7 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/reflection/Reflectable.h>
-#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 
 namespace ImWidgetV4::Reflection {

@@ -2713,6 +2713,9 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
     EXPECT_NE(text.find("set(IMWIDGETV4_SDK_DIR \"vendor/ImWidgetV4-SDK/cmake\""), std::string::npos);
     EXPECT_NE(text.find("find_package(ImWidgetV4 0.2.0 CONFIG REQUIRED"), std::string::npos);
     EXPECT_EQ(text.find("SDK integration is not ready for generated app projects yet"), std::string::npos);
+    EXPECT_NE(text.find("IMWIDGETV4_SDK_IMPORTED_CONFIGURATIONS"), std::string::npos);
+    EXPECT_NE(text.find("CMAKE_CONFIGURATION_TYPES"), std::string::npos);
+    EXPECT_NE(text.find("ImWidgetV4::reflection_json"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_win32_main"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_android_main"), std::string::npos);
 
@@ -3262,6 +3265,46 @@ TEST(EditorSelectionTest, BuildControllerConfigureArgumentsIncludeAndroidOverrid
     EXPECT_NE(
         std::find(arguments.begin(), arguments.end(), std::string("-DIMWIDGETV4_SAMPLE=ON")),
         arguments.end());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, BuildControllerConfigureArgumentsSkipSourceRootForSdkProjects)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_build_args_sdk";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "SdkBuildArgsProject",
+        "SdkBuildArgsProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+    FEditorApplicationSettings settings = project.GetApplicationSettings();
+    settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+    settings.SdkPackagePath = std::filesystem::path("sdk") / "cmake";
+    project.SetApplicationSettings(settings);
+
+    const FEditorBuildProfile* profile = project.FindBuildProfile("Windows Release");
+    ASSERT_NE(profile, nullptr);
+
+    FEnvironmentProbeReport probeReport;
+    probeReport.TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
+
+    const std::vector<std::string> arguments =
+        BuildControllerTestAccess::BuildConfigureArguments(project, *profile, probeReport);
+
+    const auto rootArgument = std::find_if(
+        arguments.begin(),
+        arguments.end(),
+        [](const std::string& argument) {
+            return argument.find("-DIMWIDGETV4_ROOT=") == 0;
+        });
+    EXPECT_EQ(rootArgument, arguments.end());
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }

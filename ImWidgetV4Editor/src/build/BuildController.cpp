@@ -8,6 +8,16 @@ namespace ImWidgetV4Editor {
 
 namespace {
 
+std::string ToLowerCopy(std::string text)
+{
+    std::transform(
+        text.begin(),
+        text.end(),
+        text.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return text;
+}
+
 std::filesystem::path ResolveCompileTimeLibraryRoot()
 {
     std::filesystem::path sourcePath = std::filesystem::path(__FILE__).lexically_normal();
@@ -15,6 +25,26 @@ std::filesystem::path ResolveCompileTimeLibraryRoot()
         sourcePath = sourcePath.parent_path();
     }
     return (sourcePath.parent_path() / "ImWidgetV4").lexically_normal();
+}
+
+bool HasSdkImportedConfiguration(
+    const std::filesystem::path& projectRoot,
+    const FEditorApplicationSettings& settings,
+    const std::string& configuration)
+{
+    if (settings.LibraryIntegrationMode != EEditorLibraryIntegrationMode::SDK ||
+        settings.SdkPackagePath.empty() ||
+        configuration.empty()) {
+        return true;
+    }
+
+    const std::filesystem::path sdkPackagePath = settings.SdkPackagePath.is_absolute()
+        ? settings.SdkPackagePath
+        : (projectRoot / settings.SdkPackagePath).lexically_normal();
+    const std::filesystem::path targetsFile =
+        sdkPackagePath / ("ImWidgetV4Targets-" + ToLowerCopy(configuration) + ".cmake");
+    std::error_code errorCode;
+    return std::filesystem::is_regular_file(targetsFile, errorCode);
 }
 
 } // namespace
@@ -113,6 +143,15 @@ FBuildResult BuildController::ConfigureProject(
         return BuildMissingProfileResult(profileName);
     }
 
+    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), profile->Configuration)) {
+        FBuildResult result;
+        result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+        result.ErrorMessage =
+            "The selected ImWidgetV4 SDK does not provide " + profile->Configuration +
+            " libraries. Build the app with a matching SDK configuration, or package the SDK with that configuration.";
+        return result;
+    }
+
     result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
 
     const FEnvironmentProbeReport probeReport = EnvironmentProbe::Probe(*profile);
@@ -139,6 +178,15 @@ FBuildResult BuildController::BuildProject(
     const FEditorBuildProfile* profile = project.FindBuildProfile(profileName);
     if (profile == nullptr) {
         return BuildMissingProfileResult(profileName);
+    }
+
+    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), profile->Configuration)) {
+        FBuildResult result;
+        result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+        result.ErrorMessage =
+            "The selected ImWidgetV4 SDK does not provide " + profile->Configuration +
+            " libraries. Build the app with a matching SDK configuration, or package the SDK with that configuration.";
+        return result;
     }
 
     FBuildResult configureResult;
@@ -213,9 +261,12 @@ std::vector<std::string> BuildController::BuildConfigureArguments(
     std::vector<std::string> arguments = {
         "cmake",
         "-S", project.GetProjectRoot().string(),
-        "-B", buildDirectory.string(),
-        "-DIMWIDGETV4_ROOT=" + libraryRoot.string()
+        "-B", buildDirectory.string()
     };
+
+    if (project.GetApplicationSettings().LibraryIntegrationMode != EEditorLibraryIntegrationMode::SDK) {
+        arguments.push_back("-DIMWIDGETV4_ROOT=" + libraryRoot.string());
+    }
 
     if (!profile.Generator.empty()) {
         arguments.push_back("-G");

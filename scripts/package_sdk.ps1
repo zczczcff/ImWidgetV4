@@ -1,8 +1,8 @@
 param(
-    [string]$Configuration = "Release",
+    [string]$Configuration = "",
     [string[]]$Configurations = @(),
     [string]$BuildDir = "build/package-sdk-build",
-    [string]$PackageDir = "build/package/ImWidgetV4-Release",
+    [string]$PackageDir = "build/package/ImWidgetV4-SDK",
     [string]$Generator = "",
     [string]$Platform = "",
     [switch]$SkipBuild
@@ -24,9 +24,21 @@ if ($Configurations.Count -gt 0) {
             }
         }
     }
-} else {
+} elseif ($Configuration -ne "") {
     $requestedConfigurations = @($Configuration)
+} else {
+    $requestedConfigurations = @("Debug", "Release")
 }
+
+$normalizedConfigurations = @()
+foreach ($name in $requestedConfigurations) {
+    if ($normalizedConfigurations -notcontains $name) {
+        $normalizedConfigurations += $name
+    }
+}
+$requestedConfigurations = $normalizedConfigurations
+
+Write-Host "[package] Configurations: $($requestedConfigurations -join ', ')"
 
 $configureArgs = @(
     "-S", $repoRoot,
@@ -37,10 +49,10 @@ $configureArgs = @(
     "-DIMWIDGETV4_INSTALL_SDK_SUBDIR=sdk"
 )
 
-if ($Generator -ne "") {
+if (-not [string]::IsNullOrWhiteSpace($Generator)) {
     $configureArgs += @("-G", $Generator)
 }
-if ($Platform -ne "") {
+if (-not [string]::IsNullOrWhiteSpace($Platform)) {
     $configureArgs += @("-A", $Platform)
 }
 

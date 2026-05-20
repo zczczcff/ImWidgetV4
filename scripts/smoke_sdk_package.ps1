@@ -1,6 +1,6 @@
 param(
-    [string]$PackageDir = "build/package/ImWidgetV4-Release",
-    [string]$Configuration = "Debug",
+    [string]$PackageDir = "build/package/ImWidgetV4-SDK",
+    [string]$Configuration = "Release",
     [string]$SmokeDir = "build/package-sdk-smoke",
     [string]$Generator = "",
     [string]$Platform = ""
@@ -33,12 +33,12 @@ New-Item -ItemType Directory -Force -Path $sourcePath | Out-Null
 
 @"
 cmake_minimum_required(VERSION 3.24)
-project(ImWidgetV4ReleasePackageSmoke LANGUAGES CXX)
+project(ImWidgetV4PackageSmoke LANGUAGES CXX)
 
 find_package(ImWidgetV4 CONFIG REQUIRED)
 
-add_executable(release_package_smoke WIN32 main.cpp)
-target_link_libraries(release_package_smoke PRIVATE
+add_executable(package_smoke WIN32 main.cpp)
+target_link_libraries(package_smoke PRIVATE
     ImWidgetV4::core
     ImWidgetV4::platform_win32_dx11
     ImWidgetV4::app_host_win32_main
@@ -52,27 +52,27 @@ target_link_libraries(release_package_smoke PRIVATE
 
 #include <memory>
 
-class ReleasePackageSmokeHostDelegate final : public ImWidgetV4::IApplicationHostDelegate
+class PackageSmokeHostDelegate final : public ImWidgetV4::IApplicationHostDelegate
 {
 public:
     ImWidgetV4::FApplicationHostConfig GetHostConfig() const override
     {
         ImWidgetV4::FApplicationHostConfig config;
-        config.Title = "Release package smoke";
+        config.Title = "SDK package smoke";
         return config;
     }
 
     void ConfigureApplication(ImWidgetV4::ImApplication& application) override
     {
         auto widget = std::make_shared<ImWidgetV4::ImTextBlock>();
-        widget->SetText("Release package smoke");
+        widget->SetText("SDK package smoke");
         application.SetRootWidget(widget);
     }
 };
 
 std::shared_ptr<ImWidgetV4::IApplicationHostDelegate> ImWidgetV4::CreateApplicationHostDelegate()
 {
-    return std::make_shared<ReleasePackageSmokeHostDelegate>();
+    return std::make_shared<PackageSmokeHostDelegate>();
 }
 "@ | Set-Content -Path (Join-Path $sourcePath "main.cpp") -Encoding utf8
 
@@ -82,10 +82,10 @@ $configureArgs = @(
     "-DImWidgetV4_DIR=$sdkCmakePath"
 )
 
-if ($Generator -ne "") {
+if (-not [string]::IsNullOrWhiteSpace($Generator)) {
     $configureArgs += @("-G", $Generator)
 }
-if ($Platform -ne "") {
+if (-not [string]::IsNullOrWhiteSpace($Platform)) {
     $configureArgs += @("-A", $Platform)
 }
 
@@ -96,7 +96,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "[smoke] Building consumer project ($Configuration)..."
-& cmake --build $buildPath --config $Configuration --target release_package_smoke
+& cmake --build $buildPath --config $Configuration --target package_smoke
 if ($LASTEXITCODE -ne 0) {
     throw "Smoke build failed with exit code $LASTEXITCODE."
 }

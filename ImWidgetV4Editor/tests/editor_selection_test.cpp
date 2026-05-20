@@ -2811,6 +2811,7 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesSdkIntegrationCMake)
     EXPECT_NE(text.find("ImWidgetV4::reflection_json"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_win32_main"), std::string::npos);
     EXPECT_NE(text.find("ImWidgetV4::app_host_android_main"), std::string::npos);
+    EXPECT_NE(text.find("imwidgetv4_attach_sdk_sources(${PROJECT_NAME})"), std::string::npos);
 
     std::filesystem::remove_all(request.ProjectRoot, errorCode);
 }

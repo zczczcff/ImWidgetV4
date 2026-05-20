@@ -689,38 +689,53 @@ set(IMWIDGETV4_EXPORT_TARGETS
     imwidgetv4_core
     imwidgetv4_platform_imgui
 )
+set(IMWIDGETV4_PDB_TARGETS
+    imwidgetv4_imgui
+    imwidgetv4_reflection
+    imwidgetv4_reflection_json
+    imwidgetv4_core
+    imwidgetv4_platform_imgui
+)
 
 if(TARGET imwidgetv4_imgui_backend_win32)
     set_target_properties(imwidgetv4_imgui_backend_win32 PROPERTIES EXPORT_NAME imgui_backend_win32)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_backend_win32)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_imgui_backend_win32)
 endif()
 if(TARGET imwidgetv4_imgui_renderer_dx11)
     set_target_properties(imwidgetv4_imgui_renderer_dx11 PROPERTIES EXPORT_NAME imgui_renderer_dx11)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_renderer_dx11)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_imgui_renderer_dx11)
 endif()
 if(TARGET imwidgetv4_platform_win32_dx11)
     set_target_properties(imwidgetv4_platform_win32_dx11 PROPERTIES EXPORT_NAME platform_win32_dx11)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_platform_win32_dx11)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_platform_win32_dx11)
 endif()
 if(TARGET imwidgetv4_imgui_backend_android)
     set_target_properties(imwidgetv4_imgui_backend_android PROPERTIES EXPORT_NAME imgui_backend_android)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_backend_android)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_imgui_backend_android)
 endif()
 if(TARGET imwidgetv4_imgui_renderer_opengl3)
     set_target_properties(imwidgetv4_imgui_renderer_opengl3 PROPERTIES EXPORT_NAME imgui_renderer_opengl3)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_imgui_renderer_opengl3)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_imgui_renderer_opengl3)
 endif()
 if(TARGET imwidgetv4_platform_android_gles3)
     set_target_properties(imwidgetv4_platform_android_gles3 PROPERTIES EXPORT_NAME platform_android_gles3)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_platform_android_gles3)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_platform_android_gles3)
 endif()
 if(TARGET imwidgetv4_app_host_win32_main)
     set_target_properties(imwidgetv4_app_host_win32_main PROPERTIES EXPORT_NAME app_host_win32_main)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_app_host_win32_main)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_app_host_win32_main)
 endif()
 if(TARGET imwidgetv4_app_host_android_main)
     set_target_properties(imwidgetv4_app_host_android_main PROPERTIES EXPORT_NAME app_host_android_main)
     list(APPEND IMWIDGETV4_EXPORT_TARGETS imwidgetv4_app_host_android_main)
+    list(APPEND IMWIDGETV4_PDB_TARGETS imwidgetv4_app_host_android_main)
 endif()
 
 set(IMWIDGETV4_PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake")
@@ -750,6 +765,15 @@ install(
     RUNTIME DESTINATION "${IMWIDGETV4_INSTALL_RUNTIME_DIR}"
     INCLUDES DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"
 )
+if(MSVC)
+    foreach(IMWIDGETV4_PDB_TARGET IN LISTS IMWIDGETV4_PDB_TARGETS)
+        install(
+            FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${IMWIDGETV4_PDB_TARGET}.pdb"
+            DESTINATION "${IMWIDGETV4_INSTALL_LIBRARY_DIR}"
+            OPTIONAL
+        )
+    endforeach()
+endif()
 install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"

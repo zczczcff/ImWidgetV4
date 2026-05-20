@@ -1,8 +1,57 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <algorithm>
 
 namespace ImWidgetV4 {
+
+const Reflection::FTypeDesc& ImCanvasPanelSlot::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImCanvasPanelSlot, FVector2, &ImCanvasPanelSlot::m_RelativePosition>(
+            "ImCanvasPanelSlot", "RelativePosition", Reflection::EPropertyKind::Vec2, "FVector2", "Relative position"),
+        Reflection::MakeMemberProperty<ImCanvasPanelSlot, FVector2, &ImCanvasPanelSlot::m_RelativeSize>(
+            "ImCanvasPanelSlot", "RelativeSize", Reflection::EPropertyKind::Vec2, "FVector2", "Relative size"),
+        Reflection::MakeMemberProperty<ImCanvasPanelSlot, bool, &ImCanvasPanelSlot::m_bAutoSize>(
+            "ImCanvasPanelSlot", "AutoSize", Reflection::EPropertyKind::Bool, "bool", "Whether the slot auto sizes to its child")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImCanvasPanelSlot",
+        &ImSlot::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImCanvasPanel::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImCanvasPanel, FVector2, &ImCanvasPanel::m_DesiredSize>(
+            "ImCanvasPanel", "DesiredSize", Reflection::EPropertyKind::Vec2, "FVector2", "Desired panel size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImCanvasPanel",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImCanvasPanelSlotReflectionTypeDesc = ImCanvasPanelSlot::StaticTypeDesc();
+const Reflection::FTypeDesc& ImCanvasPanelReflectionTypeDesc = ImCanvasPanel::StaticTypeDesc();
+
+} // namespace
 
 ImCanvasPanel::ImCanvasPanel()
     : ImPanelWidget()

@@ -5,14 +5,11 @@
 namespace ImWidgetV4 {
 
 class ImCanvasPanelSlot : public ImSlot {
-    DECLARE_OBJECT_WITH_PARENT(ImCanvasPanelSlot, ImSlot)
-    registrar
-        .RegisterProperty(PropertyType::Vec2, "RelativePosition", &ImCanvasPanelSlot::m_RelativePosition, "Relative position")
-        .RegisterProperty(PropertyType::Vec2, "RelativeSize", &ImCanvasPanelSlot::m_RelativeSize, "Relative size")
-        .RegisterProperty(PropertyType::Bool, "AutoSize", &ImCanvasPanelSlot::m_bAutoSize, "Whether the slot auto sizes to its child");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImCanvasPanelSlot"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImCanvasPanelSlot() = default;
     virtual ~ImCanvasPanelSlot() = default;
 
@@ -32,12 +29,11 @@ private:
 };
 
 class ImCanvasPanel : public ImPanelWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImCanvasPanel, ImPanelWidget)
-    registrar
-        .RegisterProperty(PropertyType::Vec2, "DesiredSize", &ImCanvasPanel::m_DesiredSize, "Desired panel size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImCanvasPanel"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImCanvasPanel();
     virtual ~ImCanvasPanel() = default;
 

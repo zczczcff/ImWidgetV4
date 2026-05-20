@@ -80,6 +80,8 @@ private:
     std::shared_ptr<ImWidgetV4::ImSwitch> m_ShowSystemButtonsSwitch;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_LibraryIntegrationModeComboBox;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_SdkPackagePathEditor;
+    std::shared_ptr<ImWidgetV4::ImButton> m_SdkPackageBrowseButton;
+    std::shared_ptr<ImWidgetV4::ImButton> m_SdkPackageClearButton;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_MinimumSdkVersionEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultThemeEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_DefaultCultureEditor;

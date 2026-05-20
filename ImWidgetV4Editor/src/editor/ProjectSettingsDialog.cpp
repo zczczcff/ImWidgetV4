@@ -230,6 +230,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     libraryIntegrationModeComboBox->SetSelectedIndex(GetLibraryIntegrationModeIndex(m_Options.ApplicationSettings.LibraryIntegrationMode));
     auto sdkPackagePathEditor = MakeEditableTextField(m_Options.ApplicationSettings.SdkPackagePath.generic_string());
     sdkPackagePathEditor->SetHintText("path/to/ImWidgetV4-SDK/cmake");
+    auto sdkPackageBrowseButton = std::make_shared<ImButton>();
+    sdkPackageBrowseButton->SetStyle(MakeEditorDialogButtonStyle(false));
+    sdkPackageBrowseButton->SetText(EditorText("Build.Browse", "Browse"));
+    auto sdkPackageClearButton = std::make_shared<ImButton>();
+    sdkPackageClearButton->SetStyle(MakeEditorDialogButtonStyle(false));
+    sdkPackageClearButton->SetText(EditorText("Build.Clear", "Clear"));
     auto minimumSdkVersionEditor = MakeEditableTextField(m_Options.ApplicationSettings.MinimumSdkVersion);
     minimumSdkVersionEditor->SetHintText("0.1.0");
     auto defaultThemeEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultTheme);
@@ -269,7 +275,11 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.LibraryIntegration", "Library Integration").Resolve(), libraryIntegrationModeComboBox), FMargin(0.0f));
     auto sdkSettingsGroup = std::make_shared<ImVerticalBox>();
     sdkSettingsGroup->SetSpacing(8.0f);
-    sdkSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.SdkPackagePath", "SDK Package Path").Resolve(), sdkPackagePathEditor), FMargin(0.0f));
+    sdkSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(
+            EditorText("ProjectSettings.SdkPackagePath", "SDK Package Path").Resolve(),
+            MakePathOverrideEditorRow(sdkPackagePathEditor, sdkPackageBrowseButton, sdkPackageClearButton)),
+        FMargin(0.0f));
     sdkSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.MinimumSdkVersion", "Minimum SDK Version").Resolve(), minimumSdkVersionEditor), FMargin(0.0f));
     applicationSettingsGroup->AddChild(sdkSettingsGroup, FMargin(0.0f));
 
@@ -373,6 +383,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_ShowSystemButtonsSwitch = showSystemButtonsSwitch;
     m_LibraryIntegrationModeComboBox = libraryIntegrationModeComboBox;
     m_SdkPackagePathEditor = sdkPackagePathEditor;
+    m_SdkPackageBrowseButton = sdkPackageBrowseButton;
+    m_SdkPackageClearButton = sdkPackageClearButton;
     m_MinimumSdkVersionEditor = minimumSdkVersionEditor;
     m_DefaultThemeEditor = defaultThemeEditor;
     m_DefaultCultureEditor = defaultCultureEditor;
@@ -557,6 +569,51 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
         }
     });
 
+    sdkPackageBrowseButton->OnClicked.AddLambda([weakThis, &app](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+
+            FOpenFolderDialogOptions options;
+            options.Title = EditorText("ProjectSettings.SelectSdkPackagePath", "Select ImWidgetV4 SDK Package Path").Resolve();
+            if (self->m_SdkPackagePathEditor && !self->m_SdkPackagePathEditor->GetText().empty()) {
+                options.InitialDirectory = std::filesystem::path(self->m_SdkPackagePathEditor->GetText());
+            }
+
+            const FPathDialogResult dialogResult = app.OpenFolderDialog(options);
+            if (dialogResult.IsAccepted()) {
+                self->m_SdkPackagePathEditor->SetText(dialogResult.Path.string());
+                std::string error;
+                if (!self->ApplyApplicationEditorValues(&error)) {
+                    self->SetErrorMessage(error);
+                    return;
+                }
+                self->RefreshApplicationEditorVisibility();
+                return;
+            }
+
+            if (dialogResult.Code == EPathDialogResultCode::Unsupported) {
+                self->SetErrorMessage(EditorText("ProjectSettings.FolderSelectionUnsupported", "Folder selection is unsupported by the active platform backend.").Resolve());
+            } else if (dialogResult.Code == EPathDialogResultCode::Error) {
+                self->SetErrorMessage(EditorText("ProjectSettings.SdkPackagePathSelectionFailed", "SDK package path selection failed").Resolve() + ": " + dialogResult.ErrorMessage);
+            }
+        }
+    });
+
+    sdkPackageClearButton->OnClicked.AddLambda([weakThis](ImButton&) {
+        if (auto self = weakThis.lock()) {
+            self->SetErrorMessage("");
+            if (self->m_SdkPackagePathEditor) {
+                self->m_SdkPackagePathEditor->SetText("");
+            }
+            std::string error;
+            if (!self->ApplyApplicationEditorValues(&error)) {
+                self->SetErrorMessage(error);
+                return;
+            }
+            self->RefreshApplicationEditorVisibility();
+        }
+    });
+
     reprobeButton->OnClicked.AddLambda([weakThis](ImButton&) {
         if (auto self = weakThis.lock()) {
             self->SetErrorMessage("");
@@ -624,6 +681,8 @@ void ProjectSettingsDialog::Reset()
     m_ShowSystemButtonsSwitch.reset();
     m_LibraryIntegrationModeComboBox.reset();
     m_SdkPackagePathEditor.reset();
+    m_SdkPackageBrowseButton.reset();
+    m_SdkPackageClearButton.reset();
     m_MinimumSdkVersionEditor.reset();
     m_DefaultThemeEditor.reset();
     m_DefaultCultureEditor.reset();

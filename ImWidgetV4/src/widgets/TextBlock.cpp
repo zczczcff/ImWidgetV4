@@ -376,9 +376,8 @@ void ImTextBlock::UpdateOverflowToolTip()
     }
 }
 
-void ImTextBlock::FromJson(const json& j)
+void ImTextBlock::PostDeserializeFromJson()
 {
-    ImWidget::FromJson(j);
     m_TextValue = FText::FromString(m_Text);
 }
 

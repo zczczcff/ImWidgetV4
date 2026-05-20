@@ -572,9 +572,8 @@ bool ImTitleBar::BuildHitTestPath(const FVector2& position, std::vector<Ptr>& ou
     return true;
 }
 
-void ImTitleBar::FromJson(const json& j)
+void ImTitleBar::PostDeserializeFromJson()
 {
-    ImWidget::FromJson(j);
     MarkLayoutDirty();
 }
 

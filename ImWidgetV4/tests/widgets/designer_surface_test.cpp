@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/Application.h>
-#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/DesignerSurface.h>
 #include <imgui.h>
 #include <memory>
@@ -44,13 +43,20 @@ protected:
 TEST_F(DesignerSurfaceTest, UsesThemeResolvedStyleByDefault)
 {
     ASSERT_TRUE(App->SetActiveTheme("Dark"));
-    const FDesignerSurfaceStyle expectedStyle = ResolveDesignerSurfaceStyle(App->GetStyleSet());
 
     const FDesignerSurfaceStyle& style = DesignerSurface->GetStyle();
-    EXPECT_EQ(style.SelectionBorderColor.ToImU32(), expectedStyle.SelectionBorderColor.ToImU32());
-    EXPECT_EQ(style.DropPreviewFillColor.ToImU32(), expectedStyle.DropPreviewFillColor.ToImU32());
-    EXPECT_FLOAT_EQ(style.TransformHandleSize, expectedStyle.TransformHandleSize);
-    EXPECT_FLOAT_EQ(style.DropPreviewBorderThickness, expectedStyle.DropPreviewBorderThickness);
+    EXPECT_EQ(
+        style.SelectionBorderColor.ToImU32(),
+        App->GetStyleSet().GetColor("Color.DesignerSurface.SelectionBorder").ToImU32());
+    EXPECT_EQ(
+        style.DropPreviewFillColor.ToImU32(),
+        App->GetStyleSet().GetColor("Color.DesignerSurface.DropPreviewFill").ToImU32());
+    EXPECT_FLOAT_EQ(
+        style.TransformHandleSize,
+        App->GetStyleSet().GetFloat("Float.DesignerSurface.TransformHandleSize"));
+    EXPECT_FLOAT_EQ(
+        style.DropPreviewBorderThickness,
+        App->GetStyleSet().GetFloat("Float.DesignerSurface.DropPreviewBorderThickness"));
 }
 
 TEST_F(DesignerSurfaceTest, ExplicitStyleOverridesTheme)

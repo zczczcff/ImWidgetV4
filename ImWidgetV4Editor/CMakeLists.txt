@@ -124,6 +124,8 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
 
     target_link_libraries(editor_selection_test PRIVATE
         imwidgetv4_core
+        imwidgetv4_designer
+        imwidgetv4_reflection_json
         ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
         gtest
         gtest_main
@@ -139,6 +141,8 @@ endif()
 
 target_link_libraries(ImWidgetV4Editor PRIVATE
     imwidgetv4_core
+    imwidgetv4_designer
+    imwidgetv4_reflection_json
     ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
 )
 

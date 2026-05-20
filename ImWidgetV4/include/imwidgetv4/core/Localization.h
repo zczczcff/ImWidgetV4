@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/ReflectableObject.h>
+#include <nlohmann/json_fwd.hpp>
 
 #include <filesystem>
 #include <string>
@@ -9,6 +10,8 @@
 #include <vector>
 
 namespace ImWidgetV4 {
+
+using json = nlohmann::ordered_json;
 
 class FText {
 public:

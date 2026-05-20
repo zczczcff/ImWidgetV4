@@ -4,7 +4,6 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/reflection/ReflectionBuilder.h>
 #include <imwidgetv4/reflection/ReflectionRegistry.h>
-#include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 
 #include <algorithm>

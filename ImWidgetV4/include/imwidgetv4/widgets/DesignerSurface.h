@@ -7,6 +7,7 @@ namespace ImWidgetV4 {
 
 class ImCanvasPanel;
 class ImCanvasPanelSlot;
+class FStyleSet;
 
 enum class EDesignerTransformHandle : std::uint8_t {
     None,
@@ -40,6 +41,8 @@ public:
     FColor DropPreviewFillColor = FColor::FromBytes(92, 214, 141, 34);
     float DropPreviewBorderThickness = 2.0f;
 };
+
+FDesignerSurfaceStyle ResolveDesignerSurfaceStyle(const FStyleSet& styleSet);
 
 class ImDesignerSurface : public ImUserWidget {
 public:

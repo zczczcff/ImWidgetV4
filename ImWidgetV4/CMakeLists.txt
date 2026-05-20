@@ -154,6 +154,7 @@ target_include_directories(imwidgetv4_reflection_json PUBLIC
 )
 target_link_libraries(imwidgetv4_reflection_json PUBLIC
     imwidgetv4_reflection
+    imwidgetv4_core
 )
 if(MSVC)
     target_compile_options(imwidgetv4_reflection_json PUBLIC /utf-8)
@@ -202,7 +203,6 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/CheckBox.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ColorPicker.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ComboBox.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/DesignerSurface.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/EditableText.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/ExpandableBox.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/HorizontalBox.h
@@ -252,7 +252,6 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CheckBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ColorPicker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ComboBox.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/DesignerSurface.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/EditableText.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ExpandableBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/HorizontalBox.cpp
@@ -314,8 +313,37 @@ if(MSVC)
 endif()
 imwidgetv4_set_target_folder(imwidgetv4_core "Libraries")
 
+set(IMWIDGETV4_DESIGNER_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/widgets/DesignerSurface.h
+)
+
+set(IMWIDGETV4_DESIGNER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/DesignerSurface.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/DesignerSurfaceStyle.cpp
+)
+
+add_library(imwidgetv4_designer STATIC
+    ${IMWIDGETV4_DESIGNER_PUBLIC_HEADERS}
+    ${IMWIDGETV4_DESIGNER_SOURCES}
+)
+add_library(ImWidgetV4::designer ALIAS imwidgetv4_designer)
+target_compile_features(imwidgetv4_designer PUBLIC cxx_std_17)
+target_include_directories(imwidgetv4_designer PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${IMWIDGETV4_INSTALL_INCLUDE_DIR}>
+)
+target_link_libraries(imwidgetv4_designer PUBLIC
+    imwidgetv4_core
+)
+if(MSVC)
+    target_compile_options(imwidgetv4_designer PUBLIC /utf-8)
+endif()
+imwidgetv4_set_target_folder(imwidgetv4_designer "Libraries")
+
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_CORE_PUBLIC_HEADERS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_CORE_SOURCES} ${IMWIDGETV4_CORE_VS_ONLY_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_DESIGNER_PUBLIC_HEADERS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_DESIGNER_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_REFLECTION_PUBLIC_HEADERS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_REFLECTION_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_REFLECTION_JSON_PUBLIC_HEADERS})
@@ -647,6 +675,7 @@ set_target_properties(stb_lib PROPERTIES EXPORT_NAME stb)
 set_target_properties(imwidgetv4_reflection PROPERTIES EXPORT_NAME reflection)
 set_target_properties(imwidgetv4_reflection_json PROPERTIES EXPORT_NAME reflection_json)
 set_target_properties(imwidgetv4_core PROPERTIES EXPORT_NAME core)
+set_target_properties(imwidgetv4_designer PROPERTIES EXPORT_NAME designer)
 set_target_properties(imwidgetv4_platform_imgui PROPERTIES EXPORT_NAME platform_imgui)
 
 set(IMWIDGETV4_EXPORT_TARGETS
@@ -722,6 +751,7 @@ install(
 install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"
+    PATTERN "DesignerSurface.h" EXCLUDE
 )
 set(IMWIDGETV4_IMGUI_INSTALL_HEADERS
     "${imgui_SOURCE_DIR}/imconfig.h"

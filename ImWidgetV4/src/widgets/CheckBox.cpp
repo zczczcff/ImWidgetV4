@@ -461,9 +461,8 @@ const FCheckBoxStyle& ImCheckBox::GetEffectiveStyle() const
     return m_Style;
 }
 
-void ImCheckBox::FromJson(const json& j)
+void ImCheckBox::PostDeserializeFromJson()
 {
-    ImWidget::FromJson(j);
     m_LabelText = FText::FromString(m_Label);
 }
 

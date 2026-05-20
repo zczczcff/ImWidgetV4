@@ -37,10 +37,11 @@ class ReflectableObject : public Reflection::IReflectable {
 public:
     virtual ~ReflectableObject() = default;
 
-    virtual json ToJson() const;
-    virtual void FromJson(const json& j);
+    json ToJson() const;
+    void FromJson(const json& j);
     virtual std::string GetTypeName() const { return "ReflectableObject"; }
     virtual const Reflection::FTypeDesc& GetTypeDesc() const override;
+    virtual void PostDeserializeFromJson() {}
     const Reflection::FTypeDesc* FindReflectionTypeDesc() const;
     bool HasProperty(const std::string& name) const;
     bool HasProperty(const std::string& name, const std::string& className) const;

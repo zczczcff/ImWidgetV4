@@ -64,7 +64,7 @@ public:
     void Paint(const FPaintContext& paintContext) override;
     FVector2 GetMinSize() const override;
     FReply OnInputEvent(const FInputEvent& event) override;
-    void FromJson(const json& j) override;
+    void PostDeserializeFromJson() override;
 
 private:
     const FTextBlockStyle& GetEffectiveStyle() const;

@@ -1,9 +1,10 @@
 #pragma once
 #include <imwidgetv4/core/Types.h>
-#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <vector>
 
 namespace ImWidgetV4 {
 

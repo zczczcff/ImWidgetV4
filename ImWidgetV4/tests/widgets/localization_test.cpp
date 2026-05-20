@@ -13,6 +13,8 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/TextOutlineView.h>
 
+#include <nlohmann/json.hpp>
+
 using namespace ImWidgetV4;
 
 namespace {

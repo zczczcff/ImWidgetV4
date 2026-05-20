@@ -869,11 +869,6 @@ const std::string& ImApplication::GetDefaultCulture() const
     return FLocalizationManager::Get().GetDefaultCulture();
 }
 
-bool ImApplication::LoadStringTable(const std::filesystem::path& path, std::string* outError)
-{
-    return FLocalizationManager::Get().LoadStringTableFromFile(path, outError);
-}
-
 void ImApplication::RegisterStringTable(FStringTable table)
 {
     FLocalizationManager::Get().RegisterStringTable(std::move(table));

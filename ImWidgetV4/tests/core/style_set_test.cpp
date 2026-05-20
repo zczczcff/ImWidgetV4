@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/style/StyleSet.h>
+#include <nlohmann/json.hpp>
 #include <string>
 
 using namespace ImWidgetV4;

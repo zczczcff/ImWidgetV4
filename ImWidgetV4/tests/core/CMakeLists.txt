@@ -4,6 +4,7 @@ add_executable(reflectable_object_test
 
 target_link_libraries(reflectable_object_test
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest_main
     uectti
 )
@@ -60,6 +61,7 @@ add_executable(style_set_test
 
 target_link_libraries(style_set_test
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest_main
 )
 

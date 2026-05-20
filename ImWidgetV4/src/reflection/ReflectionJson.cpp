@@ -1,5 +1,8 @@
 #include <imwidgetv4/reflection/ReflectionJson.h>
 
+#include <imwidgetv4/core/ReflectableObject.h>
+#include <imwidgetv4/core/Types.h>
+#include <imgui.h>
 #include <nlohmann/json.hpp>
 #include <sstream>
 
@@ -22,6 +25,47 @@ std::pair<std::string, std::string> ParsePropertyKey(const std::string& key)
     return {key.substr(0, pos), key.substr(pos + 2)};
 }
 
+bool TypeNameContains(const std::string& typeName, const char* token)
+{
+    return typeName.find(token) != std::string::npos;
+}
+
+FReflectionJson SerializeColorValue(const FPropertyDesc& property, const void* value)
+{
+    ImU32 color = 0;
+    const std::string typeName = property.ValueTypeName ? property.ValueTypeName : "";
+
+    if (TypeNameContains(typeName, "FColor")) {
+        color = static_cast<const FColor*>(value)->ToImU32();
+    } else {
+        color = *static_cast<const ImU32*>(value);
+    }
+
+    FReflectionJson colorArray = FReflectionJson::array();
+    colorArray.push_back((color >> IM_COL32_R_SHIFT) & 0xFF);
+    colorArray.push_back((color >> IM_COL32_G_SHIFT) & 0xFF);
+    colorArray.push_back((color >> IM_COL32_B_SHIFT) & 0xFF);
+    colorArray.push_back((color >> IM_COL32_A_SHIFT) & 0xFF);
+    return colorArray;
+}
+
+FReflectionJson SerializeVec2Value(const FPropertyDesc& property, const void* value)
+{
+    ImVec2 vec;
+    const std::string typeName = property.ValueTypeName ? property.ValueTypeName : "";
+
+    if (TypeNameContains(typeName, "FVector2")) {
+        vec = static_cast<const FVector2*>(value)->ToImVec2();
+    } else {
+        vec = *static_cast<const ImVec2*>(value);
+    }
+
+    FReflectionJson vecArray = FReflectionJson::array();
+    vecArray.push_back(vec.x);
+    vecArray.push_back(vec.y);
+    return vecArray;
+}
+
 FReflectionJson ValueToJson(const FPropertyDesc& property, const FPropertyValue& value)
 {
     switch (property.Kind) {
@@ -40,6 +84,10 @@ FReflectionJson ValueToJson(const FPropertyDesc& property, const FPropertyValue&
             return property.EnumOptions.Names[value.IntValue];
         }
         return value.IntValue;
+    case EPropertyKind::Color:
+        return value.ConstStructValue ? SerializeColorValue(property, value.ConstStructValue) : FReflectionJson(nullptr);
+    case EPropertyKind::Vec2:
+        return value.ConstStructValue ? SerializeVec2Value(property, value.ConstStructValue) : FReflectionJson(nullptr);
     case EPropertyKind::Struct:
         if (value.ConstStructValue && property.StructType && property.GetConstReflectable) {
             const IReflectable* nested = property.GetConstReflectable(value.ConstStructValue);
@@ -49,8 +97,6 @@ FReflectionJson ValueToJson(const FPropertyDesc& property, const FPropertyValue&
             return ToJson(*nested);
         }
         return nullptr;
-    case EPropertyKind::Color:
-    case EPropertyKind::Vec2:
     default:
         return nullptr;
     }
@@ -109,6 +155,98 @@ bool JsonToValue(
             }
             return false;
         }
+    } catch (const std::exception& e) {
+        if (error) {
+            *error = e.what();
+        }
+        return false;
+    }
+}
+
+bool WriteReflectedColor(
+    const FPropertyHandle& handle,
+    const FReflectionJson& value,
+    std::string* error)
+{
+    if (!value.is_array() || value.size() != 4) {
+        if (error) {
+            *error = "Color must be an array of 4 integers";
+        }
+        return false;
+    }
+
+    try {
+        const int r = value[0].get<int>();
+        const int g = value[1].get<int>();
+        const int b = value[2].get<int>();
+        const int a = value[3].get<int>();
+        const FPropertyDesc* property = handle.GetDesc();
+        if (!property) {
+            if (error) {
+                *error = "Missing color property descriptor";
+            }
+            return false;
+        }
+
+        const std::string typeName = property->ValueTypeName ? property->ValueTypeName : "";
+        bool bWritten = false;
+        if (TypeNameContains(typeName, "FColor")) {
+            FColor color = FColor::FromBytes(r, g, b, a);
+            bWritten = handle.CopyFrom(&color);
+        } else {
+            ImU32 color = IM_COL32(r, g, b, a);
+            bWritten = handle.CopyFrom(&color);
+        }
+
+        if (!bWritten && error) {
+            *error = "Failed to write color property";
+        }
+        return bWritten;
+    } catch (const std::exception& e) {
+        if (error) {
+            *error = e.what();
+        }
+        return false;
+    }
+}
+
+bool WriteReflectedVec2(
+    const FPropertyHandle& handle,
+    const FReflectionJson& value,
+    std::string* error)
+{
+    if (!value.is_array() || value.size() != 2) {
+        if (error) {
+            *error = "Vec2 must be an array of 2 floats";
+        }
+        return false;
+    }
+
+    try {
+        const float x = value[0].get<float>();
+        const float y = value[1].get<float>();
+        const FPropertyDesc* property = handle.GetDesc();
+        if (!property) {
+            if (error) {
+                *error = "Missing vec2 property descriptor";
+            }
+            return false;
+        }
+
+        const std::string typeName = property->ValueTypeName ? property->ValueTypeName : "";
+        bool bWritten = false;
+        if (TypeNameContains(typeName, "FVector2")) {
+            FVector2 vec(x, y);
+            bWritten = handle.CopyFrom(&vec);
+        } else {
+            ImVec2 vec(x, y);
+            bWritten = handle.CopyFrom(&vec);
+        }
+
+        if (!bWritten && error) {
+            *error = "Failed to write vec2 property";
+        }
+        return bWritten;
     } catch (const std::exception& e) {
         if (error) {
             *error = e.what();
@@ -180,8 +318,9 @@ bool FromJson(IReflectable& object, const FReflectionJson& json, std::string* er
             continue;
         }
 
+        FPropertyHandle handle(&object, property);
+
         if (property->Kind == EPropertyKind::Struct) {
-            FPropertyHandle handle(&object, property);
             if (!property->GetReflectable) {
                 if (error) {
                     *error = "Failed to deserialize property '" + it.key() + "': unsupported struct property";
@@ -204,6 +343,22 @@ bool FromJson(IReflectable& object, const FReflectionJson& json, std::string* er
                 }
                 return false;
             }
+        } else if (property->Kind == EPropertyKind::Color) {
+            std::string conversionError;
+            if (!WriteReflectedColor(handle, it.value(), &conversionError)) {
+                if (error) {
+                    *error = "Failed to deserialize property '" + it.key() + "': " + conversionError;
+                }
+                return false;
+            }
+        } else if (property->Kind == EPropertyKind::Vec2) {
+            std::string conversionError;
+            if (!WriteReflectedVec2(handle, it.value(), &conversionError)) {
+                if (error) {
+                    *error = "Failed to deserialize property '" + it.key() + "': " + conversionError;
+                }
+                return false;
+            }
         } else {
             FPropertyValue value;
             std::string conversionError;
@@ -214,7 +369,6 @@ bool FromJson(IReflectable& object, const FReflectionJson& json, std::string* er
                 return false;
             }
 
-            FPropertyHandle handle(&object, property);
             if (!handle.Write(value)) {
                 if (error) {
                     *error = "Failed to write property '" + it.key() + "'";
@@ -224,7 +378,31 @@ bool FromJson(IReflectable& object, const FReflectionJson& json, std::string* er
         }
     }
 
+    if (auto* reflectableObject = dynamic_cast<ImWidgetV4::ReflectableObject*>(&object)) {
+        reflectableObject->PostDeserializeFromJson();
+    }
+
     return true;
 }
 
 } // namespace ImWidgetV4::Reflection
+
+namespace ImWidgetV4 {
+
+json ReflectableObject::ToJson() const
+{
+    return Reflection::ToJson(*this);
+}
+
+void ReflectableObject::FromJson(const json& j)
+{
+    std::string error;
+    if (!Reflection::FromJson(*this, j, &error)) {
+        throw std::runtime_error(error);
+    }
+}
+
+} // namespace ImWidgetV4
+
+#include "../style/StyleSetJson.inl"
+#include "../core/LocalizationJson.inl"

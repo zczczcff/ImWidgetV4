@@ -30,6 +30,7 @@ add_executable(localization_test
 
 target_link_libraries(localization_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )
@@ -42,6 +43,8 @@ add_executable(widget_reflection_test
 
 target_link_libraries(widget_reflection_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_designer
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )
@@ -66,6 +69,7 @@ add_executable(color_picker_test
 
 target_link_libraries(color_picker_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )
@@ -89,7 +93,7 @@ add_executable(designer_surface_test
 )
 
 target_link_libraries(designer_surface_test PRIVATE
-    imwidgetv4_core
+    imwidgetv4_designer
     gtest
     gtest_main
 )
@@ -246,6 +250,7 @@ add_executable(title_bar_test
 
 target_link_libraries(title_bar_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )

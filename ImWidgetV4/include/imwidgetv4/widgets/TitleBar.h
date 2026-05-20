@@ -72,7 +72,7 @@ public:
     virtual FReply OnPreviewInputEvent(const FInputEvent& event) override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
     virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath) override;
-    virtual void FromJson(const json& j) override;
+    virtual void PostDeserializeFromJson() override;
 
 private:
     enum class ESystemButton : std::uint8_t {

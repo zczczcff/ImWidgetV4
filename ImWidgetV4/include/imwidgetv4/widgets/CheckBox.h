@@ -8,28 +8,11 @@
 namespace ImWidgetV4 {
 
 struct FCheckBoxStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FCheckBoxStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FCheckBoxStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "HoveredBackgroundColor", &FCheckBoxStyle::HoveredBackgroundColor, "Hovered background color")
-        .RegisterProperty(PropertyType::Color, "PressedBackgroundColor", &FCheckBoxStyle::PressedBackgroundColor, "Pressed background color")
-        .RegisterProperty(PropertyType::Color, "CheckedBackgroundColor", &FCheckBoxStyle::CheckedBackgroundColor, "Checked background color")
-        .RegisterProperty(PropertyType::Color, "DisabledBackgroundColor", &FCheckBoxStyle::DisabledBackgroundColor, "Disabled background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FCheckBoxStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "CheckMarkColor", &FCheckBoxStyle::CheckMarkColor, "Check mark color")
-        .RegisterProperty(PropertyType::Color, "TextColor", &FCheckBoxStyle::TextColor, "Text color")
-        .RegisterProperty(PropertyType::Color, "DisabledTextColor", &FCheckBoxStyle::DisabledTextColor, "Disabled text color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FCheckBoxStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FCheckBoxStyle::Padding, "Control padding")
-        .RegisterProperty(PropertyType::Float, "IndicatorSize", &FCheckBoxStyle::IndicatorSize, "Indicator size")
-        .RegisterProperty(PropertyType::Float, "IndicatorCornerRadius", &FCheckBoxStyle::IndicatorCornerRadius, "Indicator corner radius")
-        .RegisterProperty(PropertyType::Float, "LabelSpacing", &FCheckBoxStyle::LabelSpacing, "Spacing between indicator and label")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FCheckBoxStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "FontSize", &FCheckBoxStyle::FontSize, "Font size")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FCheckBoxStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FCheckBoxStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(31, 37, 46);
     FColor HoveredBackgroundColor = FColor::FromBytes(42, 51, 62);
     FColor PressedBackgroundColor = FColor::FromBytes(23, 29, 37);
@@ -50,15 +33,11 @@ public:
 };
 
 class ImCheckBox : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImCheckBox, ImWidget)
-    registrar
-        .RegisterProperty(PropertyType::String, "Label", &ImCheckBox::m_Label, "Checkbox label")
-        .RegisterProperty(PropertyType::Bool, "Checked", &ImCheckBox::m_bChecked, "Whether the checkbox is checked")
-        .RegisterProperty(PropertyType::Bool, "Disabled", &ImCheckBox::m_bDisabled, "Whether the checkbox is disabled")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImCheckBox::m_Style, "Checkbox style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImCheckBox"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FCheckBoxEvent = TMulticastDelegate<ImCheckBox&>;
     using FCheckStateChangedEvent = TMulticastDelegate<ImCheckBox&, bool>;
 

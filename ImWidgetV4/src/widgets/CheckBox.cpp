@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -28,6 +30,173 @@ FVector2 MeasureText(const std::string& text, float fontSize) {
         text.c_str() + text.size());
     return FVector2(size.x, size.y);
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FCheckBoxStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::BackgroundColor>(
+            "FCheckBoxStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::HoveredBackgroundColor>(
+            "FCheckBoxStyle",
+            "HoveredBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered background color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::PressedBackgroundColor>(
+            "FCheckBoxStyle",
+            "PressedBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed background color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::CheckedBackgroundColor>(
+            "FCheckBoxStyle",
+            "CheckedBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Checked background color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::DisabledBackgroundColor>(
+            "FCheckBoxStyle",
+            "DisabledBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled background color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::BorderColor>(
+            "FCheckBoxStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::CheckMarkColor>(
+            "FCheckBoxStyle",
+            "CheckMarkColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Check mark color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::TextColor>(
+            "FCheckBoxStyle",
+            "TextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Text color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::DisabledTextColor>(
+            "FCheckBoxStyle",
+            "DisabledTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled text color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FColor, &FCheckBoxStyle::FocusedOutlineColor>(
+            "FCheckBoxStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FMargin, &FCheckBoxStyle::Padding>(
+            "FCheckBoxStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Control padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, float, &FCheckBoxStyle::IndicatorSize>(
+            "FCheckBoxStyle",
+            "IndicatorSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Indicator size"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, float, &FCheckBoxStyle::IndicatorCornerRadius>(
+            "FCheckBoxStyle",
+            "IndicatorCornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Indicator corner radius"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, float, &FCheckBoxStyle::LabelSpacing>(
+            "FCheckBoxStyle",
+            "LabelSpacing",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Spacing between indicator and label"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, float, &FCheckBoxStyle::BorderThickness>(
+            "FCheckBoxStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, float, &FCheckBoxStyle::FontSize>(
+            "FCheckBoxStyle",
+            "FontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Font size"),
+        Reflection::MakeMemberProperty<FCheckBoxStyle, FVector2, &FCheckBoxStyle::MinDesiredSize>(
+            "FCheckBoxStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FCheckBoxStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImCheckBox::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImCheckBox, std::string, &ImCheckBox::m_Label>(
+            "ImCheckBox",
+            "Label",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Checkbox label"),
+        Reflection::MakeMemberProperty<ImCheckBox, bool, &ImCheckBox::m_bChecked>(
+            "ImCheckBox",
+            "Checked",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the checkbox is checked"),
+        Reflection::MakeMemberProperty<ImCheckBox, bool, &ImCheckBox::m_bDisabled>(
+            "ImCheckBox",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the checkbox is disabled"),
+        Reflection::MakeMemberProperty<ImCheckBox, FCheckBoxStyle, &ImCheckBox::m_Style>(
+            "ImCheckBox",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FCheckBoxStyle",
+            "Checkbox style",
+            &FCheckBoxStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImCheckBox",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FCheckBoxStyleReflectionTypeDesc = FCheckBoxStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImCheckBoxReflectionTypeDesc = ImCheckBox::StaticTypeDesc();
 
 } // namespace
 

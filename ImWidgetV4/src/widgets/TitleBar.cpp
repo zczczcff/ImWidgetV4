@@ -2,6 +2,8 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <algorithm>
@@ -51,6 +53,173 @@ FGeometry InsetGeometry(const FGeometry& geometry, const FMargin& padding)
             std::max(0.0f, geometry.Size.X - left - right),
             std::max(0.0f, geometry.Size.Y - top - bottom)));
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FTitleBarStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::BackgroundColor>(
+            "FTitleBarStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Title bar background color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::BorderColor>(
+            "FTitleBarStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Title bar border color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::BorderThickness>(
+            "FTitleBarStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Title bar border thickness"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FMargin, &FTitleBarStyle::Padding>(
+            "FTitleBarStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Title bar padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::ItemSpacing>(
+            "FTitleBarStyle",
+            "ItemSpacing",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Spacing between title bar items"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::Height>(
+            "FTitleBarStyle",
+            "Height",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Preferred title bar height"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::DragRegionMinWidth>(
+            "FTitleBarStyle",
+            "DragRegionMinWidth",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum drag region width"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::SystemButtonSize>(
+            "FTitleBarStyle",
+            "SystemButtonSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "System button size"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, float, &FTitleBarStyle::SystemButtonSpacing>(
+            "FTitleBarStyle",
+            "SystemButtonSpacing",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Spacing between system buttons"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::SystemButtonGlyphColor>(
+            "FTitleBarStyle",
+            "SystemButtonGlyphColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "System button glyph color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::HoveredSystemButtonColor>(
+            "FTitleBarStyle",
+            "HoveredSystemButtonColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered system button color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::PressedSystemButtonColor>(
+            "FTitleBarStyle",
+            "PressedSystemButtonColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed system button color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::CloseButtonHoveredColor>(
+            "FTitleBarStyle",
+            "CloseButtonHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered close button color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FColor, &FTitleBarStyle::CloseButtonPressedColor>(
+            "FTitleBarStyle",
+            "CloseButtonPressedColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed close button color"),
+        Reflection::MakeMemberProperty<FTitleBarStyle, FVector2, &FTitleBarStyle::MinDesiredSize>(
+            "FTitleBarStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FTitleBarStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImTitleBar::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImTitleBar, bool, &ImTitleBar::bShowSystemButtons_>(
+            "ImTitleBar",
+            "ShowSystemButtons",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the system button group is visible"),
+        Reflection::MakeMemberProperty<ImTitleBar, bool, &ImTitleBar::bShowMinimizeButton_>(
+            "ImTitleBar",
+            "ShowMinimizeButton",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the minimize button is visible"),
+        Reflection::MakeMemberProperty<ImTitleBar, bool, &ImTitleBar::bShowMaximizeButton_>(
+            "ImTitleBar",
+            "ShowMaximizeButton",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the maximize button is visible"),
+        Reflection::MakeMemberProperty<ImTitleBar, bool, &ImTitleBar::bShowCloseButton_>(
+            "ImTitleBar",
+            "ShowCloseButton",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the close button is visible"),
+        Reflection::MakeMemberProperty<ImTitleBar, float, &ImTitleBar::ReflectedDragRegionMinWidth_>(
+            "ImTitleBar",
+            "DragRegionMinWidth",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum drag region width override"),
+        Reflection::MakeMemberProperty<ImTitleBar, FTitleBarStyle, &ImTitleBar::Style_>(
+            "ImTitleBar",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FTitleBarStyle",
+            "Title bar style",
+            &FTitleBarStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTitleBar",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FTitleBarStyleReflectionTypeDesc = FTitleBarStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImTitleBarReflectionTypeDesc = ImTitleBar::StaticTypeDesc();
 
 } // namespace
 

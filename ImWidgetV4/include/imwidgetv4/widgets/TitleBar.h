@@ -9,26 +9,11 @@ namespace ImWidgetV4 {
 class ImApplicationBackend;
 
 struct FTitleBarStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FTitleBarStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTitleBarStyle::BackgroundColor, "Title bar background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FTitleBarStyle::BorderColor, "Title bar border color")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FTitleBarStyle::BorderThickness, "Title bar border thickness")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FTitleBarStyle::Padding, "Title bar padding")
-        .RegisterProperty(PropertyType::Float, "ItemSpacing", &FTitleBarStyle::ItemSpacing, "Spacing between title bar items")
-        .RegisterProperty(PropertyType::Float, "Height", &FTitleBarStyle::Height, "Preferred title bar height")
-        .RegisterProperty(PropertyType::Float, "DragRegionMinWidth", &FTitleBarStyle::DragRegionMinWidth, "Minimum drag region width")
-        .RegisterProperty(PropertyType::Float, "SystemButtonSize", &FTitleBarStyle::SystemButtonSize, "System button size")
-        .RegisterProperty(PropertyType::Float, "SystemButtonSpacing", &FTitleBarStyle::SystemButtonSpacing, "Spacing between system buttons")
-        .RegisterProperty(PropertyType::Color, "SystemButtonGlyphColor", &FTitleBarStyle::SystemButtonGlyphColor, "System button glyph color")
-        .RegisterProperty(PropertyType::Color, "HoveredSystemButtonColor", &FTitleBarStyle::HoveredSystemButtonColor, "Hovered system button color")
-        .RegisterProperty(PropertyType::Color, "PressedSystemButtonColor", &FTitleBarStyle::PressedSystemButtonColor, "Pressed system button color")
-        .RegisterProperty(PropertyType::Color, "CloseButtonHoveredColor", &FTitleBarStyle::CloseButtonHoveredColor, "Hovered close button color")
-        .RegisterProperty(PropertyType::Color, "CloseButtonPressedColor", &FTitleBarStyle::CloseButtonPressedColor, "Pressed close button color")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FTitleBarStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FTitleBarStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(28, 33, 41);
     FColor BorderColor = FColor::FromBytes(16, 19, 24);
     float BorderThickness = 1.0f;
@@ -47,17 +32,11 @@ public:
 };
 
 class ImTitleBar : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImTitleBar, ImWidget)
-    registrar
-        .RegisterProperty(PropertyType::Bool, "ShowSystemButtons", &ImTitleBar::bShowSystemButtons_, "Whether the system button group is visible")
-        .RegisterProperty(PropertyType::Bool, "ShowMinimizeButton", &ImTitleBar::bShowMinimizeButton_, "Whether the minimize button is visible")
-        .RegisterProperty(PropertyType::Bool, "ShowMaximizeButton", &ImTitleBar::bShowMaximizeButton_, "Whether the maximize button is visible")
-        .RegisterProperty(PropertyType::Bool, "ShowCloseButton", &ImTitleBar::bShowCloseButton_, "Whether the close button is visible")
-        .RegisterProperty(PropertyType::Float, "DragRegionMinWidth", &ImTitleBar::ReflectedDragRegionMinWidth_, "Minimum drag region width override")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImTitleBar::Style_, "Title bar style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImTitleBar"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImTitleBar();
     virtual ~ImTitleBar() = default;
 

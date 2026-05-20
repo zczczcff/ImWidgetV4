@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/reflection/ReflectionTypes.h>
 #include <imwidgetv4/widgets/BoxSlot.h>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
@@ -31,6 +32,7 @@
 #include <vector>
 
 using namespace ImWidgetV4;
+namespace Reflection = ImWidgetV4::Reflection;
 
 #ifdef max
 #undef max
@@ -81,6 +83,68 @@ std::string FormatInt(int value)
 std::string FormatBool(bool value)
 {
     return value ? "true" : "false";
+}
+
+FColor ReadColor(const Reflection::FPropertyHandle& property)
+{
+    const auto* desc = property.GetDesc();
+    const std::string typeName = desc && desc->ValueTypeName ? desc->ValueTypeName : "";
+
+    if (typeName.find("FColor") != std::string::npos) {
+        if (const FColor* value = property.GetConstAs<FColor>()) {
+            return *value;
+        }
+    }
+
+    if (const ImU32* value = property.GetConstAs<ImU32>()) {
+        return FColor::FromImU32(*value);
+    }
+
+    return FColor::White;
+}
+
+bool WriteColor(const Reflection::FPropertyHandle& property, const FColor& color)
+{
+    const auto* desc = property.GetDesc();
+    const std::string typeName = desc && desc->ValueTypeName ? desc->ValueTypeName : "";
+
+    if (typeName.find("FColor") != std::string::npos) {
+        return property.CopyFrom(&color);
+    }
+
+    const ImU32 value = color.ToImU32();
+    return property.CopyFrom(&value);
+}
+
+FVector2 ReadVec2(const Reflection::FPropertyHandle& property)
+{
+    const auto* desc = property.GetDesc();
+    const std::string typeName = desc && desc->ValueTypeName ? desc->ValueTypeName : "";
+
+    if (typeName.find("FVector2") != std::string::npos) {
+        if (const FVector2* value = property.GetConstAs<FVector2>()) {
+            return *value;
+        }
+    }
+
+    if (const ImVec2* value = property.GetConstAs<ImVec2>()) {
+        return FVector2(*value);
+    }
+
+    return FVector2::Zero;
+}
+
+bool WriteVec2(const Reflection::FPropertyHandle& property, const FVector2& value)
+{
+    const auto* desc = property.GetDesc();
+    const std::string typeName = desc && desc->ValueTypeName ? desc->ValueTypeName : "";
+
+    if (typeName.find("FVector2") != std::string::npos) {
+        return property.CopyFrom(&value);
+    }
+
+    const ImVec2 imguiValue = value.ToImVec2();
+    return property.CopyFrom(&imguiValue);
 }
 
 std::string FormatColor(const FColor& color)
@@ -335,7 +399,7 @@ public:
 
         if (StatusText_) {
             if (object) {
-                StatusText_->SetText("Selected: " + object->GetClassName());
+                StatusText_->SetText("Selected: " + object->GetTypeName());
             } else {
                 StatusText_->SetText("Selected: none");
             }
@@ -356,65 +420,91 @@ private:
         }
     }
 
-    std::shared_ptr<ImWidget> BuildPropertyEditor(ReflectableObject::ROPProperty prop)
+    std::shared_ptr<ImWidget> BuildPropertyEditor(ReflectableObject& object, const Reflection::FPropertyDesc& desc)
     {
-        const auto type = prop.GetType();
+        Reflection::FPropertyHandle property(&object, &desc);
 
-        if (type == PropertyType::Bool) {
+        if (desc.Kind == Reflection::EPropertyKind::Bool) {
             auto editor = std::make_shared<ImCheckBox>();
             editor->SetLabel("");
-            editor->SetChecked(prop.GetValue<bool>());
-            editor->OnCheckStateChanged.AddLambda([prop](ImCheckBox&, bool checked) mutable {
-                prop.SetValue<bool>(checked);
+            if (const bool* value = property.GetConstAs<bool>()) {
+                editor->SetChecked(*value);
+            }
+            editor->OnCheckStateChanged.AddLambda([property](ImCheckBox&, bool checked) mutable {
+                Reflection::FPropertyValue value;
+                value.Kind = Reflection::EPropertyKind::Bool;
+                value.BoolValue = checked;
+                property.Write(value);
             });
             return editor;
         }
 
-        if (type == PropertyType::String) {
+        if (desc.Kind == Reflection::EPropertyKind::String) {
             auto editor = std::make_shared<ImEditableText>();
-            editor->SetText(prop.GetValue<std::string>());
-            editor->OnTextCommitted.AddLambda([prop, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
-                prop.SetValue<std::string>(text);
+            if (const std::string* value = property.GetConstAs<std::string>()) {
+                editor->SetText(*value);
+            }
+            editor->OnTextCommitted.AddLambda([property, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
+                Reflection::FPropertyValue value;
+                value.Kind = Reflection::EPropertyKind::String;
+                value.StringValue = text;
+                property.Write(value);
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(prop.GetValue<std::string>());
+                    if (const std::string* current = property.GetConstAs<std::string>()) {
+                        locked->SetText(*current);
+                    }
                 }
             });
             return editor;
         }
 
-        if (type == PropertyType::Int) {
+        if (desc.Kind == Reflection::EPropertyKind::Int) {
             auto editor = std::make_shared<ImEditableText>();
-            editor->SetText(FormatInt(prop.GetValue<int>()));
-            editor->OnTextCommitted.AddLambda([prop, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
+            if (const int* value = property.GetConstAs<int>()) {
+                editor->SetText(FormatInt(*value));
+            }
+            editor->OnTextCommitted.AddLambda([property, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
                 int value = 0;
                 if (TryParseInt(text, value)) {
-                    prop.SetValue<int>(value);
+                    Reflection::FPropertyValue propertyValue;
+                    propertyValue.Kind = Reflection::EPropertyKind::Int;
+                    propertyValue.IntValue = value;
+                    property.Write(propertyValue);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(FormatInt(prop.GetValue<int>()));
+                    if (const int* current = property.GetConstAs<int>()) {
+                        locked->SetText(FormatInt(*current));
+                    }
                 }
             });
             return editor;
         }
 
-        if (type == PropertyType::Float) {
+        if (desc.Kind == Reflection::EPropertyKind::Float) {
             auto editor = std::make_shared<ImEditableText>();
-            editor->SetText(FormatFloat(prop.GetValue<float>()));
-            editor->OnTextCommitted.AddLambda([prop, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
+            if (const float* value = property.GetConstAs<float>()) {
+                editor->SetText(FormatFloat(*value));
+            }
+            editor->OnTextCommitted.AddLambda([property, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
                 float value = 0.0f;
                 if (TryParseFloat(text, value)) {
-                    prop.SetValue<float>(value);
+                    Reflection::FPropertyValue propertyValue;
+                    propertyValue.Kind = Reflection::EPropertyKind::Float;
+                    propertyValue.FloatValue = value;
+                    property.Write(propertyValue);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(FormatFloat(prop.GetValue<float>()));
+                    if (const float* current = property.GetConstAs<float>()) {
+                        locked->SetText(FormatFloat(*current));
+                    }
                 }
             });
             return editor;
         }
 
-        if (type == PropertyType::Enum) {
+        if (desc.Kind == Reflection::EPropertyKind::Enum) {
             auto editor = std::make_shared<ImComboBox>();
-            auto optionalProperty = prop.GetObject()->ToOptionalProperty(prop);
+            FReflectedOptionalProperty optionalProperty(&object, &desc);
             const std::vector<std::string>& options = optionalProperty.GetOptionList();
             editor->SetItems(options);
 
@@ -426,45 +516,46 @@ private:
                 }
             }
 
-            editor->OnSelectionChanged.AddLambda([prop](ImComboBox&, int index) mutable {
-                auto optional = prop.GetObject()->ToOptionalProperty(prop);
+            editor->OnSelectionChanged.AddLambda([owner = &object, desc = &desc](ImComboBox&, int index) {
+                FReflectedOptionalProperty optional(owner, desc);
                 optional.SetOptionByIndex(index);
             });
             return editor;
         }
 
-        if (type == PropertyType::Color) {
+        if (desc.Kind == Reflection::EPropertyKind::Color) {
             auto editor = std::make_shared<ImEditableText>();
-            editor->SetText(FormatColor(prop.GetValue<FColor>()));
-            editor->OnTextCommitted.AddLambda([prop, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
+            editor->SetText(FormatColor(ReadColor(property)));
+            editor->OnTextCommitted.AddLambda([property, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
                 FColor value;
                 if (TryParseColor(text, value)) {
-                    prop.SetValue<FColor>(value);
+                    WriteColor(property, value);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(FormatColor(prop.GetValue<FColor>()));
+                    locked->SetText(FormatColor(ReadColor(property)));
                 }
             });
             return editor;
         }
 
-        if (type == PropertyType::Vec2) {
+        if (desc.Kind == Reflection::EPropertyKind::Vec2) {
             auto editor = std::make_shared<ImEditableText>();
-            editor->SetText(FormatVec2(prop.GetValue<FVector2>()));
-            editor->OnTextCommitted.AddLambda([prop, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
+            editor->SetText(FormatVec2(ReadVec2(property)));
+            editor->OnTextCommitted.AddLambda([property, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) mutable {
                 FVector2 value;
                 if (TryParseVec2(text, value)) {
-                    prop.SetValue<FVector2>(value);
+                    WriteVec2(property, value);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(FormatVec2(prop.GetValue<FVector2>()));
+                    locked->SetText(FormatVec2(ReadVec2(property)));
                 }
             });
             return editor;
         }
 
-        if (type == PropertyType::StringArray) {
-            auto readOnly = MakeLabel(FormatStringArray(prop.GetValue<std::vector<std::string>>()), 13.0f, FColor::FromBytes(189, 198, 209));
+        if (desc.Kind == Reflection::EPropertyKind::StringArray) {
+            const auto* value = property.GetConstAs<std::vector<std::string>>();
+            auto readOnly = MakeLabel(value ? FormatStringArray(*value) : "(empty)", 13.0f, FColor::FromBytes(189, 198, 209));
             readOnly->SetWrapText(true);
             return readOnly;
         }
@@ -472,16 +563,16 @@ private:
         return MakeLabel("(unsupported)", 13.0f, FColor::FromBytes(214, 149, 149));
     }
 
-    std::shared_ptr<ImWidget> BuildPropertyRow(ReflectableObject::ROPProperty prop)
+    std::shared_ptr<ImWidget> BuildPropertyRow(ReflectableObject& object, const Reflection::FPropertyDesc& desc)
     {
         auto row = std::make_shared<ImHorizontalBox>();
         row->SetSpacing(10.0f);
 
-        const std::string labelText = prop.GetName() + "  [" + prop.GetClassName() + "]";
+        const std::string labelText = std::string(desc.Name) + "  [" + desc.OwnerTypeName + "]";
         auto label = MakeLabel(labelText, 14.0f, FColor::FromBytes(219, 226, 234));
         row->AddChild(label, FMargin(0.0f, 0.0f, 0.0f, 0.0f));
 
-        auto editor = BuildPropertyEditor(prop);
+        auto editor = BuildPropertyEditor(object, desc);
         row->AddChildFill(editor, 1.0f, FMargin(8.0f, 0.0f, 0.0f, 0.0f));
 
         return row;
@@ -507,22 +598,30 @@ private:
         }
 
         visited.insert(&object);
-        const auto properties = object.GetAllPropertiesOrdered();
-        for (auto prop : properties) {
-            if (prop.GetType() == PropertyType::Struct) {
-                auto nestedObject = prop.GetPointer<ReflectableObject>();
+        const auto properties = Reflection::CollectProperties(object.GetTypeDesc());
+        for (const Reflection::FPropertyDesc* prop : properties) {
+            if (!prop) {
+                continue;
+            }
+
+            Reflection::FPropertyHandle property(&object, prop);
+            if (prop->Kind == Reflection::EPropertyKind::Struct) {
+                ReflectableObject* nestedObject = nullptr;
+                if (prop->GetReflectable) {
+                    nestedObject = dynamic_cast<ReflectableObject*>(prop->GetReflectable(property.GetMutablePtr()));
+                }
                 if (nestedObject) {
                     body->AddChild(
                         BuildObjectSection(
                             *nestedObject,
-                            prop.GetName() + "  <" + nestedObject->GetClassName() + ">",
+                            std::string(prop->Name) + "  <" + nestedObject->GetTypeName() + ">",
                             false,
                             visited));
                 } else {
-                    body->AddChild(MakeLabel(prop.GetName() + ": (null)", 13.0f, FColor::FromBytes(189, 198, 209)));
+                    body->AddChild(MakeLabel(std::string(prop->Name) + ": (null)", 13.0f, FColor::FromBytes(189, 198, 209)));
                 }
             } else {
-                body->AddChild(BuildPropertyRow(prop));
+                body->AddChild(BuildPropertyRow(object, *prop));
             }
         }
         visited.erase(&object);
@@ -543,12 +642,12 @@ private:
 
         auto title = MakeLabel("Selected Object", 19.0f, FColor::FromBytes(255, 214, 102));
         content->AddChild(title);
-        content->AddChild(MakeLabel(SelectedObject_->GetClassName(), 16.0f, FColor::White));
+        content->AddChild(MakeLabel(SelectedObject_->GetTypeName(), 16.0f, FColor::White));
 
         std::unordered_set<const ReflectableObject*> visited;
         content->AddChild(BuildObjectSection(
             *SelectedObject_,
-            SelectedObject_->GetClassName(),
+            SelectedObject_->GetTypeName(),
             true,
             visited));
 

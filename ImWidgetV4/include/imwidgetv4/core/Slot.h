@@ -15,17 +15,13 @@ class ImWidget;
  * 注意：Slot 不持有子控件，子控件由父控件的 m_Children 统一管理。
  */
 class ImSlot : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(ImSlot, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Vec2, "SlotPosition", &ImSlot::m_SlotPosition, "Slot top-left position")
-        .RegisterProperty(PropertyType::Vec2, "SlotSize", &ImSlot::m_SlotSize, "Slot size");
-    END_DECLARE_OBJECT()
-
 public:
     /**
      * @brief 构造函数
      */
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImSlot"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     ImSlot();
 
@@ -80,19 +76,13 @@ protected:
  * 子控件的实际可用空间 = Slot 大小 - 内边距
  */
 class ImPaddingSlot : public ImSlot {
-    DECLARE_OBJECT_WITH_PARENT(ImPaddingSlot, ImSlot)
-    registrar
-        .RegisterProperty(PropertyType::Float, "PaddingLeft", &ImPaddingSlot::PaddingLeft, "Left padding")
-        .RegisterProperty(PropertyType::Float, "PaddingRight", &ImPaddingSlot::PaddingRight, "Right padding")
-        .RegisterProperty(PropertyType::Float, "PaddingTop", &ImPaddingSlot::PaddingTop, "Top padding")
-        .RegisterProperty(PropertyType::Float, "PaddingBottom", &ImPaddingSlot::PaddingBottom, "Bottom padding");
-    END_DECLARE_OBJECT()
-
 public:
     /**
      * @brief 构造函数
      */
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImPaddingSlot"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     ImPaddingSlot();
 

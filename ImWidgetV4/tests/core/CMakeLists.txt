@@ -10,6 +10,17 @@ target_link_libraries(reflectable_object_test
 
 add_test(NAME reflectable_object_test COMMAND reflectable_object_test)
 
+add_executable(light_reflection_test
+    light_reflection_test.cpp
+)
+
+target_link_libraries(light_reflection_test
+    imwidgetv4_reflection
+    gtest_main
+)
+
+add_test(NAME light_reflection_test COMMAND light_reflection_test)
+
 add_executable(delegate_test
     delegate_test.cpp
 )

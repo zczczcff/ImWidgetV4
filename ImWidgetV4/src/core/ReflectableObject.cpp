@@ -1,5 +1,6 @@
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Types.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imgui.h>
 #include <sstream>
 #include <stdexcept>
@@ -19,6 +20,26 @@ bool IsPointerTypeName(const std::string& typeName)
 }
 
 } // namespace
+
+const Reflection::FTypeDesc& ReflectableObject::GetTypeDesc() const
+{
+    if (const Reflection::FTypeDesc* typeDesc = FindReflectionTypeDesc()) {
+        return *typeDesc;
+    }
+
+    static const Reflection::FTypeDesc fallbackTypeDesc {
+        "ReflectableObject",
+        nullptr,
+        nullptr,
+        0
+    };
+    return fallbackTypeDesc;
+}
+
+const Reflection::FTypeDesc* ReflectableObject::FindReflectionTypeDesc() const
+{
+    return Reflection::FReflectionRegistry::Get().FindType(GetTypeName());
+}
 
 json ReflectableObject::ToJson() const
 {

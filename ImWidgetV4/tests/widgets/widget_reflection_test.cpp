@@ -25,6 +25,7 @@
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
+#include <imwidgetv4/reflection/ReflectionTypes.h>
 
 using namespace ImWidgetV4;
 
@@ -164,6 +165,13 @@ TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)
     FMargin margin(1.0f, 2.0f, 3.0f, 4.0f);
     EXPECT_TRUE(margin.HasProperty("Left", "FMargin"));
     EXPECT_TRUE(margin.HasProperty("Bottom", "FMargin"));
+    EXPECT_STREQ(margin.GetTypeDesc().Name, "FMargin");
+    const Reflection::FPropertyDesc* leftMarginDesc =
+        Reflection::FindProperty(margin.GetTypeDesc(), "Left", "FMargin");
+    ASSERT_NE(leftMarginDesc, nullptr);
+    Reflection::FPropertyHandle leftMarginProperty(&margin, leftMarginDesc);
+    ASSERT_NE(leftMarginProperty.GetConstAs<float>(), nullptr);
+    EXPECT_FLOAT_EQ(*leftMarginProperty.GetConstAs<float>(), 1.0f);
 
     ImButton button;
     EXPECT_FALSE(button.HasProperty("Text", "ImButton"));

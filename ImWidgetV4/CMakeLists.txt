@@ -105,6 +105,33 @@ target_include_directories(stb_lib INTERFACE
 )
 imwidgetv4_set_target_folder(stb_lib "ThirdParty")
 
+set(IMWIDGETV4_REFLECTION_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/reflection/Reflectable.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/reflection/ReflectionBuilder.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/reflection/ReflectionRegistry.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/reflection/ReflectionTypes.h
+)
+
+set(IMWIDGETV4_REFLECTION_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/reflection/ReflectionRegistry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/reflection/ReflectionTypes.cpp
+)
+
+add_library(imwidgetv4_reflection STATIC
+    ${IMWIDGETV4_REFLECTION_PUBLIC_HEADERS}
+    ${IMWIDGETV4_REFLECTION_SOURCES}
+)
+add_library(ImWidgetV4::reflection ALIAS imwidgetv4_reflection)
+target_compile_features(imwidgetv4_reflection PUBLIC cxx_std_17)
+target_include_directories(imwidgetv4_reflection PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${IMWIDGETV4_INSTALL_INCLUDE_DIR}>
+)
+if(MSVC)
+    target_compile_options(imwidgetv4_reflection PUBLIC /utf-8)
+endif()
+imwidgetv4_set_target_folder(imwidgetv4_reflection "Libraries")
+
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/app/ApplicationHost.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/core/Application.h
@@ -251,6 +278,7 @@ target_include_directories(imwidgetv4_core PUBLIC
     $<INSTALL_INTERFACE:${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/json>
 )
 target_link_libraries(imwidgetv4_core PUBLIC
+    imwidgetv4_reflection
     imwidgetv4_imgui
     uectti
     stb_lib
@@ -262,6 +290,8 @@ imwidgetv4_set_target_folder(imwidgetv4_core "Libraries")
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_CORE_PUBLIC_HEADERS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_CORE_SOURCES} ${IMWIDGETV4_CORE_VS_ONLY_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_REFLECTION_PUBLIC_HEADERS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_REFLECTION_SOURCES})
 
 set(IMWIDGETV4_PLATFORM_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/ImGuiInputSource.h
@@ -502,6 +532,7 @@ if(IMWIDGETV4_BUILD_TESTS)
     add_subdirectory(tests/widgets)
 
     imwidgetv4_set_target_folder(reflectable_object_test "Tests/Core")
+    imwidgetv4_set_target_folder(light_reflection_test "Tests/Core")
     imwidgetv4_set_target_folder(delegate_test "Tests/Core")
     imwidgetv4_set_target_folder(application_test "Tests/Core/Application")
     imwidgetv4_set_target_folder(uectti_tests "Tests/Core/Reflection")
@@ -586,6 +617,7 @@ endif()
 set_target_properties(uectti PROPERTIES EXPORT_NAME uectti)
 set_target_properties(imwidgetv4_imgui PROPERTIES EXPORT_NAME imgui)
 set_target_properties(stb_lib PROPERTIES EXPORT_NAME stb)
+set_target_properties(imwidgetv4_reflection PROPERTIES EXPORT_NAME reflection)
 set_target_properties(imwidgetv4_core PROPERTIES EXPORT_NAME core)
 set_target_properties(imwidgetv4_platform_imgui PROPERTIES EXPORT_NAME platform_imgui)
 
@@ -593,6 +625,7 @@ set(IMWIDGETV4_EXPORT_TARGETS
     uectti
     imwidgetv4_imgui
     stb_lib
+    imwidgetv4_reflection
     imwidgetv4_core
     imwidgetv4_platform_imgui
 )

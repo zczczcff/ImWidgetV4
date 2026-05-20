@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/PropertyType.h>
 #include <imwidgetv4/core/rop/RunTimeObjectProperty.h>
+#include <imwidgetv4/reflection/Reflectable.h>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -13,7 +14,7 @@ namespace ImWidgetV4 {
 
 using json = nlohmann::ordered_json;
 
-class ReflectableObject : public ROP::PropertyObject<PropertyType> {
+class ReflectableObject : public ROP::PropertyObject<PropertyType>, public Reflection::IReflectable {
     DECLARE_OBJECT(ReflectableObject)
     END_DECLARE_OBJECT()
 
@@ -23,6 +24,8 @@ public:
     virtual json ToJson() const;
     virtual void FromJson(const json& j);
     virtual std::string GetTypeName() const { return GetClassName(); }
+    virtual const Reflection::FTypeDesc& GetTypeDesc() const override;
+    const Reflection::FTypeDesc* FindReflectionTypeDesc() const;
 
 protected:
     using ROPMetaType = ROP::PropertyMeta<

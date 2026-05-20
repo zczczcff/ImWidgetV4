@@ -1,9 +1,12 @@
 #include <gtest/gtest.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/PropertyType.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imgui.h>
 
 using namespace ImWidgetV4;
+using namespace ImWidgetV4::Reflection;
 
 // 测试基类：包含基本属性
 class TestBaseObject : public ReflectableObject {
@@ -23,6 +26,44 @@ public:
     float m_baseFloatValue;
     std::string m_baseStringValue;
 };
+
+namespace {
+
+const FTypeDesc& GetTestBaseObjectTypeDesc()
+{
+    static const FPropertyDesc properties[] = {
+        MakeMemberProperty<TestBaseObject, int, &TestBaseObject::m_baseIntValue>(
+            "TestBaseObject",
+            "baseIntValue",
+            EPropertyKind::Int,
+            "int",
+            "Base integer value"),
+        MakeMemberProperty<TestBaseObject, float, &TestBaseObject::m_baseFloatValue>(
+            "TestBaseObject",
+            "baseFloatValue",
+            EPropertyKind::Float,
+            "float",
+            "Base float value"),
+        MakeMemberProperty<TestBaseObject, std::string, &TestBaseObject::m_baseStringValue>(
+            "TestBaseObject",
+            "baseStringValue",
+            EPropertyKind::String,
+            "std::string",
+            "Base string value")
+    };
+
+    static const FTypeDesc typeDesc {
+        "TestBaseObject",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+} // namespace
 
 // 测试派生类：包含更多属性
 class TestDerivedObject : public TestBaseObject {
@@ -113,6 +154,23 @@ TEST(ReflectableObjectTest, BasicTypesSerialization) {
     EXPECT_FLOAT_EQ(j["Properties"]["TestDerivedObject::floatValue"], 3.14f);
     EXPECT_EQ(j["Properties"]["TestDerivedObject::stringValue"], "Hello");
     EXPECT_EQ(j["Properties"]["TestDerivedObject::boolValue"], true);
+}
+
+TEST(ReflectableObjectTest, NewReflectionRegistryAdapterFindsMigratedType) {
+    GetTestBaseObjectTypeDesc();
+
+    TestBaseObject obj;
+    obj.m_baseIntValue = 7;
+
+    const FTypeDesc& typeDesc = obj.GetTypeDesc();
+    EXPECT_STREQ(typeDesc.Name, "TestBaseObject");
+
+    const FPropertyDesc* propertyDesc = FindProperty(typeDesc, "baseIntValue", "TestBaseObject");
+    ASSERT_NE(propertyDesc, nullptr);
+
+    FPropertyHandle property(&obj, propertyDesc);
+    ASSERT_NE(property.GetConstAs<int>(), nullptr);
+    EXPECT_EQ(*property.GetConstAs<int>(), 7);
 }
 
 // 测试图形类型序列化

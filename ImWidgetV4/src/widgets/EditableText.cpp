@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -167,6 +169,173 @@ void SetClipboardTextSafe(const std::string& text) {
 
     GFallbackClipboardText = text;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FEditableTextStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::BackgroundColor>(
+            "FEditableTextStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::HoveredBackgroundColor>(
+            "FEditableTextStyle",
+            "HoveredBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered background color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::FocusedBackgroundColor>(
+            "FEditableTextStyle",
+            "FocusedBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused background color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::DisabledBackgroundColor>(
+            "FEditableTextStyle",
+            "DisabledBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled background color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::BorderColor>(
+            "FEditableTextStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::FocusedOutlineColor>(
+            "FEditableTextStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::TextColor>(
+            "FEditableTextStyle",
+            "TextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Text color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::DisabledTextColor>(
+            "FEditableTextStyle",
+            "DisabledTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled text color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::HintTextColor>(
+            "FEditableTextStyle",
+            "HintTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hint text color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::CaretColor>(
+            "FEditableTextStyle",
+            "CaretColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Caret color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::SelectionBackgroundColor>(
+            "FEditableTextStyle",
+            "SelectionBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selection background color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FColor, &FEditableTextStyle::SelectedTextColor>(
+            "FEditableTextStyle",
+            "SelectedTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selected text color"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FMargin, &FEditableTextStyle::Padding>(
+            "FEditableTextStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Text padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FEditableTextStyle, FVector2, &FEditableTextStyle::MinDesiredSize>(
+            "FEditableTextStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, float, &FEditableTextStyle::CornerRadius>(
+            "FEditableTextStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, float, &FEditableTextStyle::BorderThickness>(
+            "FEditableTextStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FEditableTextStyle, float, &FEditableTextStyle::FontSize>(
+            "FEditableTextStyle",
+            "FontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Font size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FEditableTextStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImEditableText::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImEditableText, std::string, &ImEditableText::SetTextProperty, &ImEditableText::GetTextProperty>(
+            "ImEditableText",
+            "Text",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Editable text content"),
+        Reflection::MakeObjectAccessorProperty<ImEditableText, std::string, &ImEditableText::SetHintTextProperty, &ImEditableText::GetHintTextProperty>(
+            "ImEditableText",
+            "HintText",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Hint text shown when empty"),
+        Reflection::MakeMemberProperty<ImEditableText, bool, &ImEditableText::m_bDisabled>(
+            "ImEditableText",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the input is disabled"),
+        Reflection::MakeMemberProperty<ImEditableText, FEditableTextStyle, &ImEditableText::m_Style>(
+            "ImEditableText",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FEditableTextStyle",
+            "Editable text style",
+            &FEditableTextStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImEditableText",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FEditableTextStyleReflectionTypeDesc = FEditableTextStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImEditableTextReflectionTypeDesc = ImEditableText::StaticTypeDesc();
 
 } // namespace
 

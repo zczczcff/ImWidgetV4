@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/Slider.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -22,6 +24,178 @@ void SetImGuiMouseCursor(ImGuiMouseCursor cursor)
         ImGui::SetMouseCursor(cursor);
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FSliderStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::TrackColor>(
+            "FSliderStyle",
+            "TrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Slider track color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::FilledTrackColor>(
+            "FSliderStyle",
+            "FilledTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Filled track color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::HoveredFilledTrackColor>(
+            "FSliderStyle",
+            "HoveredFilledTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered filled track color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::DisabledTrackColor>(
+            "FSliderStyle",
+            "DisabledTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled track color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::ThumbColor>(
+            "FSliderStyle",
+            "ThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Thumb color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::HoveredThumbColor>(
+            "FSliderStyle",
+            "HoveredThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered thumb color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::ActiveThumbColor>(
+            "FSliderStyle",
+            "ActiveThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Active thumb color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::DisabledThumbColor>(
+            "FSliderStyle",
+            "DisabledThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled thumb color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::FocusedOutlineColor>(
+            "FSliderStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FSliderStyle, FColor, &FSliderStyle::ValueTextColor>(
+            "FSliderStyle",
+            "ValueTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Value text color"),
+        Reflection::MakeMemberProperty<FSliderStyle, float, &FSliderStyle::TrackHeight>(
+            "FSliderStyle",
+            "TrackHeight",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Track height"),
+        Reflection::MakeMemberProperty<FSliderStyle, float, &FSliderStyle::TrackRounding>(
+            "FSliderStyle",
+            "TrackRounding",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Track rounding"),
+        Reflection::MakeMemberProperty<FSliderStyle, float, &FSliderStyle::ThumbRadius>(
+            "FSliderStyle",
+            "ThumbRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Thumb radius"),
+        Reflection::MakeMemberProperty<FSliderStyle, float, &FSliderStyle::ValueFontSize>(
+            "FSliderStyle",
+            "ValueFontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Value font size"),
+        Reflection::MakeMemberProperty<FSliderStyle, bool, &FSliderStyle::bShowValueText>(
+            "FSliderStyle",
+            "ShowValueText",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether to show the value text"),
+        Reflection::MakeMemberProperty<FSliderStyle, FVector2, &FSliderStyle::MinDesiredSize>(
+            "FSliderStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FSliderStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImSlider::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImSlider, float, &ImSlider::SetValueProperty, &ImSlider::GetValueProperty>(
+            "ImSlider",
+            "Value",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Current slider value"),
+        Reflection::MakeObjectAccessorProperty<ImSlider, float, &ImSlider::SetMinValueProperty, &ImSlider::GetMinValueProperty>(
+            "ImSlider",
+            "MinValue",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum slider value"),
+        Reflection::MakeObjectAccessorProperty<ImSlider, float, &ImSlider::SetMaxValueProperty, &ImSlider::GetMaxValueProperty>(
+            "ImSlider",
+            "MaxValue",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Maximum slider value"),
+        Reflection::MakeObjectAccessorProperty<ImSlider, float, &ImSlider::SetStepProperty, &ImSlider::GetStepProperty>(
+            "ImSlider",
+            "Step",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Slider step value"),
+        Reflection::MakeMemberProperty<ImSlider, bool, &ImSlider::m_bDisabled>(
+            "ImSlider",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the slider is disabled"),
+        Reflection::MakeMemberProperty<ImSlider, FSliderStyle, &ImSlider::m_Style>(
+            "ImSlider",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FSliderStyle",
+            "Slider style",
+            &FSliderStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImSlider",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FSliderStyleReflectionTypeDesc = FSliderStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImSliderReflectionTypeDesc = ImSlider::StaticTypeDesc();
 
 } // namespace
 

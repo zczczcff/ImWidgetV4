@@ -6,27 +6,11 @@
 namespace ImWidgetV4 {
 
 struct FSliderStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FSliderStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "TrackColor", &FSliderStyle::TrackColor, "Slider track color")
-        .RegisterProperty(PropertyType::Color, "FilledTrackColor", &FSliderStyle::FilledTrackColor, "Filled track color")
-        .RegisterProperty(PropertyType::Color, "HoveredFilledTrackColor", &FSliderStyle::HoveredFilledTrackColor, "Hovered filled track color")
-        .RegisterProperty(PropertyType::Color, "DisabledTrackColor", &FSliderStyle::DisabledTrackColor, "Disabled track color")
-        .RegisterProperty(PropertyType::Color, "ThumbColor", &FSliderStyle::ThumbColor, "Thumb color")
-        .RegisterProperty(PropertyType::Color, "HoveredThumbColor", &FSliderStyle::HoveredThumbColor, "Hovered thumb color")
-        .RegisterProperty(PropertyType::Color, "ActiveThumbColor", &FSliderStyle::ActiveThumbColor, "Active thumb color")
-        .RegisterProperty(PropertyType::Color, "DisabledThumbColor", &FSliderStyle::DisabledThumbColor, "Disabled thumb color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FSliderStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "ValueTextColor", &FSliderStyle::ValueTextColor, "Value text color")
-        .RegisterProperty(PropertyType::Float, "TrackHeight", &FSliderStyle::TrackHeight, "Track height")
-        .RegisterProperty(PropertyType::Float, "TrackRounding", &FSliderStyle::TrackRounding, "Track rounding")
-        .RegisterProperty(PropertyType::Float, "ThumbRadius", &FSliderStyle::ThumbRadius, "Thumb radius")
-        .RegisterProperty(PropertyType::Float, "ValueFontSize", &FSliderStyle::ValueFontSize, "Value font size")
-        .RegisterProperty(PropertyType::Bool, "ShowValueText", &FSliderStyle::bShowValueText, "Whether to show the value text")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FSliderStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FSliderStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor TrackColor = FColor::FromBytes(43, 51, 61);
     FColor FilledTrackColor = FColor::FromBytes(78, 126, 196);
     FColor HoveredFilledTrackColor = FColor::FromBytes(96, 149, 221);
@@ -46,37 +30,11 @@ public:
 };
 
 class ImSlider : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImSlider, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Float,
-            "Value",
-            static_cast<void (ImSlider::*)(float&)>(&ImSlider::SetValueProperty),
-            static_cast<float& (ImSlider::*)()>(&ImSlider::GetValueProperty),
-            "Current slider value")
-        .RegisterProperty(
-            PropertyType::Float,
-            "MinValue",
-            static_cast<void (ImSlider::*)(float&)>(&ImSlider::SetMinValueProperty),
-            static_cast<float& (ImSlider::*)()>(&ImSlider::GetMinValueProperty),
-            "Minimum slider value")
-        .RegisterProperty(
-            PropertyType::Float,
-            "MaxValue",
-            static_cast<void (ImSlider::*)(float&)>(&ImSlider::SetMaxValueProperty),
-            static_cast<float& (ImSlider::*)()>(&ImSlider::GetMaxValueProperty),
-            "Maximum slider value")
-        .RegisterProperty(
-            PropertyType::Float,
-            "Step",
-            static_cast<void (ImSlider::*)(float&)>(&ImSlider::SetStepProperty),
-            static_cast<float& (ImSlider::*)()>(&ImSlider::GetStepProperty),
-            "Slider step value")
-        .RegisterProperty(PropertyType::Bool, "Disabled", &ImSlider::m_bDisabled, "Whether the slider is disabled")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImSlider::m_Style, "Slider style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImSlider"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSliderValueChangedEvent = TMulticastDelegate<ImSlider&, float>;
 
     ImSlider();

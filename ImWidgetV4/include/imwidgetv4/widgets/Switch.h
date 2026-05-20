@@ -6,27 +6,11 @@
 namespace ImWidgetV4 {
 
 struct FSwitchStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FSwitchStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "OffTrackColor", &FSwitchStyle::OffTrackColor, "Off-state track color")
-        .RegisterProperty(PropertyType::Color, "OffTrackHoveredColor", &FSwitchStyle::OffTrackHoveredColor, "Hovered off-state track color")
-        .RegisterProperty(PropertyType::Color, "OffTrackPressedColor", &FSwitchStyle::OffTrackPressedColor, "Pressed off-state track color")
-        .RegisterProperty(PropertyType::Color, "OnTrackColor", &FSwitchStyle::OnTrackColor, "On-state track color")
-        .RegisterProperty(PropertyType::Color, "OnTrackHoveredColor", &FSwitchStyle::OnTrackHoveredColor, "Hovered on-state track color")
-        .RegisterProperty(PropertyType::Color, "OnTrackPressedColor", &FSwitchStyle::OnTrackPressedColor, "Pressed on-state track color")
-        .RegisterProperty(PropertyType::Color, "DisabledTrackColor", &FSwitchStyle::DisabledTrackColor, "Disabled track color")
-        .RegisterProperty(PropertyType::Color, "ThumbColor", &FSwitchStyle::ThumbColor, "Thumb color")
-        .RegisterProperty(PropertyType::Color, "ThumbHoveredColor", &FSwitchStyle::ThumbHoveredColor, "Hovered thumb color")
-        .RegisterProperty(PropertyType::Color, "ThumbPressedColor", &FSwitchStyle::ThumbPressedColor, "Pressed thumb color")
-        .RegisterProperty(PropertyType::Color, "DisabledThumbColor", &FSwitchStyle::DisabledThumbColor, "Disabled thumb color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FSwitchStyle::BorderColor, "Switch border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FSwitchStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FSwitchStyle::BorderThickness, "Switch border thickness")
-        .RegisterProperty(PropertyType::Float, "ThumbInset", &FSwitchStyle::ThumbInset, "Inset between thumb and track")
-        .RegisterProperty(PropertyType::Vec2, "DesiredSize", &FSwitchStyle::DesiredSize, "Desired switch size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FSwitchStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor OffTrackColor = FColor::FromBytes(57, 64, 75);
     FColor OffTrackHoveredColor = FColor::FromBytes(73, 82, 95);
     FColor OffTrackPressedColor = FColor::FromBytes(43, 49, 58);
@@ -46,14 +30,11 @@ public:
 };
 
 class ImSwitch : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImSwitch, ImWidget)
-    registrar
-        .RegisterProperty(PropertyType::Bool, "Checked", &ImSwitch::m_bChecked, "Whether the switch is checked")
-        .RegisterProperty(PropertyType::Bool, "Disabled", &ImSwitch::m_bDisabled, "Whether the switch is disabled")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImSwitch::m_Style, "Switch style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImSwitch"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSwitchEvent = TMulticastDelegate<ImSwitch&>;
     using FCheckStateChangedEvent = TMulticastDelegate<ImSwitch&, bool>;
 

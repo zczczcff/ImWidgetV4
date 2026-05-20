@@ -1,10 +1,166 @@
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 
 namespace ImWidgetV4 {
+
+const Reflection::FTypeDesc& FSwitchStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OffTrackColor>(
+            "FSwitchStyle",
+            "OffTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Off-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OffTrackHoveredColor>(
+            "FSwitchStyle",
+            "OffTrackHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered off-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OffTrackPressedColor>(
+            "FSwitchStyle",
+            "OffTrackPressedColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed off-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OnTrackColor>(
+            "FSwitchStyle",
+            "OnTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "On-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OnTrackHoveredColor>(
+            "FSwitchStyle",
+            "OnTrackHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered on-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::OnTrackPressedColor>(
+            "FSwitchStyle",
+            "OnTrackPressedColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed on-state track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::DisabledTrackColor>(
+            "FSwitchStyle",
+            "DisabledTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled track color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::ThumbColor>(
+            "FSwitchStyle",
+            "ThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Thumb color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::ThumbHoveredColor>(
+            "FSwitchStyle",
+            "ThumbHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered thumb color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::ThumbPressedColor>(
+            "FSwitchStyle",
+            "ThumbPressedColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed thumb color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::DisabledThumbColor>(
+            "FSwitchStyle",
+            "DisabledThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled thumb color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::BorderColor>(
+            "FSwitchStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Switch border color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FColor, &FSwitchStyle::FocusedOutlineColor>(
+            "FSwitchStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FSwitchStyle, float, &FSwitchStyle::BorderThickness>(
+            "FSwitchStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Switch border thickness"),
+        Reflection::MakeMemberProperty<FSwitchStyle, float, &FSwitchStyle::ThumbInset>(
+            "FSwitchStyle",
+            "ThumbInset",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Inset between thumb and track"),
+        Reflection::MakeMemberProperty<FSwitchStyle, FVector2, &FSwitchStyle::DesiredSize>(
+            "FSwitchStyle",
+            "DesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Desired switch size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FSwitchStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImSwitch::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImSwitch, bool, &ImSwitch::m_bChecked>(
+            "ImSwitch",
+            "Checked",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the switch is checked"),
+        Reflection::MakeMemberProperty<ImSwitch, bool, &ImSwitch::m_bDisabled>(
+            "ImSwitch",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the switch is disabled"),
+        Reflection::MakeMemberProperty<ImSwitch, FSwitchStyle, &ImSwitch::m_Style>(
+            "ImSwitch",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FSwitchStyle",
+            "Switch style",
+            &FSwitchStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImSwitch",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FSwitchStyleReflectionTypeDesc = FSwitchStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImSwitchReflectionTypeDesc = ImSwitch::StaticTypeDesc();
+
+} // namespace
 
 ImSwitch::ImSwitch()
     : ImWidget()

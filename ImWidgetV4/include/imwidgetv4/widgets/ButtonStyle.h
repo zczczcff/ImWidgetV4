@@ -6,18 +6,10 @@
 namespace ImWidgetV4 {
 
 struct FButtonStateStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FButtonStateStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FButtonStateStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FButtonStateStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "TextColor", &FButtonStateStyle::TextColor, "Text color")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FButtonStateStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FButtonStateStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Bool, "HasBorder", &FButtonStateStyle::bHasBorder, "Whether the border is shown");
-    END_DECLARE_OBJECT()
-
 public:
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FButtonStateStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     FColor BackgroundColor = FColor::White;
     FColor BorderColor = FColor::Black;
@@ -46,17 +38,10 @@ public:
 };
 
 struct FButtonStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FButtonStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Struct, "Normal", &FButtonStyle::Normal, "Normal button style")
-        .RegisterProperty(PropertyType::Struct, "Hovered", &FButtonStyle::Hovered, "Hovered button style")
-        .RegisterProperty(PropertyType::Struct, "Pressed", &FButtonStyle::Pressed, "Pressed button style")
-        .RegisterProperty(PropertyType::Struct, "Focused", &FButtonStyle::Focused, "Focused button style")
-        .RegisterProperty(PropertyType::Struct, "Disabled", &FButtonStyle::Disabled, "Disabled button style");
-    END_DECLARE_OBJECT()
-
 public:
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FButtonStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     FButtonStateStyle Normal;
     FButtonStateStyle Hovered;

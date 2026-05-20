@@ -20,14 +20,10 @@ enum class EVerticalAlignment {
 };
 
 struct FTextBlockStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FTextBlockStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "TextColor", &FTextBlockStyle::TextColor, "Displayed text color")
-        .RegisterProperty(PropertyType::Float, "FontSize", &FTextBlockStyle::FontSize, "Font size in pixels");
-    END_DECLARE_OBJECT()
-
 public:
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FTextBlockStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     FColor TextColor = FColor::White;
     float FontSize = 16.0f;

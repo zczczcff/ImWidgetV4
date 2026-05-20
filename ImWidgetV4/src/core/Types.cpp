@@ -4,9 +4,7 @@
 
 namespace ImWidgetV4 {
 
-namespace {
-
-const Reflection::FTypeDesc& GetFMarginReflectionTypeDesc()
+const Reflection::FTypeDesc& FMargin::StaticTypeDesc()
 {
     static const Reflection::FPropertyDesc properties[] = {
         Reflection::MakeMemberProperty<FMargin, float, &FMargin::Left>(
@@ -46,7 +44,9 @@ const Reflection::FTypeDesc& GetFMarginReflectionTypeDesc()
     return typeDesc;
 }
 
-const Reflection::FTypeDesc& FMarginReflectionTypeDesc = GetFMarginReflectionTypeDesc();
+namespace {
+
+const Reflection::FTypeDesc& FMarginReflectionTypeDesc = FMargin::StaticTypeDesc();
 
 } // namespace
 

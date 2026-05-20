@@ -170,15 +170,12 @@ struct FGeometry {
 
 // 边距
 struct FMargin : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FMargin, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Float, "Left", &FMargin::Left, "Left margin")
-        .RegisterProperty(PropertyType::Float, "Right", &FMargin::Right, "Right margin")
-        .RegisterProperty(PropertyType::Float, "Top", &FMargin::Top, "Top margin")
-        .RegisterProperty(PropertyType::Float, "Bottom", &FMargin::Bottom, "Bottom margin");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
+    std::string GetTypeName() const override { return "FMargin"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     float Left = 0.0f;
     float Right = 0.0f;
     float Top = 0.0f;

@@ -233,6 +233,24 @@ const Reflection::FTypeDesc* ReflectableObject::FindReflectionTypeDesc() const
     return Reflection::FReflectionRegistry::Get().FindType(GetTypeName());
 }
 
+bool ReflectableObject::HasProperty(const std::string& name) const
+{
+    if (const Reflection::FTypeDesc* typeDesc = FindReflectionTypeDesc()) {
+        return Reflection::FindProperty(*typeDesc, name) != nullptr;
+    }
+
+    return ROP::PropertyObject<PropertyType>::HasProperty(name);
+}
+
+bool ReflectableObject::HasProperty(const std::string& name, const std::string& className) const
+{
+    if (const Reflection::FTypeDesc* typeDesc = FindReflectionTypeDesc()) {
+        return Reflection::FindProperty(*typeDesc, name, className) != nullptr;
+    }
+
+    return ROP::PropertyObject<PropertyType>::HasProperty(name, className);
+}
+
 json ReflectableObject::ToJson() const
 {
     json result;

@@ -26,6 +26,8 @@ public:
     virtual std::string GetTypeName() const { return GetClassName(); }
     virtual const Reflection::FTypeDesc& GetTypeDesc() const override;
     const Reflection::FTypeDesc* FindReflectionTypeDesc() const;
+    bool HasProperty(const std::string& name) const;
+    bool HasProperty(const std::string& name, const std::string& className) const;
 
 protected:
     using ROPMetaType = ROP::PropertyMeta<

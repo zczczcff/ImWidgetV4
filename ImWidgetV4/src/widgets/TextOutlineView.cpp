@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/TextOutlineView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -57,6 +59,133 @@ float ResolveVisibleOffset(float targetStart, float targetSize, float viewportSi
 
     return currentOffset;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& ImTextOutlineItem::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImTextOutlineItem, std::string, &ImTextOutlineItem::Text>(
+            "ImTextOutlineItem", "Text", Reflection::EPropertyKind::String, "std::string", "Outline item text"),
+        Reflection::MakeMemberProperty<ImTextOutlineItem, bool, &ImTextOutlineItem::Expanded>(
+            "ImTextOutlineItem", "Expanded", Reflection::EPropertyKind::Bool, "bool", "Whether the item is expanded")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTextOutlineItem",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& FTextOutlineViewStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::BackgroundColor>(
+            "FTextOutlineViewStyle", "BackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Background color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::BorderColor>(
+            "FTextOutlineViewStyle", "BorderColor", Reflection::EPropertyKind::Color, "FColor", "Border color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::FocusedOutlineColor>(
+            "FTextOutlineViewStyle", "FocusedOutlineColor", Reflection::EPropertyKind::Color, "FColor", "Focused outline color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::TextColor>(
+            "FTextOutlineViewStyle", "TextColor", Reflection::EPropertyKind::Color, "FColor", "Text color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::HoveredRowColor>(
+            "FTextOutlineViewStyle", "HoveredRowColor", Reflection::EPropertyKind::Color, "FColor", "Hovered row color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::SelectedRowColor>(
+            "FTextOutlineViewStyle", "SelectedRowColor", Reflection::EPropertyKind::Color, "FColor", "Selected row color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::SelectedFocusedRowColor>(
+            "FTextOutlineViewStyle", "SelectedFocusedRowColor", Reflection::EPropertyKind::Color, "FColor", "Selected focused row color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::IndicatorColor>(
+            "FTextOutlineViewStyle", "IndicatorColor", Reflection::EPropertyKind::Color, "FColor", "Expand indicator color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FMargin, &FTextOutlineViewStyle::Padding>(
+            "FTextOutlineViewStyle", "Padding", Reflection::EPropertyKind::Struct, "FMargin", "Outer padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FMargin, &FTextOutlineViewStyle::RowPadding>(
+            "FTextOutlineViewStyle", "RowPadding", Reflection::EPropertyKind::Struct, "FMargin", "Row padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FVector2, &FTextOutlineViewStyle::MinDesiredSize>(
+            "FTextOutlineViewStyle", "MinDesiredSize", Reflection::EPropertyKind::Vec2, "FVector2", "Minimum desired size"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::CornerRadius>(
+            "FTextOutlineViewStyle", "CornerRadius", Reflection::EPropertyKind::Float, "float", "Corner radius"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::BorderThickness>(
+            "FTextOutlineViewStyle", "BorderThickness", Reflection::EPropertyKind::Float, "float", "Border thickness"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::FontSize>(
+            "FTextOutlineViewStyle", "FontSize", Reflection::EPropertyKind::Float, "float", "Font size"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::RowHeight>(
+            "FTextOutlineViewStyle", "RowHeight", Reflection::EPropertyKind::Float, "float", "Row height"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::IndentWidth>(
+            "FTextOutlineViewStyle", "IndentWidth", Reflection::EPropertyKind::Float, "float", "Indent width"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::IndicatorSize>(
+            "FTextOutlineViewStyle", "IndicatorSize", Reflection::EPropertyKind::Float, "float", "Indicator size"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::IndicatorSpacing>(
+            "FTextOutlineViewStyle", "IndicatorSpacing", Reflection::EPropertyKind::Float, "float", "Indicator spacing"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::IconSize>(
+            "FTextOutlineViewStyle", "IconSize", Reflection::EPropertyKind::Float, "float", "Optional row icon size"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::IconSpacing>(
+            "FTextOutlineViewStyle", "IconSpacing", Reflection::EPropertyKind::Float, "float", "Spacing between an optional row icon and text"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::ScrollbarThickness>(
+            "FTextOutlineViewStyle", "ScrollbarThickness", Reflection::EPropertyKind::Float, "float", "Scrollbar thickness"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::ScrollbarPadding>(
+            "FTextOutlineViewStyle", "ScrollbarPadding", Reflection::EPropertyKind::Float, "float", "Scrollbar padding"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::ScrollbarTrackColor>(
+            "FTextOutlineViewStyle", "ScrollbarTrackColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar track color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::ScrollbarThumbColor>(
+            "FTextOutlineViewStyle", "ScrollbarThumbColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, FColor, &FTextOutlineViewStyle::ScrollbarThumbHoveredColor>(
+            "FTextOutlineViewStyle", "ScrollbarThumbHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::ThumbMinLength>(
+            "FTextOutlineViewStyle", "ThumbMinLength", Reflection::EPropertyKind::Float, "float", "Minimum thumb length"),
+        Reflection::MakeMemberProperty<FTextOutlineViewStyle, float, &FTextOutlineViewStyle::WheelScrollStep>(
+            "FTextOutlineViewStyle", "WheelScrollStep", Reflection::EPropertyKind::Float, "float", "Wheel scroll step")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FTextOutlineViewStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImTextOutlineView::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImTextOutlineView, float, &ImTextOutlineView::SetScrollOffsetProperty, &ImTextOutlineView::GetScrollOffsetProperty>(
+            "ImTextOutlineView",
+            "ScrollOffset",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Vertical scroll offset"),
+        Reflection::MakeMemberProperty<ImTextOutlineView, FTextOutlineViewStyle, &ImTextOutlineView::Style_>(
+            "ImTextOutlineView",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FTextOutlineViewStyle",
+            "Outline view style",
+            &FTextOutlineViewStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTextOutlineView",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImTextOutlineItemReflectionTypeDesc = ImTextOutlineItem::StaticTypeDesc();
+const Reflection::FTypeDesc& FTextOutlineViewStyleReflectionTypeDesc = FTextOutlineViewStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImTextOutlineViewReflectionTypeDesc = ImTextOutlineView::StaticTypeDesc();
 
 } // namespace
 

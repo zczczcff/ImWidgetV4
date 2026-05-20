@@ -17,13 +17,11 @@ enum class ETextOutlineDropZone : std::uint8_t {
 };
 
 class ImTextOutlineItem : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(ImTextOutlineItem, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::String, "Text", &ImTextOutlineItem::Text, "Outline item text")
-        .RegisterProperty(PropertyType::Bool, "Expanded", &ImTextOutlineItem::Expanded, "Whether the item is expanded");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImTextOutlineItem"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     std::string Text;
     FText TextValue;
     FImageBrush IconBrush;
@@ -38,38 +36,11 @@ private:
 };
 
 struct FTextOutlineViewStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FTextOutlineViewStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTextOutlineViewStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FTextOutlineViewStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FTextOutlineViewStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "TextColor", &FTextOutlineViewStyle::TextColor, "Text color")
-        .RegisterProperty(PropertyType::Color, "HoveredRowColor", &FTextOutlineViewStyle::HoveredRowColor, "Hovered row color")
-        .RegisterProperty(PropertyType::Color, "SelectedRowColor", &FTextOutlineViewStyle::SelectedRowColor, "Selected row color")
-        .RegisterProperty(PropertyType::Color, "SelectedFocusedRowColor", &FTextOutlineViewStyle::SelectedFocusedRowColor, "Selected focused row color")
-        .RegisterProperty(PropertyType::Color, "IndicatorColor", &FTextOutlineViewStyle::IndicatorColor, "Expand indicator color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FTextOutlineViewStyle::Padding, "Outer padding")
-        .RegisterProperty(PropertyType::Struct, "RowPadding", &FTextOutlineViewStyle::RowPadding, "Row padding")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FTextOutlineViewStyle::MinDesiredSize, "Minimum desired size")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FTextOutlineViewStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FTextOutlineViewStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "FontSize", &FTextOutlineViewStyle::FontSize, "Font size")
-        .RegisterProperty(PropertyType::Float, "RowHeight", &FTextOutlineViewStyle::RowHeight, "Row height")
-        .RegisterProperty(PropertyType::Float, "IndentWidth", &FTextOutlineViewStyle::IndentWidth, "Indent width")
-        .RegisterProperty(PropertyType::Float, "IndicatorSize", &FTextOutlineViewStyle::IndicatorSize, "Indicator size")
-        .RegisterProperty(PropertyType::Float, "IndicatorSpacing", &FTextOutlineViewStyle::IndicatorSpacing, "Indicator spacing")
-        .RegisterProperty(PropertyType::Float, "IconSize", &FTextOutlineViewStyle::IconSize, "Optional row icon size")
-        .RegisterProperty(PropertyType::Float, "IconSpacing", &FTextOutlineViewStyle::IconSpacing, "Spacing between an optional row icon and text")
-        .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FTextOutlineViewStyle::ScrollbarThickness, "Scrollbar thickness")
-        .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FTextOutlineViewStyle::ScrollbarPadding, "Scrollbar padding")
-        .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FTextOutlineViewStyle::ScrollbarTrackColor, "Scrollbar track color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbColor", &FTextOutlineViewStyle::ScrollbarThumbColor, "Scrollbar thumb color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbHoveredColor", &FTextOutlineViewStyle::ScrollbarThumbHoveredColor, "Hovered scrollbar thumb color")
-        .RegisterProperty(PropertyType::Float, "ThumbMinLength", &FTextOutlineViewStyle::ThumbMinLength, "Minimum thumb length")
-        .RegisterProperty(PropertyType::Float, "WheelScrollStep", &FTextOutlineViewStyle::WheelScrollStep, "Wheel scroll step");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FTextOutlineViewStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -100,18 +71,11 @@ public:
 };
 
 class ImTextOutlineView : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImTextOutlineView, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Float,
-            "ScrollOffset",
-            static_cast<void (ImTextOutlineView::*)(float&)>(&ImTextOutlineView::SetScrollOffsetProperty),
-            static_cast<float& (ImTextOutlineView::*)()>(&ImTextOutlineView::GetScrollOffsetProperty),
-            "Vertical scroll offset")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImTextOutlineView::Style_, "Outline view style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImTextOutlineView"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSelectionChangedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem*>;
     using FExpandedChangedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, bool>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImTextOutlineView&, ImTextOutlineItem&, FVector2>;

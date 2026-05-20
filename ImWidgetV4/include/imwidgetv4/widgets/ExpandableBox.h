@@ -7,26 +7,11 @@
 namespace ImWidgetV4 {
 
 struct FExpandableBoxStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FExpandableBoxStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "HeaderBackgroundColor", &FExpandableBoxStyle::HeaderBackgroundColor, "Header background color")
-        .RegisterProperty(PropertyType::Color, "HeaderHoveredBackgroundColor", &FExpandableBoxStyle::HeaderHoveredBackgroundColor, "Header hovered background color")
-        .RegisterProperty(PropertyType::Color, "HeaderPressedBackgroundColor", &FExpandableBoxStyle::HeaderPressedBackgroundColor, "Header pressed background color")
-        .RegisterProperty(PropertyType::Color, "BodyBackgroundColor", &FExpandableBoxStyle::BodyBackgroundColor, "Body background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FExpandableBoxStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FExpandableBoxStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "IndicatorColor", &FExpandableBoxStyle::IndicatorColor, "Indicator color")
-        .RegisterProperty(PropertyType::Color, "IndicatorHoveredColor", &FExpandableBoxStyle::IndicatorHoveredColor, "Indicator hovered color")
-        .RegisterProperty(PropertyType::Struct, "HeaderPadding", &FExpandableBoxStyle::HeaderPadding, "Header padding")
-        .RegisterProperty(PropertyType::Struct, "BodyPadding", &FExpandableBoxStyle::BodyPadding, "Body padding")
-        .RegisterProperty(PropertyType::Float, "IndicatorSize", &FExpandableBoxStyle::IndicatorSize, "Indicator size")
-        .RegisterProperty(PropertyType::Float, "IndicatorSpacing", &FExpandableBoxStyle::IndicatorSpacing, "Indicator spacing")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FExpandableBoxStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FExpandableBoxStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FExpandableBoxStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FExpandableBoxStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor HeaderBackgroundColor = FColor::FromBytes(36, 43, 53);
     FColor HeaderHoveredBackgroundColor = FColor::FromBytes(47, 56, 68);
     FColor HeaderPressedBackgroundColor = FColor::FromBytes(28, 34, 42);
@@ -45,18 +30,11 @@ public:
 };
 
 class ImExpandableBox : public ImPanelWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImExpandableBox, ImPanelWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Bool,
-            "Expanded",
-            static_cast<void (ImExpandableBox::*)(bool&)>(&ImExpandableBox::SetExpandedProperty),
-            static_cast<bool& (ImExpandableBox::*)()>(&ImExpandableBox::GetExpandedProperty),
-            "Whether the expandable box is expanded")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImExpandableBox::m_Style, "Expandable box style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImExpandableBox"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FExpandedStateChangedEvent = TMulticastDelegate<ImExpandableBox&, bool>;
     using FExpandableBoxEvent = TMulticastDelegate<ImExpandableBox&>;
 

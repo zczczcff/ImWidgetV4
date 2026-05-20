@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -33,6 +35,150 @@ FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness
             std::max(0.0f, geometry.Size.X - inset * 2.0f),
             std::max(0.0f, geometry.Size.Y - inset * 2.0f)));
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FExpandableBoxStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::HeaderBackgroundColor>(
+            "FExpandableBoxStyle",
+            "HeaderBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Header background color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::HeaderHoveredBackgroundColor>(
+            "FExpandableBoxStyle",
+            "HeaderHoveredBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Header hovered background color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::HeaderPressedBackgroundColor>(
+            "FExpandableBoxStyle",
+            "HeaderPressedBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Header pressed background color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::BodyBackgroundColor>(
+            "FExpandableBoxStyle",
+            "BodyBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Body background color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::BorderColor>(
+            "FExpandableBoxStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::FocusedOutlineColor>(
+            "FExpandableBoxStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::IndicatorColor>(
+            "FExpandableBoxStyle",
+            "IndicatorColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Indicator color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FColor, &FExpandableBoxStyle::IndicatorHoveredColor>(
+            "FExpandableBoxStyle",
+            "IndicatorHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Indicator hovered color"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FMargin, &FExpandableBoxStyle::HeaderPadding>(
+            "FExpandableBoxStyle",
+            "HeaderPadding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Header padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FMargin, &FExpandableBoxStyle::BodyPadding>(
+            "FExpandableBoxStyle",
+            "BodyPadding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Body padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, float, &FExpandableBoxStyle::IndicatorSize>(
+            "FExpandableBoxStyle",
+            "IndicatorSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Indicator size"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, float, &FExpandableBoxStyle::IndicatorSpacing>(
+            "FExpandableBoxStyle",
+            "IndicatorSpacing",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Indicator spacing"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, float, &FExpandableBoxStyle::BorderThickness>(
+            "FExpandableBoxStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, float, &FExpandableBoxStyle::CornerRadius>(
+            "FExpandableBoxStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FExpandableBoxStyle, FVector2, &FExpandableBoxStyle::MinDesiredSize>(
+            "FExpandableBoxStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FExpandableBoxStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImExpandableBox::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImExpandableBox, bool, &ImExpandableBox::SetExpandedProperty, &ImExpandableBox::GetExpandedProperty>(
+            "ImExpandableBox",
+            "Expanded",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the expandable box is expanded"),
+        Reflection::MakeMemberProperty<ImExpandableBox, FExpandableBoxStyle, &ImExpandableBox::m_Style>(
+            "ImExpandableBox",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FExpandableBoxStyle",
+            "Expandable box style",
+            &FExpandableBoxStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImExpandableBox",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FExpandableBoxStyleReflectionTypeDesc = FExpandableBoxStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImExpandableBoxReflectionTypeDesc = ImExpandableBox::StaticTypeDesc();
 
 } // namespace
 

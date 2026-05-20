@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/PropertyType.h>
 #include <imwidgetv4/reflection/ReflectionBuilder.h>
 #include <imwidgetv4/reflection/ReflectionRegistry.h>
+#include <nlohmann/json.hpp>
 #include <imgui.h>
 
 using namespace ImWidgetV4;

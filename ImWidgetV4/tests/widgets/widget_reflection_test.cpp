@@ -26,6 +26,7 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <imwidgetv4/reflection/ReflectionTypes.h>
+#include <nlohmann/json.hpp>
 
 using namespace ImWidgetV4;
 

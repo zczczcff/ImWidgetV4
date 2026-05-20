@@ -4,6 +4,7 @@
 #include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/reflection/ReflectionTypes.h>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
 

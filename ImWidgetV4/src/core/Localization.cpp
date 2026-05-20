@@ -1,6 +1,7 @@
 #include <imwidgetv4/core/Localization.h>
 
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <utility>
 
 namespace ImWidgetV4 {

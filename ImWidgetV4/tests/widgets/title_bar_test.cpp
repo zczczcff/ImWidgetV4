@@ -6,6 +6,7 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TitleBar.h>
+#include <nlohmann/json.hpp>
 
 using namespace ImWidgetV4;
 

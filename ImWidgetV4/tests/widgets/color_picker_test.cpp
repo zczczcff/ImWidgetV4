@@ -4,6 +4,7 @@
 #include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <memory>
 
 using namespace ImWidgetV4;

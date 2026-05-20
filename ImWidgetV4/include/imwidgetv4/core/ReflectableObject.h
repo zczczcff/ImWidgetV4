@@ -3,7 +3,7 @@
 #include <imwidgetv4/core/PropertyType.h>
 #include <imwidgetv4/core/rop/RunTimeObjectProperty.h>
 #include <imwidgetv4/reflection/Reflectable.h>
-#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 
 #ifdef GetClassName

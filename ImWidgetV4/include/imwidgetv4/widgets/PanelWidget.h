@@ -19,6 +19,8 @@ class ImPanelWidget : public ImWidget {
     END_DECLARE_OBJECT()
 
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImPanelWidget();
     virtual ~ImPanelWidget();
 

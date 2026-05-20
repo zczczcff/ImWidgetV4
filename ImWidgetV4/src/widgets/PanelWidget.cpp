@@ -1,8 +1,28 @@
 #include <imwidgetv4/widgets/PanelWidget.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 
 #include <algorithm>
 
 namespace ImWidgetV4 {
+
+const Reflection::FTypeDesc& ImPanelWidget::StaticTypeDesc()
+{
+    static const Reflection::FTypeDesc typeDesc {
+        "ImPanelWidget",
+        &ImWidget::StaticTypeDesc(),
+        nullptr,
+        0
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImPanelWidgetReflectionTypeDesc = ImPanelWidget::StaticTypeDesc();
+
+} // namespace
 
 ImPanelWidget::ImPanelWidget()
     : ImWidget()

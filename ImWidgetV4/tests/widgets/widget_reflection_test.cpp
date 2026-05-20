@@ -142,6 +142,26 @@ TEST(WidgetReflectionTest, SlotAndStyleClassesAreReflectable)
     EXPECT_EQ(stateJson["Properties"]["FButtonStateStyle::BorderThickness"], 3.0f);
     EXPECT_EQ(stateJson["Properties"]["FButtonStateStyle::CornerRadius"], 9.0f);
     EXPECT_EQ(stateJson["Properties"]["FButtonStateStyle::HasBorder"], true);
+    EXPECT_STREQ(stateStyle.GetTypeDesc().Name, "FButtonStateStyle");
+    const Reflection::FPropertyDesc* cornerRadiusDesc =
+        Reflection::FindProperty(stateStyle.GetTypeDesc(), "CornerRadius", "FButtonStateStyle");
+    ASSERT_NE(cornerRadiusDesc, nullptr);
+    Reflection::FPropertyHandle cornerRadiusProperty(&stateStyle, cornerRadiusDesc);
+    ASSERT_NE(cornerRadiusProperty.GetConstAs<float>(), nullptr);
+    EXPECT_FLOAT_EQ(*cornerRadiusProperty.GetConstAs<float>(), 9.0f);
+
+    FButtonStyle buttonStyle;
+    buttonStyle.Normal.CornerRadius = 12.0f;
+    EXPECT_STREQ(buttonStyle.GetTypeDesc().Name, "FButtonStyle");
+    const Reflection::FPropertyDesc* normalStyleDesc =
+        Reflection::FindProperty(buttonStyle.GetTypeDesc(), "Normal", "FButtonStyle");
+    ASSERT_NE(normalStyleDesc, nullptr);
+    ASSERT_NE(normalStyleDesc->StructType, nullptr);
+    EXPECT_STREQ(normalStyleDesc->StructType->Name, "FButtonStateStyle");
+    Reflection::FPropertyHandle normalStyleProperty(&buttonStyle, normalStyleDesc);
+    const FButtonStateStyle* normalStyle = normalStyleProperty.GetConstAs<FButtonStateStyle>();
+    ASSERT_NE(normalStyle, nullptr);
+    EXPECT_FLOAT_EQ(normalStyle->CornerRadius, 12.0f);
 }
 
 TEST(WidgetReflectionTest, ButtonJsonRoundTripIncludesNestedStyle)
@@ -179,6 +199,21 @@ TEST(WidgetReflectionTest, ButtonJsonRoundTripIncludesNestedStyle)
     EXPECT_EQ(
         restored->GetStyle().Disabled.TextColor.ToImU32(),
         FColor::FromBytes(90, 91, 92, 255).ToImU32());
+    EXPECT_STREQ(restored->GetTypeDesc().Name, "ImButton");
+    const Reflection::FPropertyDesc* disabledDesc =
+        Reflection::FindProperty(restored->GetTypeDesc(), "Disabled", "ImButton");
+    const Reflection::FPropertyDesc* styleDesc =
+        Reflection::FindProperty(restored->GetTypeDesc(), "Style", "ImButton");
+    const Reflection::FPropertyDesc* inheritedVisibleDesc =
+        Reflection::FindProperty(restored->GetTypeDesc(), "Visible", "ImWidget");
+    ASSERT_NE(disabledDesc, nullptr);
+    ASSERT_NE(styleDesc, nullptr);
+    ASSERT_NE(inheritedVisibleDesc, nullptr);
+    ASSERT_NE(styleDesc->StructType, nullptr);
+    EXPECT_STREQ(styleDesc->StructType->Name, "FButtonStyle");
+    Reflection::FPropertyHandle disabledProperty(restored.get(), disabledDesc);
+    ASSERT_NE(disabledProperty.GetConstAs<bool>(), nullptr);
+    EXPECT_TRUE(*disabledProperty.GetConstAs<bool>());
 }
 
 TEST(WidgetReflectionTest, RemainingWidgetsStylesAndSlotsRegisterProperties)

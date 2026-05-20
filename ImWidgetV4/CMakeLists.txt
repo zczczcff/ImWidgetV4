@@ -222,6 +222,7 @@ set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/style/StyleSet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/BoxSlot.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/Button.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ButtonStyle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CanvasPanel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/CheckBox.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/widgets/ColorPicker.cpp

@@ -17,6 +17,8 @@ struct FButtonStateStyle : public ReflectableObject {
     END_DECLARE_OBJECT()
 
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     FColor BackgroundColor = FColor::White;
     FColor BorderColor = FColor::Black;
     FColor TextColor = FColor::Black;
@@ -54,6 +56,8 @@ struct FButtonStyle : public ReflectableObject {
     END_DECLARE_OBJECT()
 
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     FButtonStateStyle Normal;
     FButtonStateStyle Hovered;
     FButtonStateStyle Pressed;

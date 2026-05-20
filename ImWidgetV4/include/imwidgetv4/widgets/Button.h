@@ -18,6 +18,8 @@ class ImButton : public ImPanelWidget {
 public:
     using FButtonEvent = TMulticastDelegate<ImButton&>;
 
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImButton();
     virtual ~ImButton() = default;
 

@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <algorithm>
@@ -18,6 +20,41 @@ FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness
             std::max(0.0f, geometry.Size.X - inset * 2.0f),
             std::max(0.0f, geometry.Size.Y - inset * 2.0f)));
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& ImButton::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImButton, bool, &ImButton::m_bDisabled>(
+            "ImButton",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the button is disabled"),
+        Reflection::MakeMemberProperty<ImButton, FButtonStyle, &ImButton::m_Style>(
+            "ImButton",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FButtonStyle",
+            "Button style bundle",
+            &FButtonStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImButton",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImButtonReflectionTypeDesc = ImButton::StaticTypeDesc();
 
 } // namespace
 

@@ -634,6 +634,7 @@ std::shared_ptr<ImWindow> ImApplication::EnsureMainWindow()
     options.bHasTitleBar = false;
     options.bHasBackground = false;
     options.bFillViewport = true;
+    options.Style.BorderThickness = 0.0f;
     std::shared_ptr<ImWindow> mainWindow = WindowManager_.CreateWindow(options);
     WindowManager_.SetMainWindowInternal(mainWindow);
     return mainWindow;

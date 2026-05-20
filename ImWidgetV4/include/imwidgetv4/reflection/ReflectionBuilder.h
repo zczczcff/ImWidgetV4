@@ -2,8 +2,10 @@
 
 #include <imwidgetv4/reflection/ReflectionTypes.h>
 #include <cstddef>
+#include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ImWidgetV4::Reflection {
 
@@ -63,6 +65,83 @@ bool CopyThroughAccessor(void* object, const void* source)
     return true;
 }
 
+template<typename ValueType>
+bool ReadTypedValue(const void* source, EPropertyKind kind, FPropertyValue& outValue)
+{
+    if (!source) {
+        return false;
+    }
+
+    outValue = FPropertyValue {};
+    outValue.Kind = kind;
+    const ValueType& value = *static_cast<const ValueType*>(source);
+
+    if constexpr (std::is_same_v<ValueType, int>) {
+        outValue.IntValue = value;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, float>) {
+        outValue.FloatValue = value;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, bool>) {
+        outValue.BoolValue = value;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, std::string>) {
+        outValue.StringValue = value;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, std::vector<std::string>>) {
+        outValue.StringArrayValue = value;
+        return true;
+    } else {
+        outValue.ConstStructValue = source;
+        return kind == EPropertyKind::Struct || kind == EPropertyKind::Color || kind == EPropertyKind::Vec2;
+    }
+}
+
+template<typename ValueType>
+bool WriteTypedValue(void* destination, const FPropertyValue& value)
+{
+    if (!destination) {
+        return false;
+    }
+
+    ValueType* typedDestination = static_cast<ValueType*>(destination);
+
+    if constexpr (std::is_same_v<ValueType, int>) {
+        *typedDestination = value.IntValue;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, float>) {
+        *typedDestination = value.FloatValue;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, bool>) {
+        *typedDestination = value.BoolValue;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, std::string>) {
+        *typedDestination = value.StringValue;
+        return true;
+    } else if constexpr (std::is_same_v<ValueType, std::vector<std::string>>) {
+        *typedDestination = value.StringArrayValue;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&)>
+bool SetObjectTypedValue(void* object, const FPropertyValue& value)
+{
+    if (!object) {
+        return false;
+    }
+
+    ValueType converted {};
+    if (!WriteTypedValue<ValueType>(&converted, value)) {
+        return false;
+    }
+
+    (static_cast<ClassType*>(object)->*Setter)(converted);
+    return true;
+}
+
 } // namespace Detail
 
 template<typename ClassType, typename ValueType, ValueType ClassType::*Member>
@@ -89,6 +168,9 @@ FPropertyDesc MakeMemberProperty(
     desc.GetConstPtr = &Detail::GetConstMemberPtr<ClassType, ValueType, Member>;
     desc.CopyValue = &Detail::CopyValueImpl<ValueType>;
     desc.SetValue = nullptr;
+    desc.ReadValue = &Detail::ReadTypedValue<ValueType>;
+    desc.WriteValue = &Detail::WriteTypedValue<ValueType>;
+    desc.SetObjectValue = nullptr;
     desc.bCustomAccessor = false;
     return desc;
 }
@@ -117,6 +199,9 @@ FPropertyDesc MakeAccessorProperty(
     desc.GetConstPtr = &Detail::GetConstAccessorPtr<ClassType, ValueType, Getter>;
     desc.CopyValue = nullptr;
     desc.SetValue = nullptr;
+    desc.ReadValue = &Detail::ReadTypedValue<ValueType>;
+    desc.WriteValue = nullptr;
+    desc.SetObjectValue = nullptr;
     desc.bCustomAccessor = true;
     return desc;
 }
@@ -140,6 +225,7 @@ FPropertyDesc MakeObjectAccessorProperty(
         structType,
         enumOptions);
     desc.SetValue = &Detail::CopyThroughAccessor<ClassType, ValueType, Setter>;
+    desc.SetObjectValue = &Detail::SetObjectTypedValue<ClassType, ValueType, Setter>;
     return desc;
 }
 

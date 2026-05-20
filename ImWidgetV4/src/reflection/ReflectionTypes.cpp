@@ -70,6 +70,32 @@ bool FPropertyHandle::CopyFrom(const void* source) const
     return Desc_->CopyValue(GetMutablePtr(), source);
 }
 
+bool FPropertyHandle::Read(FPropertyValue& outValue) const
+{
+    if (!IsValid() || !Desc_->ReadValue) {
+        return false;
+    }
+
+    return Desc_->ReadValue(GetConstPtr(), Desc_->Kind, outValue);
+}
+
+bool FPropertyHandle::Write(const FPropertyValue& value) const
+{
+    if (!IsValid()) {
+        return false;
+    }
+
+    if (Desc_->SetObjectValue) {
+        return Desc_->SetObjectValue(Owner_, value);
+    }
+
+    if (!Desc_->WriteValue) {
+        return false;
+    }
+
+    return Desc_->WriteValue(GetMutablePtr(), value);
+}
+
 std::vector<const FPropertyDesc*> CollectProperties(const FTypeDesc& typeDesc)
 {
     std::vector<const FPropertyDesc*> result;

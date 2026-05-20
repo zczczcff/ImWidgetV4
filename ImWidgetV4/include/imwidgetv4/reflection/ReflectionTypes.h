@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -21,10 +22,26 @@ enum class EPropertyKind : uint8_t {
 
 struct FTypeDesc;
 
+struct FPropertyValue {
+    EPropertyKind Kind = EPropertyKind::Struct;
+    int IntValue = 0;
+    float FloatValue = 0.0f;
+    bool BoolValue = false;
+    std::string StringValue;
+    std::vector<std::string> StringArrayValue;
+    std::array<float, 4> ColorValue {0.0f, 0.0f, 0.0f, 1.0f};
+    std::array<float, 2> Vec2Value {0.0f, 0.0f};
+    void* StructValue = nullptr;
+    const void* ConstStructValue = nullptr;
+};
+
 using FGetMutablePtr = void* (*)(void* object);
 using FGetConstPtr = const void* (*)(const void* object);
 using FCopyValue = bool (*)(void* destination, const void* source);
 using FSetValue = bool (*)(void* object, const void* source);
+using FReadPropertyValue = bool (*)(const void* source, EPropertyKind kind, FPropertyValue& outValue);
+using FWritePropertyValue = bool (*)(void* destination, const FPropertyValue& value);
+using FSetObjectPropertyValue = bool (*)(void* object, const FPropertyValue& value);
 
 struct FEnumOptions {
     const char* const* Names = nullptr;
@@ -45,6 +62,9 @@ struct FPropertyDesc {
     FGetConstPtr GetConstPtr = nullptr;
     FCopyValue CopyValue = nullptr;
     FSetValue SetValue = nullptr;
+    FReadPropertyValue ReadValue = nullptr;
+    FWritePropertyValue WriteValue = nullptr;
+    FSetObjectPropertyValue SetObjectValue = nullptr;
     bool bCustomAccessor = false;
 };
 
@@ -69,6 +89,8 @@ public:
     void* GetMutablePtr() const;
     const void* GetConstPtr() const;
     bool CopyFrom(const void* source) const;
+    bool Read(FPropertyValue& outValue) const;
+    bool Write(const FPropertyValue& value) const;
 
     template<typename T>
     T* GetMutableAs() const

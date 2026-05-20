@@ -57,12 +57,25 @@ TEST(WidgetReflectionTest, TextBlockRegistersInheritedAndOwnProperties)
     const float reflectedFontSize = 24.0f;
     EXPECT_TRUE(fontSizeProperty.CopyFrom(&reflectedFontSize));
     EXPECT_FLOAT_EQ(textBlock.GetFontSize(), reflectedFontSize);
+    Reflection::FPropertyValue fontSizeValue;
+    ASSERT_TRUE(fontSizeProperty.Read(fontSizeValue));
+    EXPECT_EQ(fontSizeValue.Kind, Reflection::EPropertyKind::Float);
+    EXPECT_FLOAT_EQ(fontSizeValue.FloatValue, reflectedFontSize);
+    Reflection::FPropertyValue updatedFontSize;
+    updatedFontSize.Kind = Reflection::EPropertyKind::Float;
+    updatedFontSize.FloatValue = 18.0f;
+    EXPECT_TRUE(fontSizeProperty.Write(updatedFontSize));
+    EXPECT_FLOAT_EQ(textBlock.GetFontSize(), 18.0f);
     EXPECT_EQ(textAlignmentDesc->EnumOptions.Count, 3);
     EXPECT_STREQ(textAlignmentDesc->EnumOptions.Names[2], "Right");
     Reflection::FPropertyHandle textAlignmentProperty(&textBlock, textAlignmentDesc);
     int reflectedTextAlignment = 2;
     EXPECT_TRUE(textAlignmentProperty.CopyFrom(&reflectedTextAlignment));
     EXPECT_EQ(textBlock.GetTextAlignment(), ETextAlignment::Right);
+    Reflection::FPropertyValue alignmentValue;
+    ASSERT_TRUE(textAlignmentProperty.Read(alignmentValue));
+    EXPECT_EQ(alignmentValue.Kind, Reflection::EPropertyKind::Enum);
+    EXPECT_EQ(alignmentValue.IntValue, 2);
 
     auto textAlignment = textBlock.GetPropertyAsOptional("TextAlignment");
     auto verticalAlignment = textBlock.GetPropertyAsOptional("VerticalAlignment");

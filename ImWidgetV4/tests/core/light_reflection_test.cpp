@@ -114,6 +114,22 @@ TEST(LightReflectionTest, ReadsAndWritesMemberProperties)
     const int newClickCount = 5;
     EXPECT_TRUE(clickHandle.CopyFrom(&newClickCount));
     EXPECT_EQ(button.ClickCount, 5);
+
+    FPropertyValue clickValue;
+    ASSERT_TRUE(clickHandle.Read(clickValue));
+    EXPECT_EQ(clickValue.Kind, EPropertyKind::Int);
+    EXPECT_EQ(clickValue.IntValue, 5);
+
+    FPropertyValue nameValue;
+    ASSERT_TRUE(nameHandle.Read(nameValue));
+    EXPECT_EQ(nameValue.Kind, EPropertyKind::String);
+    EXPECT_EQ(nameValue.StringValue, "Apply");
+
+    FPropertyValue updatedName;
+    updatedName.Kind = EPropertyKind::String;
+    updatedName.StringValue = "Cancel";
+    EXPECT_TRUE(nameHandle.Write(updatedName));
+    EXPECT_EQ(button.Name, "Cancel");
 }
 
 TEST(LightReflectionTest, RegistersTypesByName)

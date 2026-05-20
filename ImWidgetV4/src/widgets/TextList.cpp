@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -194,6 +196,104 @@ void AppendWrappedLines(
         }
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FTextListStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::BackgroundColor>(
+            "FTextListStyle", "BackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Background color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::BorderColor>(
+            "FTextListStyle", "BorderColor", Reflection::EPropertyKind::Color, "FColor", "Border color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::FocusedOutlineColor>(
+            "FTextListStyle", "FocusedOutlineColor", Reflection::EPropertyKind::Color, "FColor", "Focused outline color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::TextColor>(
+            "FTextListStyle", "TextColor", Reflection::EPropertyKind::Color, "FColor", "Text color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::SelectionBackgroundColor>(
+            "FTextListStyle", "SelectionBackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Selection background color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FMargin, &FTextListStyle::Padding>(
+            "FTextListStyle", "Padding", Reflection::EPropertyKind::Struct, "FMargin", "Content padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTextListStyle, FVector2, &FTextListStyle::MinDesiredSize>(
+            "FTextListStyle", "MinDesiredSize", Reflection::EPropertyKind::Vec2, "FVector2", "Minimum desired size"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::CornerRadius>(
+            "FTextListStyle", "CornerRadius", Reflection::EPropertyKind::Float, "float", "Corner radius"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::BorderThickness>(
+            "FTextListStyle", "BorderThickness", Reflection::EPropertyKind::Float, "float", "Border thickness"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::FontSize>(
+            "FTextListStyle", "FontSize", Reflection::EPropertyKind::Float, "float", "Font size"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::LineSpacing>(
+            "FTextListStyle", "LineSpacing", Reflection::EPropertyKind::Float, "float", "Line spacing"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::ScrollbarThickness>(
+            "FTextListStyle", "ScrollbarThickness", Reflection::EPropertyKind::Float, "float", "Scrollbar thickness"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::ScrollbarPadding>(
+            "FTextListStyle", "ScrollbarPadding", Reflection::EPropertyKind::Float, "float", "Scrollbar padding"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::ScrollbarTrackColor>(
+            "FTextListStyle", "ScrollbarTrackColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar track color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::ScrollbarThumbColor>(
+            "FTextListStyle", "ScrollbarThumbColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FTextListStyle, FColor, &FTextListStyle::ScrollbarThumbHoveredColor>(
+            "FTextListStyle", "ScrollbarThumbHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::ThumbMinLength>(
+            "FTextListStyle", "ThumbMinLength", Reflection::EPropertyKind::Float, "float", "Minimum thumb length"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::WheelScrollStep>(
+            "FTextListStyle", "WheelScrollStep", Reflection::EPropertyKind::Float, "float", "Wheel scroll step"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::AutoScrollEdgePadding>(
+            "FTextListStyle", "AutoScrollEdgePadding", Reflection::EPropertyKind::Float, "float", "Auto-scroll edge padding"),
+        Reflection::MakeMemberProperty<FTextListStyle, float, &FTextListStyle::AutoScrollSpeed>(
+            "FTextListStyle", "AutoScrollSpeed", Reflection::EPropertyKind::Float, "float", "Auto-scroll speed")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FTextListStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImTextList::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImTextList, std::vector<std::string>, &ImTextList::SetItemsProperty, &ImTextList::GetItemsProperty>(
+            "ImTextList",
+            "Items",
+            Reflection::EPropertyKind::StringArray,
+            "std::vector<std::string>",
+            "List items"),
+        Reflection::MakeObjectAccessorProperty<ImTextList, float, &ImTextList::SetScrollOffsetProperty, &ImTextList::GetScrollOffsetProperty>(
+            "ImTextList",
+            "ScrollOffset",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Vertical scroll offset"),
+        Reflection::MakeMemberProperty<ImTextList, FTextListStyle, &ImTextList::m_Style>(
+            "ImTextList",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FTextListStyle",
+            "Text list style",
+            &FTextListStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTextList",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FTextListStyleReflectionTypeDesc = FTextListStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImTextListReflectionTypeDesc = ImTextList::StaticTypeDesc();
 
 } // namespace
 

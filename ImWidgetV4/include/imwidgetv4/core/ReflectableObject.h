@@ -5,6 +5,7 @@
 #include <imwidgetv4/reflection/Reflectable.h>
 #include <nlohmann/json_fwd.hpp>
 #include <string>
+#include <vector>
 
 #ifdef GetClassName
 #undef GetClassName
@@ -13,6 +14,30 @@
 namespace ImWidgetV4 {
 
 using json = nlohmann::ordered_json;
+
+class ReflectableObject;
+
+class FReflectedOptionalProperty {
+public:
+    using LegacyOptionalProperty = ROP::PropertyObject<PropertyType>::ROPOptionalProperty;
+
+    FReflectedOptionalProperty() = default;
+    FReflectedOptionalProperty(ReflectableObject* owner, const Reflection::FPropertyDesc* desc);
+    explicit FReflectedOptionalProperty(const LegacyOptionalProperty& legacyProperty);
+
+    bool IsValid() const;
+    std::string GetOptionString() const;
+    const std::vector<std::string>& GetOptionList() const;
+    bool SetOptionByString(const std::string& option);
+    bool SetOptionByIndex(int index);
+    size_t GetOptionCount() const;
+
+private:
+    ReflectableObject* Owner_ = nullptr;
+    const Reflection::FPropertyDesc* Desc_ = nullptr;
+    std::vector<std::string> Options_;
+    LegacyOptionalProperty LegacyProperty_;
+};
 
 class ReflectableObject : public ROP::PropertyObject<PropertyType>, public Reflection::IReflectable {
     DECLARE_OBJECT(ReflectableObject)
@@ -28,6 +53,8 @@ public:
     const Reflection::FTypeDesc* FindReflectionTypeDesc() const;
     bool HasProperty(const std::string& name) const;
     bool HasProperty(const std::string& name, const std::string& className) const;
+    FReflectedOptionalProperty GetPropertyAsOptional(const std::string& name);
+    FReflectedOptionalProperty GetPropertyAsOptional(const std::string& name, const std::string& className);
 
 protected:
     using ROPMetaType = ROP::PropertyMeta<

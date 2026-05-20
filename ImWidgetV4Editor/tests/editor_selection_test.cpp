@@ -2304,6 +2304,11 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
         EXPECT_NE(text.find("FGeneratedAppHostDelegate"), std::string::npos);
         EXPECT_NE(text.find("GeneratedApp::BuildHostConfig()"), std::string::npos);
         EXPECT_NE(text.find("GeneratedApp::ConfigureApplication(application)"), std::string::npos);
+        EXPECT_NE(text.find("// void ConfigureBackend"), std::string::npos);
+        EXPECT_NE(text.find("// bool InitializeApplication"), std::string::npos);
+        EXPECT_NE(text.find("// void Tick"), std::string::npos);
+        EXPECT_NE(text.find("// bool OnCloseRequested"), std::string::npos);
+        EXPECT_NE(text.find("// void OnShutdown"), std::string::npos);
         EXPECT_NE(text.find("CreateApplicationHostDelegate"), std::string::npos);
         EXPECT_EQ(text.find("RunHostedDesktopApplication"), std::string::npos);
         EXPECT_EQ(text.find("#include \"MainView.h\""), std::string::npos);
@@ -2539,6 +2544,11 @@ TEST(EditorSelectionTest, WorkspaceControllerReinitializeMainCppPreservesOldCont
         EXPECT_NE(text.find("FGeneratedAppHostDelegate"), std::string::npos);
         EXPECT_NE(text.find("GeneratedApp::BuildHostConfig()"), std::string::npos);
         EXPECT_NE(text.find("GeneratedApp::ConfigureApplication(application)"), std::string::npos);
+        EXPECT_NE(text.find("// void ConfigureBackend"), std::string::npos);
+        EXPECT_NE(text.find("// bool InitializeApplication"), std::string::npos);
+        EXPECT_NE(text.find("// void Tick"), std::string::npos);
+        EXPECT_NE(text.find("// bool OnCloseRequested"), std::string::npos);
+        EXPECT_NE(text.find("// void OnShutdown"), std::string::npos);
         EXPECT_NE(text.find("CreateApplicationHostDelegate"), std::string::npos);
         EXPECT_EQ(text.find("std::make_shared<ReinitApp::MainView>()"), std::string::npos);
         EXPECT_EQ(text.find("config.Title = \"ReinitApp\""), std::string::npos);
@@ -2710,8 +2720,11 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
         EXPECT_NE(mainText.find("FGeneratedAppHostDelegate"), std::string::npos);
         EXPECT_NE(mainText.find("GeneratedApp::BuildHostConfig()"), std::string::npos);
         EXPECT_NE(mainText.find("GeneratedApp::ConfigureApplication(application)"), std::string::npos);
-        EXPECT_NE(mainText.find("bool InitializeApplication"), std::string::npos);
-        EXPECT_NE(mainText.find("void Tick"), std::string::npos);
+        EXPECT_NE(mainText.find("// void ConfigureBackend"), std::string::npos);
+        EXPECT_NE(mainText.find("// bool InitializeApplication"), std::string::npos);
+        EXPECT_NE(mainText.find("// void Tick"), std::string::npos);
+        EXPECT_NE(mainText.find("// bool OnCloseRequested"), std::string::npos);
+        EXPECT_NE(mainText.find("// void OnShutdown"), std::string::npos);
         EXPECT_EQ(mainText.find("RunHostedDesktopApplication"), std::string::npos);
         EXPECT_EQ(mainText.find("config.Title = \"Configured App\""), std::string::npos);
         EXPECT_EQ(mainText.find("std::make_shared<ConfiguredApp::MainView>()"), std::string::npos);

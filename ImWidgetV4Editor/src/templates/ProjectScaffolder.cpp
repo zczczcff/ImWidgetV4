@@ -337,9 +337,8 @@ std::string BuildGeneratedProjectCMakeText(
     return stream.str();
 }
 
-std::string BuildMainCppText(const FProjectScaffoldRequest& request)
+std::string BuildMainCppText()
 {
-    const FEditorApplicationSettings& settings = request.ApplicationSettings;
     std::ostringstream stream;
     stream
         << "// Stable user entry translation unit.\n"
@@ -360,27 +359,32 @@ std::string BuildMainCppText(const FProjectScaffoldRequest& request)
         << "    void ConfigureApplication(ImWidgetV4::ImApplication& application) override\n"
         << "    {\n"
         << "        GeneratedApp::ConfigureApplication(application);\n"
-        << "    }\n";
-    if (settings.bGenerateInitializeStub) {
-        stream
-            << "\n"
-            << "    bool InitializeApplication(ImWidgetV4::ImApplication& application, ImWidgetV4::ImApplicationBackend& backend) override\n"
-            << "    {\n"
-            << "        (void)application;\n"
-            << "        (void)backend;\n"
-            << "        return true;\n"
-            << "    }\n";
-    }
-    if (settings.bGenerateTickStub) {
-        stream
-            << "\n"
-            << "    void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override\n"
-            << "    {\n"
-            << "        (void)application;\n"
-            << "        (void)frameInfo;\n"
-            << "    }\n";
-    }
-    stream
+        << "    }\n\n"
+        << "    // Optional host overrides. Uncomment the functions you want to customize.\n"
+        << "    // void ConfigureBackend(ImWidgetV4::ImApplicationBackend& backend) override\n"
+        << "    // {\n"
+        << "    //     (void)backend;\n"
+        << "    // }\n\n"
+        << "    // bool InitializeApplication(ImWidgetV4::ImApplication& application, ImWidgetV4::ImApplicationBackend& backend) override\n"
+        << "    // {\n"
+        << "    //     (void)application;\n"
+        << "    //     (void)backend;\n"
+        << "    //     return true;\n"
+        << "    // }\n\n"
+        << "    // void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override\n"
+        << "    // {\n"
+        << "    //     (void)application;\n"
+        << "    //     (void)frameInfo;\n"
+        << "    // }\n\n"
+        << "    // bool OnCloseRequested(ImWidgetV4::ImApplication& application) override\n"
+        << "    // {\n"
+        << "    //     (void)application;\n"
+        << "    //     return true;\n"
+        << "    // }\n\n"
+        << "    // void OnShutdown(ImWidgetV4::ImApplication& application) override\n"
+        << "    // {\n"
+        << "    //     (void)application;\n"
+        << "    // }\n"
         << "};\n\n"
         << "} // namespace\n\n"
         << "namespace ImWidgetV4 {\n\n"
@@ -629,7 +633,7 @@ FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
     result.GeneratedFiles.push_back(userProjectCMakePath);
 
     const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
-    if (!WriteTextFile(mainCppPath, BuildMainCppText(request), errorMessage)) {
+    if (!WriteTextFile(mainCppPath, BuildMainCppText(), errorMessage)) {
         result.ErrorMessage = errorMessage;
         return result;
     }
@@ -722,7 +726,7 @@ FProjectScaffoldResult ProjectScaffolder::ReinitializeMainCpp(const FProjectScaf
             << BuildCommentedText(existingText)
             << "// -----------------------------------------------------------------------------\n\n";
     }
-    replacement << BuildMainCppText(request);
+    replacement << BuildMainCppText();
 
     std::string errorMessage;
     if (!WriteTextFile(mainCppPath, replacement.str(), errorMessage)) {

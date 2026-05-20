@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -45,6 +47,145 @@ bool AreGeometriesEquivalent(const FGeometry& left, const FGeometry& right)
            NearlyEqual(left.Size.X, right.Size.X) &&
            NearlyEqual(left.Size.Y, right.Size.Y);
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FTabViewStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::BackgroundColor>(
+            "FTabViewStyle", "BackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Background color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::BorderColor>(
+            "FTabViewStyle", "BorderColor", Reflection::EPropertyKind::Color, "FColor", "Border color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::FocusedOutlineColor>(
+            "FTabViewStyle", "FocusedOutlineColor", Reflection::EPropertyKind::Color, "FColor", "Focused outline color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TabStripBackgroundColor>(
+            "FTabViewStyle", "TabStripBackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Tab strip background color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TabColor>(
+            "FTabViewStyle", "TabColor", Reflection::EPropertyKind::Color, "FColor", "Inactive tab color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TabHoveredColor>(
+            "FTabViewStyle", "TabHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered tab color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TabPressedColor>(
+            "FTabViewStyle", "TabPressedColor", Reflection::EPropertyKind::Color, "FColor", "Pressed tab color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::ActiveTabColor>(
+            "FTabViewStyle", "ActiveTabColor", Reflection::EPropertyKind::Color, "FColor", "Active tab color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::DisabledTabColor>(
+            "FTabViewStyle", "DisabledTabColor", Reflection::EPropertyKind::Color, "FColor", "Disabled tab color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TextColor>(
+            "FTabViewStyle", "TextColor", Reflection::EPropertyKind::Color, "FColor", "Inactive text color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::ActiveTextColor>(
+            "FTabViewStyle", "ActiveTextColor", Reflection::EPropertyKind::Color, "FColor", "Active text color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::DisabledTextColor>(
+            "FTabViewStyle", "DisabledTextColor", Reflection::EPropertyKind::Color, "FColor", "Disabled text color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::TabBorderColor>(
+            "FTabViewStyle", "TabBorderColor", Reflection::EPropertyKind::Color, "FColor", "Tab border color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::DirtyMarkerColor>(
+            "FTabViewStyle", "DirtyMarkerColor", Reflection::EPropertyKind::Color, "FColor", "Dirty marker color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::CloseButtonColor>(
+            "FTabViewStyle", "CloseButtonColor", Reflection::EPropertyKind::Color, "FColor", "Close button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::CloseButtonHoveredColor>(
+            "FTabViewStyle", "CloseButtonHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered close button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::CloseButtonPressedColor>(
+            "FTabViewStyle", "CloseButtonPressedColor", Reflection::EPropertyKind::Color, "FColor", "Pressed close button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::OverflowButtonColor>(
+            "FTabViewStyle", "OverflowButtonColor", Reflection::EPropertyKind::Color, "FColor", "Overflow button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::OverflowButtonHoveredColor>(
+            "FTabViewStyle", "OverflowButtonHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered overflow button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::OverflowButtonPressedColor>(
+            "FTabViewStyle", "OverflowButtonPressedColor", Reflection::EPropertyKind::Color, "FColor", "Pressed overflow button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FColor, &FTabViewStyle::OverflowButtonDisabledColor>(
+            "FTabViewStyle", "OverflowButtonDisabledColor", Reflection::EPropertyKind::Color, "FColor", "Disabled overflow button color"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FMargin, &FTabViewStyle::Padding>(
+            "FTabViewStyle", "Padding", Reflection::EPropertyKind::Struct, "FMargin", "Outer padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTabViewStyle, FMargin, &FTabViewStyle::TabPadding>(
+            "FTabViewStyle", "TabPadding", Reflection::EPropertyKind::Struct, "FMargin", "Tab padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::TabSpacing>(
+            "FTabViewStyle", "TabSpacing", Reflection::EPropertyKind::Float, "float", "Spacing between tabs"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::TabMinWidth>(
+            "FTabViewStyle", "TabMinWidth", Reflection::EPropertyKind::Float, "float", "Minimum tab width"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::TabHeight>(
+            "FTabViewStyle", "TabHeight", Reflection::EPropertyKind::Float, "float", "Tab strip item height"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::IconSize>(
+            "FTabViewStyle", "IconSize", Reflection::EPropertyKind::Float, "float", "Tab icon size"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::DirtyMarkerRadius>(
+            "FTabViewStyle", "DirtyMarkerRadius", Reflection::EPropertyKind::Float, "float", "Dirty marker radius"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::CloseButtonSize>(
+            "FTabViewStyle", "CloseButtonSize", Reflection::EPropertyKind::Float, "float", "Close button size"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::OverflowButtonWidth>(
+            "FTabViewStyle", "OverflowButtonWidth", Reflection::EPropertyKind::Float, "float", "Overflow button width"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::FontSize>(
+            "FTabViewStyle", "FontSize", Reflection::EPropertyKind::Float, "float", "Tab font size"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::BorderThickness>(
+            "FTabViewStyle", "BorderThickness", Reflection::EPropertyKind::Float, "float", "Border thickness"),
+        Reflection::MakeMemberProperty<FTabViewStyle, float, &FTabViewStyle::CornerRadius>(
+            "FTabViewStyle", "CornerRadius", Reflection::EPropertyKind::Float, "float", "Corner radius"),
+        Reflection::MakeMemberProperty<FTabViewStyle, FVector2, &FTabViewStyle::MinDesiredSize>(
+            "FTabViewStyle", "MinDesiredSize", Reflection::EPropertyKind::Vec2, "FVector2", "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FTabViewStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImTabView::StaticTypeDesc()
+{
+    static const char* const closeActivationPolicyOptions[] = {"LeftNeighbor", "MostRecentlyActive"};
+    static const char* const tabStripPlacementOptions[] = {"Top", "Bottom"};
+
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImTabView, int, &ImTabView::SetActiveTabProperty, &ImTabView::GetActiveTabProperty>(
+            "ImTabView",
+            "ActiveTabIndex",
+            Reflection::EPropertyKind::Int,
+            "int",
+            "Active tab index"),
+        Reflection::MakeObjectAccessorProperty<ImTabView, int, &ImTabView::SetCloseActivationPolicyProperty, &ImTabView::GetCloseActivationPolicyProperty>(
+            "ImTabView",
+            "CloseActivationPolicy",
+            Reflection::EPropertyKind::Enum,
+            "int",
+            "Policy used to choose the next active tab after closing the active tab",
+            nullptr,
+            {closeActivationPolicyOptions, sizeof(closeActivationPolicyOptions) / sizeof(closeActivationPolicyOptions[0])}),
+        Reflection::MakeObjectAccessorProperty<ImTabView, int, &ImTabView::SetTabStripPlacementProperty, &ImTabView::GetTabStripPlacementProperty>(
+            "ImTabView",
+            "TabStripPlacement",
+            Reflection::EPropertyKind::Enum,
+            "int",
+            "Placement of the tab strip relative to the content area",
+            nullptr,
+            {tabStripPlacementOptions, sizeof(tabStripPlacementOptions) / sizeof(tabStripPlacementOptions[0])}),
+        Reflection::MakeMemberProperty<ImTabView, FTabViewStyle, &ImTabView::Style_>(
+            "ImTabView",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FTabViewStyle",
+            "Tab view style",
+            &FTabViewStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTabView",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FTabViewStyleReflectionTypeDesc = FTabViewStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImTabViewReflectionTypeDesc = ImTabView::StaticTypeDesc();
 
 } // namespace
 

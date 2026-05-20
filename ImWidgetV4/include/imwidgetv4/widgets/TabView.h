@@ -21,45 +21,11 @@ enum class ETabStripPlacement {
 };
 
 struct FTabViewStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FTabViewStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FTabViewStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FTabViewStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FTabViewStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "TabStripBackgroundColor", &FTabViewStyle::TabStripBackgroundColor, "Tab strip background color")
-        .RegisterProperty(PropertyType::Color, "TabColor", &FTabViewStyle::TabColor, "Inactive tab color")
-        .RegisterProperty(PropertyType::Color, "TabHoveredColor", &FTabViewStyle::TabHoveredColor, "Hovered tab color")
-        .RegisterProperty(PropertyType::Color, "TabPressedColor", &FTabViewStyle::TabPressedColor, "Pressed tab color")
-        .RegisterProperty(PropertyType::Color, "ActiveTabColor", &FTabViewStyle::ActiveTabColor, "Active tab color")
-        .RegisterProperty(PropertyType::Color, "DisabledTabColor", &FTabViewStyle::DisabledTabColor, "Disabled tab color")
-        .RegisterProperty(PropertyType::Color, "TextColor", &FTabViewStyle::TextColor, "Inactive text color")
-        .RegisterProperty(PropertyType::Color, "ActiveTextColor", &FTabViewStyle::ActiveTextColor, "Active text color")
-        .RegisterProperty(PropertyType::Color, "DisabledTextColor", &FTabViewStyle::DisabledTextColor, "Disabled text color")
-        .RegisterProperty(PropertyType::Color, "TabBorderColor", &FTabViewStyle::TabBorderColor, "Tab border color")
-        .RegisterProperty(PropertyType::Color, "DirtyMarkerColor", &FTabViewStyle::DirtyMarkerColor, "Dirty marker color")
-        .RegisterProperty(PropertyType::Color, "CloseButtonColor", &FTabViewStyle::CloseButtonColor, "Close button color")
-        .RegisterProperty(PropertyType::Color, "CloseButtonHoveredColor", &FTabViewStyle::CloseButtonHoveredColor, "Hovered close button color")
-        .RegisterProperty(PropertyType::Color, "CloseButtonPressedColor", &FTabViewStyle::CloseButtonPressedColor, "Pressed close button color")
-        .RegisterProperty(PropertyType::Color, "OverflowButtonColor", &FTabViewStyle::OverflowButtonColor, "Overflow button color")
-        .RegisterProperty(PropertyType::Color, "OverflowButtonHoveredColor", &FTabViewStyle::OverflowButtonHoveredColor, "Hovered overflow button color")
-        .RegisterProperty(PropertyType::Color, "OverflowButtonPressedColor", &FTabViewStyle::OverflowButtonPressedColor, "Pressed overflow button color")
-        .RegisterProperty(PropertyType::Color, "OverflowButtonDisabledColor", &FTabViewStyle::OverflowButtonDisabledColor, "Disabled overflow button color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FTabViewStyle::Padding, "Outer padding")
-        .RegisterProperty(PropertyType::Struct, "TabPadding", &FTabViewStyle::TabPadding, "Tab padding")
-        .RegisterProperty(PropertyType::Float, "TabSpacing", &FTabViewStyle::TabSpacing, "Spacing between tabs")
-        .RegisterProperty(PropertyType::Float, "TabMinWidth", &FTabViewStyle::TabMinWidth, "Minimum tab width")
-        .RegisterProperty(PropertyType::Float, "TabHeight", &FTabViewStyle::TabHeight, "Tab strip item height")
-        .RegisterProperty(PropertyType::Float, "IconSize", &FTabViewStyle::IconSize, "Tab icon size")
-        .RegisterProperty(PropertyType::Float, "DirtyMarkerRadius", &FTabViewStyle::DirtyMarkerRadius, "Dirty marker radius")
-        .RegisterProperty(PropertyType::Float, "CloseButtonSize", &FTabViewStyle::CloseButtonSize, "Close button size")
-        .RegisterProperty(PropertyType::Float, "OverflowButtonWidth", &FTabViewStyle::OverflowButtonWidth, "Overflow button width")
-        .RegisterProperty(PropertyType::Float, "FontSize", &FTabViewStyle::FontSize, "Tab font size")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FTabViewStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FTabViewStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FTabViewStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FTabViewStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(20, 24, 30);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -107,32 +73,11 @@ struct FTabViewItem {
 };
 
 class ImTabView : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImTabView, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Int,
-            "ActiveTabIndex",
-            static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetActiveTabProperty),
-            static_cast<int& (ImTabView::*)()>(&ImTabView::GetActiveTabProperty),
-            "Active tab index")
-        .RegisterOptionalProperty(
-            PropertyType::Enum,
-            "CloseActivationPolicy",
-            static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetCloseActivationPolicyProperty),
-            static_cast<int& (ImTabView::*)()>(&ImTabView::GetCloseActivationPolicyProperty),
-            {"LeftNeighbor", "MostRecentlyActive"},
-            "Policy used to choose the next active tab after closing the active tab")
-        .RegisterOptionalProperty(
-            PropertyType::Enum,
-            "TabStripPlacement",
-            static_cast<void (ImTabView::*)(int&)>(&ImTabView::SetTabStripPlacementProperty),
-            static_cast<int& (ImTabView::*)()>(&ImTabView::GetTabStripPlacementProperty),
-            {"Top", "Bottom"},
-            "Placement of the tab strip relative to the content area")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImTabView::Style_, "Tab view style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImTabView"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FTabEvent = TMulticastDelegate<ImTabView&, int>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImTabView&, int, FVector2>;
     using FTabCloseRequestedEvent = TMulticastDelegate<ImTabView&, int, bool&>;

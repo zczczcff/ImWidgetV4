@@ -12,30 +12,11 @@
 namespace ImWidgetV4 {
 
 struct FListViewStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FListViewStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FListViewStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FListViewStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FListViewStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "HoveredRowColor", &FListViewStyle::HoveredRowColor, "Hovered row color")
-        .RegisterProperty(PropertyType::Color, "SelectedRowColor", &FListViewStyle::SelectedRowColor, "Selected row color")
-        .RegisterProperty(PropertyType::Color, "SelectedFocusedRowColor", &FListViewStyle::SelectedFocusedRowColor, "Selected focused row color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FListViewStyle::Padding, "Outer padding")
-        .RegisterProperty(PropertyType::Struct, "RowPadding", &FListViewStyle::RowPadding, "Row padding")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FListViewStyle::MinDesiredSize, "Minimum desired size")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FListViewStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FListViewStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "RowMinHeight", &FListViewStyle::RowMinHeight, "Minimum row height")
-        .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FListViewStyle::ScrollbarThickness, "Scrollbar thickness")
-        .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FListViewStyle::ScrollbarPadding, "Scrollbar padding")
-        .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FListViewStyle::ScrollbarTrackColor, "Scrollbar track color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbColor", &FListViewStyle::ScrollbarThumbColor, "Scrollbar thumb color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbHoveredColor", &FListViewStyle::ScrollbarThumbHoveredColor, "Hovered scrollbar thumb color")
-        .RegisterProperty(PropertyType::Float, "ThumbMinLength", &FListViewStyle::ThumbMinLength, "Minimum thumb length")
-        .RegisterProperty(PropertyType::Float, "WheelScrollStep", &FListViewStyle::WheelScrollStep, "Wheel scroll step");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FListViewStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -58,30 +39,11 @@ public:
 };
 
 class ImListView : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImListView, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Int,
-            "ItemCount",
-            static_cast<void (ImListView::*)(int&)>(&ImListView::SetItemCountProperty),
-            static_cast<int& (ImListView::*)()>(&ImListView::GetItemCountProperty),
-            "Total item count")
-        .RegisterProperty(
-            PropertyType::Int,
-            "SelectedIndex",
-            static_cast<void (ImListView::*)(int&)>(&ImListView::SetSelectedIndexProperty),
-            static_cast<int& (ImListView::*)()>(&ImListView::GetSelectedIndexProperty),
-            "Selected item index")
-        .RegisterProperty(
-            PropertyType::Float,
-            "ScrollOffset",
-            static_cast<void (ImListView::*)(float&)>(&ImListView::SetScrollOffsetProperty),
-            static_cast<float& (ImListView::*)()>(&ImListView::GetScrollOffsetProperty),
-            "Vertical scroll offset")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImListView::Style_, "List view style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImListView"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FOnGenerateRow = std::function<std::shared_ptr<ImWidget>(std::size_t index)>;
     using FSelectionChangedEvent = TMulticastDelegate<ImListView&, int>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImListView&, int, FVector2>;

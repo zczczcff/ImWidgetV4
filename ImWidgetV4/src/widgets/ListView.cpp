@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/ListView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
@@ -65,6 +67,186 @@ bool IsNavigationKey(EKey key)
            key == EKey::Home ||
            key == EKey::End;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FListViewStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::BackgroundColor>(
+            "FListViewStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::BorderColor>(
+            "FListViewStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::FocusedOutlineColor>(
+            "FListViewStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::HoveredRowColor>(
+            "FListViewStyle",
+            "HoveredRowColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered row color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::SelectedRowColor>(
+            "FListViewStyle",
+            "SelectedRowColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selected row color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::SelectedFocusedRowColor>(
+            "FListViewStyle",
+            "SelectedFocusedRowColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selected focused row color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FMargin, &FListViewStyle::Padding>(
+            "FListViewStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Outer padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FListViewStyle, FMargin, &FListViewStyle::RowPadding>(
+            "FListViewStyle",
+            "RowPadding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Row padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FListViewStyle, FVector2, &FListViewStyle::MinDesiredSize>(
+            "FListViewStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::CornerRadius>(
+            "FListViewStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::BorderThickness>(
+            "FListViewStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::RowMinHeight>(
+            "FListViewStyle",
+            "RowMinHeight",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum row height"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::ScrollbarThickness>(
+            "FListViewStyle",
+            "ScrollbarThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Scrollbar thickness"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::ScrollbarPadding>(
+            "FListViewStyle",
+            "ScrollbarPadding",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Scrollbar padding"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::ScrollbarTrackColor>(
+            "FListViewStyle",
+            "ScrollbarTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Scrollbar track color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::ScrollbarThumbColor>(
+            "FListViewStyle",
+            "ScrollbarThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FListViewStyle, FColor, &FListViewStyle::ScrollbarThumbHoveredColor>(
+            "FListViewStyle",
+            "ScrollbarThumbHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::ThumbMinLength>(
+            "FListViewStyle",
+            "ThumbMinLength",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum thumb length"),
+        Reflection::MakeMemberProperty<FListViewStyle, float, &FListViewStyle::WheelScrollStep>(
+            "FListViewStyle",
+            "WheelScrollStep",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Wheel scroll step")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FListViewStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImListView::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImListView, int, &ImListView::SetItemCountProperty, &ImListView::GetItemCountProperty>(
+            "ImListView",
+            "ItemCount",
+            Reflection::EPropertyKind::Int,
+            "int",
+            "Total item count"),
+        Reflection::MakeObjectAccessorProperty<ImListView, int, &ImListView::SetSelectedIndexProperty, &ImListView::GetSelectedIndexProperty>(
+            "ImListView",
+            "SelectedIndex",
+            Reflection::EPropertyKind::Int,
+            "int",
+            "Selected item index"),
+        Reflection::MakeObjectAccessorProperty<ImListView, float, &ImListView::SetScrollOffsetProperty, &ImListView::GetScrollOffsetProperty>(
+            "ImListView",
+            "ScrollOffset",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Vertical scroll offset"),
+        Reflection::MakeMemberProperty<ImListView, FListViewStyle, &ImListView::Style_>(
+            "ImListView",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FListViewStyle",
+            "List view style",
+            &FListViewStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImListView",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FListViewStyleReflectionTypeDesc = FListViewStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImListViewReflectionTypeDesc = ImListView::StaticTypeDesc();
 
 } // namespace
 

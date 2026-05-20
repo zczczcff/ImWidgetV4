@@ -96,6 +96,9 @@ target_link_libraries(MyApp PRIVATE
 - 已验证 build-tree package smoke test。
 - 已验证 install-tree package smoke test。
 - 已验证 `sdk/cmake` 子目录发布布局可被外部最小工程消费。
+- 已增加 `scripts/package_sdk.ps1` 一键生成 `ImWidgetV4-Release/` 发布目录。
+- 已增加 `scripts/smoke_sdk_package.ps1` 验证发布包可被外部最小工程消费。
+- 已在发布包中安装 `templates/MinimalDesktopApp` 最小桌面应用模板。
 
 ## Source 模式
 
@@ -152,20 +155,21 @@ add_subdirectory("${IMWIDGETV4_ROOT}" "${CMAKE_BINARY_DIR}/ImWidgetV4")
 
 ### Phase 5：Release Packaging
 
-状态：进行中。
+状态：基本完成。
 
 已完成：
 
 - CMake install 可生成 `sdk/` 和 `tools/` 布局。
 - 编辑器可自动识别随包 SDK。
+- `scripts/package_sdk.ps1` 可生成包含 `sdk/`、`tools/`、`templates/` 的发布目录。
+- `scripts/smoke_sdk_package.ps1` 可从发布目录配置并构建最小外部消费工程。
+- 发布包包含 `templates/MinimalDesktopApp`，用于手工验证和用户入门。
 
 待完成：
 
-- 增加一键打包脚本。
-- 增加发布包 smoke test。
-- 增加示例项目或模板目录。
 - 增加 Release/Debug 双配置打包验证。
 - 明确 Android ABI、NDK 版本和 native app glue 分发策略。
+- 增加发布包压缩、版本命名和校验清单。
 
 ## 风险
 
@@ -177,7 +181,7 @@ add_subdirectory("${IMWIDGETV4_ROOT}" "${CMAKE_BINARY_DIR}/ImWidgetV4")
 
 ## 下一步建议
 
-1. 增加发布打包脚本，输出完整 `ImWidgetV4-Release/` 目录。
-2. 增加发布包 smoke test：从发布目录创建新项目、配置、构建。
-3. 在项目设置页增加 SDK 路径浏览按钮。
-4. 设计 Android SDK 包布局与 ABI 选择规则。
+1. 增加 Debug/Release 双配置发布包验证，避免用户在 Release 工程里只拿到 Debug 静态库。
+2. 设计 Android SDK 包布局与 ABI 选择规则。
+3. 增加发布包压缩、版本命名和校验清单。
+4. 将 SDK 兼容状态从 Output 提示升级为配置页/状态栏诊断。

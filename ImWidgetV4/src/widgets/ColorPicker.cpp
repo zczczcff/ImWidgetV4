@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 #include <cmath>
@@ -137,6 +139,155 @@ void DrawVerticalColorRamp(
         drawContext.DrawRectFilled(min, max, LerpColor(stops[index], stops[index + 1], 0.5f), 0.0f);
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FColorPickerStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::BackgroundColor>(
+            "FColorPickerStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Picker background color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::BorderColor>(
+            "FColorPickerStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Picker border color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::FocusedOutlineColor>(
+            "FColorPickerStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::CheckerLightColor>(
+            "FColorPickerStyle",
+            "CheckerLightColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Checkerboard light color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::CheckerDarkColor>(
+            "FColorPickerStyle",
+            "CheckerDarkColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Checkerboard dark color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::SelectorOuterColor>(
+            "FColorPickerStyle",
+            "SelectorOuterColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selector outer color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FColor, &FColorPickerStyle::SelectorInnerColor>(
+            "FColorPickerStyle",
+            "SelectorInnerColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Selector inner color"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FMargin, &FColorPickerStyle::Padding>(
+            "FColorPickerStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Color picker padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::HueBarWidth>(
+            "FColorPickerStyle",
+            "HueBarWidth",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Hue bar width"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::AlphaBarWidth>(
+            "FColorPickerStyle",
+            "AlphaBarWidth",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Alpha bar width"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::BarSpacing>(
+            "FColorPickerStyle",
+            "BarSpacing",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Spacing between panels"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::BorderThickness>(
+            "FColorPickerStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::CornerRadius>(
+            "FColorPickerStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Outer corner radius"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, float, &FColorPickerStyle::SelectorRadius>(
+            "FColorPickerStyle",
+            "SelectorRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Selector radius"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, bool, &FColorPickerStyle::bShowAlphaBar>(
+            "FColorPickerStyle",
+            "ShowAlphaBar",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether alpha bar is visible"),
+        Reflection::MakeMemberProperty<FColorPickerStyle, FVector2, &FColorPickerStyle::MinDesiredSize>(
+            "FColorPickerStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FColorPickerStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImColorPicker::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImColorPicker, FColor, &ImColorPicker::SetColorProperty, &ImColorPicker::GetColorProperty>(
+            "ImColorPicker",
+            "Color",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Current picked color"),
+        Reflection::MakeMemberProperty<ImColorPicker, FColorPickerStyle, &ImColorPicker::m_Style>(
+            "ImColorPicker",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FColorPickerStyle",
+            "Color picker style",
+            &FColorPickerStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImColorPicker",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FColorPickerStyleReflectionTypeDesc = FColorPickerStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImColorPickerReflectionTypeDesc = ImColorPicker::StaticTypeDesc();
 
 } // namespace
 

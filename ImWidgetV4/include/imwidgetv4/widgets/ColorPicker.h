@@ -6,27 +6,11 @@
 namespace ImWidgetV4 {
 
 struct FColorPickerStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FColorPickerStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FColorPickerStyle::BackgroundColor, "Picker background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FColorPickerStyle::BorderColor, "Picker border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FColorPickerStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "CheckerLightColor", &FColorPickerStyle::CheckerLightColor, "Checkerboard light color")
-        .RegisterProperty(PropertyType::Color, "CheckerDarkColor", &FColorPickerStyle::CheckerDarkColor, "Checkerboard dark color")
-        .RegisterProperty(PropertyType::Color, "SelectorOuterColor", &FColorPickerStyle::SelectorOuterColor, "Selector outer color")
-        .RegisterProperty(PropertyType::Color, "SelectorInnerColor", &FColorPickerStyle::SelectorInnerColor, "Selector inner color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FColorPickerStyle::Padding, "Color picker padding")
-        .RegisterProperty(PropertyType::Float, "HueBarWidth", &FColorPickerStyle::HueBarWidth, "Hue bar width")
-        .RegisterProperty(PropertyType::Float, "AlphaBarWidth", &FColorPickerStyle::AlphaBarWidth, "Alpha bar width")
-        .RegisterProperty(PropertyType::Float, "BarSpacing", &FColorPickerStyle::BarSpacing, "Spacing between panels")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FColorPickerStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FColorPickerStyle::CornerRadius, "Outer corner radius")
-        .RegisterProperty(PropertyType::Float, "SelectorRadius", &FColorPickerStyle::SelectorRadius, "Selector radius")
-        .RegisterProperty(PropertyType::Bool, "ShowAlphaBar", &FColorPickerStyle::bShowAlphaBar, "Whether alpha bar is visible")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FColorPickerStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FColorPickerStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -46,18 +30,11 @@ public:
 };
 
 class ImColorPicker : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImColorPicker, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Color,
-            "Color",
-            static_cast<void (ImColorPicker::*)(FColor&)>(&ImColorPicker::SetColorProperty),
-            static_cast<FColor& (ImColorPicker::*)()>(&ImColorPicker::GetColorProperty),
-            "Current picked color")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImColorPicker::m_Style, "Color picker style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImColorPicker"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FColorChangedEvent = TMulticastDelegate<ImColorPicker&, const FColor&>;
 
     ImColorPicker();

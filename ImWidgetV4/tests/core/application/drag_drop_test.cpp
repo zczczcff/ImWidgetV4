@@ -12,8 +12,6 @@ using namespace ImWidgetV4;
 namespace {
 
 class FTestDragPayload : public FDragDropPayload {
-    DECLARE_OBJECT_WITH_PARENT(FTestDragPayload, FDragDropPayload)
-    END_DECLARE_OBJECT()
 };
 
 class DragTestWidget : public ImWidget {

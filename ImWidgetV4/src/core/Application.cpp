@@ -1,6 +1,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/ApplicationBackend.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include "CoreIconData.h"
 #include "../snapshot/TextureRegistry.h"
@@ -31,7 +32,22 @@
 
 namespace ImWidgetV4 {
 
+const Reflection::FTypeDesc& FDragDropPayload::StaticTypeDesc()
+{
+    static const Reflection::FTypeDesc typeDesc {
+        "FDragDropPayload",
+        nullptr,
+        nullptr,
+        0
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
 namespace {
+
+const Reflection::FTypeDesc& FDragDropPayloadReflectionTypeDesc = FDragDropPayload::StaticTypeDesc();
 
 void RegisterBaseThemePacks(ImApplication& application)
 {

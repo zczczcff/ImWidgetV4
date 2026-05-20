@@ -21,10 +21,11 @@ enum class EDragDropEventType : std::uint8_t {
 };
 
 class FDragDropPayload : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FDragDropPayload, ReflectableObject)
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FDragDropPayload"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     virtual ~FDragDropPayload() = default;
 };
 

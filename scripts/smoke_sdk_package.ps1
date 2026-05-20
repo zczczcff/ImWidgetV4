@@ -1,0 +1,104 @@
+param(
+    [string]$PackageDir = "build/package/ImWidgetV4-Release",
+    [string]$Configuration = "Debug",
+    [string]$SmokeDir = "build/package-sdk-smoke",
+    [string]$Generator = "",
+    [string]$Platform = ""
+)
+
+$ErrorActionPreference = "Stop"
+
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$packagePath = Resolve-Path (Join-Path $repoRoot $PackageDir)
+$smokePath = Join-Path $repoRoot $SmokeDir
+$sourcePath = Join-Path $smokePath "src"
+$buildPath = Join-Path $smokePath "build"
+$sdkCmakePath = Join-Path $packagePath "sdk/cmake"
+$editorPath = Join-Path $packagePath "tools/ImWidgetV4Editor.exe"
+
+if (-not (Test-Path (Join-Path $sdkCmakePath "ImWidgetV4Config.cmake"))) {
+    throw "ImWidgetV4Config.cmake was not found under '$sdkCmakePath'."
+}
+
+if (-not (Test-Path $editorPath)) {
+    throw "ImWidgetV4Editor.exe was not found under '$editorPath'."
+}
+
+if (Test-Path $smokePath) {
+    Write-Host "[smoke] Removing previous smoke directory..."
+    Remove-Item -LiteralPath $smokePath -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force -Path $sourcePath | Out-Null
+
+@"
+cmake_minimum_required(VERSION 3.24)
+project(ImWidgetV4ReleasePackageSmoke LANGUAGES CXX)
+
+find_package(ImWidgetV4 CONFIG REQUIRED)
+
+add_executable(release_package_smoke WIN32 main.cpp)
+target_link_libraries(release_package_smoke PRIVATE
+    ImWidgetV4::core
+    ImWidgetV4::platform_win32_dx11
+    ImWidgetV4::app_host_win32_main
+)
+"@ | Set-Content -Path (Join-Path $sourcePath "CMakeLists.txt") -Encoding utf8
+
+@"
+#include <imwidgetv4/app/ApplicationHost.h>
+#include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/widgets/TextBlock.h>
+
+#include <memory>
+
+class ReleasePackageSmokeHostDelegate final : public ImWidgetV4::IApplicationHostDelegate
+{
+public:
+    ImWidgetV4::FApplicationHostConfig GetHostConfig() const override
+    {
+        ImWidgetV4::FApplicationHostConfig config;
+        config.Title = "Release package smoke";
+        return config;
+    }
+
+    void ConfigureApplication(ImWidgetV4::ImApplication& application) override
+    {
+        auto widget = std::make_shared<ImWidgetV4::ImTextBlock>();
+        widget->SetText("Release package smoke");
+        application.SetRootWidget(widget);
+    }
+};
+
+std::shared_ptr<ImWidgetV4::IApplicationHostDelegate> ImWidgetV4::CreateApplicationHostDelegate()
+{
+    return std::make_shared<ReleasePackageSmokeHostDelegate>();
+}
+"@ | Set-Content -Path (Join-Path $sourcePath "main.cpp") -Encoding utf8
+
+$configureArgs = @(
+    "-S", $sourcePath,
+    "-B", $buildPath,
+    "-DImWidgetV4_DIR=$sdkCmakePath"
+)
+
+if ($Generator -ne "") {
+    $configureArgs += @("-G", $Generator)
+}
+if ($Platform -ne "") {
+    $configureArgs += @("-A", $Platform)
+}
+
+Write-Host "[smoke] Configuring consumer project..."
+& cmake @configureArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Smoke configure failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "[smoke] Building consumer project ($Configuration)..."
+& cmake --build $buildPath --config $Configuration --target release_package_smoke
+if ($LASTEXITCODE -ne 0) {
+    throw "Smoke build failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "[smoke] Package smoke test passed: $packagePath"

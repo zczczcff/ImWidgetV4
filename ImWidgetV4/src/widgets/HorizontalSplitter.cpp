@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -109,6 +111,83 @@ void DistributeSizes(
         }
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FHorizontalSplitterStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FHorizontalSplitterStyle, float, &FHorizontalSplitterStyle::BarWidth>(
+            "FHorizontalSplitterStyle", "BarWidth", Reflection::EPropertyKind::Float, "float", "Bar width"),
+        Reflection::MakeMemberProperty<FHorizontalSplitterStyle, FColor, &FHorizontalSplitterStyle::Color>(
+            "FHorizontalSplitterStyle", "Color", Reflection::EPropertyKind::Color, "FColor", "Bar color"),
+        Reflection::MakeMemberProperty<FHorizontalSplitterStyle, FColor, &FHorizontalSplitterStyle::HoveredColor>(
+            "FHorizontalSplitterStyle", "HoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered bar color"),
+        Reflection::MakeMemberProperty<FHorizontalSplitterStyle, FColor, &FHorizontalSplitterStyle::ActiveColor>(
+            "FHorizontalSplitterStyle", "ActiveColor", Reflection::EPropertyKind::Color, "FColor", "Active bar color"),
+        Reflection::MakeMemberProperty<FHorizontalSplitterStyle, float, &FHorizontalSplitterStyle::Rounding>(
+            "FHorizontalSplitterStyle", "Rounding", Reflection::EPropertyKind::Float, "float", "Bar rounding")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FHorizontalSplitterStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImHorizontalSplitterSlot::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImHorizontalSplitterSlot, float, &ImHorizontalSplitterSlot::m_Ratio>(
+            "ImHorizontalSplitterSlot", "Ratio", Reflection::EPropertyKind::Float, "float", "Part ratio"),
+        Reflection::MakeMemberProperty<ImHorizontalSplitterSlot, float, &ImHorizontalSplitterSlot::m_MinSize>(
+            "ImHorizontalSplitterSlot", "MinSize", Reflection::EPropertyKind::Float, "float", "Minimum part size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImHorizontalSplitterSlot",
+        &ImPaddingSlot::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImHorizontalSplitter::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImHorizontalSplitter, FHorizontalSplitterStyle, &ImHorizontalSplitter::m_Style>(
+            "ImHorizontalSplitter",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FHorizontalSplitterStyle",
+            "Horizontal splitter style",
+            &FHorizontalSplitterStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImHorizontalSplitter",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FHorizontalSplitterStyleReflectionTypeDesc = FHorizontalSplitterStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImHorizontalSplitterSlotReflectionTypeDesc = ImHorizontalSplitterSlot::StaticTypeDesc();
+const Reflection::FTypeDesc& ImHorizontalSplitterReflectionTypeDesc = ImHorizontalSplitter::StaticTypeDesc();
 
 } // namespace
 

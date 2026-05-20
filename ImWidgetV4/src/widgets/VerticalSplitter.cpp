@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -108,6 +110,83 @@ void DistributeSizes(
         }
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FVerticalSplitterStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FVerticalSplitterStyle, float, &FVerticalSplitterStyle::BarHeight>(
+            "FVerticalSplitterStyle", "BarHeight", Reflection::EPropertyKind::Float, "float", "Bar height"),
+        Reflection::MakeMemberProperty<FVerticalSplitterStyle, FColor, &FVerticalSplitterStyle::Color>(
+            "FVerticalSplitterStyle", "Color", Reflection::EPropertyKind::Color, "FColor", "Bar color"),
+        Reflection::MakeMemberProperty<FVerticalSplitterStyle, FColor, &FVerticalSplitterStyle::HoveredColor>(
+            "FVerticalSplitterStyle", "HoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered bar color"),
+        Reflection::MakeMemberProperty<FVerticalSplitterStyle, FColor, &FVerticalSplitterStyle::ActiveColor>(
+            "FVerticalSplitterStyle", "ActiveColor", Reflection::EPropertyKind::Color, "FColor", "Active bar color"),
+        Reflection::MakeMemberProperty<FVerticalSplitterStyle, float, &FVerticalSplitterStyle::Rounding>(
+            "FVerticalSplitterStyle", "Rounding", Reflection::EPropertyKind::Float, "float", "Bar rounding")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FVerticalSplitterStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImVerticalSplitterSlot::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImVerticalSplitterSlot, float, &ImVerticalSplitterSlot::m_Ratio>(
+            "ImVerticalSplitterSlot", "Ratio", Reflection::EPropertyKind::Float, "float", "Part ratio"),
+        Reflection::MakeMemberProperty<ImVerticalSplitterSlot, float, &ImVerticalSplitterSlot::m_MinSize>(
+            "ImVerticalSplitterSlot", "MinSize", Reflection::EPropertyKind::Float, "float", "Minimum part size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImVerticalSplitterSlot",
+        &ImPaddingSlot::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImVerticalSplitter::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImVerticalSplitter, FVerticalSplitterStyle, &ImVerticalSplitter::m_Style>(
+            "ImVerticalSplitter",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FVerticalSplitterStyle",
+            "Vertical splitter style",
+            &FVerticalSplitterStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImVerticalSplitter",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FVerticalSplitterStyleReflectionTypeDesc = FVerticalSplitterStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImVerticalSplitterSlotReflectionTypeDesc = ImVerticalSplitterSlot::StaticTypeDesc();
+const Reflection::FTypeDesc& ImVerticalSplitterReflectionTypeDesc = ImVerticalSplitter::StaticTypeDesc();
 
 } // namespace
 

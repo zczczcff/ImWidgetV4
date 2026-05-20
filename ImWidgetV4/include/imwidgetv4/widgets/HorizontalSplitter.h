@@ -7,16 +7,11 @@
 namespace ImWidgetV4 {
 
 struct FHorizontalSplitterStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FHorizontalSplitterStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Float, "BarWidth", &FHorizontalSplitterStyle::BarWidth, "Bar width")
-        .RegisterProperty(PropertyType::Color, "Color", &FHorizontalSplitterStyle::Color, "Bar color")
-        .RegisterProperty(PropertyType::Color, "HoveredColor", &FHorizontalSplitterStyle::HoveredColor, "Hovered bar color")
-        .RegisterProperty(PropertyType::Color, "ActiveColor", &FHorizontalSplitterStyle::ActiveColor, "Active bar color")
-        .RegisterProperty(PropertyType::Float, "Rounding", &FHorizontalSplitterStyle::Rounding, "Bar rounding");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FHorizontalSplitterStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     float BarWidth = 4.0f;
     FColor Color = FColor::FromBytes(100, 100, 100, 255);
     FColor HoveredColor = FColor::FromBytes(120, 120, 120, 255);
@@ -25,13 +20,11 @@ public:
 };
 
 class ImHorizontalSplitterSlot : public ImPaddingSlot {
-    DECLARE_OBJECT_WITH_PARENT(ImHorizontalSplitterSlot, ImPaddingSlot)
-    registrar
-        .RegisterProperty(PropertyType::Float, "Ratio", &ImHorizontalSplitterSlot::m_Ratio, "Part ratio")
-        .RegisterProperty(PropertyType::Float, "MinSize", &ImHorizontalSplitterSlot::m_MinSize, "Minimum part size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImHorizontalSplitterSlot"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImHorizontalSplitterSlot() = default;
     virtual ~ImHorizontalSplitterSlot() = default;
 
@@ -47,12 +40,11 @@ private:
 };
 
 class ImHorizontalSplitter : public ImPanelWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImHorizontalSplitter, ImPanelWidget)
-    registrar
-        .RegisterProperty(PropertyType::Struct, "Style", &ImHorizontalSplitter::m_Style, "Horizontal splitter style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImHorizontalSplitter"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImHorizontalSplitter();
     virtual ~ImHorizontalSplitter() = default;
 

@@ -13,33 +13,11 @@ namespace ImWidgetV4 {
 class ImComboPopupList;
 
 struct FComboBoxStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FComboBoxStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FComboBoxStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "HoveredBackgroundColor", &FComboBoxStyle::HoveredBackgroundColor, "Hovered background color")
-        .RegisterProperty(PropertyType::Color, "PressedBackgroundColor", &FComboBoxStyle::PressedBackgroundColor, "Pressed background color")
-        .RegisterProperty(PropertyType::Color, "DisabledBackgroundColor", &FComboBoxStyle::DisabledBackgroundColor, "Disabled background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FComboBoxStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FComboBoxStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "TextColor", &FComboBoxStyle::TextColor, "Text color")
-        .RegisterProperty(PropertyType::Color, "PlaceholderTextColor", &FComboBoxStyle::PlaceholderTextColor, "Placeholder text color")
-        .RegisterProperty(PropertyType::Color, "DisabledTextColor", &FComboBoxStyle::DisabledTextColor, "Disabled text color")
-        .RegisterProperty(PropertyType::Color, "ArrowColor", &FComboBoxStyle::ArrowColor, "Arrow color")
-        .RegisterProperty(PropertyType::Color, "PopupRowHoveredColor", &FComboBoxStyle::PopupRowHoveredColor, "Popup row hovered color")
-        .RegisterProperty(PropertyType::Color, "PopupRowSelectedColor", &FComboBoxStyle::PopupRowSelectedColor, "Popup row selected color")
-        .RegisterProperty(PropertyType::Color, "PopupRowSelectedHoveredColor", &FComboBoxStyle::PopupRowSelectedHoveredColor, "Popup row selected hovered color")
-        .RegisterProperty(PropertyType::Color, "PopupOutlineColor", &FComboBoxStyle::PopupOutlineColor, "Popup outline color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FComboBoxStyle::Padding, "Content padding")
-        .RegisterProperty(PropertyType::Float, "FontSize", &FComboBoxStyle::FontSize, "Font size")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FComboBoxStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FComboBoxStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Float, "ArrowSize", &FComboBoxStyle::ArrowSize, "Arrow size")
-        .RegisterProperty(PropertyType::Float, "PopupItemHeight", &FComboBoxStyle::PopupItemHeight, "Popup item height")
-        .RegisterProperty(PropertyType::Float, "PopupMaxVisibleItems", &FComboBoxStyle::PopupMaxVisibleItems, "Popup max visible items")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FComboBoxStyle::MinDesiredSize, "Minimum desired size");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FComboBoxStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(31, 37, 46);
     FColor HoveredBackgroundColor = FColor::FromBytes(39, 46, 56);
     FColor PressedBackgroundColor = FColor::FromBytes(24, 31, 40);
@@ -65,37 +43,11 @@ public:
 };
 
 class ImComboBox : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImComboBox, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::StringArray,
-            "Items",
-            static_cast<void (ImComboBox::*)(std::vector<std::string>&)>(&ImComboBox::SetItemsProperty),
-            static_cast<std::vector<std::string>& (ImComboBox::*)()>(&ImComboBox::GetItemsProperty),
-            "Available combo box items")
-        .RegisterProperty(
-            PropertyType::Int,
-            "SelectedIndex",
-            static_cast<void (ImComboBox::*)(int&)>(&ImComboBox::SetSelectedIndexProperty),
-            static_cast<int& (ImComboBox::*)()>(&ImComboBox::GetSelectedIndexProperty),
-            "Selected item index")
-        .RegisterProperty(
-            PropertyType::String,
-            "PlaceholderText",
-            static_cast<void (ImComboBox::*)(std::string&)>(&ImComboBox::SetPlaceholderTextProperty),
-            static_cast<std::string& (ImComboBox::*)()>(&ImComboBox::GetPlaceholderTextProperty),
-            "Placeholder text")
-        .RegisterProperty(
-            PropertyType::Int,
-            "MaxVisibleItems",
-            static_cast<void (ImComboBox::*)(int&)>(&ImComboBox::SetMaxVisibleItemsProperty),
-            static_cast<int& (ImComboBox::*)()>(&ImComboBox::GetMaxVisibleItemsProperty),
-            "Maximum visible popup items")
-        .RegisterProperty(PropertyType::Bool, "Disabled", &ImComboBox::m_bDisabled, "Whether the combo box is disabled")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImComboBox::m_Style, "Combo box style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImComboBox"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSelectionChangedEvent = TMulticastDelegate<ImComboBox&, int>;
     using FPopupEvent = TMulticastDelegate<ImComboBox&>;
 

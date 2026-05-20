@@ -3,6 +3,8 @@
 #include <imwidgetv4/core/DrawContext.h>
 #include <imwidgetv4/core/Window.h>
 #include <imwidgetv4/core/WindowManager.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -46,6 +48,215 @@ FGeometry InsetGeometryByBorder(const FGeometry& geometry, float borderThickness
             std::max(0.0f, geometry.Size.X - borderInset * 2.0f),
             std::max(0.0f, geometry.Size.Y - borderInset * 2.0f)));
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FComboBoxStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::BackgroundColor>(
+            "FComboBoxStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::HoveredBackgroundColor>(
+            "FComboBoxStyle",
+            "HoveredBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered background color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PressedBackgroundColor>(
+            "FComboBoxStyle",
+            "PressedBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Pressed background color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::DisabledBackgroundColor>(
+            "FComboBoxStyle",
+            "DisabledBackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled background color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::BorderColor>(
+            "FComboBoxStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::FocusedOutlineColor>(
+            "FComboBoxStyle",
+            "FocusedOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Focused outline color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::TextColor>(
+            "FComboBoxStyle",
+            "TextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Text color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PlaceholderTextColor>(
+            "FComboBoxStyle",
+            "PlaceholderTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Placeholder text color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::DisabledTextColor>(
+            "FComboBoxStyle",
+            "DisabledTextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Disabled text color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::ArrowColor>(
+            "FComboBoxStyle",
+            "ArrowColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Arrow color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PopupRowHoveredColor>(
+            "FComboBoxStyle",
+            "PopupRowHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Popup row hovered color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PopupRowSelectedColor>(
+            "FComboBoxStyle",
+            "PopupRowSelectedColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Popup row selected color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PopupRowSelectedHoveredColor>(
+            "FComboBoxStyle",
+            "PopupRowSelectedHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Popup row selected hovered color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FColor, &FComboBoxStyle::PopupOutlineColor>(
+            "FComboBoxStyle",
+            "PopupOutlineColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Popup outline color"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FMargin, &FComboBoxStyle::Padding>(
+            "FComboBoxStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Content padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::FontSize>(
+            "FComboBoxStyle",
+            "FontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Font size"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::BorderThickness>(
+            "FComboBoxStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::CornerRadius>(
+            "FComboBoxStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::ArrowSize>(
+            "FComboBoxStyle",
+            "ArrowSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Arrow size"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::PopupItemHeight>(
+            "FComboBoxStyle",
+            "PopupItemHeight",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Popup item height"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, float, &FComboBoxStyle::PopupMaxVisibleItems>(
+            "FComboBoxStyle",
+            "PopupMaxVisibleItems",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Popup max visible items"),
+        Reflection::MakeMemberProperty<FComboBoxStyle, FVector2, &FComboBoxStyle::MinDesiredSize>(
+            "FComboBoxStyle",
+            "MinDesiredSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Minimum desired size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FComboBoxStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImComboBox::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImComboBox, std::vector<std::string>, &ImComboBox::SetItemsProperty, &ImComboBox::GetItemsProperty>(
+            "ImComboBox",
+            "Items",
+            Reflection::EPropertyKind::StringArray,
+            "std::vector<std::string>",
+            "Available combo box items"),
+        Reflection::MakeObjectAccessorProperty<ImComboBox, int, &ImComboBox::SetSelectedIndexProperty, &ImComboBox::GetSelectedIndexProperty>(
+            "ImComboBox",
+            "SelectedIndex",
+            Reflection::EPropertyKind::Int,
+            "int",
+            "Selected item index"),
+        Reflection::MakeObjectAccessorProperty<ImComboBox, std::string, &ImComboBox::SetPlaceholderTextProperty, &ImComboBox::GetPlaceholderTextProperty>(
+            "ImComboBox",
+            "PlaceholderText",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Placeholder text"),
+        Reflection::MakeObjectAccessorProperty<ImComboBox, int, &ImComboBox::SetMaxVisibleItemsProperty, &ImComboBox::GetMaxVisibleItemsProperty>(
+            "ImComboBox",
+            "MaxVisibleItems",
+            Reflection::EPropertyKind::Int,
+            "int",
+            "Maximum visible popup items"),
+        Reflection::MakeMemberProperty<ImComboBox, bool, &ImComboBox::m_bDisabled>(
+            "ImComboBox",
+            "Disabled",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the combo box is disabled"),
+        Reflection::MakeMemberProperty<ImComboBox, FComboBoxStyle, &ImComboBox::m_Style>(
+            "ImComboBox",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FComboBoxStyle",
+            "Combo box style",
+            &FComboBoxStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImComboBox",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FComboBoxStyleReflectionTypeDesc = FComboBoxStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImComboBoxReflectionTypeDesc = ImComboBox::StaticTypeDesc();
 
 } // namespace
 

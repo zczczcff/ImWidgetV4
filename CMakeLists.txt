@@ -21,3 +21,10 @@ add_subdirectory(ImWidgetV4)
 if(IMWIDGETV4_BUILD_EDITOR AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET imwidgetv4_platform_android_gles3))
     add_subdirectory(ImWidgetV4Editor)
 endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/templates")
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates/"
+        DESTINATION templates
+    )
+endif()

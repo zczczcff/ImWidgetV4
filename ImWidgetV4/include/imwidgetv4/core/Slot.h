@@ -25,6 +25,8 @@ public:
     /**
      * @brief 构造函数
      */
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImSlot();
 
     /**
@@ -90,6 +92,8 @@ public:
     /**
      * @brief 构造函数
      */
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImPaddingSlot();
 
     /**

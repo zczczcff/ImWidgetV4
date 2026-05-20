@@ -1,7 +1,55 @@
 #include <imwidgetv4/core/Widget.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <algorithm>
 
 namespace ImWidgetV4 {
+
+const Reflection::FTypeDesc& ImWidget::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImWidget, std::string, &ImWidget::m_Name>(
+            "ImWidget",
+            "Name",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Widget display name"),
+        Reflection::MakeMemberProperty<ImWidget, bool, &ImWidget::m_bVisible>(
+            "ImWidget",
+            "Visible",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the widget is visible"),
+        Reflection::MakeMemberProperty<ImWidget, bool, &ImWidget::m_bHitTestVisible>(
+            "ImWidget",
+            "HitTestVisible",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the widget participates in hit testing"),
+        Reflection::MakeMemberProperty<ImWidget, bool, &ImWidget::m_bSupportsKeyboardFocus>(
+            "ImWidget",
+            "SupportsKeyboardFocus",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the widget can receive keyboard focus")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImWidget",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImWidgetReflectionTypeDesc = ImWidget::StaticTypeDesc();
+
+} // namespace
 
 ImWidget::ImWidget()
     : m_Name("")

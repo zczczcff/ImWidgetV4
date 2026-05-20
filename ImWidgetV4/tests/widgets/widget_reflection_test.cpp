@@ -39,6 +39,14 @@ TEST(WidgetReflectionTest, TextBlockRegistersInheritedAndOwnProperties)
     EXPECT_TRUE(textBlock.HasProperty("TextColor", "ImTextBlock"));
     EXPECT_TRUE(textBlock.HasProperty("FontSize", "ImTextBlock"));
     EXPECT_TRUE(textBlock.HasProperty("WrapText", "ImTextBlock"));
+    EXPECT_STREQ(textBlock.GetTypeDesc().Name, "ReflectableObject");
+    const Reflection::FTypeDesc& widgetTypeDesc = ImWidget::StaticTypeDesc();
+    const Reflection::FPropertyDesc* visibleDesc =
+        Reflection::FindProperty(widgetTypeDesc, "Visible", "ImWidget");
+    ASSERT_NE(visibleDesc, nullptr);
+    Reflection::FPropertyHandle visibleProperty(&textBlock, visibleDesc);
+    ASSERT_NE(visibleProperty.GetConstAs<bool>(), nullptr);
+    EXPECT_TRUE(*visibleProperty.GetConstAs<bool>());
 
     auto textAlignment = textBlock.GetPropertyAsOptional("TextAlignment");
     auto verticalAlignment = textBlock.GetPropertyAsOptional("VerticalAlignment");
@@ -107,6 +115,19 @@ TEST(WidgetReflectionTest, SlotAndStyleClassesAreReflectable)
     EXPECT_EQ(slotJson["Properties"]["ImSlot::SlotSize"][1], 80.0f);
     EXPECT_EQ(slotJson["Properties"]["ImPaddingSlot::PaddingLeft"], 4.0f);
     EXPECT_EQ(slotJson["Properties"]["ImPaddingSlot::PaddingBottom"], 7.0f);
+    EXPECT_STREQ(slot.GetTypeDesc().Name, "ImPaddingSlot");
+    const Reflection::FPropertyDesc* slotPositionDesc =
+        Reflection::FindProperty(slot.GetTypeDesc(), "SlotPosition", "ImSlot");
+    const Reflection::FPropertyDesc* paddingLeftDesc =
+        Reflection::FindProperty(slot.GetTypeDesc(), "PaddingLeft", "ImPaddingSlot");
+    ASSERT_NE(slotPositionDesc, nullptr);
+    ASSERT_NE(paddingLeftDesc, nullptr);
+    Reflection::FPropertyHandle slotPositionProperty(&slot, slotPositionDesc);
+    Reflection::FPropertyHandle paddingLeftProperty(&slot, paddingLeftDesc);
+    ASSERT_NE(slotPositionProperty.GetConstAs<FVector2>(), nullptr);
+    ASSERT_NE(paddingLeftProperty.GetConstAs<float>(), nullptr);
+    EXPECT_FLOAT_EQ(slotPositionProperty.GetConstAs<FVector2>()->X, 10.0f);
+    EXPECT_FLOAT_EQ(*paddingLeftProperty.GetConstAs<float>(), 4.0f);
 
     FButtonStateStyle stateStyle;
     stateStyle.BackgroundColor = FColor::FromBytes(1, 2, 3, 255);

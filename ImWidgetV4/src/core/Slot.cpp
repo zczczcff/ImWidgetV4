@@ -1,10 +1,40 @@
 #include <imwidgetv4/core/Slot.h>
 #include <imwidgetv4/core/Widget.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <algorithm>
 
 namespace ImWidgetV4 {
 
 // ==================== ImSlot ====================
+
+const Reflection::FTypeDesc& ImSlot::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImSlot, FVector2, &ImSlot::m_SlotPosition>(
+            "ImSlot",
+            "SlotPosition",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Slot top-left position"),
+        Reflection::MakeMemberProperty<ImSlot, FVector2, &ImSlot::m_SlotSize>(
+            "ImSlot",
+            "SlotSize",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Slot size")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImSlot",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
 
 ImSlot::ImSlot()
     : m_SlotPosition(0.0f, 0.0f)
@@ -29,6 +59,53 @@ void ImSlot::ApplyLayout(ImWidget* child) {
 }
 
 // ==================== ImPaddingSlot ====================
+
+const Reflection::FTypeDesc& ImPaddingSlot::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImPaddingSlot, float, &ImPaddingSlot::PaddingLeft>(
+            "ImPaddingSlot",
+            "PaddingLeft",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Left padding"),
+        Reflection::MakeMemberProperty<ImPaddingSlot, float, &ImPaddingSlot::PaddingRight>(
+            "ImPaddingSlot",
+            "PaddingRight",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Right padding"),
+        Reflection::MakeMemberProperty<ImPaddingSlot, float, &ImPaddingSlot::PaddingTop>(
+            "ImPaddingSlot",
+            "PaddingTop",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Top padding"),
+        Reflection::MakeMemberProperty<ImPaddingSlot, float, &ImPaddingSlot::PaddingBottom>(
+            "ImPaddingSlot",
+            "PaddingBottom",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Bottom padding")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImPaddingSlot",
+        &ImSlot::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImSlotReflectionTypeDesc = ImSlot::StaticTypeDesc();
+const Reflection::FTypeDesc& ImPaddingSlotReflectionTypeDesc = ImPaddingSlot::StaticTypeDesc();
+
+} // namespace
 
 ImPaddingSlot::ImPaddingSlot()
     : ImSlot()

@@ -34,6 +34,8 @@ class ImWidget : public ReflectableObject, public std::enable_shared_from_this<I
 public:
     using Ptr = std::shared_ptr<ImWidget>;
 
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImWidget();
     virtual ~ImWidget() = default;
 

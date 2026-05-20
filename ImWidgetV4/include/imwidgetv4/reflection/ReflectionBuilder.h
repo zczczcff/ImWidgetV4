@@ -39,6 +39,30 @@ constexpr size_t MemberOffset(ValueType ClassType::* member)
         &(reinterpret_cast<ClassType const volatile*>(0)->*member));
 }
 
+template<typename ClassType, typename ValueType, ValueType& (ClassType::*Getter)()>
+void* GetAccessorPtr(void* object)
+{
+    return &(static_cast<ClassType*>(object)->*Getter)();
+}
+
+template<typename ClassType, typename ValueType, ValueType& (ClassType::*Getter)()>
+const void* GetConstAccessorPtr(const void* object)
+{
+    return &(const_cast<ClassType*>(static_cast<const ClassType*>(object))->*Getter)();
+}
+
+template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&), ValueType& (ClassType::*Getter)()>
+bool CopyAccessorValue(void* object, const void* source)
+{
+    if (!object || !source) {
+        return false;
+    }
+
+    ValueType value = *static_cast<const ValueType*>(source);
+    (static_cast<ClassType*>(object)->*Setter)(value);
+    return true;
+}
+
 } // namespace Detail
 
 template<typename ClassType, typename ValueType, ValueType ClassType::*Member>
@@ -65,6 +89,55 @@ FPropertyDesc MakeMemberProperty(
     desc.GetConstPtr = &Detail::GetConstMemberPtr<ClassType, ValueType, Member>;
     desc.CopyValue = &Detail::CopyValueImpl<ValueType>;
     desc.bCustomAccessor = false;
+    return desc;
+}
+
+template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&), ValueType& (ClassType::*Getter)()>
+FPropertyDesc MakeAccessorProperty(
+    const char* ownerTypeName,
+    const char* name,
+    EPropertyKind kind,
+    const char* valueTypeName,
+    const char* description = "",
+    const FTypeDesc* structType = nullptr,
+    FEnumOptions enumOptions = {})
+{
+    FPropertyDesc desc;
+    desc.Name = name;
+    desc.OwnerTypeName = ownerTypeName;
+    desc.ValueTypeName = valueTypeName;
+    desc.Description = description;
+    desc.Kind = kind;
+    desc.Offset = 0;
+    desc.Size = sizeof(ValueType);
+    desc.StructType = structType;
+    desc.EnumOptions = enumOptions;
+    desc.GetMutablePtr = &Detail::GetAccessorPtr<ClassType, ValueType, Getter>;
+    desc.GetConstPtr = &Detail::GetConstAccessorPtr<ClassType, ValueType, Getter>;
+    desc.CopyValue = nullptr;
+    desc.bCustomAccessor = true;
+    return desc;
+}
+
+template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&), ValueType& (ClassType::*Getter)()>
+FPropertyDesc MakeMutableAccessorProperty(
+    const char* ownerTypeName,
+    const char* name,
+    EPropertyKind kind,
+    const char* valueTypeName,
+    const char* description = "",
+    const FTypeDesc* structType = nullptr,
+    FEnumOptions enumOptions = {})
+{
+    FPropertyDesc desc = MakeAccessorProperty<ClassType, ValueType, Setter, Getter>(
+        ownerTypeName,
+        name,
+        kind,
+        valueTypeName,
+        description,
+        structType,
+        enumOptions);
+    desc.CopyValue = &Detail::CopyAccessorValue<ClassType, ValueType, Setter, Getter>;
     return desc;
 }
 

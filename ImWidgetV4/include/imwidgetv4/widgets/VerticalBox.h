@@ -8,12 +8,11 @@
 namespace ImWidgetV4 {
 
 class ImVerticalBox : public ImPanelWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImVerticalBox, ImPanelWidget)
-    registrar
-        .RegisterProperty(PropertyType::Float, "Spacing", &ImVerticalBox::m_Spacing, "Vertical spacing between child widgets");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImVerticalBox"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImVerticalBox();
     virtual ~ImVerticalBox() = default;
 

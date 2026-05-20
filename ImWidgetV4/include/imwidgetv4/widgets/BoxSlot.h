@@ -6,12 +6,11 @@
 namespace ImWidgetV4 {
 
 class ImBoxSlot : public ImPaddingSlot {
-    DECLARE_OBJECT_WITH_PARENT(ImBoxSlot, ImPaddingSlot)
-    registrar
-        .RegisterProperty(PropertyType::Float, "FillCoefficient", &ImBoxSlot::m_FillCoefficient, "Fill coefficient for proportional layout");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImBoxSlot"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImBoxSlot();
     virtual ~ImBoxSlot() = default;
 

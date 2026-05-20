@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 
 #include <algorithm>
 
@@ -18,6 +20,30 @@ std::unique_ptr<ImBoxSlot> MakeBoxSlot(float fillCoefficient, const FMargin& pad
     slot->SetFillCoefficient(fillCoefficient);
     return slot;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& ImVerticalBox::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImVerticalBox, float, &ImVerticalBox::m_Spacing>(
+            "ImVerticalBox", "Spacing", Reflection::EPropertyKind::Float, "float", "Vertical spacing between child widgets")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImVerticalBox",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImVerticalBoxReflectionTypeDesc = ImVerticalBox::StaticTypeDesc();
 
 } // namespace
 

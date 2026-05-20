@@ -39,20 +39,36 @@ TEST(WidgetReflectionTest, TextBlockRegistersInheritedAndOwnProperties)
     EXPECT_TRUE(textBlock.HasProperty("TextColor", "ImTextBlock"));
     EXPECT_TRUE(textBlock.HasProperty("FontSize", "ImTextBlock"));
     EXPECT_TRUE(textBlock.HasProperty("WrapText", "ImTextBlock"));
-    EXPECT_STREQ(textBlock.GetTypeDesc().Name, "ReflectableObject");
-    const Reflection::FTypeDesc& widgetTypeDesc = ImWidget::StaticTypeDesc();
+    EXPECT_STREQ(textBlock.GetTypeDesc().Name, "ImTextBlock");
+    const Reflection::FTypeDesc& widgetTypeDesc = textBlock.GetTypeDesc();
     const Reflection::FPropertyDesc* visibleDesc =
         Reflection::FindProperty(widgetTypeDesc, "Visible", "ImWidget");
+    const Reflection::FPropertyDesc* fontSizeDesc =
+        Reflection::FindProperty(widgetTypeDesc, "FontSize", "ImTextBlock");
+    const Reflection::FPropertyDesc* textAlignmentDesc =
+        Reflection::FindProperty(widgetTypeDesc, "TextAlignment", "ImTextBlock");
     ASSERT_NE(visibleDesc, nullptr);
+    ASSERT_NE(fontSizeDesc, nullptr);
+    ASSERT_NE(textAlignmentDesc, nullptr);
     Reflection::FPropertyHandle visibleProperty(&textBlock, visibleDesc);
     ASSERT_NE(visibleProperty.GetConstAs<bool>(), nullptr);
     EXPECT_TRUE(*visibleProperty.GetConstAs<bool>());
+    Reflection::FPropertyHandle fontSizeProperty(&textBlock, fontSizeDesc);
+    const float reflectedFontSize = 24.0f;
+    EXPECT_TRUE(fontSizeProperty.CopyFrom(&reflectedFontSize));
+    EXPECT_FLOAT_EQ(textBlock.GetFontSize(), reflectedFontSize);
+    EXPECT_EQ(textAlignmentDesc->EnumOptions.Count, 3);
+    EXPECT_STREQ(textAlignmentDesc->EnumOptions.Names[2], "Right");
+    Reflection::FPropertyHandle textAlignmentProperty(&textBlock, textAlignmentDesc);
+    int reflectedTextAlignment = 2;
+    EXPECT_TRUE(textAlignmentProperty.CopyFrom(&reflectedTextAlignment));
+    EXPECT_EQ(textBlock.GetTextAlignment(), ETextAlignment::Right);
 
     auto textAlignment = textBlock.GetPropertyAsOptional("TextAlignment");
     auto verticalAlignment = textBlock.GetPropertyAsOptional("VerticalAlignment");
     EXPECT_TRUE(textAlignment.IsValid());
     EXPECT_TRUE(verticalAlignment.IsValid());
-    EXPECT_EQ(textAlignment.GetOptionString(), "Center");
+    EXPECT_EQ(textAlignment.GetOptionString(), "Right");
     EXPECT_EQ(verticalAlignment.GetOptionString(), "Center");
 }
 

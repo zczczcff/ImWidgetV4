@@ -27,6 +27,8 @@ struct FTextBlockStyle : public ReflectableObject {
     END_DECLARE_OBJECT()
 
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     FColor TextColor = FColor::White;
     float FontSize = 16.0f;
 };
@@ -65,6 +67,8 @@ class ImTextBlock : public ImWidget {
     END_DECLARE_OBJECT()
 
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+
     ImTextBlock();
     virtual ~ImTextBlock() = default;
 

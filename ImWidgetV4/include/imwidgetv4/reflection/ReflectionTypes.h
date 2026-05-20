@@ -24,6 +24,7 @@ struct FTypeDesc;
 using FGetMutablePtr = void* (*)(void* object);
 using FGetConstPtr = const void* (*)(const void* object);
 using FCopyValue = bool (*)(void* destination, const void* source);
+using FSetValue = bool (*)(void* object, const void* source);
 
 struct FEnumOptions {
     const char* const* Names = nullptr;
@@ -43,6 +44,7 @@ struct FPropertyDesc {
     FGetMutablePtr GetMutablePtr = nullptr;
     FGetConstPtr GetConstPtr = nullptr;
     FCopyValue CopyValue = nullptr;
+    FSetValue SetValue = nullptr;
     bool bCustomAccessor = false;
 };
 

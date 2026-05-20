@@ -51,8 +51,8 @@ const void* GetConstAccessorPtr(const void* object)
     return &(const_cast<ClassType*>(static_cast<const ClassType*>(object))->*Getter)();
 }
 
-template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&), ValueType& (ClassType::*Getter)()>
-bool CopyAccessorValue(void* object, const void* source)
+template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&)>
+bool CopyThroughAccessor(void* object, const void* source)
 {
     if (!object || !source) {
         return false;
@@ -88,6 +88,7 @@ FPropertyDesc MakeMemberProperty(
     desc.GetMutablePtr = &Detail::GetMemberPtr<ClassType, ValueType, Member>;
     desc.GetConstPtr = &Detail::GetConstMemberPtr<ClassType, ValueType, Member>;
     desc.CopyValue = &Detail::CopyValueImpl<ValueType>;
+    desc.SetValue = nullptr;
     desc.bCustomAccessor = false;
     return desc;
 }
@@ -115,12 +116,13 @@ FPropertyDesc MakeAccessorProperty(
     desc.GetMutablePtr = &Detail::GetAccessorPtr<ClassType, ValueType, Getter>;
     desc.GetConstPtr = &Detail::GetConstAccessorPtr<ClassType, ValueType, Getter>;
     desc.CopyValue = nullptr;
+    desc.SetValue = nullptr;
     desc.bCustomAccessor = true;
     return desc;
 }
 
 template<typename ClassType, typename ValueType, void (ClassType::*Setter)(ValueType&), ValueType& (ClassType::*Getter)()>
-FPropertyDesc MakeMutableAccessorProperty(
+FPropertyDesc MakeObjectAccessorProperty(
     const char* ownerTypeName,
     const char* name,
     EPropertyKind kind,
@@ -137,7 +139,7 @@ FPropertyDesc MakeMutableAccessorProperty(
         description,
         structType,
         enumOptions);
-    desc.CopyValue = &Detail::CopyAccessorValue<ClassType, ValueType, Setter, Getter>;
+    desc.SetValue = &Detail::CopyThroughAccessor<ClassType, ValueType, Setter>;
     return desc;
 }
 

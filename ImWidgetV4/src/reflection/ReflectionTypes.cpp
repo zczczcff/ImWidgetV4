@@ -55,7 +55,15 @@ const void* FPropertyHandle::GetConstPtr() const
 
 bool FPropertyHandle::CopyFrom(const void* source) const
 {
-    if (!IsValid() || !Desc_->CopyValue) {
+    if (!IsValid()) {
+        return false;
+    }
+
+    if (Desc_->SetValue) {
+        return Desc_->SetValue(Owner_, source);
+    }
+
+    if (!Desc_->CopyValue) {
         return false;
     }
 

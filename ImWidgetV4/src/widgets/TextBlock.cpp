@@ -1,12 +1,108 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <algorithm>
 #include <imgui.h>
 #include <cfloat>
 
 namespace ImWidgetV4 {
+
+const Reflection::FTypeDesc& FTextBlockStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FTextBlockStyle, FColor, &FTextBlockStyle::TextColor>(
+            "FTextBlockStyle",
+            "TextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Displayed text color"),
+        Reflection::MakeMemberProperty<FTextBlockStyle, float, &FTextBlockStyle::FontSize>(
+            "FTextBlockStyle",
+            "FontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Font size in pixels")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FTextBlockStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImTextBlock::StaticTypeDesc()
+{
+    static const char* const textAlignmentOptions[] = {"Left", "Center", "Right"};
+    static const char* const verticalAlignmentOptions[] = {"Top", "Center", "Bottom"};
+
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImTextBlock, std::string, &ImTextBlock::m_Text>(
+            "ImTextBlock",
+            "Text",
+            Reflection::EPropertyKind::String,
+            "std::string",
+            "Displayed text"),
+        Reflection::MakeObjectAccessorProperty<ImTextBlock, FColor, &ImTextBlock::SetTextColorProperty, &ImTextBlock::GetTextColorProperty>(
+            "ImTextBlock",
+            "TextColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Displayed text color"),
+        Reflection::MakeObjectAccessorProperty<ImTextBlock, float, &ImTextBlock::SetFontSizeProperty, &ImTextBlock::GetFontSizeProperty>(
+            "ImTextBlock",
+            "FontSize",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Font size in pixels"),
+        Reflection::MakeMemberProperty<ImTextBlock, bool, &ImTextBlock::m_bWrapText>(
+            "ImTextBlock",
+            "WrapText",
+            Reflection::EPropertyKind::Bool,
+            "bool",
+            "Whether the text wraps"),
+        Reflection::MakeObjectAccessorProperty<ImTextBlock, int, &ImTextBlock::SetTextAlignmentProperty, &ImTextBlock::GetTextAlignmentProperty>(
+            "ImTextBlock",
+            "TextAlignment",
+            Reflection::EPropertyKind::Enum,
+            "int",
+            "Horizontal text alignment",
+            nullptr,
+            {textAlignmentOptions, sizeof(textAlignmentOptions) / sizeof(textAlignmentOptions[0])}),
+        Reflection::MakeObjectAccessorProperty<ImTextBlock, int, &ImTextBlock::SetVerticalAlignmentProperty, &ImTextBlock::GetVerticalAlignmentProperty>(
+            "ImTextBlock",
+            "VerticalAlignment",
+            Reflection::EPropertyKind::Enum,
+            "int",
+            "Vertical text alignment",
+            nullptr,
+            {verticalAlignmentOptions, sizeof(verticalAlignmentOptions) / sizeof(verticalAlignmentOptions[0])})
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImTextBlock",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FTextBlockStyleReflectionTypeDesc = FTextBlockStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImTextBlockReflectionTypeDesc = ImTextBlock::StaticTypeDesc();
+
+} // namespace
 
 ImTextBlock::ImTextBlock()
     : ImWidget()

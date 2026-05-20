@@ -9,16 +9,12 @@
 namespace ImWidgetV4 {
 
 class ImButton : public ImPanelWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImButton, ImPanelWidget)
-    registrar
-        .RegisterProperty(PropertyType::Bool, "Disabled", &ImButton::m_bDisabled, "Whether the button is disabled")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImButton::m_Style, "Button style bundle");
-    END_DECLARE_OBJECT()
-
 public:
     using FButtonEvent = TMulticastDelegate<ImButton&>;
 
     static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImButton"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
 
     ImButton();
     virtual ~ImButton() = default;

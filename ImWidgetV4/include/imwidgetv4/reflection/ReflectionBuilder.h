@@ -146,7 +146,17 @@ bool SetObjectTypedValue(void* object, const FPropertyValue& value)
 template<typename ValueType>
 IReflectable* CastReflectable(void* value)
 {
-    if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
+    if constexpr (std::is_pointer_v<ValueType>) {
+        using PointeeType = std::remove_pointer_t<ValueType>;
+        if constexpr (std::is_base_of_v<IReflectable, PointeeType>) {
+            if (!value) {
+                return nullptr;
+            }
+            return static_cast<IReflectable*>(*static_cast<ValueType*>(value));
+        } else {
+            return nullptr;
+        }
+    } else if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
         return static_cast<IReflectable*>(static_cast<ValueType*>(value));
     } else {
         return nullptr;
@@ -156,7 +166,17 @@ IReflectable* CastReflectable(void* value)
 template<typename ValueType>
 const IReflectable* CastConstReflectable(const void* value)
 {
-    if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
+    if constexpr (std::is_pointer_v<ValueType>) {
+        using PointeeType = std::remove_pointer_t<ValueType>;
+        if constexpr (std::is_base_of_v<IReflectable, PointeeType>) {
+            if (!value) {
+                return nullptr;
+            }
+            return static_cast<const IReflectable*>(*static_cast<ValueType const*>(value));
+        } else {
+            return nullptr;
+        }
+    } else if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
         return static_cast<const IReflectable*>(static_cast<const ValueType*>(value));
     } else {
         return nullptr;

@@ -17,11 +17,6 @@ bool TypeNameContains(const std::string& typeName, const char* token)
     return typeName.find(token) != std::string::npos;
 }
 
-bool IsPointerTypeName(const std::string& typeName)
-{
-    return !typeName.empty() && typeName.back() == '*';
-}
-
 std::string MakeReflectionPropertyKey(const Reflection::FPropertyDesc& property)
 {
     return std::string(property.OwnerTypeName) + "::" + property.Name;
@@ -227,22 +222,13 @@ FReflectedOptionalProperty::FReflectedOptionalProperty(ReflectableObject* owner,
     }
 }
 
-FReflectedOptionalProperty::FReflectedOptionalProperty(const LegacyOptionalProperty& legacyProperty)
-    : LegacyProperty_(legacyProperty)
-{
-}
-
 bool FReflectedOptionalProperty::IsValid() const
 {
-    return (Owner_ && Desc_ && Desc_->Kind == Reflection::EPropertyKind::Enum) || LegacyProperty_.IsValid();
+    return Owner_ && Desc_ && Desc_->Kind == Reflection::EPropertyKind::Enum;
 }
 
 std::string FReflectedOptionalProperty::GetOptionString() const
 {
-    if (LegacyProperty_.IsValid()) {
-        return LegacyProperty_.GetOptionString();
-    }
-
     if (!Owner_ || !Desc_) {
         return std::string();
     }
@@ -258,19 +244,11 @@ std::string FReflectedOptionalProperty::GetOptionString() const
 
 const std::vector<std::string>& FReflectedOptionalProperty::GetOptionList() const
 {
-    if (LegacyProperty_.IsValid()) {
-        return LegacyProperty_.GetOptionList();
-    }
-
     return Options_;
 }
 
 bool FReflectedOptionalProperty::SetOptionByString(const std::string& option)
 {
-    if (LegacyProperty_.IsValid()) {
-        return LegacyProperty_.SetOptionByString(option);
-    }
-
     for (size_t index = 0; index < Options_.size(); ++index) {
         if (Options_[index] == option) {
             return SetOptionByIndex(static_cast<int>(index));
@@ -282,10 +260,6 @@ bool FReflectedOptionalProperty::SetOptionByString(const std::string& option)
 
 bool FReflectedOptionalProperty::SetOptionByIndex(int index)
 {
-    if (LegacyProperty_.IsValid()) {
-        return LegacyProperty_.SetOptionByIndex(index);
-    }
-
     if (!Owner_ || !Desc_ || index < 0 || static_cast<size_t>(index) >= Options_.size()) {
         return false;
     }
@@ -299,10 +273,6 @@ bool FReflectedOptionalProperty::SetOptionByIndex(int index)
 
 size_t FReflectedOptionalProperty::GetOptionCount() const
 {
-    if (LegacyProperty_.IsValid()) {
-        return LegacyProperty_.GetOptionCount();
-    }
-
     return Options_.size();
 }
 
@@ -321,21 +291,6 @@ const Reflection::FTypeDesc& ReflectableObject::GetTypeDesc() const
     return fallbackTypeDesc;
 }
 
-ReflectableObject::ROPPropertyDataType& ReflectableObject::GetPropertyDataStatic()
-{
-    static ROPPropertyDataType propertyData;
-    return propertyData;
-}
-
-bool ReflectableObject::StaticInitializeProperties()
-{
-    ROPPropertyDataType& propertyData = GetPropertyDataStatic();
-    if (!propertyData.initialized) {
-        propertyData.initialized = true;
-    }
-    return true;
-}
-
 const Reflection::FTypeDesc* ReflectableObject::FindReflectionTypeDesc() const
 {
     return Reflection::FReflectionRegistry::Get().FindType(GetTypeName());
@@ -349,7 +304,7 @@ bool ReflectableObject::HasProperty(const std::string& name) const
         }
     }
 
-    return ROP::PropertyObject<PropertyType>::HasProperty(name);
+    return false;
 }
 
 bool ReflectableObject::HasProperty(const std::string& name, const std::string& className) const
@@ -360,7 +315,7 @@ bool ReflectableObject::HasProperty(const std::string& name, const std::string& 
         }
     }
 
-    return ROP::PropertyObject<PropertyType>::HasProperty(name, className);
+    return false;
 }
 
 FReflectedOptionalProperty ReflectableObject::GetPropertyAsOptional(const std::string& name)
@@ -371,7 +326,7 @@ FReflectedOptionalProperty ReflectableObject::GetPropertyAsOptional(const std::s
         }
     }
 
-    return FReflectedOptionalProperty(ROP::PropertyObject<PropertyType>::GetPropertyAsOptional(name));
+    return FReflectedOptionalProperty();
 }
 
 FReflectedOptionalProperty ReflectableObject::GetPropertyAsOptional(const std::string& name, const std::string& className)
@@ -382,7 +337,7 @@ FReflectedOptionalProperty ReflectableObject::GetPropertyAsOptional(const std::s
         }
     }
 
-    return FReflectedOptionalProperty(ROP::PropertyObject<PropertyType>::GetPropertyAsOptional(name, className));
+    return FReflectedOptionalProperty();
 }
 
 json ReflectableObject::ToJson() const
@@ -407,93 +362,10 @@ json ReflectableObject::ToJson() const
 
             properties[MakeReflectionPropertyKey(*property)] = SerializeReflectedProperty(*property, value);
         }
-
-        result["Properties"] = properties;
-        return result;
-    }
-
-    auto allProps = GetAllPropertiesOrdered();
-
-    for (const auto& prop : allProps) {
-        const std::string propName = prop.GetName();
-        const std::string className = prop.GetClassName();
-        const std::string key = MakePropertyKey(className, propName);
-        properties[key] = SerializeProperty(prop);
     }
 
     result["Properties"] = properties;
     return result;
-}
-
-const ReflectableObject::ROPMetaType* ReflectableObject::GetPropertyMeta(const ROPProperty& prop) const
-{
-    return static_cast<const ROPMetaType*>(prop.GetMetaPtr());
-}
-
-json ReflectableObject::SerializeProperty(const ROPProperty& prop) const
-{
-    const PropertyType type = prop.GetType();
-    const ROPMetaType* meta = GetPropertyMeta(prop);
-    const std::string typeName = meta ? meta->typeName : std::string();
-
-    switch (type) {
-    case PropertyType::Int:
-        return prop.GetValue<int>();
-
-    case PropertyType::Float:
-        return prop.GetValue<float>();
-
-    case PropertyType::Bool:
-        return prop.GetValue<bool>();
-
-    case PropertyType::String:
-        return prop.GetValue<std::string>();
-
-    case PropertyType::Color: {
-        const ImU32 color = TypeNameContains(typeName, "FColor")
-            ? prop.GetValue<FColor>().ToImU32()
-            : prop.GetValue<ImU32>();
-
-        json colorArray = json::array();
-        colorArray.push_back((color >> IM_COL32_R_SHIFT) & 0xFF);
-        colorArray.push_back((color >> IM_COL32_G_SHIFT) & 0xFF);
-        colorArray.push_back((color >> IM_COL32_B_SHIFT) & 0xFF);
-        colorArray.push_back((color >> IM_COL32_A_SHIFT) & 0xFF);
-        return colorArray;
-    }
-
-    case PropertyType::Vec2: {
-        const ImVec2 vec = TypeNameContains(typeName, "FVector2")
-            ? prop.GetValue<FVector2>().ToImVec2()
-            : prop.GetValue<ImVec2>();
-
-        json vecArray = json::array();
-        vecArray.push_back(vec.x);
-        vecArray.push_back(vec.y);
-        return vecArray;
-    }
-
-    case PropertyType::Enum: {
-        auto optProp = ToOptionalProperty(prop);
-        return optProp.GetOptionString();
-    }
-
-    case PropertyType::Struct: {
-        ReflectableObject* nestedObj = IsPointerTypeName(typeName)
-            ? prop.GetValue<ReflectableObject*>()
-            : const_cast<ReflectableObject*>(prop.GetConstPointer<ReflectableObject>());
-        if (nestedObj) {
-            return nestedObj->ToJson();
-        }
-        return json(nullptr);
-    }
-
-    case PropertyType::StringArray:
-        return prop.GetValue<std::vector<std::string>>();
-
-    default:
-        return json(nullptr);
-    }
 }
 
 void ReflectableObject::FromJson(const json& j)
@@ -514,173 +386,50 @@ void ReflectableObject::FromJson(const json& j)
         throw std::runtime_error("Invalid JSON format: 'Properties' must be an object");
     }
 
-    if (const Reflection::FTypeDesc* typeDesc = FindReflectionTypeDesc()) {
-        for (auto it = properties.begin(); it != properties.end(); ++it) {
-            const auto keyPair = ParseReflectionPropertyKey(it.key());
-            const Reflection::FPropertyDesc* property = Reflection::FindProperty(*typeDesc, keyPair.second, keyPair.first);
-            if (!property) {
-                continue;
-            }
-
-            Reflection::FPropertyHandle handle(this, property);
-
-            try {
-                switch (property->Kind) {
-                case Reflection::EPropertyKind::Color:
-                    WriteReflectedColor(handle, it.value());
-                    break;
-                case Reflection::EPropertyKind::Vec2:
-                    WriteReflectedVec2(handle, it.value());
-                    break;
-                case Reflection::EPropertyKind::Struct:
-                    if (property->GetReflectable && !it.value().is_null()) {
-                        Reflection::IReflectable* nested = property->GetReflectable(handle.GetMutablePtr());
-                        if (ReflectableObject* nestedObject = dynamic_cast<ReflectableObject*>(nested)) {
-                            nestedObject->FromJson(it.value());
-                        }
-                    }
-                    break;
-                default: {
-                    const Reflection::FPropertyValue value = JsonToReflectedValue(*property, it.value());
-                    if (!handle.Write(value)) {
-                        throw std::runtime_error("Failed to write reflected property");
-                    }
-                    break;
-                }
-                }
-            } catch (const std::exception& e) {
-                std::ostringstream oss;
-                oss << "Failed to deserialize property '" << it.key() << "': " << e.what();
-                throw std::runtime_error(oss.str());
-            }
-        }
-
+    const Reflection::FTypeDesc* typeDesc = FindReflectionTypeDesc();
+    if (!typeDesc) {
         return;
     }
 
     for (auto it = properties.begin(); it != properties.end(); ++it) {
-        DeserializeProperty(it.key(), it.value());
+        const auto keyPair = ParseReflectionPropertyKey(it.key());
+        const Reflection::FPropertyDesc* property = Reflection::FindProperty(*typeDesc, keyPair.second, keyPair.first);
+        if (!property) {
+            continue;
+        }
+
+        Reflection::FPropertyHandle handle(this, property);
+
+        try {
+            switch (property->Kind) {
+            case Reflection::EPropertyKind::Color:
+                WriteReflectedColor(handle, it.value());
+                break;
+            case Reflection::EPropertyKind::Vec2:
+                WriteReflectedVec2(handle, it.value());
+                break;
+            case Reflection::EPropertyKind::Struct:
+                if (property->GetReflectable && !it.value().is_null()) {
+                    Reflection::IReflectable* nested = property->GetReflectable(handle.GetMutablePtr());
+                    if (ReflectableObject* nestedObject = dynamic_cast<ReflectableObject*>(nested)) {
+                        nestedObject->FromJson(it.value());
+                    }
+                }
+                break;
+            default: {
+                const Reflection::FPropertyValue value = JsonToReflectedValue(*property, it.value());
+                if (!handle.Write(value)) {
+                    throw std::runtime_error("Failed to write reflected property");
+                }
+                break;
+            }
+            }
+        } catch (const std::exception& e) {
+            std::ostringstream oss;
+            oss << "Failed to deserialize property '" << it.key() << "': " << e.what();
+            throw std::runtime_error(oss.str());
+        }
     }
-}
-
-void ReflectableObject::DeserializeProperty(const std::string& name, const json& value)
-{
-    const auto keyPair = ParsePropertyKey(name);
-    const std::string& className = keyPair.first;
-    const std::string& propName = keyPair.second;
-
-    ROPProperty prop = !className.empty()
-        ? GetProperty(propName, className)
-        : GetProperty(propName);
-
-    if (!prop.IsValid()) {
-        return;
-    }
-
-    const PropertyType type = prop.GetType();
-    const ROPMetaType* meta = GetPropertyMeta(prop);
-    const std::string typeName = meta ? meta->typeName : std::string();
-
-    try {
-        switch (type) {
-        case PropertyType::Int:
-            prop.SetValue<int>(value.get<int>());
-            break;
-
-        case PropertyType::Float:
-            prop.SetValue<float>(value.get<float>());
-            break;
-
-        case PropertyType::Bool:
-            prop.SetValue<bool>(value.get<bool>());
-            break;
-
-        case PropertyType::String:
-            prop.SetValue<std::string>(value.get<std::string>());
-            break;
-
-        case PropertyType::Color: {
-            if (!value.is_array() || value.size() != 4) {
-                throw std::runtime_error("Color must be an array of 4 integers");
-            }
-
-            const int r = value[0].get<int>();
-            const int g = value[1].get<int>();
-            const int b = value[2].get<int>();
-            const int a = value[3].get<int>();
-
-            if (TypeNameContains(typeName, "FColor")) {
-                prop.SetValue<FColor>(FColor::FromBytes(r, g, b, a));
-            } else {
-                prop.SetValue<ImU32>(IM_COL32(r, g, b, a));
-            }
-            break;
-        }
-
-        case PropertyType::Vec2: {
-            if (!value.is_array() || value.size() != 2) {
-                throw std::runtime_error("Vec2 must be an array of 2 floats");
-            }
-
-            const float x = value[0].get<float>();
-            const float y = value[1].get<float>();
-
-            if (TypeNameContains(typeName, "FVector2")) {
-                prop.SetValue<FVector2>(FVector2(x, y));
-            } else {
-                prop.SetValue<ImVec2>(ImVec2(x, y));
-            }
-            break;
-        }
-
-        case PropertyType::Enum: {
-            auto optProp = ToOptionalProperty(prop);
-            const std::string optionStr = value.get<std::string>();
-            if (!optProp.SetOptionByString(optionStr)) {
-                std::ostringstream oss;
-                oss << "Invalid enum value '" << optionStr << "' for property '" << propName << "'";
-                throw std::runtime_error(oss.str());
-            }
-            break;
-        }
-
-        case PropertyType::Struct: {
-            ReflectableObject* nestedObj = IsPointerTypeName(typeName)
-                ? prop.GetValue<ReflectableObject*>()
-                : prop.GetPointer<ReflectableObject>();
-            if (nestedObj && !value.is_null()) {
-                nestedObj->FromJson(value);
-            }
-            break;
-        }
-
-        case PropertyType::StringArray:
-            prop.SetValue<std::vector<std::string>>(value.get<std::vector<std::string>>());
-            break;
-
-        default:
-            break;
-        }
-    } catch (const std::exception& e) {
-        std::ostringstream oss;
-        oss << "Failed to deserialize property '" << name << "': " << e.what();
-        throw std::runtime_error(oss.str());
-    }
-}
-
-std::string ReflectableObject::MakePropertyKey(const std::string& className, const std::string& propName) const
-{
-    return className + "::" + propName;
-}
-
-std::pair<std::string, std::string> ReflectableObject::ParsePropertyKey(const std::string& key) const
-{
-    const size_t pos = key.find("::");
-    if (pos != std::string::npos) {
-        return {key.substr(0, pos), key.substr(pos + 2)};
-    }
-
-    return {"", key};
 }
 
 } // namespace ImWidgetV4

@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/OutlineView.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -56,6 +58,123 @@ float ResolveVisibleOffset(float targetStart, float targetSize, float viewportSi
 
     return currentOffset;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& ImOutlineItem::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImOutlineItem, bool, &ImOutlineItem::Expanded>(
+            "ImOutlineItem", "Expanded", Reflection::EPropertyKind::Bool, "bool", "Whether the item is expanded")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImOutlineItem",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& FOutlineViewStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::BackgroundColor>(
+            "FOutlineViewStyle", "BackgroundColor", Reflection::EPropertyKind::Color, "FColor", "Background color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::BorderColor>(
+            "FOutlineViewStyle", "BorderColor", Reflection::EPropertyKind::Color, "FColor", "Border color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::FocusedOutlineColor>(
+            "FOutlineViewStyle", "FocusedOutlineColor", Reflection::EPropertyKind::Color, "FColor", "Focused outline color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::HoveredRowColor>(
+            "FOutlineViewStyle", "HoveredRowColor", Reflection::EPropertyKind::Color, "FColor", "Hovered row color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::SelectedRowColor>(
+            "FOutlineViewStyle", "SelectedRowColor", Reflection::EPropertyKind::Color, "FColor", "Selected row color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::SelectedFocusedRowColor>(
+            "FOutlineViewStyle", "SelectedFocusedRowColor", Reflection::EPropertyKind::Color, "FColor", "Selected focused row color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::IndicatorColor>(
+            "FOutlineViewStyle", "IndicatorColor", Reflection::EPropertyKind::Color, "FColor", "Expand indicator color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FMargin, &FOutlineViewStyle::Padding>(
+            "FOutlineViewStyle", "Padding", Reflection::EPropertyKind::Struct, "FMargin", "Outer padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FMargin, &FOutlineViewStyle::RowPadding>(
+            "FOutlineViewStyle", "RowPadding", Reflection::EPropertyKind::Struct, "FMargin", "Row padding", &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FVector2, &FOutlineViewStyle::MinDesiredSize>(
+            "FOutlineViewStyle", "MinDesiredSize", Reflection::EPropertyKind::Vec2, "FVector2", "Minimum desired size"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::CornerRadius>(
+            "FOutlineViewStyle", "CornerRadius", Reflection::EPropertyKind::Float, "float", "Corner radius"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::BorderThickness>(
+            "FOutlineViewStyle", "BorderThickness", Reflection::EPropertyKind::Float, "float", "Border thickness"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::IndentWidth>(
+            "FOutlineViewStyle", "IndentWidth", Reflection::EPropertyKind::Float, "float", "Indent width"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::IndicatorSize>(
+            "FOutlineViewStyle", "IndicatorSize", Reflection::EPropertyKind::Float, "float", "Indicator size"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::IndicatorSpacing>(
+            "FOutlineViewStyle", "IndicatorSpacing", Reflection::EPropertyKind::Float, "float", "Indicator spacing"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::RowMinHeight>(
+            "FOutlineViewStyle", "RowMinHeight", Reflection::EPropertyKind::Float, "float", "Minimum row height"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::ScrollbarThickness>(
+            "FOutlineViewStyle", "ScrollbarThickness", Reflection::EPropertyKind::Float, "float", "Scrollbar thickness"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::ScrollbarPadding>(
+            "FOutlineViewStyle", "ScrollbarPadding", Reflection::EPropertyKind::Float, "float", "Scrollbar padding"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::ScrollbarTrackColor>(
+            "FOutlineViewStyle", "ScrollbarTrackColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar track color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::ScrollbarThumbColor>(
+            "FOutlineViewStyle", "ScrollbarThumbColor", Reflection::EPropertyKind::Color, "FColor", "Scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, FColor, &FOutlineViewStyle::ScrollbarThumbHoveredColor>(
+            "FOutlineViewStyle", "ScrollbarThumbHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::ThumbMinLength>(
+            "FOutlineViewStyle", "ThumbMinLength", Reflection::EPropertyKind::Float, "float", "Minimum thumb length"),
+        Reflection::MakeMemberProperty<FOutlineViewStyle, float, &FOutlineViewStyle::WheelScrollStep>(
+            "FOutlineViewStyle", "WheelScrollStep", Reflection::EPropertyKind::Float, "float", "Wheel scroll step")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FOutlineViewStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImOutlineView::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImOutlineView, float, &ImOutlineView::SetScrollOffsetProperty, &ImOutlineView::GetScrollOffsetProperty>(
+            "ImOutlineView",
+            "ScrollOffset",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Vertical scroll offset"),
+        Reflection::MakeMemberProperty<ImOutlineView, FOutlineViewStyle, &ImOutlineView::Style_>(
+            "ImOutlineView",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FOutlineViewStyle",
+            "Outline view style",
+            &FOutlineViewStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImOutlineView",
+        &ImWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImOutlineItemReflectionTypeDesc = ImOutlineItem::StaticTypeDesc();
+const Reflection::FTypeDesc& FOutlineViewStyleReflectionTypeDesc = FOutlineViewStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImOutlineViewReflectionTypeDesc = ImOutlineView::StaticTypeDesc();
 
 } // namespace
 

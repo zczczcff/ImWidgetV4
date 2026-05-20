@@ -8,12 +8,11 @@
 namespace ImWidgetV4 {
 
 class ImOutlineItem : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(ImOutlineItem, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Bool, "Expanded", &ImOutlineItem::Expanded, "Whether the item is expanded");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImOutlineItem"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     bool Expanded = false;
 
 private:
@@ -25,34 +24,11 @@ private:
 };
 
 struct FOutlineViewStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FOutlineViewStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "BackgroundColor", &FOutlineViewStyle::BackgroundColor, "Background color")
-        .RegisterProperty(PropertyType::Color, "BorderColor", &FOutlineViewStyle::BorderColor, "Border color")
-        .RegisterProperty(PropertyType::Color, "FocusedOutlineColor", &FOutlineViewStyle::FocusedOutlineColor, "Focused outline color")
-        .RegisterProperty(PropertyType::Color, "HoveredRowColor", &FOutlineViewStyle::HoveredRowColor, "Hovered row color")
-        .RegisterProperty(PropertyType::Color, "SelectedRowColor", &FOutlineViewStyle::SelectedRowColor, "Selected row color")
-        .RegisterProperty(PropertyType::Color, "SelectedFocusedRowColor", &FOutlineViewStyle::SelectedFocusedRowColor, "Selected focused row color")
-        .RegisterProperty(PropertyType::Color, "IndicatorColor", &FOutlineViewStyle::IndicatorColor, "Expand indicator color")
-        .RegisterProperty(PropertyType::Struct, "Padding", &FOutlineViewStyle::Padding, "Outer padding")
-        .RegisterProperty(PropertyType::Struct, "RowPadding", &FOutlineViewStyle::RowPadding, "Row padding")
-        .RegisterProperty(PropertyType::Vec2, "MinDesiredSize", &FOutlineViewStyle::MinDesiredSize, "Minimum desired size")
-        .RegisterProperty(PropertyType::Float, "CornerRadius", &FOutlineViewStyle::CornerRadius, "Corner radius")
-        .RegisterProperty(PropertyType::Float, "BorderThickness", &FOutlineViewStyle::BorderThickness, "Border thickness")
-        .RegisterProperty(PropertyType::Float, "IndentWidth", &FOutlineViewStyle::IndentWidth, "Indent width")
-        .RegisterProperty(PropertyType::Float, "IndicatorSize", &FOutlineViewStyle::IndicatorSize, "Indicator size")
-        .RegisterProperty(PropertyType::Float, "IndicatorSpacing", &FOutlineViewStyle::IndicatorSpacing, "Indicator spacing")
-        .RegisterProperty(PropertyType::Float, "RowMinHeight", &FOutlineViewStyle::RowMinHeight, "Minimum row height")
-        .RegisterProperty(PropertyType::Float, "ScrollbarThickness", &FOutlineViewStyle::ScrollbarThickness, "Scrollbar thickness")
-        .RegisterProperty(PropertyType::Float, "ScrollbarPadding", &FOutlineViewStyle::ScrollbarPadding, "Scrollbar padding")
-        .RegisterProperty(PropertyType::Color, "ScrollbarTrackColor", &FOutlineViewStyle::ScrollbarTrackColor, "Scrollbar track color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbColor", &FOutlineViewStyle::ScrollbarThumbColor, "Scrollbar thumb color")
-        .RegisterProperty(PropertyType::Color, "ScrollbarThumbHoveredColor", &FOutlineViewStyle::ScrollbarThumbHoveredColor, "Hovered scrollbar thumb color")
-        .RegisterProperty(PropertyType::Float, "ThumbMinLength", &FOutlineViewStyle::ThumbMinLength, "Minimum thumb length")
-        .RegisterProperty(PropertyType::Float, "WheelScrollStep", &FOutlineViewStyle::WheelScrollStep, "Wheel scroll step");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FOutlineViewStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor BackgroundColor = FColor::FromBytes(24, 28, 34);
     FColor BorderColor = FColor::FromBytes(16, 19, 23);
     FColor FocusedOutlineColor = FColor::FromBytes(103, 177, 255);
@@ -79,18 +55,11 @@ public:
 };
 
 class ImOutlineView : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImOutlineView, ImWidget)
-    registrar
-        .RegisterProperty(
-            PropertyType::Float,
-            "ScrollOffset",
-            static_cast<void (ImOutlineView::*)(float&)>(&ImOutlineView::SetScrollOffsetProperty),
-            static_cast<float& (ImOutlineView::*)()>(&ImOutlineView::GetScrollOffsetProperty),
-            "Vertical scroll offset")
-        .RegisterProperty(PropertyType::Struct, "Style", &ImOutlineView::Style_, "Outline view style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImOutlineView"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSelectionChangedEvent = TMulticastDelegate<ImOutlineView&, ImOutlineItem*>;
     using FExpandedChangedEvent = TMulticastDelegate<ImOutlineView&, ImOutlineItem&, bool>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImOutlineView&, ImOutlineItem&, FVector2>;

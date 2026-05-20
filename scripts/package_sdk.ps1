@@ -15,6 +15,40 @@ $buildPath = Join-Path $repoRoot $BuildDir
 $packagePath = Join-Path $repoRoot $PackageDir
 $requestedConfigurations = @()
 
+function Clear-ReadOnlyAttribute {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    Get-ChildItem -LiteralPath $Path -Recurse -Force | ForEach-Object {
+        $_.Attributes = $_.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+    }
+    $rootItem = Get-Item -LiteralPath $Path -Force
+    $rootItem.Attributes = $rootItem.Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+}
+
+function Set-ReadOnlyFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Paths
+    )
+
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            continue
+        }
+
+        Get-ChildItem -LiteralPath $path -Recurse -File -Force | ForEach-Object {
+            $_.Attributes = $_.Attributes -bor [System.IO.FileAttributes]::ReadOnly
+        }
+    }
+}
+
 if ($Configurations.Count -gt 0) {
     foreach ($entry in $Configurations) {
         foreach ($name in ($entry -split ",")) {
@@ -64,6 +98,7 @@ if ($LASTEXITCODE -ne 0) {
 
 if (Test-Path $packagePath) {
     Write-Host "[package] Removing previous package directory..."
+    Clear-ReadOnlyAttribute -Path $packagePath
     Remove-Item -LiteralPath $packagePath -Recurse -Force
 }
 
@@ -82,5 +117,13 @@ foreach ($currentConfiguration in $requestedConfigurations) {
         throw "CMake install failed for $currentConfiguration with exit code $LASTEXITCODE."
     }
 }
+
+$readOnlyRoots = @(
+    (Join-Path $packagePath "sdk/include"),
+    (Join-Path $packagePath "sdk/src"),
+    (Join-Path $packagePath "sdk/cmake")
+)
+Write-Host "[package] Marking SDK headers, sources, and CMake files as read-only..."
+Set-ReadOnlyFiles -Paths $readOnlyRoots
 
 Write-Host "[package] Package ready: $packagePath"

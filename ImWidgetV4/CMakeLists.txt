@@ -32,11 +32,13 @@ endif()
 set(IMWIDGETV4_INSTALL_ROOT_DIR "" CACHE STRING "Root install subdirectory for ImWidgetV4 library artifacts.")
 if(IMWIDGETV4_INSTALL_ROOT_DIR)
     set(IMWIDGETV4_INSTALL_INCLUDE_DIR "${IMWIDGETV4_INSTALL_ROOT_DIR}/include")
+    set(IMWIDGETV4_INSTALL_SOURCE_DIR "${IMWIDGETV4_INSTALL_ROOT_DIR}/src")
     set(IMWIDGETV4_INSTALL_LIBRARY_DIR "${IMWIDGETV4_INSTALL_ROOT_DIR}/lib/$<CONFIG>")
     set(IMWIDGETV4_INSTALL_RUNTIME_DIR "${IMWIDGETV4_INSTALL_ROOT_DIR}/bin/$<CONFIG>")
     set(IMWIDGETV4_INSTALL_CMAKE_DIR "${IMWIDGETV4_INSTALL_ROOT_DIR}/cmake")
 else()
     set(IMWIDGETV4_INSTALL_INCLUDE_DIR include)
+    set(IMWIDGETV4_INSTALL_SOURCE_DIR src)
     set(IMWIDGETV4_INSTALL_LIBRARY_DIR "lib/$<CONFIG>")
     set(IMWIDGETV4_INSTALL_RUNTIME_DIR "bin/$<CONFIG>")
     set(IMWIDGETV4_INSTALL_CMAKE_DIR cmake)
@@ -752,6 +754,27 @@ install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"
     PATTERN "DesignerSurface.h" EXCLUDE
+)
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
+    DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/imwidgetv4"
+)
+install(
+    FILES
+        "${imgui_SOURCE_DIR}/imgui.cpp"
+        "${imgui_SOURCE_DIR}/imgui_demo.cpp"
+        "${imgui_SOURCE_DIR}/imgui_draw.cpp"
+        "${imgui_SOURCE_DIR}/imgui_tables.cpp"
+        "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
+    DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/third_party/imgui"
+)
+install(
+    FILES
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_android.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
+        "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
+    DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/third_party/imgui/backends"
 )
 set(IMWIDGETV4_IMGUI_INSTALL_HEADERS
     "${imgui_SOURCE_DIR}/imconfig.h"

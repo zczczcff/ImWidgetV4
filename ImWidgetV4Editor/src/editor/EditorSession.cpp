@@ -40,6 +40,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <unordered_set>
 
 namespace ImWidgetV4Editor {

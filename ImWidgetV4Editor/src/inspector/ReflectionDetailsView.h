@@ -3,6 +3,7 @@
 #include <imwidgetv4/core/Delegate.h>
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Slot.h>
+#include <imwidgetv4/reflection/ReflectionTypes.h>
 #include <imwidgetv4/widgets/UserWidget.h>
 #include <nlohmann/json.hpp>
 #include <memory>
@@ -62,20 +63,20 @@ private:
         const std::string& parentPath);
     std::shared_ptr<ImWidgetV4::ImWidget> BuildPropertyEditorRow(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
-        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const ImWidgetV4::Reflection::FPropertyDesc& property,
         const nlohmann::ordered_json& objectJson) const;
     std::shared_ptr<ImWidgetV4::ImWidget> BuildStructPropertyEditorRow(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
-        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const ImWidgetV4::Reflection::FPropertyDesc& property,
         const std::string& propertyClassName,
         const std::string& propertyName,
         const nlohmann::ordered_json& propertyValueJson) const;
     std::string DescribePropertyValue(
-        const ImWidgetV4::ReflectableObject::ROPProperty& property,
+        const ImWidgetV4::Reflection::FPropertyDesc& property,
         const nlohmann::ordered_json& objectJson) const;
     std::shared_ptr<ImWidgetV4::ReflectableObject> ResolveNestedObject(
         const std::shared_ptr<ImWidgetV4::ReflectableObject>& owner,
-        const ImWidgetV4::ReflectableObject::ROPProperty& property) const;
+        const ImWidgetV4::Reflection::FPropertyDesc& property) const;
     std::shared_ptr<ImWidgetV4::ImOutlineView> GetCurrentOutlineView() const;
     std::string BuildCurrentStateKey() const;
     void CaptureCurrentViewState();

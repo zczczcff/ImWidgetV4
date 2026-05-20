@@ -12,6 +12,7 @@
 #include <imwidgetv4/widgets/Switch.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4/reflection/ReflectionTypes.h>
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
@@ -22,6 +23,7 @@ namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
+namespace Reflection = ImWidgetV4::Reflection;
 
 namespace {
 
@@ -242,6 +244,28 @@ std::array<int, 4> GetColorChannels(const FColor& color)
         static_cast<int>(std::round(color.B * 255.0f)),
         static_cast<int>(std::round(color.A * 255.0f))
     };
+}
+
+FColor JsonColorToFColor(const nlohmann::ordered_json& value, const FColor& fallback = FColor::White)
+{
+    if (!value.is_array() || value.size() != 4) {
+        return fallback;
+    }
+
+    return FColor::FromBytes(
+        value[0].get<int>(),
+        value[1].get<int>(),
+        value[2].get<int>(),
+        value[3].get<int>());
+}
+
+FVector2 JsonVec2ToFVector2(const nlohmann::ordered_json& value, const FVector2& fallback = FVector2::Zero)
+{
+    if (!value.is_array() || value.size() != 2) {
+        return fallback;
+    }
+
+    return FVector2(value[0].get<float>(), value[1].get<float>());
 }
 
 std::string FormatVec2(const FVector2& value)
@@ -489,11 +513,15 @@ void ReflectionDetailsView::BuildPropertyItems(
     const auto& propertyJson = objectJson.contains("Properties")
         ? objectJson.at("Properties")
         : nlohmann::ordered_json::object();
-    const auto properties = object->GetAllPropertiesOrdered();
-    for (const auto& property : properties) {
-        auto nestedObject = ResolveNestedObject(object, property);
+    const auto properties = Reflection::CollectProperties(object->GetTypeDesc());
+    for (const Reflection::FPropertyDesc* property : properties) {
+        if (!property) {
+            continue;
+        }
+
+        auto nestedObject = ResolveNestedObject(object, *property);
         if (nestedObject) {
-            const std::string propertyKey = property.GetClassName() + "::" + property.GetNameString();
+            const std::string propertyKey = std::string(property->OwnerTypeName) + "::" + property->Name;
             const auto propertyValueIt = propertyJson.find(propertyKey);
             const nlohmann::ordered_json propertyValueJson =
                 propertyValueIt != propertyJson.end()
@@ -502,20 +530,20 @@ void ReflectionDetailsView::BuildPropertyItems(
 
             if (auto specializedRow = BuildStructPropertyEditorRow(
                     object,
-                    property,
-                    property.GetClassName(),
-                    property.GetNameString(),
+                    *property,
+                    property->OwnerTypeName,
+                    property->Name,
                     propertyValueJson)) {
                 outlineView.AddChildItem(parentItem, specializedRow);
             } else {
                 const std::string groupPath = parentPath.empty()
-                    ? property.GetNameString()
-                    : parentPath + "/" + property.GetNameString();
+                    ? property->Name
+                    : parentPath + "/" + property->Name;
                 ImOutlineItem* groupItem = AddTrackedGroupItem(
                     outlineView,
                     parentItem,
                     groupPath,
-                    property.GetNameString(),
+                    property->Name,
                     false);
                 if (groupItem) {
                     BuildPropertyItems(outlineView, groupItem, nestedObject, groupPath);
@@ -528,19 +556,25 @@ void ReflectionDetailsView::BuildPropertyItems(
             parentItem,
             BuildPropertyEditorRow(
                 object,
-                property,
+                *property,
                 propertyJson));
     }
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
     const std::shared_ptr<ReflectableObject>& owner,
-    const ReflectableObject::ROPProperty& property,
+    const Reflection::FPropertyDesc& property,
     const nlohmann::ordered_json& objectJson) const
 {
-    const std::string propertyName = property.GetNameString();
-    const std::string propertyClassName = property.GetClassName();
+    const std::string propertyName = property.Name;
+    const std::string propertyClassName = property.OwnerTypeName;
+    const std::string propertyKey = propertyClassName + "::" + propertyName;
     const std::string labelText = propertyName;
+    const auto propertyValueIt = objectJson.find(propertyKey);
+    const nlohmann::ordered_json currentJsonValue =
+        propertyValueIt != objectJson.end()
+        ? propertyValueIt.value()
+        : nlohmann::ordered_json();
     const auto applyJsonValue = [this, owner, propertyName, propertyClassName](const nlohmann::ordered_json& value) {
         if (!owner) {
             return false;
@@ -565,10 +599,10 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return true;
     };
 
-    if (property.GetType() == PropertyType::Bool) {
+    if (property.Kind == Reflection::EPropertyKind::Bool) {
         auto toggle = std::make_shared<ImSwitch>();
         ApplyInspectorSwitchStyle(*toggle);
-        toggle->SetChecked(property.GetValue<bool>());
+        toggle->SetChecked(currentJsonValue.is_boolean() ? currentJsonValue.get<bool>() : false);
         toggle->OnCheckStateChanged.AddLambda(
             [applyJsonValue](ImSwitch&, bool checked) {
                 applyJsonValue(checked);
@@ -576,8 +610,8 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return MakeInspectorRightAlignedPropertyRow(labelText, toggle);
     }
 
-    if (property.GetType() == PropertyType::String) {
-        auto editor = CreateInspectorTextEditor(property.GetValue<std::string>());
+    if (property.Kind == Reflection::EPropertyKind::String) {
+        auto editor = CreateInspectorTextEditor(currentJsonValue.is_string() ? currentJsonValue.get<std::string>() : std::string());
         editor->OnTextCommitted.AddLambda(
             [applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 applyJsonValue(text);
@@ -588,44 +622,47 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return MakeInspectorPropertyRow(labelText, editor);
     }
 
-    if (property.GetType() == PropertyType::Int) {
-        auto editor = CreateInspectorTextEditor(std::to_string(property.GetValue<int>()), "Integer");
+    if (property.Kind == Reflection::EPropertyKind::Int) {
+        auto editor = CreateInspectorTextEditor(currentJsonValue.is_number_integer() ? std::to_string(currentJsonValue.get<int>()) : "0", "Integer");
         editor->OnTextCommitted.AddLambda(
-            [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
+            [applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 int value = 0;
                 if (TryParseInt(text, value)) {
                     applyJsonValue(value);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(std::to_string(property.GetObject()->GetProperty(property.GetNameString(), property.GetClassName()).GetValue<int>()));
+                    locked->SetText(std::to_string(value));
                 }
             });
         return MakeInspectorPropertyRow(labelText, editor);
     }
 
-    if (property.GetType() == PropertyType::Float) {
-        auto editor = CreateInspectorTextEditor(FormatFloat(property.GetValue<float>()), "Float");
+    if (property.Kind == Reflection::EPropertyKind::Float) {
+        auto editor = CreateInspectorTextEditor(currentJsonValue.is_number() ? FormatFloat(currentJsonValue.get<float>()) : FormatFloat(0.0f), "Float");
         editor->OnTextCommitted.AddLambda(
-            [property, applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
+            [applyJsonValue, weakEditor = std::weak_ptr<ImEditableText>(editor)](ImEditableText&, const std::string& text) {
                 float value = 0.0f;
                 if (TryParseFloat(text, value)) {
                     applyJsonValue(value);
                 }
                 if (auto locked = weakEditor.lock()) {
-                    locked->SetText(FormatFloat(property.GetObject()->GetProperty(property.GetNameString(), property.GetClassName()).GetValue<float>()));
+                    locked->SetText(FormatFloat(value));
                 }
             });
         return MakeInspectorPropertyRow(labelText, editor);
     }
 
-    if (property.GetType() == PropertyType::Enum) {
+    if (property.Kind == Reflection::EPropertyKind::Enum) {
         auto editor = std::make_shared<ImComboBox>();
         ApplyInspectorComboBoxStyle(*editor);
-        auto optionalProperty = owner->ToOptionalProperty(property);
+        FReflectedOptionalProperty optionalProperty(owner.get(), &property);
         const auto& options = optionalProperty.GetOptionList();
         editor->SetItems(options);
 
-        const std::string currentOption = optionalProperty.GetOptionString();
+        const std::string currentOption =
+            currentJsonValue.is_string()
+            ? currentJsonValue.get<std::string>()
+            : optionalProperty.GetOptionString();
         for (int index = 0; index < static_cast<int>(options.size()); ++index) {
             if (options[index] == currentOption) {
                 editor->SetSelectedIndex(index);
@@ -645,12 +682,12 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                     return;
                 }
 
-                auto reloaded = owner->GetProperty(propertyName, propertyClassName);
-                if (!reloaded.IsValid()) {
+                const Reflection::FPropertyDesc* reloaded = Reflection::FindProperty(owner->GetTypeDesc(), propertyName, propertyClassName);
+                if (!reloaded) {
                     return;
                 }
 
-                auto optional = owner->ToOptionalProperty(reloaded);
+                FReflectedOptionalProperty optional(owner.get(), reloaded);
                 optional.SetOptionByIndex(index);
 
                 nlohmann::ordered_json afterSerialized = owner->ToJson();
@@ -677,12 +714,8 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return MakeInspectorPropertyRow(labelText, editor);
     }
 
-    if (property.GetType() == PropertyType::Color) {
-        FColor currentColor;
-        const std::string currentText = DescribePropertyValue(property, objectJson);
-        if (!TryParseColor(currentText, currentColor)) {
-            currentColor = property.GetValue<FColor>();
-        }
+    if (property.Kind == Reflection::EPropertyKind::Color) {
+        FColor currentColor = JsonColorToFColor(currentJsonValue);
 
         auto picker = std::make_shared<ImColorPicker>();
         picker->SetColor(currentColor);
@@ -779,13 +812,8 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
         return MakeInspectorVerticalPropertyRow(labelText, group);
     }
 
-    if (property.GetType() == PropertyType::Vec2) {
-        const std::string key = propertyClassName + "::" + propertyName;
-        FVector2 currentValue = property.GetValue<FVector2>();
-        if (objectJson.contains(key) && objectJson.at(key).is_array() && objectJson.at(key).size() == 2) {
-            currentValue.X = objectJson.at(key)[0].get<float>();
-            currentValue.Y = objectJson.at(key)[1].get<float>();
-        }
+    if (property.Kind == Reflection::EPropertyKind::Vec2) {
+        FVector2 currentValue = JsonVec2ToFVector2(currentJsonValue);
 
         auto xEditor = CreateInspectorTextEditor(FormatFloat(currentValue.X), "X");
         auto yEditor = CreateInspectorTextEditor(FormatFloat(currentValue.Y), "Y");
@@ -830,13 +858,10 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
                 {"Y", yEditor}}));
     }
 
-    if (property.GetType() == PropertyType::StringArray) {
-        const std::string key = propertyClassName + "::" + propertyName;
+    if (property.Kind == Reflection::EPropertyKind::StringArray) {
         std::vector<std::string> items;
-        if (objectJson.contains(key)) {
-            items = JsonValueToStringArray(objectJson.at(key));
-        } else {
-            items = property.GetValue<std::vector<std::string>>();
+        if (currentJsonValue.is_array()) {
+            items = JsonValueToStringArray(currentJsonValue);
         }
 
         auto editor = CreateInspectorTextEditor(JoinLines(items), "One item per line");
@@ -866,29 +891,35 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildPropertyEditorRow(
 }
 
 std::string ReflectionDetailsView::DescribePropertyValue(
-    const ReflectableObject::ROPProperty& property,
+    const Reflection::FPropertyDesc& property,
     const nlohmann::ordered_json& objectJson) const
 {
-    const std::string key = property.GetClassName() + "::" + property.GetNameString();
+    const std::string key = std::string(property.OwnerTypeName) + "::" + property.Name;
     const auto it = objectJson.find(key);
     if (it != objectJson.end()) {
         return JsonValueToString(it.value());
     }
 
-    return property.GetType() == PropertyType::Struct
+    return property.Kind == Reflection::EPropertyKind::Struct
         ? EditorText("Details.StructPlaceholder", "{...}").Resolve()
         : EditorText("Details.Unavailable", "<unavailable>").Resolve();
 }
 
 std::shared_ptr<ImWidget> ReflectionDetailsView::BuildStructPropertyEditorRow(
     const std::shared_ptr<ReflectableObject>& owner,
-    const ReflectableObject::ROPProperty& property,
+    const Reflection::FPropertyDesc& property,
     const std::string& propertyClassName,
     const std::string& propertyName,
     const nlohmann::ordered_json& propertyValueJson) const
 {
-    const ReflectableObject* nested = property.GetConstPointer<ReflectableObject>();
-    if (nested == nullptr) {
+    if (!owner || !property.GetConstReflectable) {
+        return nullptr;
+    }
+
+    Reflection::FPropertyHandle propertyHandle(owner.get(), &property);
+    const auto* nested = dynamic_cast<const ReflectableObject*>(
+        property.GetConstReflectable(propertyHandle.GetConstPtr()));
+    if (!nested) {
         return nullptr;
     }
 
@@ -1012,20 +1043,22 @@ std::shared_ptr<ImWidget> ReflectionDetailsView::BuildStructPropertyEditorRow(
 
 std::shared_ptr<ReflectableObject> ReflectionDetailsView::ResolveNestedObject(
     const std::shared_ptr<ReflectableObject>& owner,
-    const ReflectableObject::ROPProperty& property) const
+    const Reflection::FPropertyDesc& property) const
 {
-    if (property.GetType() != PropertyType::Struct) {
+    if (!owner || property.Kind != Reflection::EPropertyKind::Struct || !property.GetReflectable) {
         return nullptr;
     }
 
-    const ReflectableObject* nested = property.GetConstPointer<ReflectableObject>();
+    Reflection::FPropertyHandle propertyHandle(owner.get(), &property);
+    ReflectableObject* nested = dynamic_cast<ReflectableObject*>(
+        property.GetReflectable(propertyHandle.GetMutablePtr()));
     if (!nested) {
         return nullptr;
     }
 
     return std::shared_ptr<ReflectableObject>(
         owner,
-        const_cast<ReflectableObject*>(nested));
+        nested);
 }
 
 std::shared_ptr<ImOutlineView> ReflectionDetailsView::GetCurrentOutlineView() const

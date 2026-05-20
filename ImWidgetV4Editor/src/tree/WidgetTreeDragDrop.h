@@ -7,10 +7,11 @@
 namespace ImWidgetV4Editor {
 
 class WidgetTreeDragDropPayload : public ImWidgetV4::FDragDropPayload {
-    DECLARE_OBJECT_WITH_PARENT(WidgetTreeDragDropPayload, ImWidgetV4::FDragDropPayload)
-    END_DECLARE_OBJECT()
-
 public:
+    static const ImWidgetV4::Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "WidgetTreeDragDropPayload"; }
+    const ImWidgetV4::Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     std::string WidgetId;
     std::string Label;
 };

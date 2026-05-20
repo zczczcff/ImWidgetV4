@@ -19,10 +19,11 @@ struct FWidgetPaletteEntry {
 };
 
 class WidgetPalettePayload : public ImWidgetV4::FDragDropPayload {
-    DECLARE_OBJECT_WITH_PARENT(WidgetPalettePayload, ImWidgetV4::FDragDropPayload)
-    END_DECLARE_OBJECT()
-
 public:
+    static const ImWidgetV4::Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "WidgetPalettePayload"; }
+    const ImWidgetV4::Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     std::string WidgetTypeName;
     std::string Label;
 };

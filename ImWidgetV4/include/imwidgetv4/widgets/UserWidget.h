@@ -8,10 +8,11 @@
 namespace ImWidgetV4 {
 
 class ImUserWidget : public ImWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImUserWidget, ImWidget)
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImUserWidget"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     ImUserWidget();
     virtual ~ImUserWidget() = default;
 

@@ -1,5 +1,6 @@
 #include <imwidgetv4/widgets/UserWidget.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 
 namespace ImWidgetV4 {
 namespace {
@@ -39,6 +40,25 @@ void CollectNamedWidgetsDepthFirst(
         CollectNamedWidgetsDepthFirst(child, namedWidgets);
     }
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& ImUserWidget::StaticTypeDesc()
+{
+    static const Reflection::FTypeDesc typeDesc {
+        "ImUserWidget",
+        &ImWidget::StaticTypeDesc(),
+        nullptr,
+        0
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& ImUserWidgetReflectionTypeDesc = ImUserWidget::StaticTypeDesc();
 
 } // namespace
 

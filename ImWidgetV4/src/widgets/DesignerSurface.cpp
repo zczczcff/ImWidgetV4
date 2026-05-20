@@ -2,6 +2,8 @@
 
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
 
@@ -17,6 +19,76 @@ bool IsResizeHandle(EDesignerTransformHandle handle)
     return handle != EDesignerTransformHandle::None &&
         handle != EDesignerTransformHandle::Move;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FDesignerSurfaceStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::SelectionBorderColor>(
+            "FDesignerSurfaceStyle", "SelectionBorderColor", Reflection::EPropertyKind::Color, "FColor", "Selection outline color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::SelectionFillColor>(
+            "FDesignerSurfaceStyle", "SelectionFillColor", Reflection::EPropertyKind::Color, "FColor", "Selection fill color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, float, &FDesignerSurfaceStyle::SelectionBorderThickness>(
+            "FDesignerSurfaceStyle", "SelectionBorderThickness", Reflection::EPropertyKind::Float, "float", "Selection outline thickness"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, float, &FDesignerSurfaceStyle::TransformHandleSize>(
+            "FDesignerSurfaceStyle", "TransformHandleSize", Reflection::EPropertyKind::Float, "float", "Transform handle size"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::TransformHandleColor>(
+            "FDesignerSurfaceStyle", "TransformHandleColor", Reflection::EPropertyKind::Color, "FColor", "Default transform handle fill color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::TransformHandleHoveredColor>(
+            "FDesignerSurfaceStyle", "TransformHandleHoveredColor", Reflection::EPropertyKind::Color, "FColor", "Hovered transform handle fill color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::TransformHandleActiveColor>(
+            "FDesignerSurfaceStyle", "TransformHandleActiveColor", Reflection::EPropertyKind::Color, "FColor", "Active transform handle fill color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::TransformHandleBorderColor>(
+            "FDesignerSurfaceStyle", "TransformHandleBorderColor", Reflection::EPropertyKind::Color, "FColor", "Transform handle border color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, float, &FDesignerSurfaceStyle::TransformHandleBorderThickness>(
+            "FDesignerSurfaceStyle", "TransformHandleBorderThickness", Reflection::EPropertyKind::Float, "float", "Transform handle border thickness"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::DropPreviewBorderColor>(
+            "FDesignerSurfaceStyle", "DropPreviewBorderColor", Reflection::EPropertyKind::Color, "FColor", "Drop preview outline color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, FColor, &FDesignerSurfaceStyle::DropPreviewFillColor>(
+            "FDesignerSurfaceStyle", "DropPreviewFillColor", Reflection::EPropertyKind::Color, "FColor", "Drop preview fill color"),
+        Reflection::MakeMemberProperty<FDesignerSurfaceStyle, float, &FDesignerSurfaceStyle::DropPreviewBorderThickness>(
+            "FDesignerSurfaceStyle", "DropPreviewBorderThickness", Reflection::EPropertyKind::Float, "float", "Drop preview outline thickness")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FDesignerSurfaceStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImDesignerSurface::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<ImDesignerSurface, FDesignerSurfaceStyle, &ImDesignerSurface::Style_>(
+            "ImDesignerSurface",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FDesignerSurfaceStyle",
+            "Designer surface style",
+            &FDesignerSurfaceStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImDesignerSurface",
+        &ImUserWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FDesignerSurfaceStyleReflectionTypeDesc = FDesignerSurfaceStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImDesignerSurfaceReflectionTypeDesc = ImDesignerSurface::StaticTypeDesc();
 
 } // namespace
 

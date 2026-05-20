@@ -22,23 +22,11 @@ enum class EDesignerTransformHandle : std::uint8_t {
 };
 
 struct FDesignerSurfaceStyle : public ReflectableObject {
-    DECLARE_OBJECT_WITH_PARENT(FDesignerSurfaceStyle, ReflectableObject)
-    registrar
-        .RegisterProperty(PropertyType::Color, "SelectionBorderColor", &FDesignerSurfaceStyle::SelectionBorderColor, "Selection outline color")
-        .RegisterProperty(PropertyType::Color, "SelectionFillColor", &FDesignerSurfaceStyle::SelectionFillColor, "Selection fill color")
-        .RegisterProperty(PropertyType::Float, "SelectionBorderThickness", &FDesignerSurfaceStyle::SelectionBorderThickness, "Selection outline thickness")
-        .RegisterProperty(PropertyType::Float, "TransformHandleSize", &FDesignerSurfaceStyle::TransformHandleSize, "Transform handle size")
-        .RegisterProperty(PropertyType::Color, "TransformHandleColor", &FDesignerSurfaceStyle::TransformHandleColor, "Default transform handle fill color")
-        .RegisterProperty(PropertyType::Color, "TransformHandleHoveredColor", &FDesignerSurfaceStyle::TransformHandleHoveredColor, "Hovered transform handle fill color")
-        .RegisterProperty(PropertyType::Color, "TransformHandleActiveColor", &FDesignerSurfaceStyle::TransformHandleActiveColor, "Active transform handle fill color")
-        .RegisterProperty(PropertyType::Color, "TransformHandleBorderColor", &FDesignerSurfaceStyle::TransformHandleBorderColor, "Transform handle border color")
-        .RegisterProperty(PropertyType::Float, "TransformHandleBorderThickness", &FDesignerSurfaceStyle::TransformHandleBorderThickness, "Transform handle border thickness")
-        .RegisterProperty(PropertyType::Color, "DropPreviewBorderColor", &FDesignerSurfaceStyle::DropPreviewBorderColor, "Drop preview outline color")
-        .RegisterProperty(PropertyType::Color, "DropPreviewFillColor", &FDesignerSurfaceStyle::DropPreviewFillColor, "Drop preview fill color")
-        .RegisterProperty(PropertyType::Float, "DropPreviewBorderThickness", &FDesignerSurfaceStyle::DropPreviewBorderThickness, "Drop preview outline thickness");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "FDesignerSurfaceStyle"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     FColor SelectionBorderColor = FColor::FromBytes(103, 177, 255);
     FColor SelectionFillColor = FColor::FromBytes(103, 177, 255, 36);
     float SelectionBorderThickness = 2.0f;
@@ -54,12 +42,11 @@ public:
 };
 
 class ImDesignerSurface : public ImUserWidget {
-    DECLARE_OBJECT_WITH_PARENT(ImDesignerSurface, ImUserWidget)
-    registrar
-        .RegisterProperty(PropertyType::Struct, "Style", &ImDesignerSurface::Style_, "Designer surface style");
-    END_DECLARE_OBJECT()
-
 public:
+    static const Reflection::FTypeDesc& StaticTypeDesc();
+    std::string GetTypeName() const override { return "ImDesignerSurface"; }
+    const Reflection::FTypeDesc& GetTypeDesc() const override { return StaticTypeDesc(); }
+
     using FSelectionChangedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>>;
     using FDeleteRequestedEvent = TMulticastDelegate<ImDesignerSurface&>;
     using FContextMenuRequestedEvent = TMulticastDelegate<ImDesignerSurface&, std::shared_ptr<ImWidget>, FVector2>;

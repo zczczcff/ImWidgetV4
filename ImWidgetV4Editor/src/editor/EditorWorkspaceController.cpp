@@ -1921,7 +1921,7 @@ bool EditorWorkspaceController::GenerateActiveDocumentCpp(ImApplication& app)
     return session ? session->GenerateCppFiles(app) : false;
 }
 
-bool EditorWorkspaceController::RegenerateProjectCode()
+bool EditorWorkspaceController::BuildProjectScaffoldRequestForCurrentProject(FProjectScaffoldRequest& outRequest)
 {
     if (!m_Project || m_ProjectRoot.empty()) {
         SetLocalizedOutputLine("Project.RegenerateCodeFailedNoProject", "Regenerate code failed: no app project is open.");
@@ -2035,6 +2035,17 @@ bool EditorWorkspaceController::RegenerateProjectCode()
         scaffoldRequest.TitleBarRootWidget = titleBarDocument->GetRootWidget();
     }
 
+    outRequest = std::move(scaffoldRequest);
+    return true;
+}
+
+bool EditorWorkspaceController::RegenerateProjectCode()
+{
+    FProjectScaffoldRequest scaffoldRequest;
+    if (!BuildProjectScaffoldRequestForCurrentProject(scaffoldRequest)) {
+        return false;
+    }
+
     const FProjectScaffoldResult result = ProjectScaffolder::GenerateCode(scaffoldRequest);
     if (!result.bSuccess) {
         SetLocalizedOutputLine("Project.RegenerateCodeFailed", "Regenerate code failed", ": " + result.ErrorMessage);
@@ -2044,6 +2055,87 @@ bool EditorWorkspaceController::RegenerateProjectCode()
     SetLocalizedOutputLine("Project.RegeneratedCode", "Regenerated project code.");
     RefreshProjectTree();
     return true;
+}
+
+bool EditorWorkspaceController::ReinitializeMainCpp()
+{
+    FProjectScaffoldRequest scaffoldRequest;
+    if (!BuildProjectScaffoldRequestForCurrentProject(scaffoldRequest)) {
+        return false;
+    }
+
+    const FProjectScaffoldResult result = ProjectScaffolder::ReinitializeMainCpp(scaffoldRequest);
+    if (!result.bSuccess) {
+        SetLocalizedOutputLine("Project.ReinitializeMainCppFailed", "Reinitialize main.cpp failed", ": " + result.ErrorMessage);
+        return false;
+    }
+
+    SetLocalizedOutputLine("Project.ReinitializedMainCpp", "Reinitialized main.cpp.");
+    RefreshProjectTree();
+    return true;
+}
+
+void EditorWorkspaceController::PromptReinitializeMainCpp(ImApplication& app)
+{
+    if (!m_Project || m_ProjectRoot.empty()) {
+        SetLocalizedOutputLine("Project.ReinitializeMainCppFailedNoProject", "Reinitialize main.cpp failed: no app project is open.");
+        return;
+    }
+
+    ClosePendingPrompt();
+    CloseDocumentTabContextMenu();
+    CloseProjectItemContextMenu();
+
+    auto popupMenu = std::make_shared<ImPopupMenu>();
+    popupMenu->SetStyle(MakeEditorPopupMenuStyle(popupMenu->GetStyle()));
+
+    auto weakThis = weak_from_this();
+    std::vector<FPopupMenuItem> items;
+    items.push_back(MakeEditorMenuItem(
+        "Build.ReinitializeMainCppConfirm",
+        "Reinitialize main.cpp",
+        true,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->ReinitializeMainCpp();
+                self->ClosePendingPrompt();
+            }
+        }));
+    items.push_back(FPopupMenuItem {"", {}, {}, true, true, {}});
+    items.push_back(MakeEditorMenuItem(
+        "Common.Cancel",
+        "Cancel",
+        true,
+        [weakThis]() {
+            if (auto self = weakThis.lock()) {
+                self->ClosePendingPrompt();
+            }
+        }));
+    popupMenu->SetItems(std::move(items));
+    popupMenu->OnItemInvoked.AddLambda([weakThis](ImPopupMenu&, int) {
+        if (auto self = weakThis.lock()) {
+            self->ClosePendingPrompt();
+        }
+    });
+
+    FVector2 popupPosition(180.0f, 120.0f);
+    if (m_DocumentTabs) {
+        const FGeometry geometry = m_DocumentTabs->GetGeometry();
+        popupPosition = FVector2(
+            geometry.Position.X + std::max(24.0f, geometry.Size.X * 0.5f - 120.0f),
+            geometry.Position.Y + 44.0f);
+    }
+
+    FPopupOptions popupOptions;
+    popupOptions.Title = "ReinitializeMainCppPrompt";
+    popupOptions.Position = popupPosition;
+    popupOptions.Size = popupMenu->GetMinSize();
+    popupOptions.RootWidget = popupMenu;
+    popupOptions.bCloseOnClickOutside = false;
+    popupOptions.Style = MakeEditorPopupWindowStyle();
+
+    m_CloseConfirmMenu = popupMenu;
+    m_CloseConfirmWindow = app.GetWindowManager().CreateModal(popupOptions);
 }
 
 bool EditorWorkspaceController::CloseActiveDocument(ImApplication& app)

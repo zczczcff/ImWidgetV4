@@ -44,6 +44,7 @@ class EditorShellHost;
 class InputDialog;
 class NewAppProjectDialog;
 class ProjectSettingsDialog;
+struct FProjectScaffoldRequest;
 class ReflectionDetailsView;
 
 class EditorWorkspaceController : public std::enable_shared_from_this<EditorWorkspaceController> {
@@ -126,6 +127,8 @@ public:
     bool SaveDocumentAs(ImWidgetV4::ImApplication& app);
     bool GenerateActiveDocumentCpp(ImWidgetV4::ImApplication& app);
     bool RegenerateProjectCode();
+    bool ReinitializeMainCpp();
+    void PromptReinitializeMainCpp(ImWidgetV4::ImApplication& app);
     bool CloseActiveDocument(ImWidgetV4::ImApplication& app);
     bool ActivateDocumentAt(int index);
     bool ActivateAdjacentDocument(int direction);
@@ -248,6 +251,7 @@ private:
         const std::filesystem::path& directoryPath);
     void PromptDeleteProjectItem(ImWidgetV4::ImApplication& app, const std::filesystem::path& path);
     void ClosePendingPrompt();
+    bool BuildProjectScaffoldRequestForCurrentProject(FProjectScaffoldRequest& outRequest);
     json BuildWorkspaceStateJson() const;
     bool ApplyWorkspaceStateJson(const json& workspaceState, std::string* outError = nullptr);
     void OpenDocumentTabContextMenu(ImWidgetV4::ImApplication& app, int index, ImWidgetV4::FVector2 position);

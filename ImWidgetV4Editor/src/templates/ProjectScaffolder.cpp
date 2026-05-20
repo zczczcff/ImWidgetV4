@@ -6,6 +6,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 namespace ImWidgetV4Editor {
 
@@ -336,13 +337,74 @@ std::string BuildGeneratedProjectCMakeText(
     return stream.str();
 }
 
-std::string BuildMainCppText()
+std::string BuildMainCppText(const FProjectScaffoldRequest& request)
 {
+    const FEditorApplicationSettings& settings = request.ApplicationSettings;
     std::ostringstream stream;
     stream
         << "// Stable user entry translation unit.\n"
         << "// Platform entry points are provided by the selected ImWidgetV4 app host target.\n\n"
-        << "#include <imwidgetv4/app/ApplicationHost.h>\n";
+        << "#include \"AppProjectConfig.h\"\n\n"
+        << "#include <imwidgetv4/app/ApplicationHost.h>\n"
+        << "#include <imwidgetv4/core/Application.h>\n\n"
+        << "#include <memory>\n\n"
+        << "namespace {\n\n"
+        << "class FGeneratedAppHostDelegate final : public ImWidgetV4::IApplicationHostDelegate\n"
+        << "{\n"
+        << "public:\n"
+        << "    ImWidgetV4::FApplicationHostConfig GetHostConfig() const override\n"
+        << "    {\n"
+        << "        ImWidgetV4::FApplicationHostConfig config = GeneratedApp::BuildHostConfig();\n"
+        << "        return config;\n"
+        << "    }\n\n"
+        << "    void ConfigureApplication(ImWidgetV4::ImApplication& application) override\n"
+        << "    {\n"
+        << "        GeneratedApp::ConfigureApplication(application);\n"
+        << "    }\n";
+    if (settings.bGenerateInitializeStub) {
+        stream
+            << "\n"
+            << "    bool InitializeApplication(ImWidgetV4::ImApplication& application, ImWidgetV4::ImApplicationBackend& backend) override\n"
+            << "    {\n"
+            << "        (void)application;\n"
+            << "        (void)backend;\n"
+            << "        return true;\n"
+            << "    }\n";
+    }
+    if (settings.bGenerateTickStub) {
+        stream
+            << "\n"
+            << "    void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override\n"
+            << "    {\n"
+            << "        (void)application;\n"
+            << "        (void)frameInfo;\n"
+            << "    }\n";
+    }
+    stream
+        << "};\n\n"
+        << "} // namespace\n\n"
+        << "namespace ImWidgetV4 {\n\n"
+        << "std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()\n"
+        << "{\n"
+        << "    return std::make_shared<FGeneratedAppHostDelegate>();\n"
+        << "}\n\n"
+        << "} // namespace ImWidgetV4\n";
+    return stream.str();
+}
+
+std::string BuildCommentedText(const std::string& text)
+{
+    std::ostringstream stream;
+    std::istringstream input(text);
+    std::string line;
+    bool bWroteAnyLine = false;
+    while (std::getline(input, line)) {
+        stream << "// " << line << "\n";
+        bWroteAnyLine = true;
+    }
+    if (!bWroteAnyLine && !text.empty()) {
+        stream << "// " << text << "\n";
+    }
     return stream.str();
 }
 
@@ -351,7 +413,14 @@ std::string BuildAppProjectConfigHeaderText()
     std::ostringstream stream;
     stream
         << "#pragma once\n\n"
-        << "#include <imwidgetv4/app/ApplicationHost.h>\n\n";
+        << "#include <imwidgetv4/app/ApplicationHost.h>\n\n"
+        << "namespace ImWidgetV4 {\n"
+        << "class ImApplication;\n"
+        << "}\n\n"
+        << "namespace GeneratedApp {\n\n"
+        << "ImWidgetV4::FApplicationHostConfig BuildHostConfig();\n"
+        << "void ConfigureApplication(ImWidgetV4::ImApplication& application);\n\n"
+        << "} // namespace GeneratedApp\n";
     return stream.str();
 }
 
@@ -378,12 +447,9 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     }
     stream
         << "\n"
-        << "namespace {\n\n"
-        << "class FGeneratedAppHostDelegate final : public ImWidgetV4::IApplicationHostDelegate\n"
+        << "namespace GeneratedApp {\n\n"
+        << "ImWidgetV4::FApplicationHostConfig BuildHostConfig()\n"
         << "{\n"
-        << "public:\n"
-        << "    ImWidgetV4::FApplicationHostConfig GetHostConfig() const override\n"
-        << "    {\n"
         << "        ImWidgetV4::FApplicationHostConfig config;\n"
         << "        config.Title = " << BuildStringLiteral(title) << ";\n"
         << "        config.InitialWidth = " << std::max(1, settings.InitialWidth) << ";\n"
@@ -399,9 +465,9 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     }
     stream
         << "        return config;\n"
-        << "    }\n\n"
-        << "    void ConfigureApplication(ImWidgetV4::ImApplication& application) override\n"
-        << "    {\n";
+        << "}\n\n"
+        << "void ConfigureApplication(ImWidgetV4::ImApplication& application)\n"
+        << "{\n";
     if (!settings.DefaultTheme.empty()) {
         stream
             << "        application.SetActiveTheme(" << BuildStringLiteral(settings.DefaultTheme) << ");\n";
@@ -433,37 +499,11 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     }
 
     stream
-        << "    }\n";
-
-    if (settings.bGenerateInitializeStub) {
-        stream
-            << "\n"
-            << "    bool InitializeApplication(ImWidgetV4::ImApplication& application, ImWidgetV4::ImApplicationBackend& backend) override\n"
-            << "    {\n"
-            << "        (void)application;\n"
-            << "        (void)backend;\n"
-            << "        return true;\n"
-            << "    }\n";
-    }
-    if (settings.bGenerateTickStub) {
-        stream
-            << "\n"
-            << "    void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override\n"
-            << "    {\n"
-            << "        (void)application;\n"
-            << "        (void)frameInfo;\n"
-            << "    }\n";
-    }
+        << "}\n";
 
     stream
-        << "};\n\n"
-        << "} // namespace\n\n"
-        << "namespace ImWidgetV4 {\n\n"
-        << "std::shared_ptr<IApplicationHostDelegate> CreateApplicationHostDelegate()\n"
-        << "{\n"
-        << "    return std::make_shared<FGeneratedAppHostDelegate>();\n"
-        << "}\n\n"
-        << "} // namespace ImWidgetV4\n";
+        << "\n"
+        << "} // namespace GeneratedApp\n";
     return stream.str();
 }
 
@@ -589,7 +629,7 @@ FProjectScaffoldResult ScaffoldBlankApp(const FProjectScaffoldRequest& request)
     result.GeneratedFiles.push_back(userProjectCMakePath);
 
     const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
-    if (!WriteTextFile(mainCppPath, BuildMainCppText(), errorMessage)) {
+    if (!WriteTextFile(mainCppPath, BuildMainCppText(request), errorMessage)) {
         result.ErrorMessage = errorMessage;
         return result;
     }
@@ -652,6 +692,46 @@ FProjectScaffoldResult ProjectScaffolder::GenerateCode(const FProjectScaffoldReq
 
     FProjectScaffoldResult result;
     result.ErrorMessage = "Unsupported project template: " + request.TemplateName;
+    return result;
+}
+
+FProjectScaffoldResult ProjectScaffolder::ReinitializeMainCpp(const FProjectScaffoldRequest& request)
+{
+    FProjectScaffoldResult result;
+    if (request.ProjectRoot.empty()) {
+        result.ErrorMessage = "Project root is empty.";
+        return result;
+    }
+
+    const std::filesystem::path mainCppPath = request.ProjectRoot / "src" / "main.cpp";
+    std::string existingText;
+    {
+        std::ifstream stream(mainCppPath, std::ios::binary);
+        if (stream.is_open()) {
+            std::stringstream buffer;
+            buffer << stream.rdbuf();
+            existingText = buffer.str();
+        }
+    }
+
+    std::ostringstream replacement;
+    if (!existingText.empty()) {
+        replacement
+            << "// Previous main.cpp content was preserved by Reinitialize Main.cpp.\n"
+            << "// -----------------------------------------------------------------------------\n"
+            << BuildCommentedText(existingText)
+            << "// -----------------------------------------------------------------------------\n\n";
+    }
+    replacement << BuildMainCppText(request);
+
+    std::string errorMessage;
+    if (!WriteTextFile(mainCppPath, replacement.str(), errorMessage)) {
+        result.ErrorMessage = errorMessage;
+        return result;
+    }
+
+    result.GeneratedFiles.push_back(mainCppPath);
+    result.bSuccess = true;
     return result;
 }
 

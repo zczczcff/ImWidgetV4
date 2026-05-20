@@ -988,7 +988,9 @@ std::vector<FApplicationMenuItem> BuildEditMenuItems(const std::shared_ptr<Edito
     };
 }
 
-std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<EditorWorkspaceController>& workspaceController)
+std::vector<FApplicationMenuItem> BuildBuildMenuItems(
+    ImApplication& app,
+    const std::shared_ptr<EditorWorkspaceController>& workspaceController)
 {
     const bool bHasProject = workspaceController && !workspaceController->GetProjectRoot().empty();
     const bool bBuildRunning = workspaceController && workspaceController->IsBuildTaskRunning();
@@ -1014,6 +1016,11 @@ std::vector<FApplicationMenuItem> BuildBuildMenuItems(const std::shared_ptr<Edit
         MakeEditorMenuItem("Build.RegenerateProjectCode", "Regenerate Project Code", bHasProject && !bBuildRunning, [workspaceController]() {
             if (workspaceController) {
                 workspaceController->RegenerateProjectCode();
+            }
+        }),
+        MakeEditorMenuItem("Build.ReinitializeMainCpp", "Reinitialize main.cpp", bHasProject && !bBuildRunning, [&app, workspaceController]() {
+            if (workspaceController) {
+                workspaceController->PromptReinitializeMainCpp(app);
             }
         }),
         MakeEditorMenuItem("Build.BuildActiveProfile", "Build Active Profile", bHasProject && !bBuildRunning, [workspaceController]() {
@@ -1475,8 +1482,8 @@ void RebuildEditorTitleBar(
     shell.TitleBar->AddLeadingItem(projectButton);
 
     auto buildButton = MakeTitleBarTextButton(EditorText("TitleBar.Build", "Build"));
-    BindPopupMenuButton(app, buildButton, [workspaceController]() {
-        return BuildBuildMenuItems(workspaceController);
+    BindPopupMenuButton(app, buildButton, [&app, workspaceController]() {
+        return BuildBuildMenuItems(app, workspaceController);
     });
     shell.TitleBar->AddLeadingItem(buildButton);
 

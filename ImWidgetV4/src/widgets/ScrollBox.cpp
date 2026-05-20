@@ -1,6 +1,8 @@
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/DrawContext.h>
+#include <imwidgetv4/reflection/ReflectionBuilder.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imgui.h>
 #include <algorithm>
@@ -63,6 +65,131 @@ float ResolveVisibleOffset(float targetStart, float targetSize, float viewportSi
 
     return currentOffset;
 }
+
+} // namespace
+
+const Reflection::FTypeDesc& FScrollBoxStyle::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FColor, &FScrollBoxStyle::BackgroundColor>(
+            "FScrollBoxStyle",
+            "BackgroundColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Background color"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FColor, &FScrollBoxStyle::BorderColor>(
+            "FScrollBoxStyle",
+            "BorderColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Border color"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::BorderThickness>(
+            "FScrollBoxStyle",
+            "BorderThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Border thickness"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::CornerRadius>(
+            "FScrollBoxStyle",
+            "CornerRadius",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Corner radius"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FMargin, &FScrollBoxStyle::Padding>(
+            "FScrollBoxStyle",
+            "Padding",
+            Reflection::EPropertyKind::Struct,
+            "FMargin",
+            "Content padding",
+            &FMargin::StaticTypeDesc()),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::ScrollbarThickness>(
+            "FScrollBoxStyle",
+            "ScrollbarThickness",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Scrollbar thickness"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::ScrollbarPadding>(
+            "FScrollBoxStyle",
+            "ScrollbarPadding",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Scrollbar padding"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FColor, &FScrollBoxStyle::ScrollbarTrackColor>(
+            "FScrollBoxStyle",
+            "ScrollbarTrackColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Scrollbar track color"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FColor, &FScrollBoxStyle::ScrollbarThumbColor>(
+            "FScrollBoxStyle",
+            "ScrollbarThumbColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, FColor, &FScrollBoxStyle::ScrollbarThumbHoveredColor>(
+            "FScrollBoxStyle",
+            "ScrollbarThumbHoveredColor",
+            Reflection::EPropertyKind::Color,
+            "FColor",
+            "Hovered scrollbar thumb color"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::ThumbMinLength>(
+            "FScrollBoxStyle",
+            "ThumbMinLength",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Minimum thumb length"),
+        Reflection::MakeMemberProperty<FScrollBoxStyle, float, &FScrollBoxStyle::WheelScrollStep>(
+            "FScrollBoxStyle",
+            "WheelScrollStep",
+            Reflection::EPropertyKind::Float,
+            "float",
+            "Mouse wheel scroll step")
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "FScrollBoxStyle",
+        nullptr,
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+const Reflection::FTypeDesc& ImScrollBox::StaticTypeDesc()
+{
+    static const Reflection::FPropertyDesc properties[] = {
+        Reflection::MakeObjectAccessorProperty<ImScrollBox, FVector2, &ImScrollBox::SetScrollOffsetProperty, &ImScrollBox::GetScrollOffsetProperty>(
+            "ImScrollBox",
+            "ScrollOffset",
+            Reflection::EPropertyKind::Vec2,
+            "FVector2",
+            "Current scroll offset"),
+        Reflection::MakeMemberProperty<ImScrollBox, FScrollBoxStyle, &ImScrollBox::m_Style>(
+            "ImScrollBox",
+            "Style",
+            Reflection::EPropertyKind::Struct,
+            "FScrollBoxStyle",
+            "Scroll box style",
+            &FScrollBoxStyle::StaticTypeDesc())
+    };
+
+    static const Reflection::FTypeDesc typeDesc {
+        "ImScrollBox",
+        &ImPanelWidget::StaticTypeDesc(),
+        properties,
+        sizeof(properties) / sizeof(properties[0])
+    };
+    static const Reflection::FAutoTypeRegistration registration(&typeDesc);
+    (void)registration;
+    return typeDesc;
+}
+
+namespace {
+
+const Reflection::FTypeDesc& FScrollBoxStyleReflectionTypeDesc = FScrollBoxStyle::StaticTypeDesc();
+const Reflection::FTypeDesc& ImScrollBoxReflectionTypeDesc = ImScrollBox::StaticTypeDesc();
 
 } // namespace
 

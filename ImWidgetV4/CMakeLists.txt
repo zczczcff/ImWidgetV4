@@ -117,6 +117,14 @@ set(IMWIDGETV4_REFLECTION_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/reflection/ReflectionTypes.cpp
 )
 
+set(IMWIDGETV4_REFLECTION_JSON_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/reflection/ReflectionJson.h
+)
+
+set(IMWIDGETV4_REFLECTION_JSON_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/reflection/ReflectionJson.cpp
+)
+
 add_library(imwidgetv4_reflection STATIC
     ${IMWIDGETV4_REFLECTION_PUBLIC_HEADERS}
     ${IMWIDGETV4_REFLECTION_SOURCES}
@@ -131,6 +139,26 @@ if(MSVC)
     target_compile_options(imwidgetv4_reflection PUBLIC /utf-8)
 endif()
 imwidgetv4_set_target_folder(imwidgetv4_reflection "Libraries")
+
+add_library(imwidgetv4_reflection_json STATIC
+    ${IMWIDGETV4_REFLECTION_JSON_PUBLIC_HEADERS}
+    ${IMWIDGETV4_REFLECTION_JSON_SOURCES}
+)
+add_library(ImWidgetV4::reflection_json ALIAS imwidgetv4_reflection_json)
+target_compile_features(imwidgetv4_reflection_json PUBLIC cxx_std_17)
+target_include_directories(imwidgetv4_reflection_json PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${json_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${IMWIDGETV4_INSTALL_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/json>
+)
+target_link_libraries(imwidgetv4_reflection_json PUBLIC
+    imwidgetv4_reflection
+)
+if(MSVC)
+    target_compile_options(imwidgetv4_reflection_json PUBLIC /utf-8)
+endif()
+imwidgetv4_set_target_folder(imwidgetv4_reflection_json "Libraries")
 
 set(IMWIDGETV4_CORE_PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/app/ApplicationHost.h
@@ -293,6 +321,8 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILE
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_CORE_SOURCES} ${IMWIDGETV4_CORE_VS_ONLY_FILES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_REFLECTION_PUBLIC_HEADERS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_REFLECTION_SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include PREFIX "Header Files" FILES ${IMWIDGETV4_REFLECTION_JSON_PUBLIC_HEADERS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files" FILES ${IMWIDGETV4_REFLECTION_JSON_SOURCES})
 
 set(IMWIDGETV4_PLATFORM_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/imwidgetv4/platform/ImGuiInputSource.h
@@ -534,6 +564,7 @@ if(IMWIDGETV4_BUILD_TESTS)
 
     imwidgetv4_set_target_folder(reflectable_object_test "Tests/Core")
     imwidgetv4_set_target_folder(light_reflection_test "Tests/Core")
+    imwidgetv4_set_target_folder(reflection_json_test "Tests/Core")
     imwidgetv4_set_target_folder(delegate_test "Tests/Core")
     imwidgetv4_set_target_folder(application_test "Tests/Core/Application")
     imwidgetv4_set_target_folder(uectti_tests "Tests/Core/Reflection")
@@ -619,6 +650,7 @@ set_target_properties(uectti PROPERTIES EXPORT_NAME uectti)
 set_target_properties(imwidgetv4_imgui PROPERTIES EXPORT_NAME imgui)
 set_target_properties(stb_lib PROPERTIES EXPORT_NAME stb)
 set_target_properties(imwidgetv4_reflection PROPERTIES EXPORT_NAME reflection)
+set_target_properties(imwidgetv4_reflection_json PROPERTIES EXPORT_NAME reflection_json)
 set_target_properties(imwidgetv4_core PROPERTIES EXPORT_NAME core)
 set_target_properties(imwidgetv4_platform_imgui PROPERTIES EXPORT_NAME platform_imgui)
 
@@ -627,6 +659,7 @@ set(IMWIDGETV4_EXPORT_TARGETS
     imwidgetv4_imgui
     stb_lib
     imwidgetv4_reflection
+    imwidgetv4_reflection_json
     imwidgetv4_core
     imwidgetv4_platform_imgui
 )

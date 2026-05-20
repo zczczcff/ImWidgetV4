@@ -21,6 +21,17 @@ target_link_libraries(light_reflection_test
 
 add_test(NAME light_reflection_test COMMAND light_reflection_test)
 
+add_executable(reflection_json_test
+    reflection_json_test.cpp
+)
+
+target_link_libraries(reflection_json_test
+    imwidgetv4_reflection_json
+    gtest_main
+)
+
+add_test(NAME reflection_json_test COMMAND reflection_json_test)
+
 add_executable(delegate_test
     delegate_test.cpp
 )

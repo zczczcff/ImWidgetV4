@@ -21,6 +21,7 @@ enum class EPropertyKind : uint8_t {
 };
 
 struct FTypeDesc;
+class IReflectable;
 
 struct FPropertyValue {
     EPropertyKind Kind = EPropertyKind::Struct;
@@ -42,6 +43,8 @@ using FSetValue = bool (*)(void* object, const void* source);
 using FReadPropertyValue = bool (*)(const void* source, EPropertyKind kind, FPropertyValue& outValue);
 using FWritePropertyValue = bool (*)(void* destination, const FPropertyValue& value);
 using FSetObjectPropertyValue = bool (*)(void* object, const FPropertyValue& value);
+using FGetReflectable = IReflectable* (*)(void* value);
+using FGetConstReflectable = const IReflectable* (*)(const void* value);
 
 struct FEnumOptions {
     const char* const* Names = nullptr;
@@ -65,6 +68,8 @@ struct FPropertyDesc {
     FReadPropertyValue ReadValue = nullptr;
     FWritePropertyValue WriteValue = nullptr;
     FSetObjectPropertyValue SetObjectValue = nullptr;
+    FGetReflectable GetReflectable = nullptr;
+    FGetConstReflectable GetConstReflectable = nullptr;
     bool bCustomAccessor = false;
 };
 

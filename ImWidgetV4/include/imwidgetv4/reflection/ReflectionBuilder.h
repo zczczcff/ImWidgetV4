@@ -1,6 +1,7 @@
 #pragma once
 
 #include <imwidgetv4/reflection/ReflectionTypes.h>
+#include <imwidgetv4/reflection/Reflectable.h>
 #include <cstddef>
 #include <string>
 #include <type_traits>
@@ -142,6 +143,26 @@ bool SetObjectTypedValue(void* object, const FPropertyValue& value)
     return true;
 }
 
+template<typename ValueType>
+IReflectable* CastReflectable(void* value)
+{
+    if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
+        return static_cast<IReflectable*>(static_cast<ValueType*>(value));
+    } else {
+        return nullptr;
+    }
+}
+
+template<typename ValueType>
+const IReflectable* CastConstReflectable(const void* value)
+{
+    if constexpr (std::is_base_of_v<IReflectable, ValueType>) {
+        return static_cast<const IReflectable*>(static_cast<const ValueType*>(value));
+    } else {
+        return nullptr;
+    }
+}
+
 } // namespace Detail
 
 template<typename ClassType, typename ValueType, ValueType ClassType::*Member>
@@ -171,6 +192,8 @@ FPropertyDesc MakeMemberProperty(
     desc.ReadValue = &Detail::ReadTypedValue<ValueType>;
     desc.WriteValue = &Detail::WriteTypedValue<ValueType>;
     desc.SetObjectValue = nullptr;
+    desc.GetReflectable = &Detail::CastReflectable<ValueType>;
+    desc.GetConstReflectable = &Detail::CastConstReflectable<ValueType>;
     desc.bCustomAccessor = false;
     return desc;
 }
@@ -202,6 +225,8 @@ FPropertyDesc MakeAccessorProperty(
     desc.ReadValue = &Detail::ReadTypedValue<ValueType>;
     desc.WriteValue = nullptr;
     desc.SetObjectValue = nullptr;
+    desc.GetReflectable = &Detail::CastReflectable<ValueType>;
+    desc.GetConstReflectable = &Detail::CastConstReflectable<ValueType>;
     desc.bCustomAccessor = true;
     return desc;
 }

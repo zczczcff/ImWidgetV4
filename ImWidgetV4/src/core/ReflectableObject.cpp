@@ -321,6 +321,21 @@ const Reflection::FTypeDesc& ReflectableObject::GetTypeDesc() const
     return fallbackTypeDesc;
 }
 
+ReflectableObject::ROPPropertyDataType& ReflectableObject::GetPropertyDataStatic()
+{
+    static ROPPropertyDataType propertyData;
+    return propertyData;
+}
+
+bool ReflectableObject::StaticInitializeProperties()
+{
+    ROPPropertyDataType& propertyData = GetPropertyDataStatic();
+    if (!propertyData.initialized) {
+        propertyData.initialized = true;
+    }
+    return true;
+}
+
 const Reflection::FTypeDesc* ReflectableObject::FindReflectionTypeDesc() const
 {
     return Reflection::FReflectionRegistry::Get().FindType(GetTypeName());

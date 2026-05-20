@@ -40,15 +40,17 @@ private:
 };
 
 class ReflectableObject : public ROP::PropertyObject<PropertyType>, public Reflection::IReflectable {
-    DECLARE_OBJECT(ReflectableObject)
-    END_DECLARE_OBJECT()
-
 public:
+    ROPStringType GetClassName() const override { return "ReflectableObject"; }
+    const ROPPropertyDataType& GetPropertyData() const override { return GetPropertyDataStatic(); }
+    static ROPPropertyDataType& GetPropertyDataStatic();
+    static bool StaticInitializeProperties();
+
     virtual ~ReflectableObject() = default;
 
     virtual json ToJson() const;
     virtual void FromJson(const json& j);
-    virtual std::string GetTypeName() const { return GetClassName(); }
+    virtual std::string GetTypeName() const { return "ReflectableObject"; }
     virtual const Reflection::FTypeDesc& GetTypeDesc() const override;
     const Reflection::FTypeDesc* FindReflectionTypeDesc() const;
     bool HasProperty(const std::string& name) const;

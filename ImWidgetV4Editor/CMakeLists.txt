@@ -141,6 +141,7 @@ if(IMWIDGETV4_BUILD_EDITOR)
     endif()
 
     set_target_properties(ImWidgetV4Editor PROPERTIES
+        OUTPUT_NAME ImWidgetEditor
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
         ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
@@ -171,7 +172,7 @@ if(IMWIDGETV4_BUILD_CLI AND NOT ANDROID)
         ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
     )
     set_target_properties(ImWidgetV4Cli PROPERTIES
-        OUTPUT_NAME imwidgetv4
+        OUTPUT_NAME ImWidgetEditorCLI
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/tools
         FOLDER "Tools"
     )

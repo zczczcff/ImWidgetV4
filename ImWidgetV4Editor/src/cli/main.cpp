@@ -188,7 +188,7 @@ std::shared_ptr<ImTitleBar> BuildDefaultTitleBarRoot(const std::string& projectN
 void PrintUsage()
 {
     std::cout
-        << "Usage: imwidgetv4 <command> [options]\n\n"
+        << "Usage: ImWidgetEditorCLI <command> [options]\n\n"
         << "Commands:\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"

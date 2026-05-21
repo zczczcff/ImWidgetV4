@@ -219,8 +219,8 @@ if (Test-Path -LiteralPath $versionFile) {
 }
 
 $manifestPath = Join-Path $packagePath "sdk/ImWidgetV4SdkManifest.json"
-$editorToolPath = Join-Path $packagePath "tools/ImWidgetV4Editor.exe"
-$cliToolPath = Join-Path $packagePath "tools/imwidgetv4.exe"
+$editorToolPath = Join-Path $packagePath "tools/ImWidgetEditor.exe"
+$cliToolPath = Join-Path $packagePath "tools/ImWidgetEditorCLI.exe"
 
 if (-not (Test-Path -LiteralPath $editorToolPath)) {
     throw "Expected editor tool was not found under '$editorToolPath'."
@@ -234,8 +234,8 @@ $manifest = [ordered]@{
     version = $version
     architectures = @($manifestEntries)
     tools = [ordered]@{
-        editor = "tools/ImWidgetV4Editor.exe"
-        cli = "tools/imwidgetv4.exe"
+        editor = "tools/ImWidgetEditor.exe"
+        cli = "tools/ImWidgetEditorCLI.exe"
     }
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding utf8

@@ -201,6 +201,8 @@ void PrintUsage()
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
+        << "  ui add <input.ui.json> <parent-widget-id> <widget-type> [--json]\n"
+        << "  ui remove <input.ui.json> <widget-id> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -1147,6 +1149,42 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to set UI property: " << setResult.ErrorMessage << "\n";
         }
         return setResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "add") {
+        if (args.size() < 5) {
+            std::cerr << "ui add requires <input.ui.json>, <parent-widget-id>, and <widget-type>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult addResult = UiDocumentCli::AddNode(inputPath, args[3], args[4]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, addResult);
+        } else if (addResult.bSuccess) {
+            PrintUiMutationText(addResult);
+        } else {
+            std::cerr << "Failed to add UI node: " << addResult.ErrorMessage << "\n";
+        }
+        return addResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "remove") {
+        if (args.size() < 4) {
+            std::cerr << "ui remove requires <input.ui.json> and <widget-id>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult removeResult = UiDocumentCli::RemoveNode(inputPath, args[3]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, removeResult);
+        } else if (removeResult.bSuccess) {
+            PrintUiMutationText(removeResult);
+        } else {
+            std::cerr << "Failed to remove UI node: " << removeResult.ErrorMessage << "\n";
+        }
+        return removeResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

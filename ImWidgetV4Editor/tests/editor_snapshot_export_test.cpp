@@ -339,6 +339,47 @@ TEST(EditorSnapshotExportTest, UiDocumentCliSetsReflectedPropertyAndSavesDocumen
     EXPECT_NE(missingPropertyResult.ErrorMessage.find("NotAProperty"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliAddsAndRemovesNode)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_add_remove";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult addResult = UiDocumentCli::AddNode(inputPath, "w1", "ImTextBlock");
+    ASSERT_TRUE(addResult.bSuccess) << addResult.ErrorMessage;
+    EXPECT_TRUE(addResult.bChanged);
+    EXPECT_EQ(addResult.Node.TypeName, "ImTextBlock");
+    EXPECT_EQ(addResult.Node.Name, "TextBlock");
+
+    const FUiDocumentTreeInfo afterAddTree = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(afterAddTree.bSuccess) << afterAddTree.ErrorMessage;
+    ASSERT_EQ(afterAddTree.Nodes.size(), 4u);
+    const std::string addedId = afterAddTree.Nodes.back().WidgetId;
+    EXPECT_EQ(afterAddTree.Nodes.back().TypeName, "ImTextBlock");
+
+    const FUiMutationResult removeResult = UiDocumentCli::RemoveNode(inputPath, addedId);
+    ASSERT_TRUE(removeResult.bSuccess) << removeResult.ErrorMessage;
+    EXPECT_TRUE(removeResult.bChanged);
+    EXPECT_EQ(removeResult.Node.WidgetId, addedId);
+
+    const FUiDocumentTreeInfo afterRemoveTree = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(afterRemoveTree.bSuccess) << afterRemoveTree.ErrorMessage;
+    EXPECT_EQ(afterRemoveTree.Nodes.size(), 3u);
+
+    const FUiMutationResult removeRootResult = UiDocumentCli::RemoveNode(inputPath, "w1");
+    EXPECT_FALSE(removeRootResult.bSuccess);
+    EXPECT_NE(removeRootResult.ErrorMessage.find("root"), std::string::npos);
+
+    const FUiMutationResult unsupportedAddResult = UiDocumentCli::AddNode(inputPath, "w1", "ImNotAWidget");
+    EXPECT_FALSE(unsupportedAddResult.bSuccess);
+    EXPECT_NE(unsupportedAddResult.ErrorMessage.find("Unsupported"), std::string::npos);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

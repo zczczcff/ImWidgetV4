@@ -6,8 +6,11 @@
 namespace ImWidgetV4 {
     class ImWidget;
     class ImButton;
-    class ImCanvasPanel;
+    class ImCheckBox;
+    class ImComboBox;
+    class ImHorizontalBox;
     class ImTextBlock;
+    class ImVerticalBox;
 } // namespace ImWidgetV4
 
 namespace ImWidgetSDKBuilder {
@@ -21,40 +24,45 @@ protected:
 
 private:
     //===Auto Gen Begin=== (Members)
-    std::shared_ptr<ImWidgetV4::ImCanvasPanel> RootCanvas;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> RootLayout;
     std::shared_ptr<ImWidgetV4::ImTextBlock> TitleText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> SubtitleText;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> TopConfigRow;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> ConfigurationColumn;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildProfileHeader;
     std::shared_ptr<ImWidgetV4::ImTextBlock> OutputDirectoryText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> ArchitecturesLabel;
-    std::shared_ptr<ImWidgetV4::ImButton> Win64Button;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> Win64ButtonText;
-    std::shared_ptr<ImWidgetV4::ImButton> Win32Button;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> Win32ButtonText;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> ArchitectureCheckRow;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Win64CheckBox;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Win32CheckBox;
     std::shared_ptr<ImWidgetV4::ImTextBlock> ConfigurationsLabel;
-    std::shared_ptr<ImWidgetV4::ImButton> DebugButton;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> DebugButtonText;
-    std::shared_ptr<ImWidgetV4::ImButton> ReleaseButton;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> ReleaseButtonText;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> PackageOutputsLabel;
-    std::shared_ptr<ImWidgetV4::ImButton> StagingButton;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> StagingButtonText;
-    std::shared_ptr<ImWidgetV4::ImButton> ZipButton;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> ZipButtonText;
-    std::shared_ptr<ImWidgetV4::ImButton> NsisButton;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> NsisButtonText;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> ConfigurationCheckRow;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> DebugCheckBox;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> ReleaseCheckBox;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> ToolchainColumn;
     std::shared_ptr<ImWidgetV4::ImTextBlock> ToolchainHeader;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> ToolchainSummaryText;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> ToolchainLabel;
+    std::shared_ptr<ImWidgetV4::ImComboBox> ToolchainComboBox;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> ActionConfigPanel;
     std::shared_ptr<ImWidgetV4::ImTextBlock> ActionsHeader;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> StepOptionsRow;
+    std::shared_ptr<ImWidgetV4::ImComboBox> BuildStepComboBox;
+    std::shared_ptr<ImWidgetV4::ImComboBox> InstallerStepComboBox;
+    std::shared_ptr<ImWidgetV4::ImComboBox> SmokeStepComboBox;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> ActionButtonRow;
+    std::shared_ptr<ImWidgetV4::ImButton> RunSelectedButton;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> RunSelectedButtonText;
     std::shared_ptr<ImWidgetV4::ImButton> BuildSdkButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildSdkButtonText;
     std::shared_ptr<ImWidgetV4::ImButton> BuildInstallerButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildInstallerButtonText;
     std::shared_ptr<ImWidgetV4::ImButton> SmokeTestButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> SmokeTestButtonText;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewHeader;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
+    std::shared_ptr<ImWidgetV4::ImButton> OpenPackageButton;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> OpenPackageButtonText;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> LogPanel;
     std::shared_ptr<ImWidgetV4::ImTextBlock> LogHeader;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
     //===Auto Gen End=== (Members)
 };

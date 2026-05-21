@@ -4,7 +4,6 @@ set(IMWIDGET_SDK_BUILDER_SOURCES
     src/main.cpp
     generated/AppProjectConfig.cpp
     generated/MainView.cpp
-    generated/TitleBarView.cpp
 )
 
 add_executable(ImWidgetSDKBuilder

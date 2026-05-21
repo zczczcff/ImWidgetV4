@@ -73,7 +73,6 @@ set(IMWIDGETV4_APP_SOURCES
     src/main.cpp
     generated/AppProjectConfig.cpp
     generated/MainView.cpp
-    generated/TitleBarView.cpp
 )
 
 if(ANDROID)

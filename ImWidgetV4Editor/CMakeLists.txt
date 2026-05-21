@@ -39,6 +39,7 @@ endif()
 
 set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/build/BuildController.cpp
+    src/cli/UiDocumentCli.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/editor/DocumentSnapshotExporter.cpp
     src/editor/EditorDocument.cpp

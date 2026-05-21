@@ -1,6 +1,7 @@
 #include "../src/editor/DocumentSnapshotExporter.h"
 #include "../src/editor/EditorDocument.h"
 #include "../src/editor/EditorPaths.h"
+#include "../src/cli/UiDocumentCli.h"
 
 #include <gtest/gtest.h>
 
@@ -196,6 +197,46 @@ TEST(EditorSnapshotExportTest, RejectsInvalidInputAndMissingPaths)
         FDocumentSnapshotExportRequest {invalidPath, {}, std::nullopt, std::nullopt});
     EXPECT_FALSE(missingOutputResult.bSuccess);
     EXPECT_NE(missingOutputResult.ErrorMessage.find("Output PNG path is required"), std::string::npos);
+}
+
+TEST(EditorSnapshotExportTest, UiDocumentCliValidatesAndBuildsTreeInfo)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    std::string error;
+    EXPECT_TRUE(UiDocumentCli::ValidateDocumentFile(inputPath, &error)) << error;
+
+    const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(treeInfo.bSuccess) << treeInfo.ErrorMessage;
+    ASSERT_EQ(treeInfo.Nodes.size(), 3u);
+
+    EXPECT_EQ(treeInfo.Nodes[0].WidgetId, "w1");
+    EXPECT_EQ(treeInfo.Nodes[0].TypeName, "ImVerticalBox");
+    EXPECT_EQ(treeInfo.Nodes[0].Name, "SnapshotRoot");
+    EXPECT_EQ(treeInfo.Nodes[0].Depth, 0u);
+
+    EXPECT_EQ(treeInfo.Nodes[1].WidgetId, "w2");
+    EXPECT_EQ(treeInfo.Nodes[1].TypeName, "ImTextBlock");
+    EXPECT_EQ(treeInfo.Nodes[1].Name, "TitleText");
+    EXPECT_EQ(treeInfo.Nodes[1].Depth, 1u);
+
+    const std::filesystem::path invalidPath = tempDirectory / "invalid.ui.json";
+    {
+        std::ofstream stream(invalidPath);
+        stream << "{";
+    }
+
+    EXPECT_FALSE(UiDocumentCli::ValidateDocumentFile(invalidPath, &error));
+    const FUiDocumentTreeInfo invalidTreeInfo = UiDocumentCli::BuildDocumentTreeInfo(invalidPath);
+    EXPECT_FALSE(invalidTreeInfo.bSuccess);
+    EXPECT_FALSE(invalidTreeInfo.ErrorMessage.empty());
 }
 
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)

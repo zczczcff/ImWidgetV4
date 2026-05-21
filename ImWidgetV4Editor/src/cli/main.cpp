@@ -1,4 +1,5 @@
 #include "build/BuildController.h"
+#include "cli/UiDocumentCli.h"
 #include "editor/DocumentSnapshotExporter.h"
 #include "editor/EditorDocument.h"
 #include "project/EditorProject.h"
@@ -195,6 +196,8 @@ void PrintUsage()
         << "Commands:\n"
         << "  ui controls list [--json]\n"
         << "  ui controls describe <type-name> [--json]\n"
+        << "  ui validate <input.ui.json> [--json]\n"
+        << "  ui tree <input.ui.json> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -654,6 +657,73 @@ void PrintWidgetControlDescriptionText(const FWidgetTypeInfo& info)
     }
 }
 
+void PrintUiValidationJson(const std::filesystem::path& inputPath, bool bSuccess, const std::string& errorMessage)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    if (!bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(errorMessage);
+    }
+    std::cout << "\n}\n";
+}
+
+void PrintUiTreeJson(const std::filesystem::path& inputPath, const FUiDocumentTreeInfo& info)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (info.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    if (!info.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(info.ErrorMessage);
+        std::cout << "\n}\n";
+        return;
+    }
+
+    std::cout << ",\n  \"nodes\": [\n";
+    for (std::size_t index = 0; index < info.Nodes.size(); ++index) {
+        const FUiTreeNodeInfo& node = info.Nodes[index];
+        std::cout << "    {\n";
+        std::cout << "      \"path\": ";
+        PrintJsonEscapedString(node.WidgetId);
+        std::cout << ",\n      \"id\": ";
+        PrintJsonEscapedString(node.WidgetId);
+        std::cout << ",\n      \"type\": ";
+        PrintJsonEscapedString(node.TypeName);
+        std::cout << ",\n      \"name\": ";
+        PrintJsonEscapedString(node.Name);
+        std::cout << ",\n      \"role\": ";
+        PrintJsonEscapedString(node.RoleName);
+        std::cout << ",\n      \"depth\": " << node.Depth << "\n";
+        std::cout << "    }";
+        if (index + 1 < info.Nodes.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintUiTreeText(const FUiDocumentTreeInfo& info)
+{
+    for (const FUiTreeNodeInfo& node : info.Nodes) {
+        for (std::size_t depth = 0; depth < node.Depth; ++depth) {
+            std::cout << "  ";
+        }
+        std::cout << node.WidgetId << " " << node.TypeName;
+        if (!node.Name.empty()) {
+            std::cout << " \"" << node.Name << "\"";
+        }
+        if (!node.RoleName.empty()) {
+            std::cout << " [" << node.RoleName << "]";
+        }
+        std::cout << "\n";
+    }
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -872,6 +942,45 @@ int RunUiCommand(const std::vector<std::string>& args)
         return 1;
     }
 
+    const bool bJsonOutput = std::find(args.begin(), args.end(), "--json") != args.end();
+
+    if (args[1] == "validate") {
+        if (args.size() < 3) {
+            std::cerr << "ui validate requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        std::string error;
+        const bool bSuccess = UiDocumentCli::ValidateDocumentFile(inputPath, &error);
+        if (bJsonOutput) {
+            PrintUiValidationJson(inputPath, bSuccess, error);
+        } else if (bSuccess) {
+            std::cout << "OK: " << inputPath.string() << "\n";
+        } else {
+            std::cerr << "Invalid UI document: " << error << "\n";
+        }
+        return bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "tree") {
+        if (args.size() < 3) {
+            std::cerr << "ui tree requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+        if (bJsonOutput) {
+            PrintUiTreeJson(inputPath, treeInfo);
+        } else if (treeInfo.bSuccess) {
+            PrintUiTreeText(treeInfo);
+        } else {
+            std::cerr << "Failed to read UI tree: " << treeInfo.ErrorMessage << "\n";
+        }
+        return treeInfo.bSuccess ? 0 : 1;
+    }
+
     if (args[1] != "controls") {
         std::cerr << "Unknown ui subcommand: " << args[1] << "\n";
         return 1;
@@ -882,7 +991,6 @@ int RunUiCommand(const std::vector<std::string>& args)
         return 1;
     }
 
-    const bool bJsonOutput = std::find(args.begin(), args.end(), "--json") != args.end();
     const WidgetCatalog& catalog = WidgetCatalog::Get();
 
     if (args[2] == "list") {

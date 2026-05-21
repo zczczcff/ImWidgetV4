@@ -95,6 +95,7 @@ public:
     virtual void Paint(const FPaintContext& paintContext) override;
     virtual FVector2 GetMinSize() const override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
+    virtual void PostDeserializeFromJson() override;
 
 protected:
     virtual void OnFocusChanged(bool bHasFocus) override;

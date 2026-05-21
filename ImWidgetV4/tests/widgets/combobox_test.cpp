@@ -5,6 +5,7 @@
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <memory>
 
 using namespace ImWidgetV4;
@@ -329,6 +330,37 @@ TEST_F(ComboBoxTest, ExplicitStyleOverridesThemeAndPopupWindowStyle)
 
     AdvanceWithEvents({CreateMouseEvent(EInputEventType::MouseButtonDown, FVector2(260.0f, 180.0f))});
     EXPECT_FALSE(ComboBox->IsPopupOpen());
+}
+
+TEST_F(ComboBoxTest, DeserializedStyleOverridesTheme)
+{
+    auto comboBox = std::make_shared<ImComboBox>();
+    comboBox->FromJson(nlohmann::ordered_json::parse(R"JSON({
+        "Type": "ImComboBox",
+        "Properties": {
+            "ImComboBox::Items": ["One", "Two"],
+            "ImComboBox::SelectedIndex": 0,
+            "ImComboBox::PlaceholderText": "Pick",
+            "ImComboBox::MaxVisibleItems": 4,
+            "ImComboBox::Disabled": false,
+            "ImComboBox::Style": {
+                "Type": "FComboBoxStyle",
+                "Properties": {
+                    "FComboBoxStyle::BackgroundColor": [1, 2, 3, 255],
+                    "FComboBoxStyle::PopupOutlineColor": [4, 5, 6, 255],
+                    "FComboBoxStyle::CornerRadius": 0
+                }
+            }
+        }
+    })JSON"));
+    Host->SetChild(comboBox);
+    ComboBox = comboBox;
+    ASSERT_TRUE(App->SetActiveTheme("Light"));
+
+    const FComboBoxStyle& style = ComboBox->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), FColor::FromBytes(1, 2, 3).ToImU32());
+    EXPECT_EQ(style.PopupOutlineColor.ToImU32(), FColor::FromBytes(4, 5, 6).ToImU32());
+    EXPECT_FLOAT_EQ(style.CornerRadius, 0.0f);
 }
 
 int main(int argc, char** argv) {

@@ -1089,6 +1089,13 @@ const FComboBoxStyle& ImComboBox::GetEffectiveStyle() const
     return m_Style;
 }
 
+void ImComboBox::PostDeserializeFromJson()
+{
+    m_bHasExplicitStyle = true;
+    SyncLocalizedItemsFromSerializableItems();
+    m_PlaceholderTextValue = FText::FromString(m_PlaceholderText);
+}
+
 FWindowStyle ImComboBox::BuildPopupWindowStyle() const
 {
     const FComboBoxStyle& style = GetEffectiveStyle();

@@ -535,6 +535,11 @@ const FExpandableBoxStyle& ImExpandableBox::GetEffectiveStyle() const
     return m_Style;
 }
 
+void ImExpandableBox::PostDeserializeFromJson()
+{
+    m_bHasExplicitStyle = true;
+}
+
 float ImExpandableBox::ComputeHeaderHeight() const
 {
     const FExpandableBoxStyle& style = GetEffectiveStyle();

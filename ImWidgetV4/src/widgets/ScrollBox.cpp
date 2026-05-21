@@ -731,4 +731,9 @@ const FScrollBoxStyle& ImScrollBox::GetEffectiveStyle() const
     return m_Style;
 }
 
+void ImScrollBox::PostDeserializeFromJson()
+{
+    m_bHasExplicitStyle = true;
+}
+
 } // namespace ImWidgetV4

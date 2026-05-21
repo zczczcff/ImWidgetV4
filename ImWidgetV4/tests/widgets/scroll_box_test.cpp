@@ -4,6 +4,7 @@
 #include <imwidgetv4/style/StyleResolvers.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <memory>
 
 using namespace ImWidgetV4;
@@ -357,6 +358,32 @@ TEST_F(ScrollBoxTest, ExplicitStyleOverridesTheme)
 
     EXPECT_EQ(scrollBox->GetStyle().BackgroundColor.ToImU32(), explicitStyle.BackgroundColor.ToImU32());
     EXPECT_EQ(scrollBox->GetStyle().ScrollbarThumbColor.ToImU32(), explicitStyle.ScrollbarThumbColor.ToImU32());
+}
+
+TEST_F(ScrollBoxTest, DeserializedStyleOverridesTheme)
+{
+    auto app = std::make_shared<ImApplication>();
+    auto scrollBox = std::make_shared<ImScrollBox>();
+    scrollBox->FromJson(nlohmann::ordered_json::parse(R"JSON({
+        "Type": "ImScrollBox",
+        "Properties": {
+            "ImScrollBox::ScrollOffset": [0, 0],
+            "ImScrollBox::Style": {
+                "Type": "FScrollBoxStyle",
+                "Properties": {
+                    "FScrollBoxStyle::BackgroundColor": [1, 2, 3, 255],
+                    "FScrollBoxStyle::CornerRadius": 0
+                }
+            }
+        }
+    })JSON"));
+
+    app->SetRootWidget(scrollBox);
+    ASSERT_TRUE(app->SetActiveTheme("Dark"));
+
+    const FScrollBoxStyle& style = scrollBox->GetStyle();
+    EXPECT_EQ(style.BackgroundColor.ToImU32(), FColor::FromBytes(1, 2, 3).ToImU32());
+    EXPECT_FLOAT_EQ(style.CornerRadius, 0.0f);
 }
 
 } // namespace

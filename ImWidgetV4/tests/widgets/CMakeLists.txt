@@ -130,6 +130,7 @@ add_executable(expandable_box_test
 
 target_link_libraries(expandable_box_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )
@@ -154,6 +155,7 @@ add_executable(combobox_test
 
 target_link_libraries(combobox_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )
@@ -202,6 +204,7 @@ add_executable(scroll_box_test
 
 target_link_libraries(scroll_box_test PRIVATE
     imwidgetv4_core
+    imwidgetv4_reflection_json
     gtest
     gtest_main
 )

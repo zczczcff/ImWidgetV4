@@ -8,6 +8,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <memory>
 
 using namespace ImWidgetV4;
@@ -290,4 +291,29 @@ TEST_F(ExpandableBoxTest, ExplicitStyleOverridesTheme)
 
     EXPECT_EQ(ExpandableBox->GetStyle().HeaderBackgroundColor.ToImU32(), explicitStyle.HeaderBackgroundColor.ToImU32());
     EXPECT_EQ(ExpandableBox->GetStyle().BorderColor.ToImU32(), explicitStyle.BorderColor.ToImU32());
+}
+
+TEST_F(ExpandableBoxTest, DeserializedStyleOverridesTheme)
+{
+    auto deserializedBox = std::make_shared<ImExpandableBox>();
+    deserializedBox->FromJson(nlohmann::ordered_json::parse(R"JSON({
+        "Type": "ImExpandableBox",
+        "Properties": {
+            "ImExpandableBox::Expanded": true,
+            "ImExpandableBox::Style": {
+                "Type": "FExpandableBoxStyle",
+                "Properties": {
+                    "FExpandableBoxStyle::CornerRadius": 0,
+                    "FExpandableBoxStyle::HeaderBackgroundColor": [1, 2, 3, 255]
+                }
+            }
+        }
+    })JSON"));
+
+    App->SetRootWidget(deserializedBox);
+    ASSERT_TRUE(App->SetActiveTheme("Dark"));
+
+    const FExpandableBoxStyle& style = deserializedBox->GetStyle();
+    EXPECT_FLOAT_EQ(style.CornerRadius, 0.0f);
+    EXPECT_EQ(style.HeaderBackgroundColor.ToImU32(), FColor::FromBytes(1, 2, 3).ToImU32());
 }

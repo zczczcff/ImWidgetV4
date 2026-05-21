@@ -56,6 +56,7 @@ public:
     virtual FVector2 GetMinSize() const override;
     virtual FReply OnInputEvent(const FInputEvent& event) override;
     virtual bool BuildHitTestPath(const FVector2& position, std::vector<Ptr>& outPath) override;
+    virtual void PostDeserializeFromJson() override;
 
     void Relayout();
 

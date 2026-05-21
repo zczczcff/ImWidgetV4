@@ -1,0 +1,91 @@
+{
+  "Format": "ImWidgetV4EditorProject",
+  "Version": 6,
+  "Project": {
+    "Name": "ImWidgetSDKBuilder",
+    "Namespace": "ImWidgetSDKBuilder",
+    "Template": "Blank App",
+    "StartupDocument": "ui/Main.ui.json",
+    "ActiveBuildProfile": "Windows Debug"
+  },
+  "Application": {
+    "Title": "ImWidgetSDKBuilder",
+    "IconPath": "",
+    "InitialWidth": 1280,
+    "InitialHeight": 720,
+    "EnableIniSettings": false,
+    "IniSettingsPath": "",
+    "UseCustomHostChrome": false,
+    "UseTitleBar": true,
+    "TitleBarDocument": "ui/TitleBar.ui.json",
+    "ShowSystemButtons": true,
+    "UseTitleBarMenus": false,
+    "LibraryIntegrationMode": "Source",
+    "SdkPackagePath": "",
+    "MinimumSdkVersion": "0.1.0",
+    "DefaultTheme": "",
+    "DefaultCulture": "",
+    "StringTablePaths": [],
+    "GenerateInitializeStub": false,
+    "GenerateTickStub": false
+  },
+  "BuildProfiles": [
+    {
+      "Name": "Windows Debug",
+      "TargetPlatform": "WindowsDesktop",
+      "Configuration": "Debug",
+      "Generator": "Visual Studio 17 2022",
+      "BuildDirectory": "build/win64-debug",
+      "Enabled": true,
+      "Windows": {
+        "Architecture": "win64"
+      },
+      "Android": {
+        "Abi": "arm64-v8a",
+        "ApiLevel": 24,
+        "Stl": "c++_shared",
+        "SdkRootOverride": "",
+        "NdkRootOverride": ""
+      },
+      "ExtraConfigureArguments": []
+    },
+    {
+      "Name": "Windows Release",
+      "TargetPlatform": "WindowsDesktop",
+      "Configuration": "Release",
+      "Generator": "Visual Studio 17 2022",
+      "BuildDirectory": "build/win64-release",
+      "Enabled": true,
+      "Windows": {
+        "Architecture": "win64"
+      },
+      "Android": {
+        "Abi": "arm64-v8a",
+        "ApiLevel": 24,
+        "Stl": "c++_shared",
+        "SdkRootOverride": "",
+        "NdkRootOverride": ""
+      },
+      "ExtraConfigureArguments": []
+    },
+    {
+      "Name": "Android Debug",
+      "TargetPlatform": "Android",
+      "Configuration": "Debug",
+      "Generator": "Ninja",
+      "BuildDirectory": "build/android-debug",
+      "Enabled": true,
+      "Windows": {
+        "Architecture": "win64"
+      },
+      "Android": {
+        "Abi": "arm64-v8a",
+        "ApiLevel": 24,
+        "Stl": "c++_shared",
+        "SdkRootOverride": "",
+        "NdkRootOverride": ""
+      },
+      "ExtraConfigureArguments": []
+    }
+  ]
+}

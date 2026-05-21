@@ -69,6 +69,20 @@ std::string GetTargetPlatformBuildTag(EEditorTargetPlatform platform)
     }
 }
 
+std::string NormalizeWindowsArchitecture(const std::string& architecture)
+{
+    std::string normalized = architecture;
+    std::transform(
+        normalized.begin(),
+        normalized.end(),
+        normalized.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (normalized == "win32" || normalized == "x86") {
+        return "win32";
+    }
+    return "win64";
+}
+
 bool TryParseTargetPlatform(const std::string& text, EEditorTargetPlatform& outPlatform)
 {
     if (text == "WindowsDesktop" || text == "windows" || text == "win32") {
@@ -88,8 +102,19 @@ std::filesystem::path BuildDefaultBuildDirectoryRelativePath(
     EEditorTargetPlatform platform,
     const std::string& configuration)
 {
+    const std::string tag = platform == EEditorTargetPlatform::WindowsDesktop
+        ? std::string("win64")
+        : GetTargetPlatformBuildTag(platform);
+    return (std::filesystem::path("build") / (tag + "-" + NormalizeConfiguration(configuration)))
+        .lexically_normal();
+}
+
+std::filesystem::path BuildDefaultWindowsBuildDirectoryRelativePath(
+    const std::string& architecture,
+    const std::string& configuration)
+{
     return (std::filesystem::path("build") /
-            (GetTargetPlatformBuildTag(platform) + "-" + NormalizeConfiguration(configuration)))
+        (NormalizeWindowsArchitecture(architecture) + "-" + NormalizeConfiguration(configuration)))
         .lexically_normal();
 }
 
@@ -115,16 +140,20 @@ std::vector<FEditorBuildProfile> BuildDefaultBuildProfiles()
     windowsDebug.Name = "Windows Debug";
     windowsDebug.TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
     windowsDebug.Configuration = "Debug";
-    windowsDebug.BuildDirectory = BuildDefaultBuildDirectoryRelativePath(
-        windowsDebug.TargetPlatform,
+    windowsDebug.Generator = "Visual Studio 17 2022";
+    windowsDebug.WindowsSettings.Architecture = "win64";
+    windowsDebug.BuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+        windowsDebug.WindowsSettings.Architecture,
         windowsDebug.Configuration);
 
     FEditorBuildProfile windowsRelease;
     windowsRelease.Name = "Windows Release";
     windowsRelease.TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
     windowsRelease.Configuration = "Release";
-    windowsRelease.BuildDirectory = BuildDefaultBuildDirectoryRelativePath(
-        windowsRelease.TargetPlatform,
+    windowsRelease.Generator = "Visual Studio 17 2022";
+    windowsRelease.WindowsSettings.Architecture = "win64";
+    windowsRelease.BuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+        windowsRelease.WindowsSettings.Architecture,
         windowsRelease.Configuration);
 
     FEditorBuildProfile androidDebug;
@@ -175,6 +204,10 @@ json BuildProfileToJson(const FEditorBuildProfile& profile)
     profileJson["BuildDirectory"] = profile.BuildDirectory.generic_string();
     profileJson["Enabled"] = profile.bEnabled;
 
+    json windowsJson;
+    windowsJson["Architecture"] = NormalizeWindowsArchitecture(profile.WindowsSettings.Architecture);
+    profileJson["Windows"] = std::move(windowsJson);
+
     json androidJson;
     androidJson["Abi"] = profile.AndroidSettings.Abi;
     androidJson["ApiLevel"] = profile.AndroidSettings.ApiLevel;
@@ -219,6 +252,14 @@ bool BuildProfileFromJson(const json& profileJson, FEditorBuildProfile& outProfi
     profile.BuildDirectory = NormalizeStoredBuildDirectory(
         std::filesystem::path(profileJson.value("BuildDirectory", std::string())));
     profile.bEnabled = profileJson.value("Enabled", true);
+
+    const json windowsJson = profileJson.value("Windows", json::object());
+    if (windowsJson.is_object()) {
+        profile.WindowsSettings.Architecture =
+            NormalizeWindowsArchitecture(windowsJson.value("Architecture", std::string("win64")));
+    } else {
+        profile.WindowsSettings.Architecture = "win64";
+    }
 
     const json androidJson = profileJson.value("Android", json::object());
     if (androidJson.is_object()) {

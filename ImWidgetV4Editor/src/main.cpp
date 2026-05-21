@@ -114,6 +114,7 @@ struct FEditorShellWidgets {
     std::shared_ptr<ImTextOutlineView> WidgetTreeView;
     std::shared_ptr<ImComboBox> BuildProfileComboBox;
     std::shared_ptr<ImComboBox> BuildWindowsGeneratorComboBox;
+    std::shared_ptr<ImComboBox> BuildWindowsArchitectureComboBox;
     std::shared_ptr<ImComboBox> BuildAndroidAbiComboBox;
     std::shared_ptr<ImComboBox> BuildAndroidApiComboBox;
     std::shared_ptr<ImComboBox> BuildAndroidStlComboBox;
@@ -155,6 +156,7 @@ struct FEditorShellWidgets {
     FColor LastTitleBarProfileStatusColor = FColor::Transparent;
     std::string BuildDraftProfileName;
     std::string BuildDraftWindowsGenerator;
+    std::string BuildDraftWindowsArchitecture;
     std::string BuildDraftAndroidAbi;
     std::string BuildDraftAndroidApi;
     std::string BuildDraftAndroidStl;
@@ -392,6 +394,11 @@ std::string ResolveBuildDockWindowsGeneratorValue(const std::string& generator)
     return generator.empty() ? std::string("Default") : generator;
 }
 
+std::vector<std::string> GetBuildDockWindowsArchitectureOptions()
+{
+    return {"win64", "win32"};
+}
+
 std::vector<std::string> GetBuildDockAndroidAbiOptions()
 {
     return {"arm64-v8a", "armeabi-v7a", "x86_64", "x86"};
@@ -435,6 +442,7 @@ void SyncBuildDockDraftFromProfile(FEditorShellWidgets& shell, const FEditorBuil
 {
     shell.BuildDraftProfileName = profile ? profile->Name : std::string();
     shell.BuildDraftWindowsGenerator = profile ? profile->Generator : std::string();
+    shell.BuildDraftWindowsArchitecture = profile ? NormalizeWindowsArchitecture(profile->WindowsSettings.Architecture) : std::string();
     shell.BuildDraftAndroidAbi = profile ? profile->AndroidSettings.Abi : std::string();
     shell.BuildDraftAndroidApi = profile ? std::to_string(profile->AndroidSettings.ApiLevel) : std::string();
     shell.BuildDraftAndroidStl = profile ? profile->AndroidSettings.Stl : std::string();
@@ -456,6 +464,17 @@ void ApplyBuildDockDraftToWidgets(FEditorShellWidgets& shell, const FEditorBuild
             shell.BuildWindowsGeneratorComboBox->SetSelectedIndex(generatorIndex);
         } else {
             shell.BuildWindowsGeneratorComboBox->ClearSelection();
+        }
+    }
+
+    if (shell.BuildWindowsArchitectureComboBox) {
+        const std::vector<std::string> architectureOptions = GetBuildDockWindowsArchitectureOptions();
+        shell.BuildWindowsArchitectureComboBox->SetItems(architectureOptions);
+        const int architectureIndex = FindStringOptionIndex(architectureOptions, shell.BuildDraftWindowsArchitecture);
+        if (architectureIndex >= 0) {
+            shell.BuildWindowsArchitectureComboBox->SetSelectedIndex(architectureIndex);
+        } else {
+            shell.BuildWindowsArchitectureComboBox->ClearSelection();
         }
     }
 
@@ -533,6 +552,10 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     ApplyInspectorComboBoxStyle(*windowsGeneratorComboBox);
     windowsGeneratorComboBox->SetItems(GetBuildDockWindowsGeneratorOptions());
 
+    auto windowsArchitectureComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*windowsArchitectureComboBox);
+    windowsArchitectureComboBox->SetItems(GetBuildDockWindowsArchitectureOptions());
+
     auto androidAbiComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*androidAbiComboBox);
     androidAbiComboBox->SetItems(GetBuildDockAndroidAbiOptions());
@@ -603,6 +626,9 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
     windowsSettingsGroup->AddChild(
         MakeInspectorVerticalPropertyRow(EditorText("Build.Generator", "Generator").Resolve(), windowsGeneratorComboBox),
         FMargin(8.0f, 0.0f, 8.0f, 0.0f));
+    windowsSettingsGroup->AddChild(
+        MakeInspectorVerticalPropertyRow(EditorText("Build.WindowsArchitecture", "Architecture").Resolve(), windowsArchitectureComboBox),
+        FMargin(8.0f, 0.0f, 8.0f, 0.0f));
 
     auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
     androidSettingsGroup->SetSpacing(6.0f);
@@ -658,6 +684,7 @@ std::shared_ptr<ImWidget> BuildBuildDockPanel(FEditorShellWidgets& shell)
 
     shell.BuildProfileComboBox = profileComboBox;
     shell.BuildWindowsGeneratorComboBox = windowsGeneratorComboBox;
+    shell.BuildWindowsArchitectureComboBox = windowsArchitectureComboBox;
     shell.BuildAndroidAbiComboBox = androidAbiComboBox;
     shell.BuildAndroidApiComboBox = androidApiComboBox;
     shell.BuildAndroidStlComboBox = androidStlComboBox;
@@ -1412,6 +1439,9 @@ void ApplyEditorThemeToShell(
     if (shell.BuildWindowsGeneratorComboBox) {
         ApplyInspectorComboBoxStyle(*shell.BuildWindowsGeneratorComboBox);
     }
+    if (shell.BuildWindowsArchitectureComboBox) {
+        ApplyInspectorComboBoxStyle(*shell.BuildWindowsArchitectureComboBox);
+    }
     if (shell.BuildAndroidAbiComboBox) {
         ApplyInspectorComboBoxStyle(*shell.BuildAndroidAbiComboBox);
     }
@@ -1653,6 +1683,11 @@ void UpdateBuildOverviewPanel(
         lines.push_back("  " + EditorText("Build.Configuration", "Configuration").Resolve() + ": " + activeProfile->Configuration);
         lines.push_back("  " + EditorText("Build.Generator", "Generator").Resolve() + ": " +
             (activeProfile->Generator.empty() ? EditorText("Common.Default", "Default").Resolve() : activeProfile->Generator));
+        if (activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop) {
+            lines.push_back(
+                "  " + EditorText("Build.WindowsArchitecture", "Architecture").Resolve() + ": " +
+                NormalizeWindowsArchitecture(activeProfile->WindowsSettings.Architecture));
+        }
         lines.push_back("  " + EditorText("Build.Directory", "Build Directory").Resolve() + ": " + ResolveBuildDirectoryPath(project->GetProjectRoot(), *activeProfile).string());
 
         if (activeProfile->TargetPlatform == EEditorTargetPlatform::Android) {
@@ -1775,6 +1810,13 @@ void UpdateBuildDockActions(
             activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
             !bBuildRunning;
         shell.BuildWindowsGeneratorComboBox->SetDisabled(!bEnable);
+    }
+    if (shell.BuildWindowsArchitectureComboBox) {
+        const bool bEnable =
+            activeProfile != nullptr &&
+            activeProfile->TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+            !bBuildRunning;
+        shell.BuildWindowsArchitectureComboBox->SetDisabled(!bEnable);
     }
     if (shell.BuildAndroidAbiComboBox) {
         const bool bEnable =
@@ -2059,6 +2101,14 @@ public:
                 }
             });
         }
+        if (Shell_.BuildWindowsArchitectureComboBox) {
+            Shell_.BuildWindowsArchitectureComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
+                if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
+                    Shell_.BuildDraftWindowsArchitecture = NormalizeWindowsArchitecture(comboBox.GetSelectedText());
+                    Shell_.bBuildProfileDraftDirty = true;
+                }
+            });
+        }
         if (Shell_.BuildAndroidAbiComboBox) {
             Shell_.BuildAndroidAbiComboBox->OnSelectionChanged.AddLambda([this](ImComboBox& comboBox, int) {
                 if (!Shell_.bBuildProfileDraftSyncing && comboBox.HasSelection()) {
@@ -2123,7 +2173,21 @@ public:
 
                     FEditorBuildProfile updatedProfile = *activeProfile;
                     if (updatedProfile.TargetPlatform == EEditorTargetPlatform::WindowsDesktop) {
+                        const std::filesystem::path previousDefaultBuildDirectory =
+                            BuildDefaultWindowsBuildDirectoryRelativePath(
+                                updatedProfile.WindowsSettings.Architecture,
+                                updatedProfile.Configuration);
                         updatedProfile.Generator = Shell_.BuildDraftWindowsGenerator;
+                        updatedProfile.WindowsSettings.Architecture =
+                            Shell_.BuildDraftWindowsArchitecture.empty()
+                                ? std::string("win64")
+                                : NormalizeWindowsArchitecture(Shell_.BuildDraftWindowsArchitecture);
+                        if (updatedProfile.BuildDirectory.empty() ||
+                            updatedProfile.BuildDirectory.lexically_normal() == previousDefaultBuildDirectory) {
+                            updatedProfile.BuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+                                updatedProfile.WindowsSettings.Architecture,
+                                updatedProfile.Configuration);
+                        }
                     } else if (updatedProfile.TargetPlatform == EEditorTargetPlatform::Android) {
                         if (!Shell_.BuildDraftAndroidAbi.empty()) {
                             updatedProfile.AndroidSettings.Abi = Shell_.BuildDraftAndroidAbi;

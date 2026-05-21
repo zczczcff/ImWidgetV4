@@ -1,0 +1,15 @@
+{
+  "name": "ImWidgetV4",
+  "version": "@PROJECT_VERSION@",
+  "architecture": "@IMWIDGETV4_SDK_ARCHITECTURE@",
+  "configurations": [],
+  "compiler": {
+    "id": "@CMAKE_CXX_COMPILER_ID@",
+    "version": "@CMAKE_CXX_COMPILER_VERSION@",
+    "msvcToolset": "@CMAKE_VS_PLATFORM_TOOLSET@",
+    "msvcVersion": "@MSVC_VERSION@"
+  },
+  "generator": {
+    "platform": "@CMAKE_GENERATOR_PLATFORM@"
+  }
+}

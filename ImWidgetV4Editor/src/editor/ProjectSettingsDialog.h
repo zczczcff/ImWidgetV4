@@ -64,6 +64,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImWidget> m_Root;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_ProfileComboBox;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_WindowsGeneratorComboBox;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_WindowsArchitectureComboBox;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_AndroidAbiComboBox;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidApiLevelEditor;
     std::shared_ptr<ImWidgetV4::ImComboBox> m_AndroidStlComboBox;

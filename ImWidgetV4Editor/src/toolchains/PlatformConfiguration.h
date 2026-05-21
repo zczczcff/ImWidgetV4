@@ -21,12 +21,17 @@ struct FAndroidBuildSettings {
     std::filesystem::path NdkRootOverride;
 };
 
+struct FWindowsBuildSettings {
+    std::string Architecture = "win64";
+};
+
 struct FEditorBuildProfile {
     std::string Name;
     EEditorTargetPlatform TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
     std::string Configuration = "Debug";
     std::string Generator;
     std::filesystem::path BuildDirectory;
+    FWindowsBuildSettings WindowsSettings;
     FAndroidBuildSettings AndroidSettings;
     std::vector<std::string> ExtraConfigureArguments;
     bool bEnabled = true;
@@ -35,10 +40,14 @@ struct FEditorBuildProfile {
 std::string GetTargetPlatformId(EEditorTargetPlatform platform);
 std::string GetTargetPlatformDisplayName(EEditorTargetPlatform platform);
 std::string GetTargetPlatformBuildTag(EEditorTargetPlatform platform);
+std::string NormalizeWindowsArchitecture(const std::string& architecture);
 bool TryParseTargetPlatform(const std::string& text, EEditorTargetPlatform& outPlatform);
 
 std::filesystem::path BuildDefaultBuildDirectoryRelativePath(
     EEditorTargetPlatform platform,
+    const std::string& configuration);
+std::filesystem::path BuildDefaultWindowsBuildDirectoryRelativePath(
+    const std::string& architecture,
     const std::string& configuration);
 std::filesystem::path ResolveBuildDirectoryPath(
     const std::filesystem::path& projectRoot,

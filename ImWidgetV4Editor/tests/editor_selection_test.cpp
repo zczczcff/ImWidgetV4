@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include "../src/inspector/ReflectionDetailsView.h"
 
 using namespace ImWidgetV4;
@@ -3246,7 +3247,7 @@ TEST(EditorSelectionTest, WorkspaceControllerCanRevealExecutableDirectoryForConf
     EXPECT_FALSE(workspaceController->CanRevealExecutableDirectoryForConfiguration("Debug"));
 
     const std::filesystem::path debugExecutableDirectory =
-        workspaceController->GetProjectRoot() / "build" / "win32-debug" / "Debug";
+        workspaceController->GetProjectRoot() / "build" / "win64-debug" / "Debug";
     std::filesystem::create_directories(debugExecutableDirectory, errorCode);
     ASSERT_FALSE(errorCode);
 
@@ -3390,13 +3391,39 @@ TEST(EditorSelectionTest, BuildControllerUsesProjectRootBuildDirectoryConvention
     const std::filesystem::path projectRoot = std::filesystem::path("E:/project/TestApp");
     EXPECT_EQ(
         BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::WindowsDesktop, "Debug").lexically_normal(),
-        (projectRoot / "build" / "win32-debug").lexically_normal());
+        (projectRoot / "build" / "win64-debug").lexically_normal());
     EXPECT_EQ(
         BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::WindowsDesktop, "Release").lexically_normal(),
-        (projectRoot / "build" / "win32-release").lexically_normal());
+        (projectRoot / "build" / "win64-release").lexically_normal());
+    EXPECT_EQ(
+        BuildDefaultWindowsBuildDirectoryRelativePath("win32", "Debug").lexically_normal(),
+        (std::filesystem::path("build") / "win32-debug").lexically_normal());
     EXPECT_EQ(
         BuildController::GetDefaultBuildDirectory(projectRoot, EEditorTargetPlatform::Android, "Debug").lexically_normal(),
         (projectRoot / "build" / "android-debug").lexically_normal());
+}
+
+TEST(EditorSelectionTest, BuildProfileJsonPreservesWindowsArchitecture)
+{
+    FEditorBuildProfile profile;
+    profile.Name = "Windows Win32 Debug";
+    profile.TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
+    profile.Configuration = "Debug";
+    profile.WindowsSettings.Architecture = "x86";
+
+    const json serialized = BuildProfileToJson(profile);
+    ASSERT_TRUE(serialized.contains("Windows"));
+    EXPECT_EQ(serialized["Windows"].value("Architecture", std::string()), "win32");
+
+    FEditorBuildProfile restored;
+    std::string error;
+    ASSERT_TRUE(BuildProfileFromJson(serialized, restored, &error)) << error;
+    EXPECT_EQ(restored.WindowsSettings.Architecture, "win32");
+
+    json legacyProfile = serialized;
+    legacyProfile.erase("Windows");
+    ASSERT_TRUE(BuildProfileFromJson(legacyProfile, restored, &error)) << error;
+    EXPECT_EQ(restored.WindowsSettings.Architecture, "win64");
 }
 
 class BuildControllerTestAccess : public BuildController {
@@ -3507,6 +3534,50 @@ TEST(EditorSelectionTest, BuildControllerConfigureArgumentsSkipSourceRootForSdkP
             return argument.find("-DIMWIDGETV4_ROOT=") == 0;
         });
     EXPECT_EQ(rootArgument, arguments.end());
+
+    std::filesystem::remove_all(tempRoot, errorCode);
+}
+
+TEST(EditorSelectionTest, BuildControllerConfigureArgumentsIncludeWindowsArchitecture)
+{
+    const std::filesystem::path tempRoot =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_build_controller_windows_arch_args";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempRoot, errorCode);
+    std::filesystem::create_directories(tempRoot, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorProject project;
+    ASSERT_TRUE(project.CreateNew(
+        tempRoot,
+        "WindowsArchArgsProject",
+        "WindowsArchArgsProject",
+        std::filesystem::path("ui") / "Main.ui.json"));
+
+    FEnvironmentProbeReport probeReport;
+    probeReport.TargetPlatform = EEditorTargetPlatform::WindowsDesktop;
+
+    FEditorBuildProfile* releaseProfile = project.FindBuildProfile("Windows Release");
+    ASSERT_NE(releaseProfile, nullptr);
+    releaseProfile->Generator = "Visual Studio 17 2022";
+    releaseProfile->WindowsSettings.Architecture = "win64";
+
+    std::vector<std::string> arguments =
+        BuildControllerTestAccess::BuildConfigureArguments(project, *releaseProfile, probeReport);
+    auto platformIt = std::find(arguments.begin(), arguments.end(), std::string("-A"));
+    ASSERT_NE(platformIt, arguments.end());
+    ASSERT_NE(std::next(platformIt), arguments.end());
+    EXPECT_EQ(*std::next(platformIt), "x64");
+
+    releaseProfile->WindowsSettings.Architecture = "win32";
+    releaseProfile->BuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+        releaseProfile->WindowsSettings.Architecture,
+        releaseProfile->Configuration);
+    arguments = BuildControllerTestAccess::BuildConfigureArguments(project, *releaseProfile, probeReport);
+    platformIt = std::find(arguments.begin(), arguments.end(), std::string("-A"));
+    ASSERT_NE(platformIt, arguments.end());
+    ASSERT_NE(std::next(platformIt), arguments.end());
+    EXPECT_EQ(*std::next(platformIt), "Win32");
 
     std::filesystem::remove_all(tempRoot, errorCode);
 }

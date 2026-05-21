@@ -5,6 +5,7 @@ param(
     [string]$OutputDir = "build/package/installers",
     [string]$Generator = "",
     [string]$Platform = "",
+    [string[]]$Architectures = @(),
     [string[]]$CpackGenerators = @(),
     [switch]$SkipSdkBuild
 )
@@ -48,6 +49,9 @@ if (-not $SkipSdkBuild) {
     }
     if (-not [string]::IsNullOrWhiteSpace($Platform)) {
         $packageArgs.Platform = $Platform
+    }
+    if ($Architectures.Count -gt 0) {
+        $packageArgs.Architectures = $Architectures
     }
 
     Write-Host "[installer] Building SDK staging tree..."
@@ -112,7 +116,7 @@ set(CPACK_PACKAGE_VENDOR "ImWidgetV4")
 set(CPACK_PACKAGE_VERSION "`$`{PROJECT_VERSION`}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ImWidgetV4 SDK and editor")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "ImWidgetV4")
-set(CPACK_PACKAGE_FILE_NAME "ImWidgetV4-`$`{CPACK_PACKAGE_VERSION`}-win64")
+set(CPACK_PACKAGE_FILE_NAME "ImWidgetV4-`$`{CPACK_PACKAGE_VERSION`}-windows-msvc")
 set(CPACK_PACKAGE_DIRECTORY "$resolvedOutputPath")
 set(CPACK_GENERATOR "$generatorList")
 set(CPACK_VERBATIM_VARIABLES ON)

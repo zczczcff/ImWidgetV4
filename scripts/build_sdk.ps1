@@ -4,6 +4,7 @@ param(
     [string]$SmokeDir = "build/package-sdk-smoke",
     [string]$Generator = "",
     [string]$Platform = "",
+    [string[]]$Architectures = @(),
     [switch]$SkipSmoke
 )
 
@@ -26,6 +27,9 @@ if (-not [string]::IsNullOrWhiteSpace($Generator)) {
 if (-not [string]::IsNullOrWhiteSpace($Platform)) {
     $packageArgs.Platform = $Platform
 }
+if ($Architectures.Count -gt 0) {
+    $packageArgs.Architectures = $Architectures
+}
 
 Write-Host "[sdk] Building ImWidgetV4 SDK package..."
 & $packageScript @packageArgs
@@ -35,23 +39,27 @@ if ($LASTEXITCODE -ne 0) {
 
 if (-not $SkipSmoke) {
     foreach ($configuration in $configurations) {
-        $configurationSmokeDir = Join-Path $SmokeDir $configuration
-        $smokeArgs = @{
-            PackageDir = $PackageDir
-            Configuration = $configuration
-            SmokeDir = $configurationSmokeDir
-        }
-        if (-not [string]::IsNullOrWhiteSpace($Generator)) {
-            $smokeArgs.Generator = $Generator
-        }
-        if (-not [string]::IsNullOrWhiteSpace($Platform)) {
-            $smokeArgs.Platform = $Platform
-        }
+        $smokeArchitectures = if ($Architectures.Count -gt 0) { $Architectures } elseif (-not [string]::IsNullOrWhiteSpace($Platform)) { @($Platform) } else { @("win32", "win64") }
+        foreach ($architecture in $smokeArchitectures) {
+            $architectureName = $architecture.Trim().ToLowerInvariant()
+            if ($architectureName -eq "x86") { $architectureName = "win32" }
+            if ($architectureName -eq "x64" -or $architectureName -eq "amd64") { $architectureName = "win64" }
+            $configurationSmokeDir = Join-Path $SmokeDir "$architectureName-$configuration"
+            $smokeArgs = @{
+                PackageDir = $PackageDir
+                Configuration = $configuration
+                SmokeDir = $configurationSmokeDir
+                Architecture = $architectureName
+            }
+            if (-not [string]::IsNullOrWhiteSpace($Generator)) {
+                $smokeArgs.Generator = $Generator
+            }
 
-        Write-Host "[sdk] Running SDK smoke test ($configuration)..."
-        & $smokeScript @smokeArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "SDK smoke test failed for $configuration with exit code $LASTEXITCODE."
+            Write-Host "[sdk] Running SDK smoke test ($architectureName/$configuration)..."
+            & $smokeScript @smokeArgs
+            if ($LASTEXITCODE -ne 0) {
+                throw "SDK smoke test failed for $architectureName/$configuration with exit code $LASTEXITCODE."
+            }
         }
     }
 }

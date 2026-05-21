@@ -74,6 +74,11 @@ std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
     return generator.empty() ? EditorText("Common.Default", "Default").Resolve() : generator;
 }
 
+std::vector<std::string> GetWindowsArchitectureOptions()
+{
+    return {"win64", "win32"};
+}
+
 std::vector<std::string> GetLibraryIntegrationModeOptions()
 {
     return {"Source", "SDK"};
@@ -177,6 +182,10 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
         windowsGeneratorLabels.push_back(GetWindowsGeneratorDisplayLabel(generator));
     }
     windowsGeneratorComboBox->SetItems(windowsGeneratorLabels);
+
+    auto windowsArchitectureComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*windowsArchitectureComboBox);
+    windowsArchitectureComboBox->SetItems(GetWindowsArchitectureOptions());
 
     auto androidAbiComboBox = std::make_shared<ImComboBox>();
     ApplyInspectorComboBoxStyle(*androidAbiComboBox);
@@ -292,6 +301,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto windowsSettingsGroup = std::make_shared<ImVerticalBox>();
     windowsSettingsGroup->SetSpacing(8.0f);
     windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.WindowsGenerator", "Windows Generator").Resolve(), windowsGeneratorComboBox), FMargin(0.0f));
+    windowsSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.WindowsArchitecture", "Windows Architecture").Resolve(), windowsArchitectureComboBox), FMargin(0.0f));
 
     auto androidSettingsGroup = std::make_shared<ImVerticalBox>();
     androidSettingsGroup->SetSpacing(8.0f);
@@ -367,6 +377,7 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_Root = root;
     m_ProfileComboBox = profileComboBox;
     m_WindowsGeneratorComboBox = windowsGeneratorComboBox;
+    m_WindowsArchitectureComboBox = windowsArchitectureComboBox;
     m_AndroidAbiComboBox = androidAbiComboBox;
     m_AndroidApiLevelEditor = androidApiLevelEditor;
     m_AndroidStlComboBox = androidStlComboBox;
@@ -665,6 +676,7 @@ void ProjectSettingsDialog::Reset()
     m_Root.reset();
     m_ProfileComboBox.reset();
     m_WindowsGeneratorComboBox.reset();
+    m_WindowsArchitectureComboBox.reset();
     m_AndroidAbiComboBox.reset();
     m_AndroidApiLevelEditor.reset();
     m_AndroidStlComboBox.reset();
@@ -779,6 +791,17 @@ void ProjectSettingsDialog::UpdateProfileEditorsFromSelection()
         }
     }
 
+    if (m_WindowsArchitectureComboBox) {
+        const auto architectureOptions = GetWindowsArchitectureOptions();
+        const std::string architecture = NormalizeWindowsArchitecture(selectedProfile->WindowsSettings.Architecture);
+        for (int index = 0; index < static_cast<int>(architectureOptions.size()); ++index) {
+            if (architectureOptions[static_cast<std::size_t>(index)] == architecture) {
+                m_WindowsArchitectureComboBox->SetSelectedIndex(index);
+                break;
+            }
+        }
+    }
+
     if (m_AndroidStlComboBox) {
         const auto stlOptions = GetAndroidStlOptions();
         for (int index = 0; index < static_cast<int>(stlOptions.size()); ++index) {
@@ -826,6 +849,21 @@ bool ProjectSettingsDialog::ApplyEditorValuesToSelection(std::string* outError)
         }
 
         selectedProfile->Generator = generatorOptions[static_cast<std::size_t>(selectedIndex)];
+        const std::filesystem::path previousDefaultBuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+            selectedProfile->WindowsSettings.Architecture,
+            selectedProfile->Configuration);
+        if (!m_WindowsArchitectureComboBox || !m_WindowsArchitectureComboBox->HasSelection()) {
+            selectedProfile->WindowsSettings.Architecture = "win64";
+        } else {
+            selectedProfile->WindowsSettings.Architecture =
+                NormalizeWindowsArchitecture(m_WindowsArchitectureComboBox->GetSelectedText());
+        }
+        if (selectedProfile->BuildDirectory.empty() ||
+            selectedProfile->BuildDirectory.lexically_normal() == previousDefaultBuildDirectory) {
+            selectedProfile->BuildDirectory = BuildDefaultWindowsBuildDirectoryRelativePath(
+                selectedProfile->WindowsSettings.Architecture,
+                selectedProfile->Configuration);
+        }
         return true;
     }
 

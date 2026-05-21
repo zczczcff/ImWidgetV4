@@ -3,21 +3,37 @@ param(
     [string]$Configuration = "Release",
     [string]$SmokeDir = "build/package-sdk-smoke",
     [string]$Generator = "",
-    [string]$Platform = ""
+    [string]$Platform = "",
+    [string]$Architecture = "win64"
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $packagePath = Resolve-Path (Join-Path $repoRoot $PackageDir)
+$architectureName = $Architecture.Trim().ToLowerInvariant()
+if ($architectureName -eq "x86") { $architectureName = "win32" }
+if ($architectureName -eq "x64" -or $architectureName -eq "amd64") { $architectureName = "win64" }
 $smokePath = Join-Path $repoRoot $SmokeDir
 $sourcePath = Join-Path $smokePath "src"
 $buildPath = Join-Path $smokePath "build"
 $sdkCmakePath = Join-Path $packagePath "sdk/cmake"
 $editorPath = Join-Path $packagePath "tools/ImWidgetV4Editor.exe"
 
+if ([string]::IsNullOrWhiteSpace($Platform)) {
+    if ($architectureName -eq "win32") {
+        $Platform = "Win32"
+    } else {
+        $Platform = "x64"
+    }
+}
+
 if (-not (Test-Path (Join-Path $sdkCmakePath "ImWidgetV4Config.cmake"))) {
     throw "ImWidgetV4Config.cmake was not found under '$sdkCmakePath'."
+}
+
+if (-not (Test-Path (Join-Path $sdkCmakePath "ImWidgetV4Targets-$architectureName.cmake"))) {
+    throw "ImWidgetV4Targets-$architectureName.cmake was not found under '$sdkCmakePath'."
 }
 
 if (-not (Test-Path $editorPath)) {

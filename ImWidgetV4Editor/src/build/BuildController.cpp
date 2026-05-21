@@ -2,6 +2,8 @@
 
 #include <imwidgetv4/platform/PlatformProcess.h>
 #include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <sstream>
 
 namespace ImWidgetV4Editor {
@@ -30,21 +32,151 @@ std::filesystem::path ResolveCompileTimeLibraryRoot()
 bool HasSdkImportedConfiguration(
     const std::filesystem::path& projectRoot,
     const FEditorApplicationSettings& settings,
-    const std::string& configuration)
+    const FEditorBuildProfile& profile)
 {
     if (settings.LibraryIntegrationMode != EEditorLibraryIntegrationMode::SDK ||
         settings.SdkPackagePath.empty() ||
-        configuration.empty()) {
+        profile.Configuration.empty()) {
         return true;
     }
 
     const std::filesystem::path sdkPackagePath = settings.SdkPackagePath.is_absolute()
         ? settings.SdkPackagePath
         : (projectRoot / settings.SdkPackagePath).lexically_normal();
+    const std::string architecture = profile.TargetPlatform == EEditorTargetPlatform::WindowsDesktop
+        ? NormalizeWindowsArchitecture(profile.WindowsSettings.Architecture)
+        : std::string();
+    if (!architecture.empty()) {
+        const std::filesystem::path architectureTargetsFile =
+            sdkPackagePath / ("ImWidgetV4Targets-" + architecture + "-" + ToLowerCopy(profile.Configuration) + ".cmake");
+        std::error_code errorCode;
+        if (std::filesystem::is_regular_file(architectureTargetsFile, errorCode)) {
+            return true;
+        }
+    }
+
     const std::filesystem::path targetsFile =
-        sdkPackagePath / ("ImWidgetV4Targets-" + ToLowerCopy(configuration) + ".cmake");
+        sdkPackagePath / ("ImWidgetV4Targets-" + ToLowerCopy(profile.Configuration) + ".cmake");
     std::error_code errorCode;
     return std::filesystem::is_regular_file(targetsFile, errorCode);
+}
+
+std::string GetWindowsCMakePlatform(const FEditorBuildProfile& profile)
+{
+    return NormalizeWindowsArchitecture(profile.WindowsSettings.Architecture) == "win32" ? "Win32" : "x64";
+}
+
+std::string GetWindowsSdkArchitecture(const FEditorBuildProfile& profile)
+{
+    return NormalizeWindowsArchitecture(profile.WindowsSettings.Architecture);
+}
+
+std::string GetVisualStudioToolsetForGenerator(const std::string& generator)
+{
+    if (generator.find("Visual Studio 17") != std::string::npos) {
+        return "v143";
+    }
+    if (generator.find("Visual Studio 16") != std::string::npos) {
+        return "v142";
+    }
+    if (generator.find("Visual Studio 15") != std::string::npos) {
+        return "v141";
+    }
+    return {};
+}
+
+std::string GetToolsetOverrideFromExtraArguments(const std::vector<std::string>& extraArguments)
+{
+    for (std::size_t index = 0; index < extraArguments.size(); ++index) {
+        const std::string& argument = extraArguments[index];
+        if (argument == "-T" && index + 1 < extraArguments.size()) {
+            return extraArguments[index + 1];
+        }
+        const std::string toolsetPrefix = "-T";
+        if (argument.rfind(toolsetPrefix, 0) == 0 && argument.size() > toolsetPrefix.size()) {
+            return argument.substr(toolsetPrefix.size());
+        }
+    }
+    return {};
+}
+
+std::string ReadCMakeSetValue(const std::filesystem::path& filePath, const std::string& variableName)
+{
+    std::ifstream stream(filePath, std::ios::binary);
+    if (!stream) {
+        return {};
+    }
+
+    const std::string prefix = "set(" + variableName + " \"";
+    std::string line;
+    while (std::getline(stream, line)) {
+        const std::size_t begin = line.find(prefix);
+        if (begin == std::string::npos) {
+            continue;
+        }
+        const std::size_t valueBegin = begin + prefix.size();
+        const std::size_t valueEnd = line.find('"', valueBegin);
+        if (valueEnd == std::string::npos) {
+            continue;
+        }
+        return line.substr(valueBegin, valueEnd - valueBegin);
+    }
+
+    return {};
+}
+
+bool ValidateSdkArchitectureAndToolset(
+    const std::filesystem::path& projectRoot,
+    const FEditorApplicationSettings& settings,
+    const FEditorBuildProfile& profile,
+    std::string* outError)
+{
+    if (settings.LibraryIntegrationMode != EEditorLibraryIntegrationMode::SDK ||
+        profile.TargetPlatform != EEditorTargetPlatform::WindowsDesktop ||
+        settings.SdkPackagePath.empty()) {
+        return true;
+    }
+
+    const std::filesystem::path sdkPackagePath = settings.SdkPackagePath.is_absolute()
+        ? settings.SdkPackagePath
+        : (projectRoot / settings.SdkPackagePath).lexically_normal();
+    const std::string architecture = GetWindowsSdkArchitecture(profile);
+    const std::filesystem::path metadataPath =
+        sdkPackagePath / ("ImWidgetV4SdkMetadata-" + architecture + ".cmake");
+    if (!std::filesystem::is_regular_file(metadataPath)) {
+        if (outError) {
+            *outError =
+                "The selected ImWidgetV4 SDK does not provide architecture '" + architecture + "'.";
+        }
+        return false;
+    }
+
+    const std::string compilerId = ReadCMakeSetValue(metadataPath, "ImWidgetV4_SDK_COMPILER_ID");
+    const bool bUsesVisualStudioGenerator = profile.Generator.find("Visual Studio") != std::string::npos;
+    if (!compilerId.empty() && bUsesVisualStudioGenerator && compilerId != "MSVC") {
+        if (outError) {
+            *outError =
+                "The selected ImWidgetV4 SDK was built with compiler '" + compilerId +
+                "', but this Windows build profile expects MSVC.";
+        }
+        return false;
+    }
+
+    const std::string sdkToolset = ReadCMakeSetValue(metadataPath, "ImWidgetV4_SDK_MSVC_TOOLSET");
+    std::string expectedToolset = GetToolsetOverrideFromExtraArguments(profile.ExtraConfigureArguments);
+    if (expectedToolset.empty()) {
+        expectedToolset = GetVisualStudioToolsetForGenerator(profile.Generator);
+    }
+    if (!sdkToolset.empty() && !expectedToolset.empty() && sdkToolset != expectedToolset) {
+        if (outError) {
+            *outError =
+                "The selected ImWidgetV4 SDK was built with MSVC toolset '" + sdkToolset +
+                "', but the active build profile expects '" + expectedToolset + "'.";
+        }
+        return false;
+    }
+
+    return true;
 }
 
 } // namespace
@@ -143,12 +275,24 @@ FBuildResult BuildController::ConfigureProject(
         return BuildMissingProfileResult(profileName);
     }
 
-    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), profile->Configuration)) {
+    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), *profile)) {
         FBuildResult result;
         result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
         result.ErrorMessage =
             "The selected ImWidgetV4 SDK does not provide " + profile->Configuration +
             " libraries. Build the app with a matching SDK configuration, or package the SDK with that configuration.";
+        return result;
+    }
+
+    std::string sdkCompatibilityError;
+    if (!ValidateSdkArchitectureAndToolset(
+            project.GetProjectRoot(),
+            project.GetApplicationSettings(),
+            *profile,
+            &sdkCompatibilityError)) {
+        FBuildResult result;
+        result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+        result.ErrorMessage = sdkCompatibilityError;
         return result;
     }
 
@@ -180,12 +324,24 @@ FBuildResult BuildController::BuildProject(
         return BuildMissingProfileResult(profileName);
     }
 
-    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), profile->Configuration)) {
+    if (!HasSdkImportedConfiguration(project.GetProjectRoot(), project.GetApplicationSettings(), *profile)) {
         FBuildResult result;
         result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
         result.ErrorMessage =
             "The selected ImWidgetV4 SDK does not provide " + profile->Configuration +
             " libraries. Build the app with a matching SDK configuration, or package the SDK with that configuration.";
+        return result;
+    }
+
+    std::string sdkCompatibilityError;
+    if (!ValidateSdkArchitectureAndToolset(
+            project.GetProjectRoot(),
+            project.GetApplicationSettings(),
+            *profile,
+            &sdkCompatibilityError)) {
+        FBuildResult result;
+        result.BuildDirectory = ResolveBuildDirectoryPath(project.GetProjectRoot(), *profile);
+        result.ErrorMessage = sdkCompatibilityError;
         return result;
     }
 
@@ -271,6 +427,12 @@ std::vector<std::string> BuildController::BuildConfigureArguments(
     if (!profile.Generator.empty()) {
         arguments.push_back("-G");
         arguments.push_back(profile.Generator);
+    }
+
+    if (profile.TargetPlatform == EEditorTargetPlatform::WindowsDesktop &&
+        profile.Generator.find("Visual Studio") != std::string::npos) {
+        arguments.push_back("-A");
+        arguments.push_back(GetWindowsCMakePlatform(profile));
     }
 
     if (profile.TargetPlatform == EEditorTargetPlatform::Android) {

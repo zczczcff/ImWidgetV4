@@ -11,10 +11,12 @@ namespace ImWidgetV4Editor {
 
 struct FUiTreeNodeInfo {
     std::string WidgetId;
+    std::string ParentWidgetId;
     std::string TypeName;
     std::string Name;
     std::string RoleName;
     std::size_t Depth = 0;
+    int ChildIndex = -1;
 };
 
 struct FUiDocumentTreeInfo {
@@ -42,6 +44,23 @@ struct FUiMutationResult {
     bool bChanged = false;
     std::string ErrorMessage;
     FUiTreeNodeInfo Node;
+};
+
+struct FUiNodeDiffEntry {
+    std::string Kind;
+    std::string WidgetId;
+    std::string FieldName;
+    FUiTreeNodeInfo BeforeNode;
+    FUiTreeNodeInfo AfterNode;
+    json BeforeValue = json();
+    json AfterValue = json();
+};
+
+struct FUiDocumentDiffInfo {
+    bool bSuccess = false;
+    bool bChanged = false;
+    std::string ErrorMessage;
+    std::vector<FUiNodeDiffEntry> Entries;
 };
 
 class UiDocumentCli {
@@ -74,6 +93,9 @@ public:
         const std::filesystem::path& inputPath,
         const std::string& widgetId,
         const std::string& newParentWidgetId);
+    static FUiDocumentDiffInfo DiffDocuments(
+        const std::filesystem::path& beforePath,
+        const std::filesystem::path& afterPath);
 };
 
 } // namespace ImWidgetV4Editor

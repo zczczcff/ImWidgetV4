@@ -203,6 +203,7 @@ void PrintUsage()
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
         << "  ui get <input.ui.json> <widget-id> [property] [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
+        << "  ui diff <before.ui.json> <after.ui.json> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
         << "  ui add <input.ui.json> <parent-widget-id> <widget-type> [--json]\n"
@@ -798,6 +799,9 @@ void PrintUiNodeJsonFields(const FUiTreeNodeInfo& node, const char* indent)
     PrintJsonEscapedString(node.Name);
     std::cout << ",\n" << indent << "\"role\": ";
     PrintJsonEscapedString(node.RoleName);
+    std::cout << ",\n" << indent << "\"parentId\": ";
+    PrintJsonEscapedString(node.ParentWidgetId);
+    std::cout << ",\n" << indent << "\"index\": " << node.ChildIndex;
     std::cout << ",\n" << indent << "\"depth\": " << node.Depth;
 }
 
@@ -884,6 +888,100 @@ void PrintUiMutationText(const FUiMutationResult& result)
         std::cout << " \"" << result.Node.Name << "\"";
     }
     std::cout << "\n";
+}
+
+void PrintUiDiffEntryJson(const FUiNodeDiffEntry& entry, const char* indent)
+{
+    std::cout << indent << "{\n";
+    std::cout << indent << "  \"kind\": ";
+    PrintJsonEscapedString(entry.Kind);
+    std::cout << ",\n" << indent << "  \"id\": ";
+    PrintJsonEscapedString(entry.WidgetId);
+    if (!entry.FieldName.empty()) {
+        std::cout << ",\n" << indent << "  \"field\": ";
+        PrintJsonEscapedString(entry.FieldName);
+    }
+    if (!entry.BeforeNode.WidgetId.empty()) {
+        std::cout << ",\n" << indent << "  \"beforeNode\": {\n";
+        PrintUiNodeJsonFields(entry.BeforeNode, "      ");
+        std::cout << "\n" << indent << "  }";
+    }
+    if (!entry.AfterNode.WidgetId.empty()) {
+        std::cout << ",\n" << indent << "  \"afterNode\": {\n";
+        PrintUiNodeJsonFields(entry.AfterNode, "      ");
+        std::cout << "\n" << indent << "  }";
+    }
+    if (!entry.BeforeValue.is_null()) {
+        std::cout << ",\n" << indent << "  \"before\": " << entry.BeforeValue.dump(2);
+    }
+    if (!entry.AfterValue.is_null()) {
+        std::cout << ",\n" << indent << "  \"after\": " << entry.AfterValue.dump(2);
+    }
+    std::cout << "\n" << indent << "}";
+}
+
+void PrintUiDiffJson(
+    const std::filesystem::path& beforePath,
+    const std::filesystem::path& afterPath,
+    const FUiDocumentDiffInfo& info)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (info.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"beforeFile\": ";
+    PrintJsonEscapedString(beforePath.string());
+    std::cout << ",\n  \"afterFile\": ";
+    PrintJsonEscapedString(afterPath.string());
+    if (!info.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(info.ErrorMessage);
+        std::cout << "\n}\n";
+        return;
+    }
+
+    std::cout << ",\n  \"changed\": " << (info.bChanged ? "true" : "false") << ",\n";
+    std::cout << "  \"changes\": [\n";
+    for (std::size_t index = 0; index < info.Entries.size(); ++index) {
+        PrintUiDiffEntryJson(info.Entries[index], "    ");
+        if (index + 1 < info.Entries.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintUiDiffText(const FUiDocumentDiffInfo& info)
+{
+    if (!info.bChanged) {
+        std::cout << "No UI changes.\n";
+        return;
+    }
+
+    for (const FUiNodeDiffEntry& entry : info.Entries) {
+        if (entry.Kind == "added") {
+            std::cout << "+ " << entry.WidgetId << " " << entry.AfterNode.TypeName;
+            if (!entry.AfterNode.Name.empty()) {
+                std::cout << " \"" << entry.AfterNode.Name << "\"";
+            }
+            std::cout << "\n";
+        } else if (entry.Kind == "removed") {
+            std::cout << "- " << entry.WidgetId << " " << entry.BeforeNode.TypeName;
+            if (!entry.BeforeNode.Name.empty()) {
+                std::cout << " \"" << entry.BeforeNode.Name << "\"";
+            }
+            std::cout << "\n";
+        } else if (entry.Kind == "property") {
+            std::cout
+                << "~ " << entry.WidgetId << " " << entry.FieldName
+                << ": " << entry.BeforeValue.dump()
+                << " -> " << entry.AfterValue.dump() << "\n";
+        } else {
+            std::cout
+                << "~ " << entry.WidgetId << " " << entry.FieldName
+                << ": " << entry.BeforeValue.dump()
+                << " -> " << entry.AfterValue.dump() << "\n";
+        }
+    }
 }
 
 json ParseCliJsonOrStringValue(const std::string& text)
@@ -1304,6 +1402,25 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to inspect UI node: " << inspectInfo.ErrorMessage << "\n";
         }
         return inspectInfo.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "diff") {
+        if (args.size() < 4) {
+            std::cerr << "ui diff requires <before.ui.json> and <after.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path beforePath = std::filesystem::path(args[2]).lexically_normal();
+        const std::filesystem::path afterPath = std::filesystem::path(args[3]).lexically_normal();
+        const FUiDocumentDiffInfo diffInfo = UiDocumentCli::DiffDocuments(beforePath, afterPath);
+        if (bJsonOutput) {
+            PrintUiDiffJson(beforePath, afterPath, diffInfo);
+        } else if (diffInfo.bSuccess) {
+            PrintUiDiffText(diffInfo);
+        } else {
+            std::cerr << "Failed to diff UI documents: " << diffInfo.ErrorMessage << "\n";
+        }
+        return diffInfo.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "rename") {

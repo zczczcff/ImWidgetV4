@@ -24,6 +24,8 @@
 #include <imwidgetv4/widgets/UserWidget.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 
+#include <map>
+
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
@@ -45,7 +47,9 @@ FUiTreeNodeInfo BuildTreeNodeInfo(
     node.TypeName = widget->GetTypeName();
     node.Name = widget->GetName();
     if (const std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget)) {
+        node.ParentWidgetId = document.GetWidgetId(parent);
         const int childIndex = LogicalWidgetTree::FindLogicalChildIndex(parent, widget);
+        node.ChildIndex = childIndex;
         if (childIndex >= 0) {
             if (const char* roleName = LogicalWidgetTree::GetLogicalChildRoleName(parent, static_cast<std::size_t>(childIndex))) {
                 node.RoleName = roleName;
@@ -71,6 +75,133 @@ void AppendTreeNode(
     const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
     for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
         AppendTreeNode(LogicalWidgetTree::GetLogicalChildAt(widget, childIndex), document, depth + 1, outInfo);
+    }
+}
+
+struct FUiDiffSnapshotNode {
+    FUiTreeNodeInfo Node;
+    json Properties = json::object();
+};
+
+struct FUiDiffSnapshot {
+    bool bSuccess = false;
+    std::string ErrorMessage;
+    std::map<std::string, FUiDiffSnapshotNode> Nodes;
+};
+
+void AppendDiffSnapshotNode(
+    const std::shared_ptr<ImWidget>& widget,
+    EditorDocument& document,
+    std::size_t depth,
+    FUiDiffSnapshot& outSnapshot)
+{
+    if (!widget) {
+        return;
+    }
+
+    FUiDiffSnapshotNode snapshotNode;
+    snapshotNode.Node = BuildTreeNodeInfo(widget, document, depth);
+    json widgetJson = widget->ToJson();
+    if (widgetJson.is_object() && widgetJson.contains("Properties") && widgetJson["Properties"].is_object()) {
+        snapshotNode.Properties = widgetJson["Properties"];
+    }
+    outSnapshot.Nodes[snapshotNode.Node.WidgetId] = std::move(snapshotNode);
+
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
+    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
+        AppendDiffSnapshotNode(LogicalWidgetTree::GetLogicalChildAt(widget, childIndex), document, depth + 1, outSnapshot);
+    }
+}
+
+FUiDiffSnapshot BuildDiffSnapshot(const std::filesystem::path& inputPath)
+{
+    FUiDiffSnapshot snapshot;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        snapshot.ErrorMessage = error;
+        return snapshot;
+    }
+
+    snapshot.bSuccess = true;
+    AppendDiffSnapshotNode(document.GetRootWidget(), document, 0, snapshot);
+    return snapshot;
+}
+
+bool HasNodeIdentityChange(const FUiTreeNodeInfo& beforeNode, const FUiTreeNodeInfo& afterNode)
+{
+    return beforeNode.ParentWidgetId != afterNode.ParentWidgetId ||
+        beforeNode.TypeName != afterNode.TypeName ||
+        beforeNode.Name != afterNode.Name ||
+        beforeNode.RoleName != afterNode.RoleName ||
+        beforeNode.Depth != afterNode.Depth ||
+        beforeNode.ChildIndex != afterNode.ChildIndex;
+}
+
+void AppendNodeFieldDiffs(
+    const FUiTreeNodeInfo& beforeNode,
+    const FUiTreeNodeInfo& afterNode,
+    FUiDocumentDiffInfo& outDiff)
+{
+    const auto appendField = [&](const std::string& fieldName, const json& beforeValue, const json& afterValue) {
+        if (beforeValue == afterValue) {
+            return;
+        }
+
+        FUiNodeDiffEntry entry;
+        entry.Kind = "changed";
+        entry.WidgetId = beforeNode.WidgetId;
+        entry.FieldName = fieldName;
+        entry.BeforeNode = beforeNode;
+        entry.AfterNode = afterNode;
+        entry.BeforeValue = beforeValue;
+        entry.AfterValue = afterValue;
+        outDiff.Entries.push_back(std::move(entry));
+    };
+
+    appendField("parent", beforeNode.ParentWidgetId, afterNode.ParentWidgetId);
+    appendField("type", beforeNode.TypeName, afterNode.TypeName);
+    appendField("name", beforeNode.Name, afterNode.Name);
+    appendField("role", beforeNode.RoleName, afterNode.RoleName);
+    appendField("depth", beforeNode.Depth, afterNode.Depth);
+    appendField("index", beforeNode.ChildIndex, afterNode.ChildIndex);
+}
+
+void AppendPropertyDiffs(
+    const FUiDiffSnapshotNode& beforeNode,
+    const FUiDiffSnapshotNode& afterNode,
+    FUiDocumentDiffInfo& outDiff)
+{
+    std::map<std::string, bool> propertyKeys;
+    if (beforeNode.Properties.is_object()) {
+        for (auto it = beforeNode.Properties.begin(); it != beforeNode.Properties.end(); ++it) {
+            propertyKeys[it.key()] = true;
+        }
+    }
+    if (afterNode.Properties.is_object()) {
+        for (auto it = afterNode.Properties.begin(); it != afterNode.Properties.end(); ++it) {
+            propertyKeys[it.key()] = true;
+        }
+    }
+
+    for (const auto& propertyKey : propertyKeys) {
+        const json beforeValue =
+            beforeNode.Properties.contains(propertyKey.first) ? beforeNode.Properties.at(propertyKey.first) : json();
+        const json afterValue =
+            afterNode.Properties.contains(propertyKey.first) ? afterNode.Properties.at(propertyKey.first) : json();
+        if (beforeValue == afterValue) {
+            continue;
+        }
+
+        FUiNodeDiffEntry entry;
+        entry.Kind = "property";
+        entry.WidgetId = beforeNode.Node.WidgetId;
+        entry.FieldName = propertyKey.first;
+        entry.BeforeNode = beforeNode.Node;
+        entry.AfterNode = afterNode.Node;
+        entry.BeforeValue = beforeValue;
+        entry.AfterValue = afterValue;
+        outDiff.Entries.push_back(std::move(entry));
     }
 }
 
@@ -740,6 +871,59 @@ FUiMutationResult UiDocumentCli::MoveNode(
         }
         result.Node = BuildTreeNodeInfo(movedWidget, document, depth);
     }
+    return result;
+}
+
+FUiDocumentDiffInfo UiDocumentCli::DiffDocuments(
+    const std::filesystem::path& beforePath,
+    const std::filesystem::path& afterPath)
+{
+    FUiDocumentDiffInfo result;
+    const FUiDiffSnapshot beforeSnapshot = BuildDiffSnapshot(beforePath);
+    if (!beforeSnapshot.bSuccess) {
+        result.ErrorMessage = "Failed to load before UI document: " + beforeSnapshot.ErrorMessage;
+        return result;
+    }
+
+    const FUiDiffSnapshot afterSnapshot = BuildDiffSnapshot(afterPath);
+    if (!afterSnapshot.bSuccess) {
+        result.ErrorMessage = "Failed to load after UI document: " + afterSnapshot.ErrorMessage;
+        return result;
+    }
+
+    for (const auto& beforePair : beforeSnapshot.Nodes) {
+        if (afterSnapshot.Nodes.find(beforePair.first) != afterSnapshot.Nodes.end()) {
+            continue;
+        }
+
+        FUiNodeDiffEntry entry;
+        entry.Kind = "removed";
+        entry.WidgetId = beforePair.first;
+        entry.BeforeNode = beforePair.second.Node;
+        entry.BeforeValue = beforePair.second.Properties;
+        result.Entries.push_back(std::move(entry));
+    }
+
+    for (const auto& afterPair : afterSnapshot.Nodes) {
+        const auto beforeIt = beforeSnapshot.Nodes.find(afterPair.first);
+        if (beforeIt == beforeSnapshot.Nodes.end()) {
+            FUiNodeDiffEntry entry;
+            entry.Kind = "added";
+            entry.WidgetId = afterPair.first;
+            entry.AfterNode = afterPair.second.Node;
+            entry.AfterValue = afterPair.second.Properties;
+            result.Entries.push_back(std::move(entry));
+            continue;
+        }
+
+        if (HasNodeIdentityChange(beforeIt->second.Node, afterPair.second.Node)) {
+            AppendNodeFieldDiffs(beforeIt->second.Node, afterPair.second.Node, result);
+        }
+        AppendPropertyDiffs(beforeIt->second, afterPair.second, result);
+    }
+
+    result.bSuccess = true;
+    result.bChanged = !result.Entries.empty();
     return result;
 }
 

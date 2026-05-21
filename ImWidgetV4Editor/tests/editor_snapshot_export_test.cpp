@@ -525,6 +525,62 @@ TEST(EditorSnapshotExportTest, UiDocumentCliMovesNode)
     EXPECT_NE(moveRootResult.ErrorMessage.find("root"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliDiffsDocuments)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_diff";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path beforePath = CreateSnapshotFixtureDocument(tempDirectory);
+    const std::filesystem::path afterPath = tempDirectory / "after.ui.json";
+    std::filesystem::copy_file(beforePath, afterPath, std::filesystem::copy_options::overwrite_existing, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const FUiMutationResult renameResult = UiDocumentCli::RenameNode(afterPath, "w2", "ChangedTitle");
+    ASSERT_TRUE(renameResult.bSuccess) << renameResult.ErrorMessage;
+    const FUiMutationResult setResult =
+        UiDocumentCli::SetNodeProperty(afterPath, "w2", "Text", json("Changed Text"));
+    ASSERT_TRUE(setResult.bSuccess) << setResult.ErrorMessage;
+    const FUiMutationResult addResult = UiDocumentCli::AddNode(afterPath, "w1", "ImTextBlock");
+    ASSERT_TRUE(addResult.bSuccess) << addResult.ErrorMessage;
+
+    const FUiDocumentDiffInfo diffInfo = UiDocumentCli::DiffDocuments(beforePath, afterPath);
+    ASSERT_TRUE(diffInfo.bSuccess) << diffInfo.ErrorMessage;
+    EXPECT_TRUE(diffInfo.bChanged);
+
+    bool bFoundNameChange = false;
+    bool bFoundTextChange = false;
+    bool bFoundAdd = false;
+    for (const FUiNodeDiffEntry& entry : diffInfo.Entries) {
+        if (entry.Kind == "changed" && entry.WidgetId == "w2" && entry.FieldName == "name") {
+            bFoundNameChange = true;
+            EXPECT_EQ(entry.BeforeValue, "TitleText");
+            EXPECT_EQ(entry.AfterValue, "ChangedTitle");
+        }
+        if (entry.Kind == "property" && entry.WidgetId == "w2" && entry.FieldName == "ImTextBlock::Text") {
+            bFoundTextChange = true;
+            EXPECT_EQ(entry.BeforeValue, "Snapshot Export");
+            EXPECT_EQ(entry.AfterValue, "Changed Text");
+        }
+        if (entry.Kind == "added" && entry.AfterNode.TypeName == "ImTextBlock") {
+            bFoundAdd = true;
+        }
+    }
+
+    EXPECT_TRUE(bFoundNameChange);
+    EXPECT_TRUE(bFoundTextChange);
+    EXPECT_TRUE(bFoundAdd);
+
+    const FUiDocumentDiffInfo unchangedInfo = UiDocumentCli::DiffDocuments(beforePath, beforePath);
+    ASSERT_TRUE(unchangedInfo.bSuccess) << unchangedInfo.ErrorMessage;
+    EXPECT_FALSE(unchangedInfo.bChanged);
+    EXPECT_TRUE(unchangedInfo.Entries.empty());
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

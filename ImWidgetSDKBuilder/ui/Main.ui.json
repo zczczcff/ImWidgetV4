@@ -789,10 +789,10 @@
           "Properties": {
             "ImVerticalSplitterSlot::Ratio": 2.2,
             "ImVerticalSplitterSlot::MinSize": 320,
-            "ImPaddingSlot::PaddingLeft": 18,
-            "ImPaddingSlot::PaddingRight": 18,
-            "ImPaddingSlot::PaddingTop": 16,
-            "ImPaddingSlot::PaddingBottom": 12
+            "ImPaddingSlot::PaddingLeft": 0,
+            "ImPaddingSlot::PaddingRight": 0,
+            "ImPaddingSlot::PaddingTop": 0,
+            "ImPaddingSlot::PaddingBottom": 0
           }
         },
         "EditorId": "w40"

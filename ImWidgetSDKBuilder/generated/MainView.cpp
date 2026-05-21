@@ -121,7 +121,7 @@ std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()
 
     RootSplitter->AddChild(ConfigScrollBox);
     if (auto* slot = RootSplitter->GetSlotForChild(ConfigScrollBox)) {
-        slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImVerticalSplitterSlot","Properties":{"ImVerticalSplitterSlot::Ratio":2.200000047683716,"ImVerticalSplitterSlot::MinSize":320.0,"ImPaddingSlot::PaddingLeft":18.0,"ImPaddingSlot::PaddingRight":18.0,"ImPaddingSlot::PaddingTop":16.0,"ImPaddingSlot::PaddingBottom":12.0,"ImSlot::SlotPosition":[0.0,0.0],"ImSlot::SlotSize":[0.0,0.0]}})IMWJSON"));
+        slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImVerticalSplitterSlot","Properties":{"ImVerticalSplitterSlot::Ratio":2.200000047683716,"ImVerticalSplitterSlot::MinSize":320.0,"ImPaddingSlot::PaddingLeft":0.0,"ImPaddingSlot::PaddingRight":0.0,"ImPaddingSlot::PaddingTop":0.0,"ImPaddingSlot::PaddingBottom":0.0,"ImSlot::SlotPosition":[0.0,0.0],"ImSlot::SlotSize":[0.0,0.0]}})IMWJSON"));
     }
     ConfigScrollBox->SetContent(ConfigPanel);
     ConfigPanel->AddChild(BuildConfigGroup);

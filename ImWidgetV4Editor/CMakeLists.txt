@@ -44,6 +44,7 @@ set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/editor/EditorDocument.cpp
     src/editor/LogicalWidgetTree.cpp
     src/project/EditorProject.cpp
+    src/serialization/WidgetCatalog.cpp
     src/serialization/WidgetFactory.cpp
     src/serialization/WidgetSerializer.cpp
     src/templates/ProjectScaffolder.cpp

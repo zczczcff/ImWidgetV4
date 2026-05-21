@@ -2,6 +2,7 @@
 #include "editor/DocumentSnapshotExporter.h"
 #include "editor/EditorDocument.h"
 #include "project/EditorProject.h"
+#include "serialization/WidgetCatalog.h"
 #include "templates/ProjectScaffolder.h"
 #include "toolchains/EnvironmentProbe.h"
 
@@ -192,6 +193,8 @@ void PrintUsage()
     std::cout
         << "Usage: ImWidgetEditorCLI <command> [options]\n\n"
         << "Commands:\n"
+        << "  ui controls list [--json]\n"
+        << "  ui controls describe <type-name> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -525,6 +528,132 @@ bool ParsePositiveInteger(const std::string& text, int& outValue)
     }
 }
 
+std::string PropertyKindToString(ImWidgetV4::Reflection::EPropertyKind kind)
+{
+    switch (kind) {
+    case ImWidgetV4::Reflection::EPropertyKind::Int: return "Int";
+    case ImWidgetV4::Reflection::EPropertyKind::Float: return "Float";
+    case ImWidgetV4::Reflection::EPropertyKind::Bool: return "Bool";
+    case ImWidgetV4::Reflection::EPropertyKind::String: return "String";
+    case ImWidgetV4::Reflection::EPropertyKind::Color: return "Color";
+    case ImWidgetV4::Reflection::EPropertyKind::Vec2: return "Vec2";
+    case ImWidgetV4::Reflection::EPropertyKind::Struct: return "Struct";
+    case ImWidgetV4::Reflection::EPropertyKind::StringArray: return "StringArray";
+    case ImWidgetV4::Reflection::EPropertyKind::Enum: return "Enum";
+    }
+    return "Struct";
+}
+
+void PrintJsonEscapedString(const std::string& value)
+{
+    std::cout << '"';
+    for (char c : value) {
+        switch (c) {
+        case '\\': std::cout << "\\\\"; break;
+        case '"': std::cout << "\\\""; break;
+        case '\b': std::cout << "\\b"; break;
+        case '\f': std::cout << "\\f"; break;
+        case '\n': std::cout << "\\n"; break;
+        case '\r': std::cout << "\\r"; break;
+        case '\t': std::cout << "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(c) < 0x20) {
+                std::cout << "\\u";
+                constexpr char hex[] = "0123456789abcdef";
+                const unsigned char valueByte = static_cast<unsigned char>(c);
+                std::cout << '0' << '0' << hex[(valueByte >> 4) & 0x0F] << hex[valueByte & 0x0F];
+            } else {
+                std::cout << c;
+            }
+            break;
+        }
+    }
+    std::cout << '"';
+}
+
+void PrintWidgetControlListJson(const std::vector<std::string>& widgetTypes)
+{
+    std::cout << "{\n  \"widgets\": [";
+    for (std::size_t index = 0; index < widgetTypes.size(); ++index) {
+        if (index > 0) {
+            std::cout << ", ";
+        }
+        PrintJsonEscapedString(widgetTypes[index]);
+    }
+    std::cout << "]\n}\n";
+}
+
+void PrintWidgetControlListText(const std::vector<std::string>& widgetTypes)
+{
+    for (const std::string& typeName : widgetTypes) {
+        std::cout << typeName << "\n";
+    }
+}
+
+void PrintWidgetControlDescriptionJson(const FWidgetTypeInfo& info)
+{
+    std::cout << "{\n";
+    std::cout << "  \"type\": ";
+    PrintJsonEscapedString(info.TypeName);
+    std::cout << ",\n  \"properties\": [\n";
+    for (std::size_t index = 0; index < info.Properties.size(); ++index) {
+        const FWidgetPropertyInfo& property = info.Properties[index];
+        std::cout << "    {\n";
+        std::cout << "      \"ownerType\": ";
+        PrintJsonEscapedString(property.OwnerTypeName);
+        std::cout << ",\n      \"name\": ";
+        PrintJsonEscapedString(property.Name);
+        std::cout << ",\n      \"valueType\": ";
+        PrintJsonEscapedString(property.ValueTypeName);
+        std::cout << ",\n      \"kind\": ";
+        PrintJsonEscapedString(PropertyKindToString(property.Kind));
+        std::cout << ",\n      \"description\": ";
+        PrintJsonEscapedString(property.Description);
+        std::cout << ",\n      \"inherited\": " << (property.bIsInherited ? "true" : "false");
+        std::cout << ",\n      \"enumOptions\": [";
+        for (std::size_t optionIndex = 0; optionIndex < property.EnumOptions.size(); ++optionIndex) {
+            if (optionIndex > 0) {
+                std::cout << ", ";
+            }
+            PrintJsonEscapedString(property.EnumOptions[optionIndex]);
+        }
+        std::cout << "]\n    }";
+        if (index + 1 < info.Properties.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintWidgetControlDescriptionText(const FWidgetTypeInfo& info)
+{
+    std::cout << "Type: " << info.TypeName << "\n";
+    std::cout << "Properties:\n";
+    for (const FWidgetPropertyInfo& property : info.Properties) {
+        std::cout
+            << "  - " << property.OwnerTypeName << "::" << property.Name
+            << " [" << property.ValueTypeName << ", " << PropertyKindToString(property.Kind) << "]";
+        if (property.bIsInherited) {
+            std::cout << " inherited";
+        }
+        if (!property.Description.empty()) {
+            std::cout << " - " << property.Description;
+        }
+        if (!property.EnumOptions.empty()) {
+            std::cout << " {";
+            for (std::size_t index = 0; index < property.EnumOptions.size(); ++index) {
+                if (index > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << property.EnumOptions[index];
+            }
+            std::cout << "}";
+        }
+        std::cout << "\n";
+    }
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -736,6 +865,60 @@ int RunProjectCommand(const std::vector<std::string>& args)
     return 1;
 }
 
+int RunUiCommand(const std::vector<std::string>& args)
+{
+    if (args.size() < 2) {
+        std::cerr << "ui requires a subcommand.\n";
+        return 1;
+    }
+
+    if (args[1] != "controls") {
+        std::cerr << "Unknown ui subcommand: " << args[1] << "\n";
+        return 1;
+    }
+
+    if (args.size() < 3) {
+        std::cerr << "ui controls requires list or describe.\n";
+        return 1;
+    }
+
+    const bool bJsonOutput = std::find(args.begin(), args.end(), "--json") != args.end();
+    const WidgetCatalog& catalog = WidgetCatalog::Get();
+
+    if (args[2] == "list") {
+        const std::vector<std::string> widgetTypes = catalog.ListWidgetTypes();
+        if (bJsonOutput) {
+            PrintWidgetControlListJson(widgetTypes);
+        } else {
+            PrintWidgetControlListText(widgetTypes);
+        }
+        return 0;
+    }
+
+    if (args[2] == "describe") {
+        if (args.size() < 4) {
+            std::cerr << "ui controls describe requires <type-name>.\n";
+            return 1;
+        }
+
+        FWidgetTypeInfo info;
+        if (!catalog.TryDescribeWidgetType(args[3], info)) {
+            std::cerr << "Unknown or unsupported widget type: " << args[3] << "\n";
+            return 1;
+        }
+
+        if (bJsonOutput) {
+            PrintWidgetControlDescriptionJson(info);
+        } else {
+            PrintWidgetControlDescriptionText(info);
+        }
+        return 0;
+    }
+
+    std::cerr << "Unknown ui controls subcommand: " << args[2] << "\n";
+    return 1;
+}
+
 int RunBuildCommand(const std::vector<std::string>& args)
 {
     if (args.size() < 2) {
@@ -937,6 +1120,9 @@ int main(int argc, char** argv)
 
     if (args[0] == "project") {
         return RunProjectCommand(args);
+    }
+    if (args[0] == "ui") {
+        return RunUiCommand(args);
     }
     if (args[0] == "build") {
         return RunBuildCommand(args);

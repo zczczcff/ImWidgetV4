@@ -18,6 +18,7 @@
 #include "../src/editor/SelectionModel.h"
 #include "../src/palette/WidgetPaletteDragDrop.h"
 #include "../src/palette/WidgetPaletteView.h"
+#include "../src/serialization/WidgetCatalog.h"
 #include "../src/serialization/WidgetFactory.h"
 #include "../src/templates/ProjectScaffolder.h"
 #include "../src/tree/DocumentTreeViewBinder.h"
@@ -1760,6 +1761,48 @@ TEST(EditorSelectionTest, WidgetPaletteEntriesStayInSyncWithWidgetFactory)
     for (const FWidgetPaletteEntry& entry : entries) {
         EXPECT_TRUE(widgetFactory.SupportsWidgetType(entry.TypeName)) << entry.TypeName;
     }
+}
+
+TEST(EditorSelectionTest, WidgetCatalogListsAndDescribesRegisteredWidgets)
+{
+    const WidgetCatalog& catalog = WidgetCatalog::Get();
+    const std::vector<std::string> widgetTypes = catalog.ListWidgetTypes();
+
+    ASSERT_GE(widgetTypes.size(), 20u);
+    EXPECT_TRUE(std::is_sorted(widgetTypes.begin(), widgetTypes.end()));
+    EXPECT_NE(std::find(widgetTypes.begin(), widgetTypes.end(), "ImButton"), widgetTypes.end());
+    EXPECT_NE(std::find(widgetTypes.begin(), widgetTypes.end(), "ImTextBlock"), widgetTypes.end());
+
+    FWidgetTypeInfo buttonInfo;
+    ASSERT_TRUE(catalog.TryDescribeWidgetType("ImButton", buttonInfo));
+    EXPECT_EQ(buttonInfo.TypeName, "ImButton");
+    ASSERT_FALSE(buttonInfo.Properties.empty());
+
+    const auto nameIt = std::find_if(
+        buttonInfo.Properties.begin(),
+        buttonInfo.Properties.end(),
+        [](const FWidgetPropertyInfo& property) {
+            return property.OwnerTypeName == "ImWidget" && property.Name == "Name";
+        });
+    ASSERT_NE(nameIt, buttonInfo.Properties.end());
+    EXPECT_TRUE(nameIt->bIsInherited);
+    EXPECT_EQ(nameIt->Kind, ImWidgetV4::Reflection::EPropertyKind::String);
+
+    FWidgetTypeInfo textBlockInfo;
+    ASSERT_TRUE(catalog.TryDescribeWidgetType("ImTextBlock", textBlockInfo));
+    const auto alignmentIt = std::find_if(
+        textBlockInfo.Properties.begin(),
+        textBlockInfo.Properties.end(),
+        [](const FWidgetPropertyInfo& property) {
+            return property.OwnerTypeName == "ImTextBlock" && property.Name == "TextAlignment";
+        });
+    ASSERT_NE(alignmentIt, textBlockInfo.Properties.end());
+    EXPECT_EQ(alignmentIt->Kind, ImWidgetV4::Reflection::EPropertyKind::Enum);
+    ASSERT_EQ(alignmentIt->EnumOptions.size(), 3u);
+    EXPECT_EQ(alignmentIt->EnumOptions[2], "Right");
+
+    FWidgetTypeInfo missingInfo;
+    EXPECT_FALSE(catalog.TryDescribeWidgetType("ImNotAWidget", missingInfo));
 }
 
 TEST(EditorSelectionTest, DesignerResizeTransformSupportsUndoRedoAndRestoresAutoSize)

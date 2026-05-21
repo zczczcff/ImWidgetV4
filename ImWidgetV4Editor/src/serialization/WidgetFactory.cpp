@@ -23,6 +23,8 @@
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <imwidgetv4/widgets/VerticalSplitter.h>
 
+#include <algorithm>
+
 namespace ImWidgetV4Editor {
 
 using namespace ImWidgetV4;
@@ -82,6 +84,18 @@ std::shared_ptr<ImWidget> WidgetFactory::CreateWidget(const std::string& typeNam
 bool WidgetFactory::SupportsWidgetType(const std::string& typeName) const
 {
     return m_WidgetCreators.find(typeName) != m_WidgetCreators.end();
+}
+
+std::vector<std::string> WidgetFactory::GetRegisteredWidgetTypes() const
+{
+    std::vector<std::string> result;
+    result.reserve(m_WidgetCreators.size());
+    for (const auto& pair : m_WidgetCreators) {
+        result.push_back(pair.first);
+    }
+
+    std::sort(result.begin(), result.end());
+    return result;
 }
 
 } // namespace ImWidgetV4Editor

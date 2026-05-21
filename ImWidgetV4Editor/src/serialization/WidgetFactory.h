@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace ImWidgetV4Editor {
 
@@ -16,6 +17,7 @@ public:
 
     std::shared_ptr<ImWidgetV4::ImWidget> CreateWidget(const std::string& typeName) const;
     bool SupportsWidgetType(const std::string& typeName) const;
+    std::vector<std::string> GetRegisteredWidgetTypes() const;
 
 private:
     WidgetFactory();

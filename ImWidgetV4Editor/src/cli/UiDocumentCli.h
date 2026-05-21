@@ -23,10 +23,19 @@ struct FUiDocumentTreeInfo {
     std::vector<FUiTreeNodeInfo> Nodes;
 };
 
+struct FUiNodeInspectInfo {
+    bool bSuccess = false;
+    std::string ErrorMessage;
+    FUiTreeNodeInfo Node;
+    json Properties = json::object();
+    std::vector<FUiTreeNodeInfo> Children;
+};
+
 class UiDocumentCli {
 public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
     static FUiDocumentTreeInfo BuildDocumentTreeInfo(const std::filesystem::path& inputPath);
+    static FUiNodeInspectInfo InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId);
 };
 
 } // namespace ImWidgetV4Editor

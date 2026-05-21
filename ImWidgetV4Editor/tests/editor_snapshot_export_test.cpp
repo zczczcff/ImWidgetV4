@@ -239,6 +239,38 @@ TEST(EditorSnapshotExportTest, UiDocumentCliValidatesAndBuildsTreeInfo)
     EXPECT_FALSE(invalidTreeInfo.ErrorMessage.empty());
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliInspectsNodeById)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_inspect";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiNodeInspectInfo rootInfo = UiDocumentCli::InspectNode(inputPath, "w1");
+    ASSERT_TRUE(rootInfo.bSuccess) << rootInfo.ErrorMessage;
+    EXPECT_EQ(rootInfo.Node.WidgetId, "w1");
+    EXPECT_EQ(rootInfo.Node.TypeName, "ImVerticalBox");
+    EXPECT_EQ(rootInfo.Node.Name, "SnapshotRoot");
+    ASSERT_EQ(rootInfo.Children.size(), 2u);
+    EXPECT_EQ(rootInfo.Children[0].WidgetId, "w2");
+    EXPECT_EQ(rootInfo.Children[0].TypeName, "ImTextBlock");
+
+    const FUiNodeInspectInfo titleInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(titleInfo.bSuccess) << titleInfo.ErrorMessage;
+    EXPECT_EQ(titleInfo.Node.Name, "TitleText");
+    ASSERT_TRUE(titleInfo.Properties.is_object());
+    ASSERT_TRUE(titleInfo.Properties.contains("ImTextBlock::Text"));
+    EXPECT_EQ(titleInfo.Properties["ImTextBlock::Text"], "Snapshot Export");
+
+    const FUiNodeInspectInfo missingInfo = UiDocumentCli::InspectNode(inputPath, "missing");
+    EXPECT_FALSE(missingInfo.bSuccess);
+    EXPECT_NE(missingInfo.ErrorMessage.find("missing"), std::string::npos);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

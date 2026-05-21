@@ -198,6 +198,7 @@ void PrintUsage()
         << "  ui controls describe <type-name> [--json]\n"
         << "  ui validate <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
+        << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -724,6 +725,76 @@ void PrintUiTreeText(const FUiDocumentTreeInfo& info)
     }
 }
 
+void PrintUiNodeJsonFields(const FUiTreeNodeInfo& node, const char* indent)
+{
+    std::cout << indent << "\"path\": ";
+    PrintJsonEscapedString(node.WidgetId);
+    std::cout << ",\n" << indent << "\"id\": ";
+    PrintJsonEscapedString(node.WidgetId);
+    std::cout << ",\n" << indent << "\"type\": ";
+    PrintJsonEscapedString(node.TypeName);
+    std::cout << ",\n" << indent << "\"name\": ";
+    PrintJsonEscapedString(node.Name);
+    std::cout << ",\n" << indent << "\"role\": ";
+    PrintJsonEscapedString(node.RoleName);
+    std::cout << ",\n" << indent << "\"depth\": " << node.Depth;
+}
+
+void PrintUiInspectJson(const std::filesystem::path& inputPath, const FUiNodeInspectInfo& info)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (info.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    if (!info.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(info.ErrorMessage);
+        std::cout << "\n}\n";
+        return;
+    }
+
+    std::cout << ",\n  \"node\": {\n";
+    PrintUiNodeJsonFields(info.Node, "    ");
+    std::cout << "\n  },\n";
+    std::cout << "  \"properties\": " << info.Properties.dump(2) << ",\n";
+    std::cout << "  \"children\": [\n";
+    for (std::size_t index = 0; index < info.Children.size(); ++index) {
+        std::cout << "    {\n";
+        PrintUiNodeJsonFields(info.Children[index], "      ");
+        std::cout << "\n    }";
+        if (index + 1 < info.Children.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintUiInspectText(const FUiNodeInspectInfo& info)
+{
+    std::cout << "Node: " << info.Node.WidgetId << " " << info.Node.TypeName;
+    if (!info.Node.Name.empty()) {
+        std::cout << " \"" << info.Node.Name << "\"";
+    }
+    std::cout << "\nProperties:\n";
+    if (info.Properties.is_object()) {
+        for (auto it = info.Properties.begin(); it != info.Properties.end(); ++it) {
+            std::cout << "  " << it.key() << " = " << it.value().dump() << "\n";
+        }
+    }
+    std::cout << "Children:\n";
+    for (const FUiTreeNodeInfo& child : info.Children) {
+        std::cout << "  " << child.WidgetId << " " << child.TypeName;
+        if (!child.Name.empty()) {
+            std::cout << " \"" << child.Name << "\"";
+        }
+        if (!child.RoleName.empty()) {
+            std::cout << " [" << child.RoleName << "]";
+        }
+        std::cout << "\n";
+    }
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -979,6 +1050,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to read UI tree: " << treeInfo.ErrorMessage << "\n";
         }
         return treeInfo.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "inspect") {
+        if (args.size() < 4) {
+            std::cerr << "ui inspect requires <input.ui.json> and <widget-id>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, args[3]);
+        if (bJsonOutput) {
+            PrintUiInspectJson(inputPath, inspectInfo);
+        } else if (inspectInfo.bSuccess) {
+            PrintUiInspectText(inspectInfo);
+        } else {
+            std::cerr << "Failed to inspect UI node: " << inspectInfo.ErrorMessage << "\n";
+        }
+        return inspectInfo.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

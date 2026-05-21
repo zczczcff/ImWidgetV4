@@ -18,7 +18,7 @@ namespace GeneratedApp {
 ImWidgetV4::FApplicationHostConfig BuildHostConfig()
 {
         ImWidgetV4::FApplicationHostConfig config;
-        config.Title = "ImWidgetSDKBuilder";
+        config.Title = "ImWidget SDK Builder";
         config.InitialWidth = 640;
         config.InitialHeight = 720;
         config.bUseCustomHostChrome = true;
@@ -27,7 +27,7 @@ ImWidgetV4::FApplicationHostConfig BuildHostConfig()
 
 void ConfigureApplication(ImWidgetV4::ImApplication& application)
 {
-        application.SetApplicationTitle("ImWidgetSDKBuilder");
+        application.SetApplicationTitle("ImWidget SDK Builder");
         auto rootLayout = std::make_shared<ImWidgetV4::ImVerticalBox>();
         rootLayout->SetSpacing(0.0f);
         auto titleBarView = std::make_shared<ImWidgetSDKBuilder::TitleBarView>();

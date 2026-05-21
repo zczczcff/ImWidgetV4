@@ -6,6 +6,7 @@
 
 #include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
+#include <imwidgetv4/core/CoreIcon.h>
 #include <imwidgetv4/platform/PlatformProcess.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
@@ -165,6 +166,7 @@ public:
     void ConfigureApplication(ImWidgetV4::ImApplication& application) override
     {
         GeneratedApp::ConfigureApplication(application);
+        application.SetApplicationIcon(application.GetCoreIconBrush(ImWidgetV4::ECoreIcon::Package));
         ConfigureBuilderUi(application);
     }
 

@@ -13,6 +13,7 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4/widgets/VerticalSplitter.h>
 
 using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor;
@@ -97,6 +98,23 @@ std::shared_ptr<ImWidget> BuildTitleBarGeneratedRoot()
     action->SetText("Run");
     titleBar->AddTrailingItem(action);
     return titleBar;
+}
+
+std::shared_ptr<ImWidget> BuildVerticalSplitterGeneratedRoot()
+{
+    auto splitter = std::make_shared<ImVerticalSplitter>();
+    splitter->SetName("RootSplitter");
+
+    auto top = std::make_shared<ImTextBlock>();
+    top->SetName("TopPanel");
+    top->SetText("Top");
+    splitter->AddPart(top, 2.2f, 320.0f, FMargin(18.0f, 18.0f, 16.0f, 12.0f));
+
+    auto bottom = std::make_shared<ImTextBlock>();
+    bottom->SetName("BottomPanel");
+    bottom->SetText("Bottom");
+    splitter->AddPart(bottom, 1.0f, 140.0f, FMargin(18.0f, 18.0f, 12.0f, 18.0f));
+    return splitter;
 }
 
 } // namespace
@@ -207,6 +225,28 @@ TEST(EditorCodeGenTest, SerializesTitleBarLeadingAndTrailingItems)
     EXPECT_EQ(restoredTitleBar->GetTrailingItemCount(), 1U);
     ASSERT_TRUE(std::dynamic_pointer_cast<ImTextBlock>(restoredTitleBar->GetLeadingItemAt(0)));
     ASSERT_TRUE(std::dynamic_pointer_cast<ImButton>(restoredTitleBar->GetTrailingItemAt(0)));
+}
+
+TEST(EditorCodeGenTest, DeserializesVerticalSplitterSlots)
+{
+    const auto root = BuildVerticalSplitterGeneratedRoot();
+    const json serialized = WidgetSerializer::SerializeWidgetTree(root);
+
+    const FWidgetSerializationResult result = WidgetSerializer::DeserializeWidgetTree(serialized);
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+
+    auto restoredSplitter = std::dynamic_pointer_cast<ImVerticalSplitter>(result.Widget);
+    ASSERT_TRUE(restoredSplitter);
+    ASSERT_EQ(restoredSplitter->GetSlotCount(), 2);
+
+    auto* topSlot = dynamic_cast<ImVerticalSplitterSlot*>(restoredSplitter->GetSlotAt(0));
+    auto* bottomSlot = dynamic_cast<ImVerticalSplitterSlot*>(restoredSplitter->GetSlotAt(1));
+    ASSERT_NE(topSlot, nullptr);
+    ASSERT_NE(bottomSlot, nullptr);
+    EXPECT_FLOAT_EQ(topSlot->GetRatio(), 2.2f);
+    EXPECT_FLOAT_EQ(topSlot->GetMinSize(), 320.0f);
+    EXPECT_FLOAT_EQ(bottomSlot->GetRatio(), 1.0f);
+    EXPECT_FLOAT_EQ(bottomSlot->GetMinSize(), 140.0f);
 }
 
 TEST(EditorCodeGenTest, RejectsInvalidClassName)

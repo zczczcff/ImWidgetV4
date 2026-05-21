@@ -9,7 +9,7 @@
     "ActiveBuildProfile": "Windows Debug"
   },
   "Application": {
-    "Title": "ImWidgetSDKBuilder",
+    "Title": "ImWidget SDK Builder",
     "IconPath": "",
     "InitialWidth": 640,
     "InitialHeight": 720,

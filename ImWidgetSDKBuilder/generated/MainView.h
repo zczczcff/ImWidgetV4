@@ -10,6 +10,7 @@ namespace ImWidgetV4 {
     class ImComboBox;
     class ImExpandableBox;
     class ImHorizontalBox;
+    class ImScrollBox;
     class ImTextBlock;
     class ImVerticalBox;
     class ImVerticalSplitter;
@@ -27,6 +28,7 @@ protected:
 private:
     //===Auto Gen Begin=== (Members)
     std::shared_ptr<ImWidgetV4::ImVerticalSplitter> RootSplitter;
+    std::shared_ptr<ImWidgetV4::ImScrollBox> ConfigScrollBox;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> ConfigPanel;
     std::shared_ptr<ImWidgetV4::ImExpandableBox> BuildConfigGroup;
     std::shared_ptr<ImWidgetV4::ImHorizontalBox> BuildConfigHeader;
@@ -51,7 +53,7 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextBlock> PackageConfigIcon;
     std::shared_ptr<ImWidgetV4::ImTextBlock> PackageConfigTitle;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> PackageConfigBody;
-    std::shared_ptr<ImWidgetV4::ImHorizontalBox> StepOptionsRow;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> StepOptionsRow;
     std::shared_ptr<ImWidgetV4::ImComboBox> BuildStepComboBox;
     std::shared_ptr<ImWidgetV4::ImComboBox> InstallerStepComboBox;
     std::shared_ptr<ImWidgetV4::ImComboBox> SmokeStepComboBox;

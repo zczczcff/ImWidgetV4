@@ -7,11 +7,13 @@
 #include <imwidgetv4/widgets/CanvasPanel.h>
 #include <imwidgetv4/widgets/ExpandableBox.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
+#include <imwidgetv4/widgets/HorizontalSplitter.h>
 #include <imwidgetv4/widgets/PanelWidget.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TitleBar.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
+#include <imwidgetv4/widgets/VerticalSplitter.h>
 #include <stdexcept>
 
 namespace ImWidgetV4Editor {
@@ -128,6 +130,26 @@ bool TryApplySlotToParent(
         canvasPanel->AddChild(child);
         if (!slotJson.is_null()) {
             if (auto* slot = canvasPanel->GetSlotForChild(child)) {
+                slot->FromJson(slotJson);
+            }
+        }
+        return true;
+    }
+
+    if (auto horizontalSplitter = std::dynamic_pointer_cast<ImHorizontalSplitter>(parent)) {
+        horizontalSplitter->AddChild(child);
+        if (!slotJson.is_null()) {
+            if (auto* slot = horizontalSplitter->GetSlotForChild(child)) {
+                slot->FromJson(slotJson);
+            }
+        }
+        return true;
+    }
+
+    if (auto verticalSplitter = std::dynamic_pointer_cast<ImVerticalSplitter>(parent)) {
+        verticalSplitter->AddChild(child);
+        if (!slotJson.is_null()) {
+            if (auto* slot = verticalSplitter->GetSlotForChild(child)) {
                 slot->FromJson(slotJson);
             }
         }

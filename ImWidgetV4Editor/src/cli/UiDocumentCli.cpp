@@ -260,6 +260,25 @@ bool RemoveWidgetFromParent(
     return parent->RemoveChild(child);
 }
 
+bool IsLogicalAncestorOf(
+    EditorDocument& document,
+    const std::shared_ptr<ImWidget>& possibleAncestor,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!possibleAncestor || !widget) {
+        return false;
+    }
+
+    std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+    while (parent) {
+        if (parent == possibleAncestor) {
+            return true;
+        }
+        parent = document.FindLogicalParent(parent);
+    }
+    return false;
+}
+
 } // namespace
 
 bool UiDocumentCli::ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError)
@@ -635,6 +654,91 @@ FUiMutationResult UiDocumentCli::DuplicateNode(
             nodeParent = document.FindLogicalParent(nodeParent);
         }
         result.Node = BuildTreeNodeInfo(reloadedClone, document, depth);
+    }
+    return result;
+}
+
+FUiMutationResult UiDocumentCli::MoveNode(
+    const std::filesystem::path& inputPath,
+    const std::string& widgetId,
+    const std::string& newParentWidgetId)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+    if (!widget) {
+        result.ErrorMessage = "Widget id was not found: " + widgetId;
+        return result;
+    }
+    if (widget == document.GetRootWidget()) {
+        result.ErrorMessage = "Moving the root widget is not supported by ui move.";
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> oldParent = document.FindLogicalParent(widget);
+    if (!oldParent) {
+        result.ErrorMessage = "Widget has no logical parent.";
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> newParent = document.FindWidgetById(newParentWidgetId);
+    if (!newParent) {
+        result.ErrorMessage = "New parent widget id was not found: " + newParentWidgetId;
+        return result;
+    }
+    if (newParent == widget || IsLogicalAncestorOf(document, widget, newParent)) {
+        result.ErrorMessage = "Cannot move a widget into itself or one of its descendants.";
+        return result;
+    }
+
+    if (oldParent == newParent) {
+        std::size_t depth = 0;
+        std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+        while (parent) {
+            ++depth;
+            parent = document.FindLogicalParent(parent);
+        }
+        result.bSuccess = true;
+        result.bChanged = false;
+        result.Node = BuildTreeNodeInfo(widget, document, depth);
+        return result;
+    }
+
+    if (!RemoveWidgetFromParent(oldParent, widget)) {
+        result.ErrorMessage = "Failed to detach widget from old parent.";
+        return result;
+    }
+
+    if (!InsertWidgetIntoParent(newParent, widget, error)) {
+        std::string restoreError;
+        (void)InsertWidgetIntoParent(oldParent, widget, restoreError);
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    document.SetDirty(true);
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    result.bSuccess = true;
+    result.bChanged = true;
+    result.Node = BuildTreeNodeInfo(widget, document, 0);
+    if (const std::shared_ptr<ImWidget> movedWidget = document.FindWidgetById(result.Node.WidgetId)) {
+        std::size_t depth = 0;
+        std::shared_ptr<ImWidget> parent = document.FindLogicalParent(movedWidget);
+        while (parent) {
+            ++depth;
+            parent = document.FindLogicalParent(parent);
+        }
+        result.Node = BuildTreeNodeInfo(movedWidget, document, depth);
     }
     return result;
 }

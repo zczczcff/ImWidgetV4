@@ -70,6 +70,10 @@ public:
     static FUiMutationResult DuplicateNode(
         const std::filesystem::path& inputPath,
         const std::string& widgetId);
+    static FUiMutationResult MoveNode(
+        const std::filesystem::path& inputPath,
+        const std::string& widgetId,
+        const std::string& newParentWidgetId);
 };
 
 } // namespace ImWidgetV4Editor

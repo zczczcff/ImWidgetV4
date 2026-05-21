@@ -206,6 +206,7 @@ void PrintUsage()
         << "  ui add <input.ui.json> <parent-widget-id> <widget-type> [--json]\n"
         << "  ui remove <input.ui.json> <widget-id> [--json]\n"
         << "  ui duplicate <input.ui.json> <widget-id> [--json]\n"
+        << "  ui move <input.ui.json> <widget-id> <new-parent-widget-id> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -1269,6 +1270,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to duplicate UI node: " << duplicateResult.ErrorMessage << "\n";
         }
         return duplicateResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "move") {
+        if (args.size() < 5) {
+            std::cerr << "ui move requires <input.ui.json>, <widget-id>, and <new-parent-widget-id>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult moveResult = UiDocumentCli::MoveNode(inputPath, args[3], args[4]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, moveResult);
+        } else if (moveResult.bSuccess) {
+            PrintUiMutationText(moveResult);
+        } else {
+            std::cerr << "Failed to move UI node: " << moveResult.ErrorMessage << "\n";
+        }
+        return moveResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

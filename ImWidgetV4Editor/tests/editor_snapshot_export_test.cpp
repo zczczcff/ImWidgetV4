@@ -130,6 +130,7 @@ TEST(EditorSnapshotExportTest, ExportsMinimalUiDocumentWithAdaptiveSize)
         std::filesystem::temp_directory_path() / "imwidgetv4_editor_snapshot_export";
     std::error_code errorCode;
     std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
     std::filesystem::create_directories(tempDirectory, errorCode);
     ASSERT_FALSE(errorCode);
 
@@ -152,6 +153,7 @@ TEST(EditorSnapshotExportTest, AppliesExplicitWidthAndHeightOverride)
         std::filesystem::temp_directory_path() / "imwidgetv4_editor_snapshot_export_override";
     std::error_code errorCode;
     std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
     std::filesystem::create_directories(tempDirectory, errorCode);
     ASSERT_FALSE(errorCode);
 
@@ -466,6 +468,43 @@ TEST(EditorSnapshotExportTest, UiDocumentCliDuplicatesNode)
     const FUiMutationResult duplicateRootResult = UiDocumentCli::DuplicateNode(inputPath, "w1");
     EXPECT_FALSE(duplicateRootResult.bSuccess);
     EXPECT_NE(duplicateRootResult.ErrorMessage.find("root"), std::string::npos);
+}
+
+TEST(EditorSnapshotExportTest, UiDocumentCliMovesNode)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_move";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult addContainerResult = UiDocumentCli::AddNode(inputPath, "w1", "ImVerticalBox");
+    ASSERT_TRUE(addContainerResult.bSuccess) << addContainerResult.ErrorMessage;
+    const std::string containerId = addContainerResult.Node.WidgetId;
+
+    const FUiMutationResult moveResult = UiDocumentCli::MoveNode(inputPath, "w2", containerId);
+    ASSERT_TRUE(moveResult.bSuccess) << moveResult.ErrorMessage;
+    EXPECT_TRUE(moveResult.bChanged);
+    EXPECT_EQ(moveResult.Node.WidgetId, "w2");
+    EXPECT_EQ(moveResult.Node.TypeName, "ImTextBlock");
+    EXPECT_EQ(moveResult.Node.Depth, 2u);
+
+    const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(treeInfo.bSuccess) << treeInfo.ErrorMessage;
+    ASSERT_EQ(treeInfo.Nodes.size(), 4u);
+    EXPECT_EQ(treeInfo.Nodes.back().WidgetId, "w2");
+    EXPECT_EQ(treeInfo.Nodes.back().Depth, 2u);
+
+    const FUiMutationResult sameParentResult = UiDocumentCli::MoveNode(inputPath, "w2", containerId);
+    ASSERT_TRUE(sameParentResult.bSuccess) << sameParentResult.ErrorMessage;
+    EXPECT_FALSE(sameParentResult.bChanged);
+
+    const FUiMutationResult moveRootResult = UiDocumentCli::MoveNode(inputPath, "w1", "w2");
+    EXPECT_FALSE(moveRootResult.bSuccess);
+    EXPECT_NE(moveRootResult.ErrorMessage.find("root"), std::string::npos);
 }
 
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)

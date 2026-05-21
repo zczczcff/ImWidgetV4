@@ -47,6 +47,11 @@ public:
         const std::filesystem::path& inputPath,
         const std::string& widgetId,
         const std::string& newName);
+    static FUiMutationResult SetNodeProperty(
+        const std::filesystem::path& inputPath,
+        const std::string& widgetId,
+        const std::string& propertyName,
+        const json& value);
 };
 
 } // namespace ImWidgetV4Editor

@@ -3,6 +3,7 @@
 #include "../editor/LogicalWidgetTree.h"
 
 #include <imwidgetv4/core/Widget.h>
+#include <imwidgetv4/reflection/ReflectionTypes.h>
 
 namespace ImWidgetV4Editor {
 
@@ -142,6 +143,64 @@ FUiMutationResult UiDocumentCli::RenameNode(
 
     result.bChanged = widget->GetName() != newName;
     widget->SetName(newName);
+    document.SetDirty(true);
+
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    std::size_t depth = 0;
+    std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+    while (parent) {
+        ++depth;
+        parent = document.FindLogicalParent(parent);
+    }
+
+    result.bSuccess = true;
+    result.Node = BuildTreeNodeInfo(widget, document, depth);
+    return result;
+}
+
+FUiMutationResult UiDocumentCli::SetNodeProperty(
+    const std::filesystem::path& inputPath,
+    const std::string& widgetId,
+    const std::string& propertyName,
+    const json& value)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+    if (!widget) {
+        result.ErrorMessage = "Widget id was not found: " + widgetId;
+        return result;
+    }
+
+    const Reflection::FPropertyDesc* property =
+        Reflection::FindProperty(widget->GetTypeDesc(), propertyName);
+    if (!property) {
+        result.ErrorMessage = "Property was not found on " + widget->GetTypeName() + ": " + propertyName;
+        return result;
+    }
+
+    const json beforeJson = widget->ToJson();
+    json afterJson = beforeJson;
+    afterJson["Properties"][std::string(property->OwnerTypeName) + "::" + property->Name] = value;
+
+    try {
+        widget->FromJson(afterJson);
+    } catch (const std::exception& exception) {
+        result.ErrorMessage = exception.what();
+        return result;
+    }
+
+    result.bChanged = beforeJson != widget->ToJson();
     document.SetDirty(true);
 
     if (!document.Save(&error)) {

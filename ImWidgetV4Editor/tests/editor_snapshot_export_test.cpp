@@ -301,6 +301,44 @@ TEST(EditorSnapshotExportTest, UiDocumentCliRenamesNodeAndSavesDocument)
     EXPECT_NE(missingResult.ErrorMessage.find("missing"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliSetsReflectedPropertyAndSavesDocument)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_set";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult textResult =
+        UiDocumentCli::SetNodeProperty(inputPath, "w2", "Text", json("Updated Title"));
+    ASSERT_TRUE(textResult.bSuccess) << textResult.ErrorMessage;
+    EXPECT_TRUE(textResult.bChanged);
+
+    const FUiMutationResult visibleResult =
+        UiDocumentCli::SetNodeProperty(inputPath, "w2", "Visible", json(false));
+    ASSERT_TRUE(visibleResult.bSuccess) << visibleResult.ErrorMessage;
+    EXPECT_TRUE(visibleResult.bChanged);
+
+    const FUiMutationResult alignmentResult =
+        UiDocumentCli::SetNodeProperty(inputPath, "w2", "TextAlignment", json("Right"));
+    ASSERT_TRUE(alignmentResult.bSuccess) << alignmentResult.ErrorMessage;
+    EXPECT_TRUE(alignmentResult.bChanged);
+
+    const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(inspectInfo.bSuccess) << inspectInfo.ErrorMessage;
+    EXPECT_EQ(inspectInfo.Properties["ImTextBlock::Text"], "Updated Title");
+    EXPECT_EQ(inspectInfo.Properties["ImWidget::Visible"], false);
+    EXPECT_EQ(inspectInfo.Properties["ImTextBlock::TextAlignment"], "Right");
+
+    const FUiMutationResult missingPropertyResult =
+        UiDocumentCli::SetNodeProperty(inputPath, "w2", "NotAProperty", json(1));
+    EXPECT_FALSE(missingPropertyResult.bSuccess);
+    EXPECT_NE(missingPropertyResult.ErrorMessage.find("NotAProperty"), std::string::npos);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

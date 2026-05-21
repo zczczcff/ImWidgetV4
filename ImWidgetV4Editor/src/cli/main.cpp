@@ -200,6 +200,7 @@ void PrintUsage()
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
+        << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -826,6 +827,15 @@ void PrintUiMutationText(const FUiMutationResult& result)
     std::cout << "\n";
 }
 
+json ParseCliJsonOrStringValue(const std::string& text)
+{
+    try {
+        return json::parse(text);
+    } catch (...) {
+        return text;
+    }
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -1117,6 +1127,26 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to rename UI node: " << renameResult.ErrorMessage << "\n";
         }
         return renameResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "set") {
+        if (args.size() < 6) {
+            std::cerr << "ui set requires <input.ui.json>, <widget-id>, <property>, and <value>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const json value = ParseCliJsonOrStringValue(args[5]);
+        const FUiMutationResult setResult =
+            UiDocumentCli::SetNodeProperty(inputPath, args[3], args[4], value);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, setResult);
+        } else if (setResult.bSuccess) {
+            PrintUiMutationText(setResult);
+        } else {
+            std::cerr << "Failed to set UI property: " << setResult.ErrorMessage << "\n";
+        }
+        return setResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

@@ -193,6 +193,8 @@ void PrintUsage()
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
+        << "  project settings get|set [--project <dir>] [key value]\n"
+        << "  codegen regenerate|reinit-main [--project <dir>]\n"
         << "  build configure|build|clean|rebuild [--project <dir>] [--profile <name>]\n"
         << "  probe [--project <dir>] [--profile <name>]\n";
 }
@@ -254,6 +256,85 @@ bool LoadProject(const std::filesystem::path& projectRoot, EditorProject& projec
 std::string ResolveProfileName(const EditorProject& project, const std::string& requestedProfile)
 {
     return requestedProfile.empty() ? project.GetActiveBuildProfileName() : requestedProfile;
+}
+
+bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldRequest& outRequest)
+{
+    if (project.GetProjectRoot().empty()) {
+        std::cerr << "Project root is empty.\n";
+        return false;
+    }
+    if (project.GetStartupDocumentRelativePath().empty()) {
+        std::cerr << "Project startup document is not configured.\n";
+        return false;
+    }
+
+    EditorDocument startupDocument;
+    std::string loadError;
+    if (!startupDocument.Load(project.GetStartupDocumentPath(), &loadError)) {
+        std::cerr << "Failed to load startup document: " << loadError << "\n";
+        return false;
+    }
+    if (!startupDocument.GetRootWidget()) {
+        std::cerr << "Startup document has no root widget.\n";
+        return false;
+    }
+
+    FProjectScaffoldRequest request;
+    request.ProjectRoot = project.GetProjectRoot();
+    request.ProjectName = project.GetProjectName();
+    request.NamespaceName = project.GetNamespaceName();
+    request.TemplateName = project.GetTemplateName();
+    request.StartupDocumentFileName = project.GetStartupDocumentRelativePath().filename().string();
+    request.StartupWidgetClassName = BuildStartupWidgetClassName(request.StartupDocumentFileName);
+    request.TitleBarWidgetClassName = "TitleBarView";
+    request.ApplicationSettings = project.GetApplicationSettings();
+    if (request.ApplicationSettings.Title.empty()) {
+        request.ApplicationSettings.Title = request.ProjectName;
+    }
+    request.StartupRootWidget = startupDocument.GetRootWidget();
+
+    if (request.ApplicationSettings.bUseTitleBar) {
+        if (request.ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
+            request.ApplicationSettings.TitleBarDocumentRelativePath =
+                std::filesystem::path("ui") / "TitleBar.ui.json";
+        }
+
+        const std::filesystem::path titleBarDocumentPath =
+            (project.GetProjectRoot() / request.ApplicationSettings.TitleBarDocumentRelativePath).lexically_normal();
+        EditorDocument titleBarDocument;
+        if (!std::filesystem::exists(titleBarDocumentPath)) {
+            titleBarDocument.NewDocument(BuildDefaultTitleBarRoot(request.ProjectName), "TitleBar");
+            std::string saveError;
+            if (!titleBarDocument.SaveAs(titleBarDocumentPath, &saveError)) {
+                std::cerr << "Failed to create title bar document: " << saveError << "\n";
+                return false;
+            }
+
+            FEditorApplicationSettings updatedSettings = project.GetApplicationSettings();
+            updatedSettings.TitleBarDocumentRelativePath = request.ApplicationSettings.TitleBarDocumentRelativePath;
+            project.SetApplicationSettings(updatedSettings);
+            std::string projectSaveError;
+            if (!project.Save(&projectSaveError)) {
+                std::cerr << "Failed to save project manifest: " << projectSaveError << "\n";
+                return false;
+            }
+        } else if (!titleBarDocument.Load(titleBarDocumentPath, &loadError)) {
+            std::cerr << "Failed to load title bar document: " << loadError << "\n";
+            return false;
+        }
+
+        auto titleBarRoot = std::dynamic_pointer_cast<ImTitleBar>(titleBarDocument.GetRootWidget());
+        if (!titleBarRoot) {
+            std::cerr << "Title bar document root must be ImTitleBar.\n";
+            return false;
+        }
+        titleBarRoot->SetShowSystemButtons(request.ApplicationSettings.bShowSystemButtons);
+        request.TitleBarRootWidget = titleBarRoot;
+    }
+
+    outRequest = std::move(request);
+    return true;
 }
 
 int PrintBuildResult(const FBuildResult& result)
@@ -401,6 +482,191 @@ int RunProjectCreate(const std::vector<std::string>& args)
     return 0;
 }
 
+std::string BoolToString(bool value)
+{
+    return value ? "true" : "false";
+}
+
+bool ParseBool(const std::string& text, bool& outValue)
+{
+    std::string normalized = text;
+    std::transform(
+        normalized.begin(),
+        normalized.end(),
+        normalized.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
+        outValue = true;
+        return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
+        outValue = false;
+        return true;
+    }
+    return false;
+}
+
+bool PrintProjectSetting(const EditorProject& project, const std::string& key)
+{
+    const FEditorApplicationSettings& settings = project.GetApplicationSettings();
+    bool bPrintedAny = false;
+    const auto printValue = [](const std::string& name, const std::string& value) {
+        std::cout << name << "=" << value << "\n";
+    };
+
+    if (key.empty() || key == "title") {
+        printValue("title", settings.Title);
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "libraryMode") {
+        printValue(
+            "libraryMode",
+            settings.LibraryIntegrationMode == EEditorLibraryIntegrationMode::SDK ? "SDK" : "Source");
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "sdkPath") {
+        printValue("sdkPath", settings.SdkPackagePath.generic_string());
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "minimumSdkVersion") {
+        printValue("minimumSdkVersion", settings.MinimumSdkVersion);
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "initialWidth") {
+        printValue("initialWidth", std::to_string(settings.InitialWidth));
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "initialHeight") {
+        printValue("initialHeight", std::to_string(settings.InitialHeight));
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "useTitleBar") {
+        printValue("useTitleBar", BoolToString(settings.bUseTitleBar));
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "showSystemButtons") {
+        printValue("showSystemButtons", BoolToString(settings.bShowSystemButtons));
+        bPrintedAny = true;
+    }
+    if (key.empty() || key == "titleBarDocument") {
+        printValue("titleBarDocument", settings.TitleBarDocumentRelativePath.generic_string());
+        bPrintedAny = true;
+    }
+    if (!bPrintedAny) {
+        std::cerr << "Unknown project setting: " << key << "\n";
+    }
+    return bPrintedAny;
+}
+
+bool SetProjectSetting(EditorProject& project, const std::string& key, const std::string& value)
+{
+    FEditorApplicationSettings settings = project.GetApplicationSettings();
+
+    if (key == "title") {
+        settings.Title = value;
+    } else if (key == "libraryMode") {
+        if (value == "SDK" || value == "sdk") {
+            settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
+        } else if (value == "Source" || value == "source") {
+            settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
+        } else {
+            std::cerr << "libraryMode must be SDK or Source.\n";
+            return false;
+        }
+    } else if (key == "sdkPath") {
+        settings.SdkPackagePath = std::filesystem::path(value).lexically_normal();
+        settings.LibraryIntegrationMode = value.empty()
+            ? EEditorLibraryIntegrationMode::Source
+            : EEditorLibraryIntegrationMode::SDK;
+    } else if (key == "minimumSdkVersion") {
+        settings.MinimumSdkVersion = value;
+    } else if (key == "initialWidth") {
+        settings.InitialWidth = std::max(1, std::stoi(value));
+    } else if (key == "initialHeight") {
+        settings.InitialHeight = std::max(1, std::stoi(value));
+    } else if (key == "useTitleBar") {
+        if (!ParseBool(value, settings.bUseTitleBar)) {
+            std::cerr << "useTitleBar must be a boolean.\n";
+            return false;
+        }
+    } else if (key == "showSystemButtons") {
+        if (!ParseBool(value, settings.bShowSystemButtons)) {
+            std::cerr << "showSystemButtons must be a boolean.\n";
+            return false;
+        }
+    } else if (key == "titleBarDocument") {
+        settings.TitleBarDocumentRelativePath = std::filesystem::path(value).lexically_normal();
+        if (settings.TitleBarDocumentRelativePath.is_absolute()) {
+            std::cerr << "titleBarDocument must be project-relative.\n";
+            return false;
+        }
+    } else {
+        std::cerr << "Unknown project setting: " << key << "\n";
+        return false;
+    }
+
+    project.SetApplicationSettings(settings);
+    std::string saveError;
+    if (!project.Save(&saveError)) {
+        std::cerr << saveError << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+int RunProjectSettingsCommand(const std::vector<std::string>& args)
+{
+    if (args.size() < 3) {
+        std::cerr << "project settings requires get or set.\n";
+        return 1;
+    }
+
+    FCliOptions options;
+    std::vector<std::string> positional;
+    for (std::size_t index = 3; index < args.size(); ++index) {
+        std::string value;
+        if (args[index] == "--project" || args[index] == "-p") {
+            if (!ConsumeOptionValue(args, index, args[index], value)) {
+                return 1;
+            }
+            options.ProjectRoot = std::filesystem::path(value).lexically_normal();
+        } else {
+            positional.push_back(args[index]);
+        }
+    }
+
+    EditorProject project;
+    if (!LoadProject(options.ProjectRoot, project)) {
+        return 1;
+    }
+
+    if (args[2] == "get") {
+        const std::string key = positional.empty() ? std::string() : positional.front();
+        return PrintProjectSetting(project, key) ? 0 : 1;
+    }
+
+    if (args[2] == "set") {
+        if (positional.size() < 2) {
+            std::cerr << "project settings set requires <key> <value>.\n";
+            return 1;
+        }
+        try {
+            if (!SetProjectSetting(project, positional[0], positional[1])) {
+                return 1;
+            }
+        } catch (const std::exception& error) {
+            std::cerr << error.what() << "\n";
+            return 1;
+        }
+        std::cout << "Updated " << positional[0] << "\n";
+        return 0;
+    }
+
+    std::cerr << "Unknown project settings subcommand: " << args[2] << "\n";
+    return 1;
+}
+
 int RunProjectCommand(const std::vector<std::string>& args)
 {
     if (args.size() < 2) {
@@ -410,6 +676,9 @@ int RunProjectCommand(const std::vector<std::string>& args)
 
     if (args[1] == "create") {
         return RunProjectCreate(args);
+    }
+    if (args[1] == "settings") {
+        return RunProjectSettingsCommand(args);
     }
 
     FCliOptions options;
@@ -488,6 +757,50 @@ int RunBuildCommand(const std::vector<std::string>& args)
     return 1;
 }
 
+int RunCodegenCommand(const std::vector<std::string>& args)
+{
+    if (args.size() < 2) {
+        std::cerr << "codegen requires a subcommand.\n";
+        return 1;
+    }
+
+    FCliOptions options;
+    if (!ParseCommonOptions(args, 2, options)) {
+        return 1;
+    }
+
+    EditorProject project;
+    if (!LoadProject(options.ProjectRoot, project)) {
+        return 1;
+    }
+
+    FProjectScaffoldRequest scaffoldRequest;
+    if (!BuildScaffoldRequestFromProject(project, scaffoldRequest)) {
+        return 1;
+    }
+
+    FProjectScaffoldResult result;
+    if (args[1] == "regenerate") {
+        result = ProjectScaffolder::GenerateCode(scaffoldRequest);
+    } else if (args[1] == "reinit-main") {
+        result = ProjectScaffolder::ReinitializeMainCpp(scaffoldRequest);
+    } else {
+        std::cerr << "Unknown codegen subcommand: " << args[1] << "\n";
+        return 1;
+    }
+
+    if (!result.bSuccess) {
+        std::cerr << result.ErrorMessage << "\n";
+        return 1;
+    }
+
+    std::cout << "Generated files:\n";
+    for (const std::filesystem::path& filePath : result.GeneratedFiles) {
+        std::cout << "  " << filePath.string() << "\n";
+    }
+    return 0;
+}
+
 int RunProbeCommand(const std::vector<std::string>& args)
 {
     FCliOptions options;
@@ -534,6 +847,9 @@ int main(int argc, char** argv)
     }
     if (args[0] == "build") {
         return RunBuildCommand(args);
+    }
+    if (args[0] == "codegen") {
+        return RunCodegenCommand(args);
     }
     if (args[0] == "probe") {
         return RunProbeCommand(args);

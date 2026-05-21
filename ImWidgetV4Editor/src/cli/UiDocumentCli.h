@@ -31,11 +31,22 @@ struct FUiNodeInspectInfo {
     std::vector<FUiTreeNodeInfo> Children;
 };
 
+struct FUiMutationResult {
+    bool bSuccess = false;
+    bool bChanged = false;
+    std::string ErrorMessage;
+    FUiTreeNodeInfo Node;
+};
+
 class UiDocumentCli {
 public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
     static FUiDocumentTreeInfo BuildDocumentTreeInfo(const std::filesystem::path& inputPath);
     static FUiNodeInspectInfo InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId);
+    static FUiMutationResult RenameNode(
+        const std::filesystem::path& inputPath,
+        const std::string& widgetId,
+        const std::string& newName);
 };
 
 } // namespace ImWidgetV4Editor

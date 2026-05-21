@@ -121,4 +121,44 @@ FUiNodeInspectInfo UiDocumentCli::InspectNode(const std::filesystem::path& input
     return result;
 }
 
+FUiMutationResult UiDocumentCli::RenameNode(
+    const std::filesystem::path& inputPath,
+    const std::string& widgetId,
+    const std::string& newName)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+    if (!widget) {
+        result.ErrorMessage = "Widget id was not found: " + widgetId;
+        return result;
+    }
+
+    result.bChanged = widget->GetName() != newName;
+    widget->SetName(newName);
+    document.SetDirty(true);
+
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    std::size_t depth = 0;
+    std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+    while (parent) {
+        ++depth;
+        parent = document.FindLogicalParent(parent);
+    }
+
+    result.bSuccess = true;
+    result.Node = BuildTreeNodeInfo(widget, document, depth);
+    return result;
+}
+
 } // namespace ImWidgetV4Editor

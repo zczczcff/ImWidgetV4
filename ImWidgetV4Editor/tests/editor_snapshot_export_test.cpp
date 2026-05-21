@@ -271,6 +271,36 @@ TEST(EditorSnapshotExportTest, UiDocumentCliInspectsNodeById)
     EXPECT_NE(missingInfo.ErrorMessage.find("missing"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliRenamesNodeAndSavesDocument)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_rename";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult renameResult = UiDocumentCli::RenameNode(inputPath, "w2", "RenamedTitle");
+    ASSERT_TRUE(renameResult.bSuccess) << renameResult.ErrorMessage;
+    EXPECT_TRUE(renameResult.bChanged);
+    EXPECT_EQ(renameResult.Node.WidgetId, "w2");
+    EXPECT_EQ(renameResult.Node.Name, "RenamedTitle");
+
+    const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(inspectInfo.bSuccess) << inspectInfo.ErrorMessage;
+    EXPECT_EQ(inspectInfo.Node.Name, "RenamedTitle");
+
+    const FUiMutationResult unchangedResult = UiDocumentCli::RenameNode(inputPath, "w2", "RenamedTitle");
+    ASSERT_TRUE(unchangedResult.bSuccess) << unchangedResult.ErrorMessage;
+    EXPECT_FALSE(unchangedResult.bChanged);
+
+    const FUiMutationResult missingResult = UiDocumentCli::RenameNode(inputPath, "missing", "Nope");
+    EXPECT_FALSE(missingResult.bSuccess);
+    EXPECT_NE(missingResult.ErrorMessage.find("missing"), std::string::npos);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

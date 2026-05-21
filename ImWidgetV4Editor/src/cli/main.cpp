@@ -199,6 +199,7 @@ void PrintUsage()
         << "  ui validate <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
+        << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -795,6 +796,36 @@ void PrintUiInspectText(const FUiNodeInspectInfo& info)
     }
 }
 
+void PrintUiMutationJson(const std::filesystem::path& inputPath, const FUiMutationResult& result)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (result.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    if (!result.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(result.ErrorMessage);
+        std::cout << "\n}\n";
+        return;
+    }
+
+    std::cout << ",\n  \"changed\": " << (result.bChanged ? "true" : "false") << ",\n";
+    std::cout << "  \"node\": {\n";
+    PrintUiNodeJsonFields(result.Node, "    ");
+    std::cout << "\n  }\n}\n";
+}
+
+void PrintUiMutationText(const FUiMutationResult& result)
+{
+    std::cout
+        << (result.bChanged ? "Updated: " : "Unchanged: ")
+        << result.Node.WidgetId << " " << result.Node.TypeName;
+    if (!result.Node.Name.empty()) {
+        std::cout << " \"" << result.Node.Name << "\"";
+    }
+    std::cout << "\n";
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -1068,6 +1099,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to inspect UI node: " << inspectInfo.ErrorMessage << "\n";
         }
         return inspectInfo.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "rename") {
+        if (args.size() < 5) {
+            std::cerr << "ui rename requires <input.ui.json>, <widget-id>, and <name>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult renameResult = UiDocumentCli::RenameNode(inputPath, args[3], args[4]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, renameResult);
+        } else if (renameResult.bSuccess) {
+            PrintUiMutationText(renameResult);
+        } else {
+            std::cerr << "Failed to rename UI node: " << renameResult.ErrorMessage << "\n";
+        }
+        return renameResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

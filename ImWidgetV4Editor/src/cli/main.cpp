@@ -197,6 +197,7 @@ void PrintUsage()
         << "  ui controls list [--json]\n"
         << "  ui controls describe <type-name> [--json]\n"
         << "  ui validate <input.ui.json> [--json]\n"
+        << "  ui format <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
@@ -1076,6 +1077,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Invalid UI document: " << error << "\n";
         }
         return bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "format") {
+        if (args.size() < 3) {
+            std::cerr << "ui format requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult formatResult = UiDocumentCli::FormatDocumentFile(inputPath);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, formatResult);
+        } else if (formatResult.bSuccess) {
+            PrintUiMutationText(formatResult);
+        } else {
+            std::cerr << "Failed to format UI document: " << formatResult.ErrorMessage << "\n";
+        }
+        return formatResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "tree") {

@@ -41,6 +41,7 @@ struct FUiMutationResult {
 class UiDocumentCli {
 public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
+    static FUiMutationResult FormatDocumentFile(const std::filesystem::path& inputPath);
     static FUiDocumentTreeInfo BuildDocumentTreeInfo(const std::filesystem::path& inputPath);
     static FUiNodeInspectInfo InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId);
     static FUiMutationResult RenameNode(

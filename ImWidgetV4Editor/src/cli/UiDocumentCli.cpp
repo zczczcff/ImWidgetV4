@@ -271,6 +271,30 @@ bool UiDocumentCli::ValidateDocumentFile(const std::filesystem::path& inputPath,
     return true;
 }
 
+FUiMutationResult UiDocumentCli::FormatDocumentFile(const std::filesystem::path& inputPath)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const json beforeJson = document.ExportDocumentJson();
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    result.bSuccess = true;
+    result.bChanged = beforeJson != document.ExportDocumentJson();
+    if (document.GetRootWidget()) {
+        result.Node = BuildTreeNodeInfo(document.GetRootWidget(), document, 0);
+    }
+    return result;
+}
+
 FUiDocumentTreeInfo UiDocumentCli::BuildDocumentTreeInfo(const std::filesystem::path& inputPath)
 {
     FUiDocumentTreeInfo result;

@@ -239,6 +239,30 @@ TEST(EditorSnapshotExportTest, UiDocumentCliValidatesAndBuildsTreeInfo)
     EXPECT_FALSE(invalidTreeInfo.ErrorMessage.empty());
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliFormatsDocument)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_format";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult formatResult = UiDocumentCli::FormatDocumentFile(inputPath);
+    ASSERT_TRUE(formatResult.bSuccess) << formatResult.ErrorMessage;
+    EXPECT_EQ(formatResult.Node.WidgetId, "w1");
+    EXPECT_EQ(formatResult.Node.TypeName, "ImVerticalBox");
+
+    std::string error;
+    EXPECT_TRUE(UiDocumentCli::ValidateDocumentFile(inputPath, &error)) << error;
+
+    const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(treeInfo.bSuccess) << treeInfo.ErrorMessage;
+    EXPECT_EQ(treeInfo.Nodes.size(), 3u);
+}
+
 TEST(EditorSnapshotExportTest, UiDocumentCliInspectsNodeById)
 {
     const std::filesystem::path tempDirectory =

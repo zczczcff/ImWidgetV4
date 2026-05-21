@@ -46,6 +46,21 @@ struct FUiMutationResult {
     FUiTreeNodeInfo Node;
 };
 
+struct FUiPatchOperationResult {
+    bool bSuccess = false;
+    bool bChanged = false;
+    std::string Operation;
+    std::string ErrorMessage;
+    FUiTreeNodeInfo Node;
+};
+
+struct FUiPatchResult {
+    bool bSuccess = false;
+    bool bChanged = false;
+    std::string ErrorMessage;
+    std::vector<FUiPatchOperationResult> Operations;
+};
+
 struct FUiNodeDiffEntry {
     std::string Kind;
     std::string WidgetId;
@@ -82,6 +97,9 @@ class UiDocumentCli {
 public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
     static FUiMutationResult FormatDocumentFile(const std::filesystem::path& inputPath);
+    static FUiPatchResult PatchDocumentFile(
+        const std::filesystem::path& inputPath,
+        const std::filesystem::path& patchPath);
     static FUiDocumentTreeInfo BuildDocumentTreeInfo(const std::filesystem::path& inputPath);
     static FUiDocumentTreeInfo FindNodes(const std::filesystem::path& inputPath, const FUiFindRequest& request);
     static FUiNodeInspectInfo InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId);

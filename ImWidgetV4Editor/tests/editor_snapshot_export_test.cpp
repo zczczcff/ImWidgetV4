@@ -299,6 +299,70 @@ TEST(EditorSnapshotExportTest, UiDocumentCliFormatsDocument)
     EXPECT_EQ(treeInfo.Nodes.size(), 3u);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliAppliesPatchAtomically)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_patch";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+    const std::filesystem::path patchPath = tempDirectory / "patch.json";
+    {
+        json patch = json::object();
+        patch["operations"] = json::array({
+            json {{"op", "rename"}, {"id", "w2"}, {"name", "PatchTitle"}},
+            json {{"op", "set"}, {"id", "w2"}, {"property", "Text"}, {"value", "Patched Title"}},
+            json {
+                {"op", "add"},
+                {"parent", "w1"},
+                {"type", "ImTextBlock"},
+                {"name", "PatchBody"},
+                {"properties", json {{"Text", "Added by patch"}}}
+            },
+        });
+        std::ofstream stream(patchPath, std::ios::binary | std::ios::trunc);
+        stream << patch.dump(2);
+    }
+
+    const FUiPatchResult patchResult = UiDocumentCli::PatchDocumentFile(inputPath, patchPath);
+    ASSERT_TRUE(patchResult.bSuccess) << patchResult.ErrorMessage;
+    EXPECT_TRUE(patchResult.bChanged);
+    ASSERT_EQ(patchResult.Operations.size(), 3u);
+
+    const FUiNodeInspectInfo titleInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(titleInfo.bSuccess) << titleInfo.ErrorMessage;
+    EXPECT_EQ(titleInfo.Node.Name, "PatchTitle");
+    EXPECT_EQ(titleInfo.Properties["ImTextBlock::Text"], "Patched Title");
+
+    const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(treeInfo.bSuccess) << treeInfo.ErrorMessage;
+    ASSERT_EQ(treeInfo.Nodes.size(), 4u);
+    EXPECT_EQ(treeInfo.Nodes.back().Name, "PatchBody");
+
+    const std::filesystem::path failingPatchPath = tempDirectory / "failing-patch.json";
+    {
+        json patch = json::array({
+            json {{"op", "rename"}, {"id", "w2"}, {"name", "ShouldNotPersist"}},
+            json {{"op", "set"}, {"id", "missing"}, {"property", "Text"}, {"value", "Nope"}},
+        });
+        std::ofstream stream(failingPatchPath, std::ios::binary | std::ios::trunc);
+        stream << patch.dump(2);
+    }
+
+    const FUiPatchResult failingResult = UiDocumentCli::PatchDocumentFile(inputPath, failingPatchPath);
+    EXPECT_FALSE(failingResult.bSuccess);
+    ASSERT_EQ(failingResult.Operations.size(), 2u);
+    EXPECT_FALSE(failingResult.Operations[1].bSuccess);
+
+    const FUiNodeInspectInfo unchangedInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(unchangedInfo.bSuccess) << unchangedInfo.ErrorMessage;
+    EXPECT_EQ(unchangedInfo.Node.Name, "PatchTitle");
+}
+
 TEST(EditorSnapshotExportTest, UiDocumentCliInspectsNodeById)
 {
     const std::filesystem::path tempDirectory =

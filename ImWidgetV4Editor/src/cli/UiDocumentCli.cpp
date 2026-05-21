@@ -639,6 +639,302 @@ bool IsLogicalAncestorOf(
     return false;
 }
 
+std::size_t CalculateWidgetDepth(EditorDocument& document, const std::shared_ptr<ImWidget>& widget)
+{
+    std::size_t depth = 0;
+    std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+    while (parent) {
+        ++depth;
+        parent = document.FindLogicalParent(parent);
+    }
+    return depth;
+}
+
+FUiPatchOperationResult MakePatchFailure(
+    const std::string& operation,
+    const std::string& message)
+{
+    FUiPatchOperationResult result;
+    result.Operation = operation;
+    result.ErrorMessage = message;
+    return result;
+}
+
+bool ApplyJsonPropertiesToWidget(
+    const std::shared_ptr<ImWidget>& widget,
+    const json& properties,
+    std::string& outError)
+{
+    if (!widget) {
+        outError = "Widget is required.";
+        return false;
+    }
+    if (!properties.is_object()) {
+        outError = "properties must be a JSON object.";
+        return false;
+    }
+
+    json beforeJson = widget->ToJson();
+    json afterJson = beforeJson;
+    for (auto it = properties.begin(); it != properties.end(); ++it) {
+        std::string ownerTypeName;
+        std::string propertyName = it.key();
+        const std::size_t separator = propertyName.find("::");
+        if (separator != std::string::npos) {
+            ownerTypeName = propertyName.substr(0, separator);
+            propertyName = propertyName.substr(separator + 2);
+        }
+
+        const Reflection::FPropertyDesc* property =
+            Reflection::FindProperty(widget->GetTypeDesc(), propertyName, ownerTypeName);
+        if (!property) {
+            outError = "Property was not found on " + widget->GetTypeName() + ": " + it.key();
+            return false;
+        }
+        afterJson["Properties"][std::string(property->OwnerTypeName) + "::" + property->Name] = it.value();
+    }
+
+    try {
+        widget->FromJson(afterJson);
+    } catch (const std::exception& exception) {
+        outError = exception.what();
+        return false;
+    }
+    return true;
+}
+
+bool ApplySinglePatchOperation(
+    EditorDocument& document,
+    const json& operationJson,
+    FUiPatchOperationResult& outResult)
+{
+    if (!operationJson.is_object()) {
+        outResult = MakePatchFailure(std::string(), "Patch operation must be a JSON object.");
+        return false;
+    }
+
+    const std::string operation = operationJson.value("op", operationJson.value("operation", std::string()));
+    outResult.Operation = operation;
+    if (operation.empty()) {
+        outResult.ErrorMessage = "Patch operation is missing op.";
+        return false;
+    }
+
+    if (operation == "rename") {
+        const std::string widgetId = operationJson.value("id", std::string());
+        const std::string name = operationJson.value("name", std::string());
+        std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+        if (!widget) {
+            outResult.ErrorMessage = "Widget id was not found: " + widgetId;
+            return false;
+        }
+
+        outResult.bChanged = widget->GetName() != name;
+        widget->SetName(name);
+        outResult.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    if (operation == "set") {
+        const std::string widgetId = operationJson.value("id", std::string());
+        const std::string propertyName = operationJson.value("property", std::string());
+        if (!operationJson.contains("value")) {
+            outResult.ErrorMessage = "set operation requires value.";
+            return false;
+        }
+
+        std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+        if (!widget) {
+            outResult.ErrorMessage = "Widget id was not found: " + widgetId;
+            return false;
+        }
+
+        const Reflection::FPropertyDesc* property =
+            Reflection::FindProperty(widget->GetTypeDesc(), propertyName);
+        if (!property) {
+            outResult.ErrorMessage = "Property was not found on " + widget->GetTypeName() + ": " + propertyName;
+            return false;
+        }
+
+        const json beforeJson = widget->ToJson();
+        json afterJson = beforeJson;
+        afterJson["Properties"][std::string(property->OwnerTypeName) + "::" + property->Name] = operationJson["value"];
+        try {
+            widget->FromJson(afterJson);
+        } catch (const std::exception& exception) {
+            outResult.ErrorMessage = exception.what();
+            return false;
+        }
+
+        outResult.bChanged = beforeJson != widget->ToJson();
+        outResult.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    if (operation == "add") {
+        const std::string parentId = operationJson.value("parent", operationJson.value("parentId", std::string()));
+        const std::string typeName = operationJson.value("type", std::string());
+        std::shared_ptr<ImWidget> parent = document.FindWidgetById(parentId);
+        if (!parent) {
+            outResult.ErrorMessage = "Parent widget id was not found: " + parentId;
+            return false;
+        }
+
+        std::shared_ptr<ImWidget> child = WidgetFactory::Get().CreateWidget(typeName);
+        if (!child) {
+            outResult.ErrorMessage = "Unsupported widget type: " + typeName;
+            return false;
+        }
+        InitializeNewWidgetDefaults(child);
+        if (operationJson.contains("name")) {
+            child->SetName(operationJson.value("name", std::string()));
+        }
+        if (operationJson.contains("properties")) {
+            std::string propertyError;
+            if (!ApplyJsonPropertiesToWidget(child, operationJson["properties"], propertyError)) {
+                outResult.ErrorMessage = propertyError;
+                return false;
+            }
+        }
+
+        std::string insertError;
+        if (!InsertWidgetIntoParent(parent, child, insertError)) {
+            outResult.ErrorMessage = insertError;
+            return false;
+        }
+
+        outResult.bChanged = true;
+        outResult.Node = BuildTreeNodeInfo(child, document, CalculateWidgetDepth(document, child));
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    if (operation == "remove") {
+        const std::string widgetId = operationJson.value("id", std::string());
+        std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+        if (!widget) {
+            outResult.ErrorMessage = "Widget id was not found: " + widgetId;
+            return false;
+        }
+        if (widget == document.GetRootWidget()) {
+            outResult.ErrorMessage = "Removing the root widget is not supported by ui patch.";
+            return false;
+        }
+
+        std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
+        outResult.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+        if (!RemoveWidgetFromParent(parent, widget)) {
+            outResult.ErrorMessage = "Failed to remove widget from parent.";
+            return false;
+        }
+
+        outResult.bChanged = true;
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    if (operation == "duplicate") {
+        const std::string widgetId = operationJson.value("id", std::string());
+        std::shared_ptr<ImWidget> source = document.FindWidgetById(widgetId);
+        if (!source) {
+            outResult.ErrorMessage = "Widget id was not found: " + widgetId;
+            return false;
+        }
+        if (source == document.GetRootWidget()) {
+            outResult.ErrorMessage = "Duplicating the root widget is not supported by ui patch.";
+            return false;
+        }
+
+        std::shared_ptr<ImWidget> parent = document.FindLogicalParent(source);
+        if (!parent) {
+            outResult.ErrorMessage = "Source widget has no logical parent.";
+            return false;
+        }
+
+        FWidgetSerializationResult cloneResult =
+            WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(source));
+        if (!cloneResult.bSuccess || !cloneResult.Widget) {
+            outResult.ErrorMessage = cloneResult.ErrorMessage.empty()
+                ? "Failed to clone widget."
+                : cloneResult.ErrorMessage;
+            return false;
+        }
+        if (operationJson.contains("name")) {
+            cloneResult.Widget->SetName(operationJson.value("name", std::string()));
+        } else if (!cloneResult.Widget->GetName().empty()) {
+            cloneResult.Widget->SetName(cloneResult.Widget->GetName() + "Copy");
+        }
+
+        std::string insertError;
+        if (!InsertWidgetIntoParent(parent, cloneResult.Widget, insertError)) {
+            outResult.ErrorMessage = insertError;
+            return false;
+        }
+
+        outResult.bChanged = true;
+        outResult.Node = BuildTreeNodeInfo(cloneResult.Widget, document, CalculateWidgetDepth(document, cloneResult.Widget));
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    if (operation == "move") {
+        const std::string widgetId = operationJson.value("id", std::string());
+        const std::string parentId = operationJson.value("parent", operationJson.value("parentId", std::string()));
+        std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+        if (!widget) {
+            outResult.ErrorMessage = "Widget id was not found: " + widgetId;
+            return false;
+        }
+        if (widget == document.GetRootWidget()) {
+            outResult.ErrorMessage = "Moving the root widget is not supported by ui patch.";
+            return false;
+        }
+
+        std::shared_ptr<ImWidget> oldParent = document.FindLogicalParent(widget);
+        std::shared_ptr<ImWidget> newParent = document.FindWidgetById(parentId);
+        if (!oldParent) {
+            outResult.ErrorMessage = "Widget has no logical parent.";
+            return false;
+        }
+        if (!newParent) {
+            outResult.ErrorMessage = "New parent widget id was not found: " + parentId;
+            return false;
+        }
+        if (newParent == widget || IsLogicalAncestorOf(document, widget, newParent)) {
+            outResult.ErrorMessage = "Cannot move a widget into itself or one of its descendants.";
+            return false;
+        }
+        if (oldParent == newParent) {
+            outResult.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+            outResult.bSuccess = true;
+            return true;
+        }
+
+        if (!RemoveWidgetFromParent(oldParent, widget)) {
+            outResult.ErrorMessage = "Failed to detach widget from old parent.";
+            return false;
+        }
+
+        std::string insertError;
+        if (!InsertWidgetIntoParent(newParent, widget, insertError)) {
+            std::string restoreError;
+            (void)InsertWidgetIntoParent(oldParent, widget, restoreError);
+            outResult.ErrorMessage = insertError;
+            return false;
+        }
+
+        outResult.bChanged = true;
+        outResult.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+        outResult.bSuccess = true;
+        return true;
+    }
+
+    outResult.ErrorMessage = "Unsupported patch operation: " + operation;
+    return false;
+}
+
 } // namespace
 
 bool UiDocumentCli::ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError)
@@ -671,6 +967,69 @@ FUiMutationResult UiDocumentCli::FormatDocumentFile(const std::filesystem::path&
     if (document.GetRootWidget()) {
         result.Node = BuildTreeNodeInfo(document.GetRootWidget(), document, 0);
     }
+    return result;
+}
+
+FUiPatchResult UiDocumentCli::PatchDocumentFile(
+    const std::filesystem::path& inputPath,
+    const std::filesystem::path& patchPath)
+{
+    FUiPatchResult result;
+
+    json patchJson;
+    try {
+        std::ifstream stream(patchPath);
+        if (!stream.is_open()) {
+            result.ErrorMessage = "Failed to open patch file for reading: " + patchPath.string();
+            return result;
+        }
+        stream >> patchJson;
+    } catch (const std::exception& exception) {
+        result.ErrorMessage = exception.what();
+        return result;
+    }
+
+    json operationsJson;
+    if (patchJson.is_array()) {
+        operationsJson = patchJson;
+    } else if (patchJson.is_object() && patchJson.contains("operations")) {
+        operationsJson = patchJson["operations"];
+    } else {
+        result.ErrorMessage = "Patch JSON must be an array or an object with operations.";
+        return result;
+    }
+
+    if (!operationsJson.is_array()) {
+        result.ErrorMessage = "Patch operations must be a JSON array.";
+        return result;
+    }
+
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const json beforeJson = document.ExportDocumentJson();
+    for (const json& operationJson : operationsJson) {
+        FUiPatchOperationResult operationResult;
+        if (!ApplySinglePatchOperation(document, operationJson, operationResult)) {
+            result.Operations.push_back(operationResult);
+            result.ErrorMessage = operationResult.ErrorMessage;
+            return result;
+        }
+        result.Operations.push_back(operationResult);
+    }
+
+    result.bChanged = beforeJson != document.ExportDocumentJson();
+    document.SetDirty(result.bChanged);
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    result.bSuccess = true;
     return result;
 }
 

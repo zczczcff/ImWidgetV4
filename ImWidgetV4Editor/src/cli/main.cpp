@@ -200,6 +200,7 @@ void PrintUsage()
         << "  ui validate <input.ui.json> [--json]\n"
         << "  ui lint <input.ui.json> [--json]\n"
         << "  ui format <input.ui.json> [--json]\n"
+        << "  ui patch <input.ui.json> <patch.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
         << "  ui get <input.ui.json> <widget-id> [property] [--json]\n"
@@ -891,6 +892,66 @@ void PrintUiMutationText(const FUiMutationResult& result)
     std::cout << "\n";
 }
 
+void PrintUiPatchJson(
+    const std::filesystem::path& inputPath,
+    const std::filesystem::path& patchPath,
+    const FUiPatchResult& result)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (result.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    std::cout << ",\n  \"patch\": ";
+    PrintJsonEscapedString(patchPath.string());
+    if (!result.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(result.ErrorMessage);
+    }
+    std::cout << ",\n  \"changed\": " << (result.bChanged ? "true" : "false") << ",\n";
+    std::cout << "  \"operations\": [\n";
+    for (std::size_t index = 0; index < result.Operations.size(); ++index) {
+        const FUiPatchOperationResult& operation = result.Operations[index];
+        std::cout << "    {\n";
+        std::cout << "      \"success\": " << (operation.bSuccess ? "true" : "false") << ",\n";
+        std::cout << "      \"changed\": " << (operation.bChanged ? "true" : "false") << ",\n";
+        std::cout << "      \"operation\": ";
+        PrintJsonEscapedString(operation.Operation);
+        if (!operation.bSuccess) {
+            std::cout << ",\n      \"error\": ";
+            PrintJsonEscapedString(operation.ErrorMessage);
+        }
+        if (!operation.Node.WidgetId.empty()) {
+            std::cout << ",\n      \"node\": {\n";
+            PrintUiNodeJsonFields(operation.Node, "        ");
+            std::cout << "\n      }";
+        }
+        std::cout << "\n    }";
+        if (index + 1 < result.Operations.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintUiPatchText(const FUiPatchResult& result)
+{
+    std::cout << (result.bChanged ? "Patched" : "Unchanged")
+              << ": " << result.Operations.size() << " operations\n";
+    for (const FUiPatchOperationResult& operation : result.Operations) {
+        std::cout
+            << "  " << (operation.bSuccess ? "ok" : "failed")
+            << " " << operation.Operation;
+        if (!operation.Node.WidgetId.empty()) {
+            std::cout << " " << operation.Node.WidgetId << " " << operation.Node.TypeName;
+        }
+        if (!operation.ErrorMessage.empty()) {
+            std::cout << ": " << operation.ErrorMessage;
+        }
+        std::cout << "\n";
+    }
+}
+
 void PrintUiDiffEntryJson(const FUiNodeDiffEntry& entry, const char* indent)
 {
     std::cout << indent << "{\n";
@@ -1341,6 +1402,26 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to format UI document: " << formatResult.ErrorMessage << "\n";
         }
         return formatResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "patch") {
+        if (args.size() < 4) {
+            std::cerr << "ui patch requires <input.ui.json> and <patch.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const std::filesystem::path patchPath = std::filesystem::path(args[3]).lexically_normal();
+        const FUiPatchResult patchResult = UiDocumentCli::PatchDocumentFile(inputPath, patchPath);
+        if (bJsonOutput) {
+            PrintUiPatchJson(inputPath, patchPath, patchResult);
+        } else if (patchResult.bSuccess) {
+            PrintUiPatchText(patchResult);
+        } else {
+            std::cerr << "Failed to patch UI document: " << patchResult.ErrorMessage << "\n";
+            PrintUiPatchText(patchResult);
+        }
+        return patchResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "tree") {

@@ -144,6 +144,7 @@ foreach ($architecture in $requestedArchitectures) {
         "-DIMWIDGETV4_BUILD_TESTS=OFF",
         "-DIMWIDGETV4_BUILD_SAMPLES=OFF",
         "-DIMWIDGETV4_BUILD_EDITOR=ON",
+        "-DIMWIDGETV4_BUILD_CLI=ON",
         "-DIMWIDGETV4_INSTALL_SDK_SUBDIR=sdk",
         "-DIMWIDGETV4_SDK_ARCHITECTURE=$architecture"
     )
@@ -218,10 +219,24 @@ if (Test-Path -LiteralPath $versionFile) {
 }
 
 $manifestPath = Join-Path $packagePath "sdk/ImWidgetV4SdkManifest.json"
+$editorToolPath = Join-Path $packagePath "tools/ImWidgetV4Editor.exe"
+$cliToolPath = Join-Path $packagePath "tools/imwidgetv4.exe"
+
+if (-not (Test-Path -LiteralPath $editorToolPath)) {
+    throw "Expected editor tool was not found under '$editorToolPath'."
+}
+if (-not (Test-Path -LiteralPath $cliToolPath)) {
+    throw "Expected CLI tool was not found under '$cliToolPath'."
+}
+
 $manifest = [ordered]@{
     name = "ImWidgetV4"
     version = $version
     architectures = @($manifestEntries)
+    tools = [ordered]@{
+        editor = "tools/ImWidgetV4Editor.exe"
+        cli = "tools/imwidgetv4.exe"
+    }
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path $manifestPath -Encoding utf8
 

@@ -198,6 +198,7 @@ void PrintUsage()
         << "  ui controls describe <type-name> [--json]\n"
         << "  ui schema dump [--json]\n"
         << "  ui validate <input.ui.json> [--json]\n"
+        << "  ui lint <input.ui.json> [--json]\n"
         << "  ui format <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
@@ -984,6 +985,80 @@ void PrintUiDiffText(const FUiDocumentDiffInfo& info)
     }
 }
 
+bool HasUiLintErrors(const FUiLintInfo& info)
+{
+    for (const FUiLintDiagnostic& diagnostic : info.Diagnostics) {
+        if (diagnostic.Severity == "error") {
+            return true;
+        }
+    }
+    return false;
+}
+
+void PrintUiLintJson(const std::filesystem::path& inputPath, const FUiLintInfo& info)
+{
+    std::cout << "{\n";
+    std::cout << "  \"success\": " << (info.bSuccess ? "true" : "false") << ",\n";
+    std::cout << "  \"file\": ";
+    PrintJsonEscapedString(inputPath.string());
+    if (!info.bSuccess) {
+        std::cout << ",\n  \"error\": ";
+        PrintJsonEscapedString(info.ErrorMessage);
+        std::cout << "\n}\n";
+        return;
+    }
+
+    std::cout << ",\n  \"ok\": " << (HasUiLintErrors(info) ? "false" : "true") << ",\n";
+    std::cout << "  \"diagnostics\": [\n";
+    for (std::size_t index = 0; index < info.Diagnostics.size(); ++index) {
+        const FUiLintDiagnostic& diagnostic = info.Diagnostics[index];
+        std::cout << "    {\n";
+        std::cout << "      \"severity\": ";
+        PrintJsonEscapedString(diagnostic.Severity);
+        std::cout << ",\n      \"code\": ";
+        PrintJsonEscapedString(diagnostic.Code);
+        std::cout << ",\n      \"message\": ";
+        PrintJsonEscapedString(diagnostic.Message);
+        if (!diagnostic.WidgetId.empty()) {
+            std::cout << ",\n      \"id\": ";
+            PrintJsonEscapedString(diagnostic.WidgetId);
+        }
+        if (!diagnostic.TypeName.empty()) {
+            std::cout << ",\n      \"type\": ";
+            PrintJsonEscapedString(diagnostic.TypeName);
+        }
+        if (!diagnostic.FieldName.empty()) {
+            std::cout << ",\n      \"field\": ";
+            PrintJsonEscapedString(diagnostic.FieldName);
+        }
+        std::cout << "\n    }";
+        if (index + 1 < info.Diagnostics.size()) {
+            std::cout << ",";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "  ]\n}\n";
+}
+
+void PrintUiLintText(const FUiLintInfo& info)
+{
+    if (info.Diagnostics.empty()) {
+        std::cout << "OK: no UI lint diagnostics.\n";
+        return;
+    }
+
+    for (const FUiLintDiagnostic& diagnostic : info.Diagnostics) {
+        std::cout << diagnostic.Severity << " " << diagnostic.Code;
+        if (!diagnostic.WidgetId.empty()) {
+            std::cout << " [" << diagnostic.WidgetId << "]";
+        }
+        if (!diagnostic.FieldName.empty()) {
+            std::cout << " " << diagnostic.FieldName;
+        }
+        std::cout << ": " << diagnostic.Message << "\n";
+    }
+}
+
 json ParseCliJsonOrStringValue(const std::string& text)
 {
     try {
@@ -1230,6 +1305,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Invalid UI document: " << error << "\n";
         }
         return bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "lint") {
+        if (args.size() < 3) {
+            std::cerr << "ui lint requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiLintInfo lintInfo = UiDocumentCli::LintDocumentFile(inputPath);
+        if (bJsonOutput) {
+            PrintUiLintJson(inputPath, lintInfo);
+        } else if (lintInfo.bSuccess) {
+            PrintUiLintText(lintInfo);
+        } else {
+            std::cerr << "Failed to lint UI document: " << lintInfo.ErrorMessage << "\n";
+        }
+        return lintInfo.bSuccess && !HasUiLintErrors(lintInfo) ? 0 : 1;
     }
 
     if (args[1] == "format") {

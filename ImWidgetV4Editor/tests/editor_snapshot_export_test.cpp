@@ -581,6 +581,64 @@ TEST(EditorSnapshotExportTest, UiDocumentCliDiffsDocuments)
     EXPECT_TRUE(unchangedInfo.Entries.empty());
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliLintsDocuments)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_lint";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path cleanPath = CreateSnapshotFixtureDocument(tempDirectory);
+    const FUiLintInfo cleanInfo = UiDocumentCli::LintDocumentFile(cleanPath);
+    ASSERT_TRUE(cleanInfo.bSuccess) << cleanInfo.ErrorMessage;
+    EXPECT_TRUE(cleanInfo.Diagnostics.empty());
+
+    const std::filesystem::path lintPath = tempDirectory / "lint.ui.json";
+    std::filesystem::copy_file(cleanPath, lintPath, std::filesystem::copy_options::overwrite_existing, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    EditorDocument document;
+    std::string error;
+    ASSERT_TRUE(document.Load(lintPath, &error)) << error;
+    json documentJson = document.ExportDocumentJson();
+    json& children = documentJson["RootWidget"]["Children"];
+    ASSERT_TRUE(children.is_array());
+    ASSERT_GE(children.size(), 2u);
+    children[0]["Properties"]["ImWidget::Name"] = "";
+    children[0]["Properties"]["ImTextBlock::NotAProperty"] = 1;
+    children[1]["EditorId"] = children[0]["EditorId"];
+    {
+        std::ofstream stream(lintPath, std::ios::binary | std::ios::trunc);
+        stream << documentJson.dump(2);
+    }
+
+    const FUiLintInfo lintInfo = UiDocumentCli::LintDocumentFile(lintPath);
+    ASSERT_TRUE(lintInfo.bSuccess) << lintInfo.ErrorMessage;
+
+    bool bFoundEmptyName = false;
+    bool bFoundUnknownProperty = false;
+    bool bFoundDuplicateId = false;
+    for (const FUiLintDiagnostic& diagnostic : lintInfo.Diagnostics) {
+        if (diagnostic.Code == "empty_name") {
+            bFoundEmptyName = true;
+        }
+        if (diagnostic.Code == "unknown_property" && diagnostic.FieldName == "ImTextBlock::NotAProperty") {
+            bFoundUnknownProperty = true;
+        }
+        if (diagnostic.Code == "duplicate_editor_id") {
+            bFoundDuplicateId = true;
+            EXPECT_EQ(diagnostic.Severity, "error");
+        }
+    }
+
+    EXPECT_TRUE(bFoundEmptyName);
+    EXPECT_TRUE(bFoundUnknownProperty);
+    EXPECT_TRUE(bFoundDuplicateId);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

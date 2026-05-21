@@ -63,6 +63,21 @@ struct FUiDocumentDiffInfo {
     std::vector<FUiNodeDiffEntry> Entries;
 };
 
+struct FUiLintDiagnostic {
+    std::string Severity;
+    std::string Code;
+    std::string Message;
+    std::string WidgetId;
+    std::string TypeName;
+    std::string FieldName;
+};
+
+struct FUiLintInfo {
+    bool bSuccess = false;
+    std::string ErrorMessage;
+    std::vector<FUiLintDiagnostic> Diagnostics;
+};
+
 class UiDocumentCli {
 public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
@@ -96,6 +111,7 @@ public:
     static FUiDocumentDiffInfo DiffDocuments(
         const std::filesystem::path& beforePath,
         const std::filesystem::path& afterPath);
+    static FUiLintInfo LintDocumentFile(const std::filesystem::path& inputPath);
 };
 
 } // namespace ImWidgetV4Editor

@@ -40,6 +40,7 @@ endif()
 set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
+    src/editor/DocumentSnapshotExporter.cpp
     src/editor/EditorDocument.cpp
     src/editor/LogicalWidgetTree.cpp
     src/project/EditorProject.cpp
@@ -185,8 +186,10 @@ endif()
 
 if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main AND IMWIDGETV4_BUILD_EDITOR)
     add_executable(editor_selection_test
+        src/main.cpp
         ${IMWIDGETV4_EDITOR_UI_SOURCES}
         tests/codegen_test.cpp
+        tests/editor_snapshot_export_test.cpp
         tests/editor_snapshot_test.cpp
         tests/editor_selection_test.cpp
     )

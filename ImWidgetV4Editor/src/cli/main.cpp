@@ -1,4 +1,5 @@
 #include "build/BuildController.h"
+#include "editor/DocumentSnapshotExporter.h"
 #include "editor/EditorDocument.h"
 #include "project/EditorProject.h"
 #include "templates/ProjectScaffolder.h"
@@ -14,6 +15,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -195,6 +197,7 @@ void PrintUsage()
         << "  project profiles [--project <dir>]\n"
         << "  project settings get|set [--project <dir>] [key value]\n"
         << "  codegen regenerate|reinit-main [--project <dir>]\n"
+        << "  snapshot export <input.ui.json> <output.png> [--width <n>] [--height <n>]\n"
         << "  build configure|build|clean|rebuild [--project <dir>] [--profile <name>]\n"
         << "  probe [--project <dir>] [--profile <name>]\n";
 }
@@ -506,6 +509,22 @@ bool ParseBool(const std::string& text, bool& outValue)
     return false;
 }
 
+bool ParsePositiveInteger(const std::string& text, int& outValue)
+{
+    try {
+        std::size_t processed = 0;
+        const int value = std::stoi(text, &processed, 10);
+        if (processed != text.size() || value <= 0) {
+            return false;
+        }
+
+        outValue = value;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
     const FEditorApplicationSettings& settings = project.GetApplicationSettings();
@@ -801,6 +820,80 @@ int RunCodegenCommand(const std::vector<std::string>& args)
     return 0;
 }
 
+int RunSnapshotCommand(const std::vector<std::string>& args)
+{
+    if (args.size() < 2) {
+        std::cerr << "snapshot requires a subcommand.\n";
+        return 1;
+    }
+
+    if (args[1] != "export") {
+        std::cerr << "Unknown snapshot subcommand: " << args[1] << "\n";
+        return 1;
+    }
+
+    if (args.size() < 4) {
+        std::cerr << "snapshot export requires <input.ui.json> and <output.png>.\n";
+        return 1;
+    }
+
+    FDocumentSnapshotExportRequest request;
+    request.InputPath = std::filesystem::path(args[2]).lexically_normal();
+    request.OutputPath = std::filesystem::path(args[3]).lexically_normal();
+
+    std::optional<int> width;
+    std::optional<int> height;
+
+    for (std::size_t index = 4; index < args.size(); ++index) {
+        if (args[index] == "--width") {
+            std::string value;
+            if (!ConsumeOptionValue(args, index, args[index], value)) {
+                return 1;
+            }
+            int parsedWidth = 0;
+            if (!ParsePositiveInteger(value, parsedWidth)) {
+                std::cerr << "--width must be a positive integer.\n";
+                return 1;
+            }
+            width = parsedWidth;
+        } else if (args[index] == "--height") {
+            std::string value;
+            if (!ConsumeOptionValue(args, index, args[index], value)) {
+                return 1;
+            }
+            int parsedHeight = 0;
+            if (!ParsePositiveInteger(value, parsedHeight)) {
+                std::cerr << "--height must be a positive integer.\n";
+                return 1;
+            }
+            height = parsedHeight;
+        } else {
+            std::cerr << "Unknown option: " << args[index] << "\n";
+            return 1;
+        }
+    }
+
+    if (width.has_value() != height.has_value()) {
+        std::cerr << "--width and --height must be provided together.\n";
+        return 1;
+    }
+
+    request.Width = width;
+    request.Height = height;
+
+    const FDocumentSnapshotExportResult result = DocumentSnapshotExporter::ExportToPng(request);
+    if (!result.bSuccess) {
+        std::cerr << result.ErrorMessage << "\n";
+        return 1;
+    }
+
+    std::cout
+        << "Exported snapshot: " << result.OutputPath.string()
+        << " (" << static_cast<int>(result.ExportSize.X)
+        << "x" << static_cast<int>(result.ExportSize.Y) << ")\n";
+    return 0;
+}
+
 int RunProbeCommand(const std::vector<std::string>& args)
 {
     FCliOptions options;
@@ -850,6 +943,9 @@ int main(int argc, char** argv)
     }
     if (args[0] == "codegen") {
         return RunCodegenCommand(args);
+    }
+    if (args[0] == "snapshot") {
+        return RunSnapshotCommand(args);
     }
     if (args[0] == "probe") {
         return RunProbeCommand(args);

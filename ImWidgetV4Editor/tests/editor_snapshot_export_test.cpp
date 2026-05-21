@@ -239,6 +239,40 @@ TEST(EditorSnapshotExportTest, UiDocumentCliValidatesAndBuildsTreeInfo)
     EXPECT_FALSE(invalidTreeInfo.ErrorMessage.empty());
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliFindsNodesByFilters)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_find";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    FUiFindRequest typeRequest;
+    typeRequest.TypeName = "ImTextBlock";
+    const FUiDocumentTreeInfo textBlocks = UiDocumentCli::FindNodes(inputPath, typeRequest);
+    ASSERT_TRUE(textBlocks.bSuccess) << textBlocks.ErrorMessage;
+    ASSERT_EQ(textBlocks.Nodes.size(), 2u);
+    EXPECT_EQ(textBlocks.Nodes[0].WidgetId, "w2");
+    EXPECT_EQ(textBlocks.Nodes[1].WidgetId, "w3");
+
+    FUiFindRequest nameRequest;
+    nameRequest.Name = "TitleText";
+    const FUiDocumentTreeInfo titleNodes = UiDocumentCli::FindNodes(inputPath, nameRequest);
+    ASSERT_TRUE(titleNodes.bSuccess) << titleNodes.ErrorMessage;
+    ASSERT_EQ(titleNodes.Nodes.size(), 1u);
+    EXPECT_EQ(titleNodes.Nodes[0].WidgetId, "w2");
+
+    FUiFindRequest combinedRequest;
+    combinedRequest.TypeName = "ImTextBlock";
+    combinedRequest.Name = "Missing";
+    const FUiDocumentTreeInfo missingNodes = UiDocumentCli::FindNodes(inputPath, combinedRequest);
+    ASSERT_TRUE(missingNodes.bSuccess) << missingNodes.ErrorMessage;
+    EXPECT_TRUE(missingNodes.Nodes.empty());
+}
+
 TEST(EditorSnapshotExportTest, UiDocumentCliFormatsDocument)
 {
     const std::filesystem::path tempDirectory =

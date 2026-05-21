@@ -310,6 +310,30 @@ FUiDocumentTreeInfo UiDocumentCli::BuildDocumentTreeInfo(const std::filesystem::
     return result;
 }
 
+FUiDocumentTreeInfo UiDocumentCli::FindNodes(const std::filesystem::path& inputPath, const FUiFindRequest& request)
+{
+    FUiDocumentTreeInfo treeInfo = BuildDocumentTreeInfo(inputPath);
+    if (!treeInfo.bSuccess) {
+        return treeInfo;
+    }
+
+    FUiDocumentTreeInfo result;
+    result.bSuccess = true;
+    for (const FUiTreeNodeInfo& node : treeInfo.Nodes) {
+        if (!request.WidgetId.empty() && node.WidgetId != request.WidgetId) {
+            continue;
+        }
+        if (!request.TypeName.empty() && node.TypeName != request.TypeName) {
+            continue;
+        }
+        if (!request.Name.empty() && node.Name != request.Name) {
+            continue;
+        }
+        result.Nodes.push_back(node);
+    }
+    return result;
+}
+
 FUiNodeInspectInfo UiDocumentCli::InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId)
 {
     FUiNodeInspectInfo result;

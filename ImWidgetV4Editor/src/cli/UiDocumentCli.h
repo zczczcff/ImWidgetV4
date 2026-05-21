@@ -23,6 +23,12 @@ struct FUiDocumentTreeInfo {
     std::vector<FUiTreeNodeInfo> Nodes;
 };
 
+struct FUiFindRequest {
+    std::string WidgetId;
+    std::string TypeName;
+    std::string Name;
+};
+
 struct FUiNodeInspectInfo {
     bool bSuccess = false;
     std::string ErrorMessage;
@@ -43,6 +49,7 @@ public:
     static bool ValidateDocumentFile(const std::filesystem::path& inputPath, std::string* outError = nullptr);
     static FUiMutationResult FormatDocumentFile(const std::filesystem::path& inputPath);
     static FUiDocumentTreeInfo BuildDocumentTreeInfo(const std::filesystem::path& inputPath);
+    static FUiDocumentTreeInfo FindNodes(const std::filesystem::path& inputPath, const FUiFindRequest& request);
     static FUiNodeInspectInfo InspectNode(const std::filesystem::path& inputPath, const std::string& widgetId);
     static FUiMutationResult RenameNode(
         const std::filesystem::path& inputPath,

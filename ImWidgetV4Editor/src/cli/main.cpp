@@ -199,6 +199,7 @@ void PrintUsage()
         << "  ui validate <input.ui.json> [--json]\n"
         << "  ui format <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
+        << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
@@ -1113,6 +1114,51 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to read UI tree: " << treeInfo.ErrorMessage << "\n";
         }
         return treeInfo.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "find") {
+        if (args.size() < 3) {
+            std::cerr << "ui find requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        FUiFindRequest request;
+        for (std::size_t index = 3; index < args.size(); ++index) {
+            std::string value;
+            if (args[index] == "--json") {
+                continue;
+            }
+            if (args[index] == "--id") {
+                if (!ConsumeOptionValue(args, index, args[index], value)) {
+                    return 1;
+                }
+                request.WidgetId = value;
+            } else if (args[index] == "--type") {
+                if (!ConsumeOptionValue(args, index, args[index], value)) {
+                    return 1;
+                }
+                request.TypeName = value;
+            } else if (args[index] == "--name") {
+                if (!ConsumeOptionValue(args, index, args[index], value)) {
+                    return 1;
+                }
+                request.Name = value;
+            } else {
+                std::cerr << "Unknown option: " << args[index] << "\n";
+                return 1;
+            }
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiDocumentTreeInfo findInfo = UiDocumentCli::FindNodes(inputPath, request);
+        if (bJsonOutput) {
+            PrintUiTreeJson(inputPath, findInfo);
+        } else if (findInfo.bSuccess) {
+            PrintUiTreeText(findInfo);
+        } else {
+            std::cerr << "Failed to find UI nodes: " << findInfo.ErrorMessage << "\n";
+        }
+        return findInfo.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "inspect") {

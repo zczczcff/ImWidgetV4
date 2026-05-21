@@ -84,6 +84,25 @@ std::vector<std::string> DetectToolsetOptions()
     return options;
 }
 
+std::shared_ptr<ImWidgetSDKBuilder::MainView> FindMainViewInTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
+{
+    if (!widget) {
+        return nullptr;
+    }
+
+    if (auto mainView = std::dynamic_pointer_cast<ImWidgetSDKBuilder::MainView>(widget)) {
+        return mainView;
+    }
+
+    for (const std::shared_ptr<ImWidgetV4::ImWidget>& child : widget->GetChildren()) {
+        if (auto mainView = FindMainViewInTree(child)) {
+            return mainView;
+        }
+    }
+
+    return nullptr;
+}
+
 void BindAtLeastOneChecked(
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& first,
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& second)
@@ -109,7 +128,7 @@ void BindAtLeastOneChecked(
 
 void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
-    auto mainView = std::dynamic_pointer_cast<ImWidgetSDKBuilder::MainView>(application.GetRootWidget());
+    auto mainView = FindMainViewInTree(application.GetRootWidget());
     if (!mainView) {
         return;
     }

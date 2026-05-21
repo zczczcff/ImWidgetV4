@@ -1,0 +1,39 @@
+{
+  "Format": "ImWidgetV4EditorDocument",
+  "Version": 1,
+  "Title": "TitleBar",
+  "RootWidget": {
+    "Type": "ImTitleBar",
+    "Properties": {
+      "ImTitleBar::ShowSystemButtons": true,
+      "ImTitleBar::ShowMinimizeButton": true,
+      "ImTitleBar::ShowMaximizeButton": true,
+      "ImTitleBar::ShowCloseButton": true,
+      "ImTitleBar::DragRegionMinWidth": -1.0,
+      "ImWidget::Name": "RootTitleBar",
+      "ImWidget::Visible": true,
+      "ImWidget::HitTestVisible": true,
+      "ImWidget::SupportsKeyboardFocus": false
+    },
+    "Children": [
+      {
+        "Type": "ImTextBlock",
+        "Properties": {
+          "ImTextBlock::Text": "ImWidgetSDKBuilder",
+          "ImTextBlock::TextColor": [238, 242, 247, 255],
+          "ImTextBlock::FontSize": 16.0,
+          "ImTextBlock::WrapText": false,
+          "ImTextBlock::TextAlignment": "Center",
+          "ImTextBlock::VerticalAlignment": "Center",
+          "ImWidget::Name": "ProjectTitleText",
+          "ImWidget::Visible": true,
+          "ImWidget::HitTestVisible": true,
+          "ImWidget::SupportsKeyboardFocus": false
+        },
+        "Children": [],
+        "EditorId": "tb2"
+      }
+    ],
+    "EditorId": "tb1"
+  }
+}

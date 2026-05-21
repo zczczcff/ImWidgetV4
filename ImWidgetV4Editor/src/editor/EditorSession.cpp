@@ -503,6 +503,44 @@ bool TryInsertIntoScrollBoxAt(
     return true;
 }
 
+FVector2 ResolveDesignerCanvasDefaultSize(const std::shared_ptr<ImWidget>& widget)
+{
+    constexpr float kFallbackWidth = 120.0f;
+    constexpr float kFallbackHeight = 80.0f;
+
+    FVector2 desiredSize = widget ? widget->GetMinSize() : FVector2(0.0f, 0.0f);
+    if (desiredSize.X <= 0.0f) {
+        desiredSize.X = kFallbackWidth;
+    }
+    if (desiredSize.Y <= 0.0f) {
+        desiredSize.Y = kFallbackHeight;
+    }
+    return desiredSize;
+}
+
+FVector2 ResolveDesignerCanvasRelativeSize(
+    const std::shared_ptr<ImCanvasPanel>& canvas,
+    const std::shared_ptr<ImWidget>& widget)
+{
+    if (!canvas) {
+        return FVector2(0.25f, 0.25f);
+    }
+
+    FVector2 canvasSize = canvas->GetGeometry().Size;
+    if (canvasSize.X <= 0.0f || canvasSize.Y <= 0.0f) {
+        canvasSize = canvas->GetMinSize();
+    }
+
+    if (canvasSize.X <= 0.0f || canvasSize.Y <= 0.0f) {
+        return FVector2(0.25f, 0.25f);
+    }
+
+    const FVector2 desiredSize = ResolveDesignerCanvasDefaultSize(widget);
+    return FVector2(
+        std::clamp(desiredSize.X / canvasSize.X, 0.01f, 1.0f),
+        std::clamp(desiredSize.Y / canvasSize.Y, 0.01f, 1.0f));
+}
+
 bool TryInsertIntoTarget(
     const std::shared_ptr<ImWidget>& target,
     const std::shared_ptr<ImWidget>& widget,
@@ -520,7 +558,7 @@ bool TryInsertIntoTarget(
                 std::clamp((dropPosition.X - geometry.Position.X) / geometry.Size.X, 0.0f, 0.95f),
                 std::clamp((dropPosition.Y - geometry.Position.Y) / geometry.Size.Y, 0.0f, 0.95f));
         }
-        canvas->AddChildAt(widget, relativePosition);
+        canvas->AddChildAt(widget, relativePosition, ResolveDesignerCanvasRelativeSize(canvas, widget));
         return true;
     }
 

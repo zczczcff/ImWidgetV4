@@ -1446,6 +1446,114 @@ TEST(EditorSelectionTest, PaletteCreatedWidgetsReceiveUniqueTypeNumberNames)
     EXPECT_EQ(root->GetChildren()[2]->GetName(), "Button2");
 }
 
+TEST(EditorSelectionTest, PaletteDropIntoCanvasUsesNonZeroRelativeSizeForEmptyBoxes)
+{
+    auto dropPaletteWidget = [&](const std::string& typeName) {
+        auto session = std::make_shared<EditorSession>([]() {
+            auto canvas = std::make_shared<ImCanvasPanel>();
+            canvas->SetName("CanvasRoot");
+            canvas->SetDesiredSize(FVector2(400.0f, 300.0f));
+            return canvas;
+        });
+        auto designerSurface = std::make_shared<ImDesignerSurface>();
+        BindEditorSessionForTests(session, designerSurface);
+
+        auto app = std::make_shared<ImApplication>();
+        app->SetRootWidget(designerSurface);
+
+        const FVector2 kViewportSize(400.0f, 300.0f);
+        AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+        auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+        EXPECT_TRUE(canvas);
+        EXPECT_TRUE(canvas && canvas->GetGeometry().IsValid());
+
+        auto payload = std::make_shared<WidgetPalettePayload>();
+        payload->WidgetTypeName = typeName;
+        payload->Label = typeName;
+
+        auto operation = std::make_shared<FDragDropOperation>();
+        operation->Payload = payload;
+
+        bool bHandled = false;
+        designerSurface->OnDropReceived.Broadcast(
+            *designerSurface,
+            operation,
+            canvas ? canvas->GetGeometry().GetCenter() : FVector2(0.0f, 0.0f),
+            bHandled);
+        EXPECT_TRUE(bHandled) << typeName;
+
+        EXPECT_TRUE(canvas && !canvas->GetChildren().empty()) << typeName;
+        if (!canvas || canvas->GetChildren().empty()) {
+            return FVector2(0.0f, 0.0f);
+        }
+
+        auto widget = canvas->GetChildren().back();
+        auto* slot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(widget));
+        EXPECT_NE(slot, nullptr) << typeName;
+        EXPECT_FALSE(slot && slot->GetAutoSize()) << typeName;
+        return slot ? slot->GetRelativeSize() : FVector2(0.0f, 0.0f);
+    };
+
+    const FVector2 horizontalSize = dropPaletteWidget("ImHorizontalBox");
+    EXPECT_GT(horizontalSize.X, 0.0f);
+    EXPECT_GT(horizontalSize.Y, 0.0f);
+
+    const FVector2 verticalSize = dropPaletteWidget("ImVerticalBox");
+    EXPECT_GT(verticalSize.X, 0.0f);
+    EXPECT_GT(verticalSize.Y, 0.0f);
+}
+
+TEST(EditorSelectionTest, PaletteDropIntoCanvasGivesEveryPaletteWidgetVisibleSize)
+{
+    for (const FWidgetPaletteEntry& entry : BuildDefaultWidgetPaletteEntries()) {
+        auto session = std::make_shared<EditorSession>([]() {
+            auto canvas = std::make_shared<ImCanvasPanel>();
+            canvas->SetName("CanvasRoot");
+            canvas->SetDesiredSize(FVector2(400.0f, 300.0f));
+            return canvas;
+        });
+        auto designerSurface = std::make_shared<ImDesignerSurface>();
+        BindEditorSessionForTests(session, designerSurface);
+
+        auto app = std::make_shared<ImApplication>();
+        app->SetRootWidget(designerSurface);
+
+        const FVector2 kViewportSize(400.0f, 300.0f);
+        AdvanceAppWithDraw(*app, {}, kViewportSize);
+
+        auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(session->GetDocument()->GetRootWidget());
+        ASSERT_TRUE(canvas) << entry.TypeName;
+        ASSERT_TRUE(canvas->GetGeometry().IsValid()) << entry.TypeName;
+
+        auto payload = std::make_shared<WidgetPalettePayload>();
+        payload->WidgetTypeName = entry.TypeName;
+        payload->Label = entry.Label;
+
+        auto operation = std::make_shared<FDragDropOperation>();
+        operation->Payload = payload;
+
+        bool bHandled = false;
+        designerSurface->OnDropReceived.Broadcast(
+            *designerSurface,
+            operation,
+            canvas->GetGeometry().GetCenter(),
+            bHandled);
+        ASSERT_TRUE(bHandled) << entry.TypeName;
+
+        auto widget = canvas->GetChildren().back();
+        auto* slot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(widget));
+        ASSERT_NE(slot, nullptr) << entry.TypeName;
+        EXPECT_FALSE(slot->GetAutoSize()) << entry.TypeName;
+        EXPECT_GT(slot->GetRelativeSize().X, 0.0f) << entry.TypeName;
+        EXPECT_GT(slot->GetRelativeSize().Y, 0.0f) << entry.TypeName;
+
+        canvas->Relayout();
+        EXPECT_GT(widget->GetGeometry().Size.X, 0.0f) << entry.TypeName;
+        EXPECT_GT(widget->GetGeometry().Size.Y, 0.0f) << entry.TypeName;
+    }
+}
+
 TEST(EditorSelectionTest, PreviewTitleBarDoesNotExposeHostWindowActions)
 {
     auto session = std::make_shared<EditorSession>([]() {

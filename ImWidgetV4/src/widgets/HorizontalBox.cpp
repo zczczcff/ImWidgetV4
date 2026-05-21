@@ -10,6 +10,9 @@ namespace ImWidgetV4 {
 
 namespace {
 
+constexpr float DefaultEmptyBoxMinWidth = 120.0f;
+constexpr float DefaultEmptyBoxMinHeight = 80.0f;
+
 std::unique_ptr<ImBoxSlot> MakeBoxSlot(float fillCoefficient, const FMargin& padding)
 {
     auto slot = std::make_unique<ImBoxSlot>();
@@ -128,7 +131,7 @@ FVector2 ImHorizontalBox::ComputeDesiredSize() const
 {
     const auto& children = GetChildren();
     if (children.empty()) {
-        return FVector2(0.0f, 0.0f);
+        return FVector2(DefaultEmptyBoxMinWidth, DefaultEmptyBoxMinHeight);
     }
 
     float totalWidth = 0.0f;

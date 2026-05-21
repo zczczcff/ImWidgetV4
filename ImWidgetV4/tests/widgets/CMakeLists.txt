@@ -51,6 +51,18 @@ target_link_libraries(widget_reflection_test PRIVATE
 
 add_test(NAME WidgetReflectionTest COMMAND widget_reflection_test)
 
+add_executable(box_panel_test
+    box_panel_test.cpp
+)
+
+target_link_libraries(box_panel_test PRIVATE
+    imwidgetv4_core
+    gtest
+    gtest_main
+)
+
+add_test(NAME BoxPanelTest COMMAND box_panel_test)
+
 add_executable(checkbox_test
     checkbox_test.cpp
 )

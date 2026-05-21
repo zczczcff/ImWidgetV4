@@ -3,6 +3,7 @@
 
 #include "AppProjectConfig.h"
 #include "MainView.h"
+#include "TitleBarView.h"
 
 #include <imwidgetv4/app/ApplicationHost.h>
 #include <imwidgetv4/core/Application.h>
@@ -10,6 +11,7 @@
 #include <imwidgetv4/platform/PlatformProcess.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
+#include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/TextBlock.h>
 
 #include <algorithm>
@@ -85,19 +87,20 @@ std::vector<std::string> DetectToolsetOptions()
     return options;
 }
 
-std::shared_ptr<ImWidgetSDKBuilder::MainView> FindMainViewInTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
+template<typename T>
+std::shared_ptr<T> FindWidgetInTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
 {
     if (!widget) {
         return nullptr;
     }
 
-    if (auto mainView = std::dynamic_pointer_cast<ImWidgetSDKBuilder::MainView>(widget)) {
-        return mainView;
+    if (auto typedWidget = std::dynamic_pointer_cast<T>(widget)) {
+        return typedWidget;
     }
 
     for (const std::shared_ptr<ImWidgetV4::ImWidget>& child : widget->GetChildren()) {
-        if (auto mainView = FindMainViewInTree(child)) {
-            return mainView;
+        if (auto typedWidget = FindWidgetInTree<T>(child)) {
+            return typedWidget;
         }
     }
 
@@ -129,7 +132,15 @@ void BindAtLeastOneChecked(
 
 void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
-    auto mainView = FindMainViewInTree(application.GetRootWidget());
+    auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
+    if (titleBarView) {
+        auto titleBarIcon = titleBarView->FindWidgetAs<ImWidgetV4::ImImage>("TitleBarIcon");
+        if (titleBarIcon) {
+            titleBarIcon->SetBrush(application.GetApplicationIcon());
+        }
+    }
+
+    auto mainView = FindWidgetInTree<ImWidgetSDKBuilder::MainView>(application.GetRootWidget());
     if (!mainView) {
         return;
     }

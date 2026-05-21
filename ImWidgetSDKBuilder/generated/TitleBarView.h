@@ -6,6 +6,9 @@
 namespace ImWidgetV4 {
     class ImWidget;
     class ImTitleBar;
+    class ImHorizontalBox;
+    class ImImage;
+    class ImTextBlock;
 } // namespace ImWidgetV4
 
 namespace ImWidgetSDKBuilder {
@@ -20,6 +23,9 @@ protected:
 private:
     //===Auto Gen Begin=== (Members)
     std::shared_ptr<ImWidgetV4::ImTitleBar> RootTitleBar;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> TitleBarIconSlot;
+    std::shared_ptr<ImWidgetV4::ImImage> TitleBarIcon;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> ProjectTitleText;
     //===Auto Gen End=== (Members)
 };
 

@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,20 @@ struct FUiBatchResult {
     bool bSuccess = false;
     std::string ErrorMessage;
     std::vector<FUiBatchStepResult> Steps;
+};
+
+struct FUiAssetReference {
+    std::string JsonPath;
+    std::string PropertyName;
+    std::string Value;
+    std::filesystem::path ResolvedPath;
+    bool bExists = false;
+};
+
+struct FUiAssetScanResult {
+    bool bSuccess = false;
+    std::string ErrorMessage;
+    std::vector<FUiAssetReference> Assets;
 };
 
 std::string TrimWhitespaceCopy(const std::string& text)
@@ -216,6 +231,8 @@ void PrintUsage()
         << "  ui format <input.ui.json> [--json]\n"
         << "  ui patch <input.ui.json> <patch.json> [--json]\n"
         << "  ui batch <script.json> [--json]\n"
+        << "  ui resolve-paths <input.ui.json> [--json]\n"
+        << "  ui assets list|validate <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
         << "  ui get <input.ui.json> <widget-id> [property] [--json]\n"
@@ -1285,6 +1302,214 @@ json ParseCliJsonOrStringValue(const std::string& text)
     }
 }
 
+std::string ToLowerCopy(const std::string& text)
+{
+    std::string result = text;
+    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return result;
+}
+
+bool LooksLikeAssetPropertyName(const std::string& propertyName)
+{
+    const std::string lowerName = ToLowerCopy(propertyName);
+    const char* tokens[] = {
+        "asset",
+        "file",
+        "image",
+        "path",
+        "source",
+        "texture",
+        "icon",
+        "font",
+    };
+    for (const char* token : tokens) {
+        if (lowerName.find(token) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool LooksLikeAssetPathValue(const std::string& value)
+{
+    if (value.empty() || value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
+        return false;
+    }
+    if (value.find('/') != std::string::npos || value.find('\\') != std::string::npos) {
+        return true;
+    }
+
+    const std::filesystem::path path(value);
+    const std::string extension = ToLowerCopy(path.extension().string());
+    const char* extensions[] = {
+        ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".json", ".otf", ".png", ".svg", ".ttf", ".webp",
+    };
+    for (const char* candidate : extensions) {
+        if (extension == candidate) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string StripPropertyOwnerPrefix(const std::string& propertyName)
+{
+    const std::size_t separator = propertyName.find("::");
+    return separator == std::string::npos ? propertyName : propertyName.substr(separator + 2);
+}
+
+std::filesystem::path ResolveUiAssetPath(
+    const std::filesystem::path& documentDirectory,
+    const std::string& value)
+{
+    std::filesystem::path path(value);
+    if (path.is_relative()) {
+        path = documentDirectory / path;
+    }
+    return path.lexically_normal();
+}
+
+void AppendUiAssetReferencesRecursive(
+    const json& value,
+    const std::string& jsonPath,
+    const std::filesystem::path& documentDirectory,
+    std::set<std::string>& seenReferences,
+    std::vector<FUiAssetReference>& outReferences)
+{
+    if (value.is_object()) {
+        for (auto it = value.begin(); it != value.end(); ++it) {
+            const std::string childPath = jsonPath.empty() ? it.key() : (jsonPath + "." + it.key());
+            if (it.value().is_string()) {
+                const std::string propertyName = StripPropertyOwnerPrefix(it.key());
+                const std::string text = it.value().get<std::string>();
+                if (LooksLikeAssetPropertyName(propertyName) && LooksLikeAssetPathValue(text)) {
+                    const std::filesystem::path resolvedPath = ResolveUiAssetPath(documentDirectory, text);
+                    const std::string dedupeKey = childPath + "\n" + resolvedPath.string();
+                    if (seenReferences.insert(dedupeKey).second) {
+                        FUiAssetReference reference;
+                        reference.JsonPath = childPath;
+                        reference.PropertyName = it.key();
+                        reference.Value = text;
+                        reference.ResolvedPath = resolvedPath;
+                        reference.bExists = std::filesystem::exists(resolvedPath);
+                        outReferences.push_back(std::move(reference));
+                    }
+                }
+            }
+
+            AppendUiAssetReferencesRecursive(it.value(), childPath, documentDirectory, seenReferences, outReferences);
+        }
+        return;
+    }
+
+    if (value.is_array()) {
+        for (std::size_t index = 0; index < value.size(); ++index) {
+            AppendUiAssetReferencesRecursive(
+                value[index],
+                jsonPath + "[" + std::to_string(index) + "]",
+                documentDirectory,
+                seenReferences,
+                outReferences);
+        }
+    }
+}
+
+FUiAssetScanResult ScanUiAssetReferences(const std::filesystem::path& inputPath)
+{
+    FUiAssetScanResult result;
+
+    json documentJson;
+    try {
+        std::ifstream stream(inputPath);
+        if (!stream.is_open()) {
+            result.ErrorMessage = "Failed to open file for reading: " + inputPath.string();
+            return result;
+        }
+        stream >> documentJson;
+    } catch (const std::exception& exception) {
+        result.ErrorMessage = exception.what();
+        return result;
+    }
+
+    const std::filesystem::path documentDirectory = inputPath.parent_path().empty()
+        ? std::filesystem::current_path()
+        : inputPath.parent_path();
+    std::set<std::string> seenReferences;
+    AppendUiAssetReferencesRecursive(
+        documentJson,
+        std::string(),
+        documentDirectory,
+        seenReferences,
+        result.Assets);
+
+    result.bSuccess = true;
+    return result;
+}
+
+bool HasMissingUiAssets(const FUiAssetScanResult& result)
+{
+    for (const FUiAssetReference& reference : result.Assets) {
+        if (!reference.bExists) {
+            return true;
+        }
+    }
+    return false;
+}
+
+json UiAssetScanToJson(const FUiAssetScanResult& result)
+{
+    json output = json::object();
+    output["success"] = result.bSuccess;
+    if (!result.bSuccess) {
+        output["error"] = result.ErrorMessage;
+        return output;
+    }
+
+    output["ok"] = !HasMissingUiAssets(result);
+    output["assets"] = json::array();
+    for (const FUiAssetReference& reference : result.Assets) {
+        output["assets"].push_back(json {
+            {"jsonPath", reference.JsonPath},
+            {"property", reference.PropertyName},
+            {"value", reference.Value},
+            {"resolvedPath", reference.ResolvedPath.string()},
+            {"exists", reference.bExists},
+        });
+    }
+    return output;
+}
+
+void PrintUiAssetScanJson(const std::filesystem::path& inputPath, const FUiAssetScanResult& result)
+{
+    json output = UiAssetScanToJson(result);
+    output["file"] = inputPath.string();
+    std::cout << output.dump(2) << "\n";
+}
+
+void PrintUiAssetListText(const FUiAssetScanResult& result)
+{
+    if (result.Assets.empty()) {
+        std::cout << "No UI asset references found.\n";
+        return;
+    }
+
+    for (const FUiAssetReference& reference : result.Assets) {
+        std::cout
+            << (reference.bExists ? "ok " : "missing ")
+            << reference.JsonPath << " = " << reference.Value
+            << " -> " << reference.ResolvedPath.string() << "\n";
+    }
+}
+
+void PrintUiAssetResolveText(const FUiAssetScanResult& result)
+{
+    for (const FUiAssetReference& reference : result.Assets) {
+        std::cout << reference.ResolvedPath.string() << "\n";
+    }
+}
+
 std::filesystem::path ResolveBatchPath(
     const std::filesystem::path& baseDirectory,
     const json& stepJson,
@@ -1402,6 +1627,20 @@ FUiBatchStepResult RunUiBatchStep(
         result.Result = UiDiffToJson(diffInfo);
         result.Result["beforeFile"] = beforePath.string();
         result.Result["afterFile"] = afterPath.string();
+        return result;
+    }
+
+    if (command == "assets" || command == "assets-list" || command == "assets-validate" || command == "resolve-paths") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const FUiAssetScanResult scanResult = ScanUiAssetReferences(inputPath);
+        const bool bValidate = command == "assets-validate" || stepJson.value("mode", std::string()) == "validate";
+        result.bSuccess = scanResult.bSuccess && (!bValidate || !HasMissingUiAssets(scanResult));
+        result.ErrorMessage = scanResult.bSuccess ? std::string() : scanResult.ErrorMessage;
+        if (scanResult.bSuccess && bValidate && HasMissingUiAssets(scanResult)) {
+            result.ErrorMessage = "UI asset validation found missing files.";
+        }
+        result.Result = UiAssetScanToJson(scanResult);
+        result.Result["file"] = inputPath.string();
         return result;
     }
 
@@ -1822,6 +2061,49 @@ int RunUiCommand(const std::vector<std::string>& args)
             PrintUiBatchText(batchResult);
         }
         return batchResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "resolve-paths") {
+        if (args.size() < 3) {
+            std::cerr << "ui resolve-paths requires <input.ui.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiAssetScanResult scanResult = ScanUiAssetReferences(inputPath);
+        if (bJsonOutput) {
+            PrintUiAssetScanJson(inputPath, scanResult);
+        } else if (scanResult.bSuccess) {
+            PrintUiAssetResolveText(scanResult);
+        } else {
+            std::cerr << "Failed to resolve UI asset paths: " << scanResult.ErrorMessage << "\n";
+        }
+        return scanResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "assets") {
+        if (args.size() < 4) {
+            std::cerr << "ui assets requires list or validate and <input.ui.json>.\n";
+            return 1;
+        }
+
+        const bool bList = args[2] == "list";
+        const bool bValidate = args[2] == "validate";
+        if (!bList && !bValidate) {
+            std::cerr << "ui assets requires list or validate.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[3]).lexically_normal();
+        const FUiAssetScanResult scanResult = ScanUiAssetReferences(inputPath);
+        if (bJsonOutput) {
+            PrintUiAssetScanJson(inputPath, scanResult);
+        } else if (scanResult.bSuccess) {
+            PrintUiAssetListText(scanResult);
+        } else {
+            std::cerr << "Failed to scan UI assets: " << scanResult.ErrorMessage << "\n";
+        }
+        return scanResult.bSuccess && (!bValidate || !HasMissingUiAssets(scanResult)) ? 0 : 1;
     }
 
     if (args[1] == "tree") {

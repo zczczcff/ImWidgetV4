@@ -757,6 +757,56 @@ TEST(EditorSnapshotExportTest, CliRunsUiBatchScript)
     EXPECT_EQ(titleInfo.Properties["ImTextBlock::Text"], "Batch Title");
 }
 
+TEST(EditorSnapshotExportTest, CliScansUiAssetReferences)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_assets";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory / "assets", errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+    const std::filesystem::path existingAsset = tempDirectory / "assets" / "existing.png";
+    {
+        std::ofstream stream(existingAsset, std::ios::binary | std::ios::trunc);
+        stream << "png";
+    }
+
+    EditorDocument document;
+    std::string error;
+    ASSERT_TRUE(document.Load(inputPath, &error)) << error;
+    json documentJson = document.ExportDocumentJson();
+    json& rootProperties = documentJson["RootWidget"]["Properties"];
+    rootProperties["ImWidget::IconPath"] = "assets/existing.png";
+    rootProperties["ImWidget::ImagePath"] = "assets/missing.png";
+    {
+        std::ofstream stream(inputPath, std::ios::binary | std::ios::trunc);
+        stream << documentJson.dump(2);
+    }
+
+    const std::filesystem::path cliExecutable = FindCliExecutable();
+    if (cliExecutable.empty()) {
+        GTEST_SKIP() << "ImWidgetEditorCLI executable was not found in the local build tree.";
+    }
+
+    const int listExitCode = RunCliCommandLine(
+        cliExecutable,
+        L"ui assets list \"" + inputPath.wstring() + L"\" --json");
+    EXPECT_EQ(listExitCode, 0);
+
+    const int validateExitCode = RunCliCommandLine(
+        cliExecutable,
+        L"ui assets validate \"" + inputPath.wstring() + L"\" --json");
+    EXPECT_NE(validateExitCode, 0);
+
+    const int resolveExitCode = RunCliCommandLine(
+        cliExecutable,
+        L"ui resolve-paths \"" + inputPath.wstring() + L"\" --json");
+    EXPECT_EQ(resolveExitCode, 0);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

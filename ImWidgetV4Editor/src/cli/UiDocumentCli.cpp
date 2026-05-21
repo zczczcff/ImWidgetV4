@@ -2,6 +2,7 @@
 
 #include "../editor/LogicalWidgetTree.h"
 #include "../serialization/WidgetFactory.h"
+#include "../serialization/WidgetSerializer.h"
 
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/reflection/ReflectionTypes.h>
@@ -520,6 +521,73 @@ FUiMutationResult UiDocumentCli::RemoveNode(
 
     result.bSuccess = true;
     result.bChanged = true;
+    return result;
+}
+
+FUiMutationResult UiDocumentCli::DuplicateNode(
+    const std::filesystem::path& inputPath,
+    const std::string& widgetId)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> source = document.FindWidgetById(widgetId);
+    if (!source) {
+        result.ErrorMessage = "Widget id was not found: " + widgetId;
+        return result;
+    }
+    if (source == document.GetRootWidget()) {
+        result.ErrorMessage = "Duplicating the root widget is not supported by ui duplicate.";
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> parent = document.FindLogicalParent(source);
+    if (!parent) {
+        result.ErrorMessage = "Source widget has no logical parent.";
+        return result;
+    }
+
+    FWidgetSerializationResult cloneResult =
+        WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(source));
+    if (!cloneResult.bSuccess || !cloneResult.Widget) {
+        result.ErrorMessage = cloneResult.ErrorMessage.empty()
+            ? "Failed to clone widget."
+            : cloneResult.ErrorMessage;
+        return result;
+    }
+
+    if (!cloneResult.Widget->GetName().empty()) {
+        cloneResult.Widget->SetName(cloneResult.Widget->GetName() + "Copy");
+    }
+
+    if (!InsertWidgetIntoParent(parent, cloneResult.Widget, error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    document.SetDirty(true);
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    result.bSuccess = true;
+    result.bChanged = true;
+    result.Node = BuildTreeNodeInfo(cloneResult.Widget, document, 0);
+    if (const std::shared_ptr<ImWidget> reloadedClone = document.FindWidgetById(result.Node.WidgetId)) {
+        std::size_t depth = 0;
+        std::shared_ptr<ImWidget> nodeParent = document.FindLogicalParent(reloadedClone);
+        while (nodeParent) {
+            ++depth;
+            nodeParent = document.FindLogicalParent(nodeParent);
+        }
+        result.Node = BuildTreeNodeInfo(reloadedClone, document, depth);
+    }
     return result;
 }
 

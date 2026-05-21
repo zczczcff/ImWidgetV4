@@ -203,6 +203,7 @@ void PrintUsage()
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
         << "  ui add <input.ui.json> <parent-widget-id> <widget-type> [--json]\n"
         << "  ui remove <input.ui.json> <widget-id> [--json]\n"
+        << "  ui duplicate <input.ui.json> <widget-id> [--json]\n"
         << "  project create <parent-dir> <name> [--namespace <name>] [--startup <name>] [--source|--sdk <path>]\n"
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
@@ -1185,6 +1186,24 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to remove UI node: " << removeResult.ErrorMessage << "\n";
         }
         return removeResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "duplicate") {
+        if (args.size() < 4) {
+            std::cerr << "ui duplicate requires <input.ui.json> and <widget-id>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult duplicateResult = UiDocumentCli::DuplicateNode(inputPath, args[3]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, duplicateResult);
+        } else if (duplicateResult.bSuccess) {
+            PrintUiMutationText(duplicateResult);
+        } else {
+            std::cerr << "Failed to duplicate UI node: " << duplicateResult.ErrorMessage << "\n";
+        }
+        return duplicateResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] != "controls") {

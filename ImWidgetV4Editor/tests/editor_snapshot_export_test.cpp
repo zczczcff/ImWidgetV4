@@ -380,6 +380,36 @@ TEST(EditorSnapshotExportTest, UiDocumentCliAddsAndRemovesNode)
     EXPECT_NE(unsupportedAddResult.ErrorMessage.find("Unsupported"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliDuplicatesNode)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_duplicate";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiMutationResult duplicateResult = UiDocumentCli::DuplicateNode(inputPath, "w2");
+    ASSERT_TRUE(duplicateResult.bSuccess) << duplicateResult.ErrorMessage;
+    EXPECT_TRUE(duplicateResult.bChanged);
+    EXPECT_EQ(duplicateResult.Node.TypeName, "ImTextBlock");
+    EXPECT_EQ(duplicateResult.Node.Name, "TitleTextCopy");
+
+    const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+    ASSERT_TRUE(treeInfo.bSuccess) << treeInfo.ErrorMessage;
+    ASSERT_EQ(treeInfo.Nodes.size(), 4u);
+
+    const FUiNodeInspectInfo cloneInfo = UiDocumentCli::InspectNode(inputPath, treeInfo.Nodes.back().WidgetId);
+    ASSERT_TRUE(cloneInfo.bSuccess) << cloneInfo.ErrorMessage;
+    EXPECT_EQ(cloneInfo.Properties["ImTextBlock::Text"], "Snapshot Export");
+
+    const FUiMutationResult duplicateRootResult = UiDocumentCli::DuplicateNode(inputPath, "w1");
+    EXPECT_FALSE(duplicateRootResult.bSuccess);
+    EXPECT_NE(duplicateRootResult.ErrorMessage.find("root"), std::string::npos);
+}
+
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 {
     const std::filesystem::path tempDirectory =

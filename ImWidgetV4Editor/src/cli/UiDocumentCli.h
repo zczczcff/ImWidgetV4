@@ -59,6 +59,9 @@ public:
     static FUiMutationResult RemoveNode(
         const std::filesystem::path& inputPath,
         const std::string& widgetId);
+    static FUiMutationResult DuplicateNode(
+        const std::filesystem::path& inputPath,
+        const std::string& widgetId);
 };
 
 } // namespace ImWidgetV4Editor

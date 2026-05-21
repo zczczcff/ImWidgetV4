@@ -6,6 +6,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 option(IMWIDGETV4_BUILD_TESTS "Build ImWidgetV4 tests" ON)
 option(IMWIDGETV4_BUILD_SAMPLES "Build ImWidgetV4 samples" ON)
 option(IMWIDGETV4_BUILD_EDITOR "Build ImWidgetV4 editor" ON)
+option(IMWIDGETV4_BUILD_CLI "Build ImWidgetV4 command line tools" ON)
 option(IMWIDGETV4_ENABLE_CPACK "Enable CPack packaging targets" ON)
 set(IMWIDGETV4_INSTALL_SDK_SUBDIR "" CACHE STRING "Install the ImWidgetV4 SDK under this subdirectory, for example sdk.")
 
@@ -19,7 +20,7 @@ endif()
 
 add_subdirectory(ImWidgetV4)
 
-if(IMWIDGETV4_BUILD_EDITOR AND (TARGET imwidgetv4_platform_win32_dx11 OR TARGET imwidgetv4_platform_android_gles3))
+if(IMWIDGETV4_BUILD_EDITOR OR IMWIDGETV4_BUILD_CLI)
     add_subdirectory(ImWidgetV4Editor)
 endif()
 

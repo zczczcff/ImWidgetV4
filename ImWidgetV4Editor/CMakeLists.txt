@@ -1,4 +1,4 @@
-﻿project(ImWidgetV4Editor LANGUAGES CXX)
+project(ImWidgetV4Editor LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,100 +32,167 @@ elseif(TARGET imwidgetv4_platform_android_gles3)
         )
     endif()
 else()
-    message(FATAL_ERROR "ImWidgetV4Editor requires a platform backend target.")
+    if(IMWIDGETV4_BUILD_EDITOR)
+        message(FATAL_ERROR "ImWidgetV4Editor requires a platform backend target.")
+    endif()
 endif()
 
-set(IMWIDGETV4_EDITOR_SOURCES
-    ${IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE}
-    ${IMWIDGETV4_EDITOR_ANDROID_NATIVE_APP_GLUE_SOURCE}
+set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/build/BuildController.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
+    src/editor/EditorDocument.cpp
+    src/editor/LogicalWidgetTree.cpp
+    src/project/EditorProject.cpp
+    src/serialization/WidgetFactory.cpp
+    src/serialization/WidgetSerializer.cpp
+    src/templates/ProjectScaffolder.cpp
+    src/toolchains/EnvironmentProbe.cpp
+    src/toolchains/PlatformConfiguration.cpp
+)
+
+add_library(ImWidgetV4EditorCore STATIC ${IMWIDGETV4_EDITOR_CORE_SOURCES})
+add_library(ImWidgetV4::EditorCore ALIAS ImWidgetV4EditorCore)
+target_link_libraries(ImWidgetV4EditorCore PUBLIC
+    imwidgetv4_core
+    imwidgetv4_reflection_json
+)
+target_include_directories(ImWidgetV4EditorCore PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
+)
+set_target_properties(ImWidgetV4EditorCore PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
+    FOLDER "Editor"
+)
+
+set(IMWIDGETV4_EDITOR_UI_SOURCES
     src/commands/AddWidgetCommand.cpp
     src/commands/CommandStack.cpp
     src/commands/DocumentSnapshotCommand.cpp
     src/commands/MoveWidgetCommand.cpp
-    src/commands/RemoveWidgetCommand.cpp
     src/commands/ReflectablePropertyCommand.cpp
-    src/editor/EditorDocument.cpp
-    src/editor/EditorPaths.cpp
-    src/editor/EditorLocalization.cpp
+    src/commands/RemoveWidgetCommand.cpp
     src/editor/EditorDesignerSurfaceHost.cpp
+    src/editor/EditorLocalization.cpp
+    src/editor/EditorPaths.cpp
+    src/editor/EditorSession.cpp
     src/editor/EditorShellHost.cpp
     src/editor/EditorTheme.cpp
     src/editor/EditorWidgetTreeHost.cpp
+    src/editor/EditorWorkspaceController.cpp
     src/editor/InputDialog.cpp
     src/editor/NewAppProjectDialog.cpp
     src/editor/ProjectSettingsDialog.cpp
-    src/editor/EditorSession.cpp
-    src/editor/EditorWorkspaceController.cpp
-    src/editor/LogicalWidgetTree.cpp
     src/editor/SelectionModel.cpp
     src/editor/WidgetTypeIcon.cpp
     src/inspector/ReflectionDetailsView.cpp
-    src/project/EditorProject.cpp
-    src/templates/ProjectScaffolder.cpp
-    src/toolchains/EnvironmentProbe.cpp
-    src/toolchains/PlatformConfiguration.cpp
-    src/main.cpp
     src/palette/WidgetPaletteDragDrop.cpp
     src/palette/WidgetPaletteView.cpp
-    src/serialization/WidgetFactory.cpp
-    src/serialization/WidgetSerializer.cpp
     src/tree/DocumentTreeViewBinder.cpp
     src/tree/WidgetTreeDragDrop.h
 )
 
-if(ANDROID)
-    add_library(ImWidgetV4Editor SHARED ${IMWIDGETV4_EDITOR_SOURCES})
-else()
-    add_executable(ImWidgetV4Editor ${IMWIDGETV4_EDITOR_SOURCES})
+if(IMWIDGETV4_BUILD_EDITOR)
+    if(NOT IMWIDGETV4_EDITOR_PLATFORM_TARGET)
+        message(FATAL_ERROR "ImWidgetV4Editor requires a platform backend target.")
+    endif()
+
+    add_library(ImWidgetV4EditorUi STATIC ${IMWIDGETV4_EDITOR_UI_SOURCES})
+    add_library(ImWidgetV4::EditorUi ALIAS ImWidgetV4EditorUi)
+    target_link_libraries(ImWidgetV4EditorUi PUBLIC
+        ImWidgetV4EditorCore
+        imwidgetv4_designer
+        ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
+    )
+    target_include_directories(ImWidgetV4EditorUi PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
+    )
+    set_target_properties(ImWidgetV4EditorUi PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
+        FOLDER "Editor"
+    )
+
+    if(ANDROID)
+        add_library(ImWidgetV4Editor SHARED
+            ${IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE}
+            ${IMWIDGETV4_EDITOR_ANDROID_NATIVE_APP_GLUE_SOURCE}
+            src/main.cpp
+        )
+    else()
+        add_executable(ImWidgetV4Editor
+            ${IMWIDGETV4_EDITOR_HOST_MAIN_SOURCE}
+            src/main.cpp
+        )
+    endif()
+
+    target_link_libraries(ImWidgetV4Editor PRIVATE
+        ImWidgetV4EditorUi
+    )
+    target_include_directories(ImWidgetV4Editor PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
+    )
+
+    if(ANDROID AND IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT)
+        target_include_directories(ImWidgetV4Editor PRIVATE
+            ${IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT}/sources/android/native_app_glue
+        )
+    endif()
+
+    set_target_properties(ImWidgetV4Editor PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
+        ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
+        FOLDER "Editor"
+    )
+
+    if(WIN32)
+        set_target_properties(ImWidgetV4Editor PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
+
+    install(
+        TARGETS ImWidgetV4Editor
+        RUNTIME DESTINATION tools
+        LIBRARY DESTINATION tools
+        COMPONENT Tools
+    )
 endif()
 
-if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
+if(IMWIDGETV4_BUILD_CLI AND NOT ANDROID)
+    add_executable(ImWidgetV4Cli
+        src/cli/main.cpp
+    )
+    target_link_libraries(ImWidgetV4Cli PRIVATE
+        ImWidgetV4EditorCore
+    )
+    target_include_directories(ImWidgetV4Cli PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
+    )
+    set_target_properties(ImWidgetV4Cli PROPERTIES
+        OUTPUT_NAME imwidgetv4
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/tools
+        FOLDER "Tools"
+    )
+    install(
+        TARGETS ImWidgetV4Cli
+        RUNTIME DESTINATION tools
+        COMPONENT Tools
+    )
+endif()
+
+if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main AND IMWIDGETV4_BUILD_EDITOR)
     add_executable(editor_selection_test
-        src/main.cpp
-        src/build/BuildController.cpp
-        src/codegen/WidgetTreeToCppGenerator.cpp
-        src/commands/AddWidgetCommand.cpp
-        src/commands/CommandStack.cpp
-        src/commands/DocumentSnapshotCommand.cpp
-        src/commands/MoveWidgetCommand.cpp
-        src/commands/RemoveWidgetCommand.cpp
-        src/commands/ReflectablePropertyCommand.cpp
-        src/editor/EditorDocument.cpp
-        src/editor/EditorPaths.cpp
-        src/editor/EditorLocalization.cpp
-        src/editor/EditorDesignerSurfaceHost.cpp
-        src/editor/EditorShellHost.cpp
-        src/editor/EditorTheme.cpp
-        src/editor/EditorWidgetTreeHost.cpp
-        src/editor/InputDialog.cpp
-        src/editor/NewAppProjectDialog.cpp
-        src/editor/ProjectSettingsDialog.cpp
-        src/editor/EditorSession.cpp
-        src/editor/EditorWorkspaceController.cpp
-        src/editor/LogicalWidgetTree.cpp
-        src/editor/SelectionModel.cpp
-        src/editor/WidgetTypeIcon.cpp
-        src/inspector/ReflectionDetailsView.cpp
-        src/project/EditorProject.cpp
-        src/templates/ProjectScaffolder.cpp
-        src/toolchains/EnvironmentProbe.cpp
-        src/toolchains/PlatformConfiguration.cpp
-        src/palette/WidgetPaletteDragDrop.cpp
-        src/palette/WidgetPaletteView.cpp
-        src/serialization/WidgetFactory.cpp
-        src/serialization/WidgetSerializer.cpp
-        src/tree/DocumentTreeViewBinder.cpp
+        ${IMWIDGETV4_EDITOR_UI_SOURCES}
         tests/codegen_test.cpp
         tests/editor_snapshot_test.cpp
         tests/editor_selection_test.cpp
     )
 
     target_link_libraries(editor_selection_test PRIVATE
-        imwidgetv4_core
+        ImWidgetV4EditorCore
         imwidgetv4_designer
-        imwidgetv4_reflection_json
         ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
         gtest
         gtest_main
@@ -139,45 +206,18 @@ if(IMWIDGETV4_BUILD_TESTS AND TARGET gtest_main)
     add_test(NAME EditorSelectionTest COMMAND editor_selection_test)
 endif()
 
-target_link_libraries(ImWidgetV4Editor PRIVATE
-    imwidgetv4_core
-    imwidgetv4_designer
-    imwidgetv4_reflection_json
-    ${IMWIDGETV4_EDITOR_PLATFORM_TARGET}
-)
-
-target_include_directories(ImWidgetV4Editor PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
-)
-
-if(ANDROID AND IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT)
-    target_include_directories(ImWidgetV4Editor PRIVATE
-        ${IMWIDGETV4_EDITOR_ANDROID_NDK_ROOT}/sources/android/native_app_glue
-    )
-endif()
-
-set_target_properties(ImWidgetV4Editor PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/editor
-    FOLDER "Editor"
-)
-
-if(WIN32)
-    set_target_properties(ImWidgetV4Editor PROPERTIES WIN32_EXECUTABLE TRUE)
-endif()
-
 if(MSVC)
-    target_compile_options(ImWidgetV4Editor PRIVATE /FS)
+    target_compile_options(ImWidgetV4EditorCore PRIVATE /FS)
+    if(TARGET ImWidgetV4EditorUi)
+        target_compile_options(ImWidgetV4EditorUi PRIVATE /FS)
+    endif()
+    if(TARGET ImWidgetV4Editor)
+        target_compile_options(ImWidgetV4Editor PRIVATE /FS)
+    endif()
+    if(TARGET ImWidgetV4Cli)
+        target_compile_options(ImWidgetV4Cli PRIVATE /FS)
+    endif()
     if(TARGET editor_selection_test)
         target_compile_options(editor_selection_test PRIVATE /FS)
     endif()
 endif()
-
-install(
-    TARGETS ImWidgetV4Editor
-    RUNTIME DESTINATION tools
-    LIBRARY DESTINATION tools
-    COMPONENT Tools
-)

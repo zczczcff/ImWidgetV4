@@ -761,8 +761,11 @@ install(
     TARGETS ${IMWIDGETV4_EXPORT_TARGETS}
     EXPORT ImWidgetV4Targets
     ARCHIVE DESTINATION "${IMWIDGETV4_INSTALL_LIBRARY_DIR}"
+        COMPONENT SDK
     LIBRARY DESTINATION "${IMWIDGETV4_INSTALL_LIBRARY_DIR}"
+        COMPONENT SDK
     RUNTIME DESTINATION "${IMWIDGETV4_INSTALL_RUNTIME_DIR}"
+        COMPONENT SDK
     INCLUDES DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"
 )
 if(MSVC)
@@ -771,17 +774,20 @@ if(MSVC)
             FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${IMWIDGETV4_PDB_TARGET}.pdb"
             DESTINATION "${IMWIDGETV4_INSTALL_LIBRARY_DIR}"
             OPTIONAL
+            COMPONENT SDK
         )
     endforeach()
 endif()
 install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}"
+    COMPONENT SDK
     PATTERN "DesignerSurface.h" EXCLUDE
 )
 install(
     DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src/"
     DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/imwidgetv4"
+    COMPONENT SDK
 )
 install(
     FILES
@@ -791,6 +797,7 @@ install(
         "${imgui_SOURCE_DIR}/imgui_tables.cpp"
         "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
     DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/third_party/imgui"
+    COMPONENT SDK
 )
 install(
     FILES
@@ -799,6 +806,7 @@ install(
         "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
         "${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp"
     DESTINATION "${IMWIDGETV4_INSTALL_SOURCE_DIR}/third_party/imgui/backends"
+    COMPONENT SDK
 )
 set(IMWIDGETV4_IMGUI_INSTALL_HEADERS
     "${imgui_SOURCE_DIR}/imconfig.h"
@@ -819,28 +827,34 @@ file(GLOB IMWIDGETV4_STB_INSTALL_HEADERS CONFIGURE_DEPENDS "${stb_SOURCE_DIR}/*.
 install(
     FILES ${IMWIDGETV4_IMGUI_INSTALL_HEADERS}
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/imgui"
+    COMPONENT SDK
 )
 install(
     FILES ${IMWIDGETV4_IMGUI_BACKEND_INSTALL_HEADERS}
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/imgui/backends"
+    COMPONENT SDK
 )
 install(
     DIRECTORY "${json_SOURCE_DIR}/include/"
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/json"
+    COMPONENT SDK
 )
 install(
     FILES ${IMWIDGETV4_STB_INSTALL_HEADERS}
     DESTINATION "${IMWIDGETV4_INSTALL_INCLUDE_DIR}/imwidgetv4/third_party/stb"
+    COMPONENT SDK
 )
 install(
     EXPORT ImWidgetV4Targets
     NAMESPACE ImWidgetV4::
     FILE ImWidgetV4Targets.cmake
     DESTINATION "${IMWIDGETV4_INSTALL_CMAKE_DIR}"
+    COMPONENT SDK
 )
 install(
     FILES
         "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4Config.cmake"
         "${IMWIDGETV4_PACKAGE_DIR}/ImWidgetV4ConfigVersion.cmake"
     DESTINATION "${IMWIDGETV4_INSTALL_CMAKE_DIR}"
+    COMPONENT SDK
 )

@@ -179,4 +179,5 @@ install(
     TARGETS ImWidgetV4Editor
     RUNTIME DESTINATION tools
     LIBRARY DESTINATION tools
+    COMPONENT Tools
 )

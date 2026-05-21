@@ -6,6 +6,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 option(IMWIDGETV4_BUILD_TESTS "Build ImWidgetV4 tests" ON)
 option(IMWIDGETV4_BUILD_SAMPLES "Build ImWidgetV4 samples" ON)
 option(IMWIDGETV4_BUILD_EDITOR "Build ImWidgetV4 editor" ON)
+option(IMWIDGETV4_ENABLE_CPACK "Enable CPack packaging targets" ON)
 set(IMWIDGETV4_INSTALL_SDK_SUBDIR "" CACHE STRING "Install the ImWidgetV4 SDK under this subdirectory, for example sdk.")
 
 if(IMWIDGETV4_BUILD_TESTS)
@@ -26,5 +27,10 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/templates")
     install(
         DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates/"
         DESTINATION templates
+        COMPONENT Templates
     )
+endif()
+
+if(IMWIDGETV4_ENABLE_CPACK)
+    include(cmake/ImWidgetV4CPack.cmake)
 endif()

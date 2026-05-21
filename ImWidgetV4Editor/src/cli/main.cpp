@@ -196,10 +196,12 @@ void PrintUsage()
         << "Commands:\n"
         << "  ui controls list [--json]\n"
         << "  ui controls describe <type-name> [--json]\n"
+        << "  ui schema dump [--json]\n"
         << "  ui validate <input.ui.json> [--json]\n"
         << "  ui format <input.ui.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
+        << "  ui get <input.ui.json> <widget-id> [property] [--json]\n"
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
@@ -636,6 +638,57 @@ void PrintWidgetControlDescriptionJson(const FWidgetTypeInfo& info)
         std::cout << "\n";
     }
     std::cout << "  ]\n}\n";
+}
+
+void PrintWidgetSchemaDumpJson(const WidgetCatalog& catalog)
+{
+    const std::vector<std::string> widgetTypes = catalog.ListWidgetTypes();
+    std::cout << "{\n  \"widgets\": [\n";
+    bool bPrintedAny = false;
+    for (const std::string& typeName : widgetTypes) {
+        FWidgetTypeInfo info;
+        if (!catalog.TryDescribeWidgetType(typeName, info)) {
+            continue;
+        }
+
+        if (bPrintedAny) {
+            std::cout << ",\n";
+        }
+        bPrintedAny = true;
+        std::cout << "    {\n";
+        std::cout << "      \"type\": ";
+        PrintJsonEscapedString(info.TypeName);
+        std::cout << ",\n      \"properties\": [\n";
+        for (std::size_t index = 0; index < info.Properties.size(); ++index) {
+            const FWidgetPropertyInfo& property = info.Properties[index];
+            std::cout << "        {\n";
+            std::cout << "          \"ownerType\": ";
+            PrintJsonEscapedString(property.OwnerTypeName);
+            std::cout << ",\n          \"name\": ";
+            PrintJsonEscapedString(property.Name);
+            std::cout << ",\n          \"valueType\": ";
+            PrintJsonEscapedString(property.ValueTypeName);
+            std::cout << ",\n          \"kind\": ";
+            PrintJsonEscapedString(PropertyKindToString(property.Kind));
+            std::cout << ",\n          \"description\": ";
+            PrintJsonEscapedString(property.Description);
+            std::cout << ",\n          \"inherited\": " << (property.bIsInherited ? "true" : "false");
+            std::cout << ",\n          \"enumOptions\": [";
+            for (std::size_t optionIndex = 0; optionIndex < property.EnumOptions.size(); ++optionIndex) {
+                if (optionIndex > 0) {
+                    std::cout << ", ";
+                }
+                PrintJsonEscapedString(property.EnumOptions[optionIndex]);
+            }
+            std::cout << "]\n        }";
+            if (index + 1 < info.Properties.size()) {
+                std::cout << ",";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "      ]\n    }";
+    }
+    std::cout << "\n  ]\n}\n";
 }
 
 void PrintWidgetControlDescriptionText(const FWidgetTypeInfo& info)
@@ -1117,6 +1170,21 @@ int RunUiCommand(const std::vector<std::string>& args)
         return treeInfo.bSuccess ? 0 : 1;
     }
 
+    if (args[1] == "schema") {
+        if (args.size() < 3 || args[2] != "dump") {
+            std::cerr << "ui schema requires dump.\n";
+            return 1;
+        }
+
+        const WidgetCatalog& catalog = WidgetCatalog::Get();
+        if (bJsonOutput) {
+            PrintWidgetSchemaDumpJson(catalog);
+        } else {
+            PrintWidgetControlListText(catalog.ListWidgetTypes());
+        }
+        return 0;
+    }
+
     if (args[1] == "find") {
         if (args.size() < 3) {
             std::cerr << "ui find requires <input.ui.json>.\n";
@@ -1160,6 +1228,64 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to find UI nodes: " << findInfo.ErrorMessage << "\n";
         }
         return findInfo.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "get") {
+        if (args.size() < 4) {
+            std::cerr << "ui get requires <input.ui.json> and <widget-id>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, args[3]);
+        if (!inspectInfo.bSuccess) {
+            if (bJsonOutput) {
+                PrintUiInspectJson(inputPath, inspectInfo);
+            } else {
+                std::cerr << "Failed to get UI node: " << inspectInfo.ErrorMessage << "\n";
+            }
+            return 1;
+        }
+
+        const bool bHasPropertyName = args.size() >= 5 && args[4] != "--json";
+        if (!bHasPropertyName) {
+            if (bJsonOutput) {
+                PrintUiInspectJson(inputPath, inspectInfo);
+            } else {
+                PrintUiInspectText(inspectInfo);
+            }
+            return 0;
+        }
+
+        const std::string propertyName = args[4];
+        const std::string qualifiedSuffix = "::" + propertyName;
+        auto propertyIt = inspectInfo.Properties.end();
+        for (auto it = inspectInfo.Properties.begin(); it != inspectInfo.Properties.end(); ++it) {
+            const std::string key = it.key();
+            if (key == propertyName ||
+                (key.size() >= qualifiedSuffix.size() &&
+                 key.compare(key.size() - qualifiedSuffix.size(), qualifiedSuffix.size(), qualifiedSuffix) == 0)) {
+                propertyIt = it;
+                break;
+            }
+        }
+        if (propertyIt == inspectInfo.Properties.end()) {
+            std::cerr << "Property was not found: " << propertyName << "\n";
+            return 1;
+        }
+
+        if (bJsonOutput) {
+            std::cout << "{\n  \"success\": true,\n  \"file\": ";
+            PrintJsonEscapedString(inputPath.string());
+            std::cout << ",\n  \"id\": ";
+            PrintJsonEscapedString(args[3]);
+            std::cout << ",\n  \"property\": ";
+            PrintJsonEscapedString(propertyIt.key());
+            std::cout << ",\n  \"value\": " << propertyIt.value().dump(2) << "\n}\n";
+        } else {
+            std::cout << propertyIt.value().dump() << "\n";
+        }
+        return 0;
     }
 
     if (args[1] == "inspect") {

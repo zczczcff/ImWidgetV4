@@ -331,6 +331,24 @@ TEST(EditorSnapshotExportTest, UiDocumentCliInspectsNodeById)
     EXPECT_NE(missingInfo.ErrorMessage.find("missing"), std::string::npos);
 }
 
+TEST(EditorSnapshotExportTest, UiDocumentCliGetEquivalentDataFromInspect)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_get";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+
+    const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(inspectInfo.bSuccess) << inspectInfo.ErrorMessage;
+    ASSERT_TRUE(inspectInfo.Properties.contains("ImTextBlock::Text"));
+    EXPECT_EQ(inspectInfo.Properties["ImTextBlock::Text"], "Snapshot Export");
+}
+
 TEST(EditorSnapshotExportTest, UiDocumentCliRenamesNodeAndSavesDocument)
 {
     const std::filesystem::path tempDirectory =

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -30,6 +31,19 @@ struct FCliOptions {
     std::filesystem::path ProjectRoot = std::filesystem::current_path();
     std::string ProfileName;
     bool bVerbose = false;
+};
+
+struct FUiBatchStepResult {
+    bool bSuccess = false;
+    std::string Command;
+    std::string ErrorMessage;
+    json Result = json::object();
+};
+
+struct FUiBatchResult {
+    bool bSuccess = false;
+    std::string ErrorMessage;
+    std::vector<FUiBatchStepResult> Steps;
 };
 
 std::string TrimWhitespaceCopy(const std::string& text)
@@ -201,6 +215,7 @@ void PrintUsage()
         << "  ui lint <input.ui.json> [--json]\n"
         << "  ui format <input.ui.json> [--json]\n"
         << "  ui patch <input.ui.json> <patch.json> [--json]\n"
+        << "  ui batch <script.json> [--json]\n"
         << "  ui tree <input.ui.json> [--json]\n"
         << "  ui find <input.ui.json> [--id <id>] [--type <type>] [--name <name>] [--json]\n"
         << "  ui get <input.ui.json> <widget-id> [property] [--json]\n"
@@ -1120,12 +1135,381 @@ void PrintUiLintText(const FUiLintInfo& info)
     }
 }
 
+json UiNodeToJson(const FUiTreeNodeInfo& node)
+{
+    json result = json::object();
+    result["path"] = node.WidgetId;
+    result["id"] = node.WidgetId;
+    result["type"] = node.TypeName;
+    result["name"] = node.Name;
+    result["role"] = node.RoleName;
+    result["parentId"] = node.ParentWidgetId;
+    result["index"] = node.ChildIndex;
+    result["depth"] = node.Depth;
+    return result;
+}
+
+json UiTreeToJson(const FUiDocumentTreeInfo& info)
+{
+    json result = json::object();
+    result["success"] = info.bSuccess;
+    if (!info.bSuccess) {
+        result["error"] = info.ErrorMessage;
+        return result;
+    }
+
+    result["nodes"] = json::array();
+    for (const FUiTreeNodeInfo& node : info.Nodes) {
+        result["nodes"].push_back(UiNodeToJson(node));
+    }
+    return result;
+}
+
+json UiInspectToJson(const FUiNodeInspectInfo& info)
+{
+    json result = json::object();
+    result["success"] = info.bSuccess;
+    if (!info.bSuccess) {
+        result["error"] = info.ErrorMessage;
+        return result;
+    }
+
+    result["node"] = UiNodeToJson(info.Node);
+    result["properties"] = info.Properties;
+    result["children"] = json::array();
+    for (const FUiTreeNodeInfo& child : info.Children) {
+        result["children"].push_back(UiNodeToJson(child));
+    }
+    return result;
+}
+
+json UiMutationToJson(const FUiMutationResult& resultInfo)
+{
+    json result = json::object();
+    result["success"] = resultInfo.bSuccess;
+    if (!resultInfo.bSuccess) {
+        result["error"] = resultInfo.ErrorMessage;
+        return result;
+    }
+    result["changed"] = resultInfo.bChanged;
+    result["node"] = UiNodeToJson(resultInfo.Node);
+    return result;
+}
+
+json UiPatchToJson(const FUiPatchResult& resultInfo)
+{
+    json result = json::object();
+    result["success"] = resultInfo.bSuccess;
+    result["changed"] = resultInfo.bChanged;
+    if (!resultInfo.bSuccess) {
+        result["error"] = resultInfo.ErrorMessage;
+    }
+    result["operations"] = json::array();
+    for (const FUiPatchOperationResult& operation : resultInfo.Operations) {
+        json operationJson = json::object();
+        operationJson["success"] = operation.bSuccess;
+        operationJson["changed"] = operation.bChanged;
+        operationJson["operation"] = operation.Operation;
+        if (!operation.bSuccess) {
+            operationJson["error"] = operation.ErrorMessage;
+        }
+        if (!operation.Node.WidgetId.empty()) {
+            operationJson["node"] = UiNodeToJson(operation.Node);
+        }
+        result["operations"].push_back(std::move(operationJson));
+    }
+    return result;
+}
+
+json UiLintToJson(const FUiLintInfo& info)
+{
+    json result = json::object();
+    result["success"] = info.bSuccess;
+    if (!info.bSuccess) {
+        result["error"] = info.ErrorMessage;
+        return result;
+    }
+    result["ok"] = !HasUiLintErrors(info);
+    result["diagnostics"] = json::array();
+    for (const FUiLintDiagnostic& diagnostic : info.Diagnostics) {
+        json diagnosticJson = json::object();
+        diagnosticJson["severity"] = diagnostic.Severity;
+        diagnosticJson["code"] = diagnostic.Code;
+        diagnosticJson["message"] = diagnostic.Message;
+        diagnosticJson["id"] = diagnostic.WidgetId;
+        diagnosticJson["type"] = diagnostic.TypeName;
+        diagnosticJson["field"] = diagnostic.FieldName;
+        result["diagnostics"].push_back(std::move(diagnosticJson));
+    }
+    return result;
+}
+
+json UiDiffToJson(const FUiDocumentDiffInfo& info)
+{
+    json result = json::object();
+    result["success"] = info.bSuccess;
+    if (!info.bSuccess) {
+        result["error"] = info.ErrorMessage;
+        return result;
+    }
+    result["changed"] = info.bChanged;
+    result["changes"] = json::array();
+    for (const FUiNodeDiffEntry& entry : info.Entries) {
+        json entryJson = json::object();
+        entryJson["kind"] = entry.Kind;
+        entryJson["id"] = entry.WidgetId;
+        entryJson["field"] = entry.FieldName;
+        if (!entry.BeforeNode.WidgetId.empty()) {
+            entryJson["beforeNode"] = UiNodeToJson(entry.BeforeNode);
+        }
+        if (!entry.AfterNode.WidgetId.empty()) {
+            entryJson["afterNode"] = UiNodeToJson(entry.AfterNode);
+        }
+        if (!entry.BeforeValue.is_null()) {
+            entryJson["before"] = entry.BeforeValue;
+        }
+        if (!entry.AfterValue.is_null()) {
+            entryJson["after"] = entry.AfterValue;
+        }
+        result["changes"].push_back(std::move(entryJson));
+    }
+    return result;
+}
+
 json ParseCliJsonOrStringValue(const std::string& text)
 {
     try {
         return json::parse(text);
     } catch (...) {
         return text;
+    }
+}
+
+std::filesystem::path ResolveBatchPath(
+    const std::filesystem::path& baseDirectory,
+    const json& stepJson,
+    const char* fieldName)
+{
+    if (!stepJson.contains(fieldName) || !stepJson[fieldName].is_string()) {
+        return {};
+    }
+
+    std::filesystem::path path = stepJson[fieldName].get<std::string>();
+    if (path.is_relative()) {
+        path = baseDirectory / path;
+    }
+    return path.lexically_normal();
+}
+
+std::string GetBatchStepCommand(const json& stepJson)
+{
+    return stepJson.value("command", stepJson.value("cmd", stepJson.value("op", std::string())));
+}
+
+FUiBatchStepResult RunUiBatchStep(
+    const json& stepJson,
+    const std::filesystem::path& baseDirectory)
+{
+    FUiBatchStepResult result;
+    if (!stepJson.is_object()) {
+        result.ErrorMessage = "Batch step must be a JSON object.";
+        return result;
+    }
+
+    const std::string command = GetBatchStepCommand(stepJson);
+    result.Command = command;
+    if (command.empty()) {
+        result.ErrorMessage = "Batch step is missing command.";
+        return result;
+    }
+
+    if (command == "validate") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        std::string error;
+        const bool bValid = UiDocumentCli::ValidateDocumentFile(inputPath, &error);
+        result.bSuccess = bValid;
+        result.ErrorMessage = error;
+        result.Result = json {{"success", bValid}, {"file", inputPath.string()}};
+        if (!bValid) {
+            result.Result["error"] = error;
+        }
+        return result;
+    }
+
+    if (command == "lint") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const FUiLintInfo lintInfo = UiDocumentCli::LintDocumentFile(inputPath);
+        result.bSuccess = lintInfo.bSuccess && !HasUiLintErrors(lintInfo);
+        result.ErrorMessage = lintInfo.bSuccess ? std::string() : lintInfo.ErrorMessage;
+        if (lintInfo.bSuccess && HasUiLintErrors(lintInfo)) {
+            result.ErrorMessage = "UI lint reported errors.";
+        }
+        result.Result = UiLintToJson(lintInfo);
+        result.Result["file"] = inputPath.string();
+        return result;
+    }
+
+    if (command == "format") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const FUiMutationResult formatResult = UiDocumentCli::FormatDocumentFile(inputPath);
+        result.bSuccess = formatResult.bSuccess;
+        result.ErrorMessage = formatResult.ErrorMessage;
+        result.Result = UiMutationToJson(formatResult);
+        result.Result["file"] = inputPath.string();
+        return result;
+    }
+
+    if (command == "patch") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const std::filesystem::path patchPath = ResolveBatchPath(baseDirectory, stepJson, "patch");
+        const FUiPatchResult patchResult = UiDocumentCli::PatchDocumentFile(inputPath, patchPath);
+        result.bSuccess = patchResult.bSuccess;
+        result.ErrorMessage = patchResult.ErrorMessage;
+        result.Result = UiPatchToJson(patchResult);
+        result.Result["file"] = inputPath.string();
+        result.Result["patch"] = patchPath.string();
+        return result;
+    }
+
+    if (command == "tree") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const FUiDocumentTreeInfo treeInfo = UiDocumentCli::BuildDocumentTreeInfo(inputPath);
+        result.bSuccess = treeInfo.bSuccess;
+        result.ErrorMessage = treeInfo.ErrorMessage;
+        result.Result = UiTreeToJson(treeInfo);
+        result.Result["file"] = inputPath.string();
+        return result;
+    }
+
+    if (command == "inspect") {
+        const std::filesystem::path inputPath = ResolveBatchPath(baseDirectory, stepJson, "file");
+        const std::string widgetId = stepJson.value("id", std::string());
+        const FUiNodeInspectInfo inspectInfo = UiDocumentCli::InspectNode(inputPath, widgetId);
+        result.bSuccess = inspectInfo.bSuccess;
+        result.ErrorMessage = inspectInfo.ErrorMessage;
+        result.Result = UiInspectToJson(inspectInfo);
+        result.Result["file"] = inputPath.string();
+        result.Result["id"] = widgetId;
+        return result;
+    }
+
+    if (command == "diff") {
+        const std::filesystem::path beforePath = ResolveBatchPath(baseDirectory, stepJson, "before");
+        const std::filesystem::path afterPath = ResolveBatchPath(baseDirectory, stepJson, "after");
+        const FUiDocumentDiffInfo diffInfo = UiDocumentCli::DiffDocuments(beforePath, afterPath);
+        result.bSuccess = diffInfo.bSuccess;
+        result.ErrorMessage = diffInfo.ErrorMessage;
+        result.Result = UiDiffToJson(diffInfo);
+        result.Result["beforeFile"] = beforePath.string();
+        result.Result["afterFile"] = afterPath.string();
+        return result;
+    }
+
+    result.ErrorMessage = "Unsupported batch command: " + command;
+    return result;
+}
+
+FUiBatchResult RunUiBatchFile(const std::filesystem::path& batchPath)
+{
+    FUiBatchResult result;
+
+    json batchJson;
+    try {
+        std::ifstream stream(batchPath);
+        if (!stream.is_open()) {
+            result.ErrorMessage = "Failed to open batch file for reading: " + batchPath.string();
+            return result;
+        }
+        stream >> batchJson;
+    } catch (const std::exception& exception) {
+        result.ErrorMessage = exception.what();
+        return result;
+    }
+
+    json stepsJson;
+    bool bContinueOnError = false;
+    if (batchJson.is_array()) {
+        stepsJson = batchJson;
+    } else if (batchJson.is_object()) {
+        if (!batchJson.contains("steps")) {
+            result.ErrorMessage = "Batch JSON object must contain steps.";
+            return result;
+        }
+        stepsJson = batchJson["steps"];
+        bContinueOnError = batchJson.value("continueOnError", false);
+    } else {
+        result.ErrorMessage = "Batch JSON must be an array or an object with steps.";
+        return result;
+    }
+
+    if (!stepsJson.is_array()) {
+        result.ErrorMessage = "Batch steps must be a JSON array.";
+        return result;
+    }
+
+    const std::filesystem::path baseDirectory = batchPath.parent_path().empty()
+        ? std::filesystem::current_path()
+        : batchPath.parent_path();
+    for (const json& stepJson : stepsJson) {
+        FUiBatchStepResult stepResult = RunUiBatchStep(stepJson, baseDirectory);
+        const bool bStepSuccess = stepResult.bSuccess;
+        result.Steps.push_back(std::move(stepResult));
+        if (!bStepSuccess && !bContinueOnError) {
+            result.ErrorMessage = result.Steps.back().ErrorMessage;
+            return result;
+        }
+    }
+
+    result.bSuccess = true;
+    for (const FUiBatchStepResult& step : result.Steps) {
+        if (!step.bSuccess) {
+            result.bSuccess = false;
+            if (result.ErrorMessage.empty()) {
+                result.ErrorMessage = step.ErrorMessage;
+            }
+        }
+    }
+    return result;
+}
+
+void PrintUiBatchJson(const std::filesystem::path& batchPath, const FUiBatchResult& result)
+{
+    json output = json::object();
+    output["success"] = result.bSuccess;
+    output["batch"] = batchPath.string();
+    if (!result.bSuccess && !result.ErrorMessage.empty()) {
+        output["error"] = result.ErrorMessage;
+    }
+    output["steps"] = json::array();
+    for (std::size_t index = 0; index < result.Steps.size(); ++index) {
+        const FUiBatchStepResult& step = result.Steps[index];
+        json stepJson = json::object();
+        stepJson["index"] = index;
+        stepJson["success"] = step.bSuccess;
+        stepJson["command"] = step.Command;
+        if (!step.bSuccess && !step.ErrorMessage.empty()) {
+            stepJson["error"] = step.ErrorMessage;
+        }
+        stepJson["result"] = step.Result;
+        output["steps"].push_back(std::move(stepJson));
+    }
+    std::cout << output.dump(2) << "\n";
+}
+
+void PrintUiBatchText(const FUiBatchResult& result)
+{
+    std::cout << (result.bSuccess ? "Batch completed" : "Batch failed")
+              << ": " << result.Steps.size() << " steps\n";
+    for (std::size_t index = 0; index < result.Steps.size(); ++index) {
+        const FUiBatchStepResult& step = result.Steps[index];
+        std::cout
+            << "  [" << index << "] "
+            << (step.bSuccess ? "ok" : "failed")
+            << " " << step.Command;
+        if (!step.ErrorMessage.empty()) {
+            std::cout << ": " << step.ErrorMessage;
+        }
+        std::cout << "\n";
     }
 }
 
@@ -1422,6 +1806,22 @@ int RunUiCommand(const std::vector<std::string>& args)
             PrintUiPatchText(patchResult);
         }
         return patchResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "batch") {
+        if (args.size() < 3) {
+            std::cerr << "ui batch requires <script.json>.\n";
+            return 1;
+        }
+
+        const std::filesystem::path batchPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiBatchResult batchResult = RunUiBatchFile(batchPath);
+        if (bJsonOutput) {
+            PrintUiBatchJson(batchPath, batchResult);
+        } else {
+            PrintUiBatchText(batchResult);
+        }
+        return batchResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "tree") {

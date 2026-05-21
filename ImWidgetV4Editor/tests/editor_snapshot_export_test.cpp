@@ -83,12 +83,10 @@ std::string QuoteCommandArgument(const std::filesystem::path& path)
     return "\"" + path.string() + "\"";
 }
 
-int RunCliCommand(const std::filesystem::path& executable, const std::filesystem::path& inputPath, const std::filesystem::path& outputPath)
+int RunCliCommandLine(const std::filesystem::path& executable, const std::wstring& arguments)
 {
 #if defined(_WIN32)
-    const std::wstring commandLine =
-        L"\"" + executable.wstring() + L"\" snapshot export \"" +
-        inputPath.wstring() + L"\" \"" + outputPath.wstring() + L"\"";
+    const std::wstring commandLine = L"\"" + executable.wstring() + L"\" " + arguments;
 
     STARTUPINFOW startupInfo{};
     startupInfo.cb = sizeof(startupInfo);
@@ -115,11 +113,16 @@ int RunCliCommand(const std::filesystem::path& executable, const std::filesystem
     CloseHandle(processInformation.hThread);
     return static_cast<int>(exitCode);
 #else
-    const std::string command =
-        QuoteCommandArgument(executable) + " snapshot export " +
-        QuoteCommandArgument(inputPath) + " " + QuoteCommandArgument(outputPath);
+    const std::string command = QuoteCommandArgument(executable) + " " + std::string(arguments.begin(), arguments.end());
     return std::system(command.c_str());
 #endif
+}
+
+int RunCliCommand(const std::filesystem::path& executable, const std::filesystem::path& inputPath, const std::filesystem::path& outputPath)
+{
+    return RunCliCommandLine(
+        executable,
+        L"snapshot export \"" + inputPath.wstring() + L"\" \"" + outputPath.wstring() + L"\"");
 }
 
 } // namespace
@@ -701,6 +704,57 @@ TEST(EditorSnapshotExportTest, UiDocumentCliLintsDocuments)
     EXPECT_TRUE(bFoundEmptyName);
     EXPECT_TRUE(bFoundUnknownProperty);
     EXPECT_TRUE(bFoundDuplicateId);
+}
+
+TEST(EditorSnapshotExportTest, CliRunsUiBatchScript)
+{
+    const std::filesystem::path tempDirectory =
+        std::filesystem::temp_directory_path() / "imwidgetv4_editor_ui_document_cli_batch";
+    std::error_code errorCode;
+    std::filesystem::remove_all(tempDirectory, errorCode);
+    errorCode.clear();
+    std::filesystem::create_directories(tempDirectory, errorCode);
+    ASSERT_FALSE(errorCode);
+
+    const std::filesystem::path inputPath = CreateSnapshotFixtureDocument(tempDirectory);
+    const std::filesystem::path patchPath = tempDirectory / "batch-patch.json";
+    {
+        json patch = json::object();
+        patch["operations"] = json::array({
+            json {{"op", "rename"}, {"id", "w2"}, {"name", "BatchTitle"}},
+            json {{"op", "set"}, {"id", "w2"}, {"property", "Text"}, {"value", "Batch Title"}},
+        });
+        std::ofstream stream(patchPath, std::ios::binary | std::ios::trunc);
+        stream << patch.dump(2);
+    }
+
+    const std::filesystem::path batchPath = tempDirectory / "batch.json";
+    {
+        json batch = json::object();
+        batch["steps"] = json::array({
+            json {{"command", "validate"}, {"file", "fixture.ui.json"}},
+            json {{"command", "patch"}, {"file", "fixture.ui.json"}, {"patch", "batch-patch.json"}},
+            json {{"command", "lint"}, {"file", "fixture.ui.json"}},
+            json {{"command", "inspect"}, {"file", "fixture.ui.json"}, {"id", "w2"}},
+        });
+        std::ofstream stream(batchPath, std::ios::binary | std::ios::trunc);
+        stream << batch.dump(2);
+    }
+
+    const std::filesystem::path cliExecutable = FindCliExecutable();
+    if (cliExecutable.empty()) {
+        GTEST_SKIP() << "ImWidgetEditorCLI executable was not found in the local build tree.";
+    }
+
+    const int exitCode = RunCliCommandLine(
+        cliExecutable,
+        L"ui batch \"" + batchPath.wstring() + L"\" --json");
+    EXPECT_EQ(exitCode, 0);
+
+    const FUiNodeInspectInfo titleInfo = UiDocumentCli::InspectNode(inputPath, "w2");
+    ASSERT_TRUE(titleInfo.bSuccess) << titleInfo.ErrorMessage;
+    EXPECT_EQ(titleInfo.Node.Name, "BatchTitle");
+    EXPECT_EQ(titleInfo.Properties["ImTextBlock::Text"], "Batch Title");
 }
 
 TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)

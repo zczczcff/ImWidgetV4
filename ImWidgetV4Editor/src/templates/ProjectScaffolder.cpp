@@ -469,18 +469,34 @@ std::string BuildCommentedText(const std::string& text)
     return stream.str();
 }
 
-std::string BuildAppProjectConfigHeaderText()
+std::string BuildAppProjectConfigHeaderText(const FProjectScaffoldRequest& request)
 {
     std::ostringstream stream;
     stream
         << "#pragma once\n\n"
         << "#include <imwidgetv4/app/ApplicationHost.h>\n\n"
+        << "#include <memory>\n\n"
+        << "namespace " << request.NamespaceName << " {\n"
+        << "class " << request.StartupWidgetClassName << ";\n";
+    if (request.ApplicationSettings.bUseTitleBar && request.TitleBarRootWidget) {
+        stream
+            << "class " << request.TitleBarWidgetClassName << ";\n";
+    }
+    stream
+        << "} // namespace " << request.NamespaceName << "\n\n"
         << "namespace ImWidgetV4 {\n"
         << "class ImApplication;\n"
         << "}\n\n"
         << "namespace GeneratedApp {\n\n"
         << "ImWidgetV4::FApplicationHostConfig BuildHostConfig();\n"
-        << "void ConfigureApplication(ImWidgetV4::ImApplication& application);\n\n"
+        << "void ConfigureApplication(ImWidgetV4::ImApplication& application);\n"
+        << "std::shared_ptr<" << request.NamespaceName << "::" << request.StartupWidgetClassName << "> GetStartupView();\n";
+    if (request.ApplicationSettings.bUseTitleBar && request.TitleBarRootWidget) {
+        stream
+            << "std::shared_ptr<" << request.NamespaceName << "::" << request.TitleBarWidgetClassName << "> GetTitleBarView();\n";
+    }
+    stream
+        << "\n"
         << "} // namespace GeneratedApp\n";
     return stream.str();
 }
@@ -508,6 +524,15 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     }
     stream
         << "\n"
+        << "namespace {\n\n"
+        << "std::weak_ptr<" << request.NamespaceName << "::" << request.StartupWidgetClassName << "> GStartupView;\n";
+    if (settings.bUseTitleBar && request.TitleBarRootWidget) {
+        stream
+            << "std::weak_ptr<" << request.NamespaceName << "::" << request.TitleBarWidgetClassName << "> GTitleBarView;\n";
+    }
+    stream
+        << "\n"
+        << "} // namespace\n\n"
         << "namespace GeneratedApp {\n\n"
         << "ImWidgetV4::FApplicationHostConfig BuildHostConfig()\n"
         << "{\n"
@@ -551,16 +576,33 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
             << "        auto rootLayout = std::make_shared<ImWidgetV4::ImVerticalBox>();\n"
             << "        rootLayout->SetSpacing(0.0f);\n"
             << "        auto titleBarView = std::make_shared<" << request.NamespaceName << "::" << request.TitleBarWidgetClassName << ">();\n"
+            << "        GTitleBarView = titleBarView;\n"
             << "        rootLayout->AddChild(titleBarView, ImWidgetV4::FMargin(0.0f));\n"
-            << "        rootLayout->AddChildFill(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">(), 1.0f, ImWidgetV4::FMargin(0.0f));\n"
+            << "        auto startupView = std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">();\n"
+            << "        GStartupView = startupView;\n"
+            << "        rootLayout->AddChildFill(startupView, 1.0f, ImWidgetV4::FMargin(0.0f));\n"
             << "        application.SetRootWidget(rootLayout);\n";
     } else {
         stream
-            << "        application.SetRootWidget(std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">());\n";
+            << "        auto startupView = std::make_shared<" << request.NamespaceName << "::" << request.StartupWidgetClassName << ">();\n"
+            << "        GStartupView = startupView;\n"
+            << "        application.SetRootWidget(startupView);\n";
     }
 
     stream
+        << "}\n\n"
+        << "std::shared_ptr<" << request.NamespaceName << "::" << request.StartupWidgetClassName << "> GetStartupView()\n"
+        << "{\n"
+        << "        return GStartupView.lock();\n"
         << "}\n";
+    if (settings.bUseTitleBar && request.TitleBarRootWidget) {
+        stream
+            << "\n"
+            << "std::shared_ptr<" << request.NamespaceName << "::" << request.TitleBarWidgetClassName << "> GetTitleBarView()\n"
+            << "{\n"
+            << "        return GTitleBarView.lock();\n"
+            << "}\n";
+    }
 
     stream
         << "\n"
@@ -613,7 +655,7 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
 
     const std::filesystem::path appProjectConfigHeaderPath =
         request.ProjectRoot / "generated" / "AppProjectConfig.h";
-    if (!WriteTextFile(appProjectConfigHeaderPath, BuildAppProjectConfigHeaderText(), errorMessage)) {
+    if (!WriteTextFile(appProjectConfigHeaderPath, BuildAppProjectConfigHeaderText(request), errorMessage)) {
         result.ErrorMessage = errorMessage;
         return result;
     }
@@ -708,7 +750,7 @@ FProjectScaffoldResult PreviewBlankAppCode(const FProjectScaffoldRequest& reques
 
     AppendChangedFile(
         request.ProjectRoot / "generated" / "AppProjectConfig.h",
-        BuildAppProjectConfigHeaderText(),
+        BuildAppProjectConfigHeaderText(request),
         result);
     AppendChangedFile(
         request.ProjectRoot / "generated" / "AppProjectConfig.cpp",

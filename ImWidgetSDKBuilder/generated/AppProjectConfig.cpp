@@ -13,6 +13,13 @@
 #include "MainView.h"
 #include "TitleBarView.h"
 
+namespace {
+
+std::weak_ptr<ImWidgetSDKBuilder::MainView> GStartupView;
+std::weak_ptr<ImWidgetSDKBuilder::TitleBarView> GTitleBarView;
+
+} // namespace
+
 namespace GeneratedApp {
 
 ImWidgetV4::FApplicationHostConfig BuildHostConfig()
@@ -31,9 +38,22 @@ void ConfigureApplication(ImWidgetV4::ImApplication& application)
         auto rootLayout = std::make_shared<ImWidgetV4::ImVerticalBox>();
         rootLayout->SetSpacing(0.0f);
         auto titleBarView = std::make_shared<ImWidgetSDKBuilder::TitleBarView>();
+        GTitleBarView = titleBarView;
         rootLayout->AddChild(titleBarView, ImWidgetV4::FMargin(0.0f));
-        rootLayout->AddChildFill(std::make_shared<ImWidgetSDKBuilder::MainView>(), 1.0f, ImWidgetV4::FMargin(0.0f));
+        auto startupView = std::make_shared<ImWidgetSDKBuilder::MainView>();
+        GStartupView = startupView;
+        rootLayout->AddChildFill(startupView, 1.0f, ImWidgetV4::FMargin(0.0f));
         application.SetRootWidget(rootLayout);
+}
+
+std::shared_ptr<ImWidgetSDKBuilder::MainView> GetStartupView()
+{
+        return GStartupView.lock();
+}
+
+std::shared_ptr<ImWidgetSDKBuilder::TitleBarView> GetTitleBarView()
+{
+        return GTitleBarView.lock();
 }
 
 } // namespace GeneratedApp

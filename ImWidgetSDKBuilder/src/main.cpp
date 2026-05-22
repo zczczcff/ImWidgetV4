@@ -97,26 +97,6 @@ bool IsCommandAvailable(const std::string& command)
         nullptr).bSuccess;
 }
 
-template<typename T>
-std::shared_ptr<T> FindWidgetInTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
-{
-    if (!widget) {
-        return nullptr;
-    }
-
-    if (auto typedWidget = std::dynamic_pointer_cast<T>(widget)) {
-        return typedWidget;
-    }
-
-    for (const std::shared_ptr<ImWidgetV4::ImWidget>& child : widget->GetChildren()) {
-        if (auto typedWidget = FindWidgetInTree<T>(child)) {
-            return typedWidget;
-        }
-    }
-
-    return nullptr;
-}
-
 void BindAtLeastOneChecked(
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& first,
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& second)
@@ -396,14 +376,14 @@ void RefreshCommandPreview(const std::shared_ptr<FBuilderUiState>& state, bool b
 
 std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
-    auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
+    auto titleBarView = GeneratedApp::GetTitleBarView();
     if (titleBarView) {
         if (titleBarView->TitleBarIcon) {
             titleBarView->TitleBarIcon->SetBrush(application.GetApplicationIcon());
         }
     }
 
-    auto mainView = FindWidgetInTree<ImWidgetSDKBuilder::MainView>(application.GetRootWidget());
+    auto mainView = GeneratedApp::GetStartupView();
     if (!mainView) {
         return nullptr;
     }

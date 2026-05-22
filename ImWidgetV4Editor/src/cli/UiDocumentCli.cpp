@@ -25,6 +25,7 @@
 #include <imwidgetv4/widgets/UserWidget.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <set>
@@ -49,6 +50,10 @@ FUiTreeNodeInfo BuildTreeNodeInfo(
     node.WidgetId = document.GetWidgetId(widget);
     node.TypeName = widget->GetTypeName();
     node.Name = widget->GetName();
+    const json codegenMetadata = document.GetWidgetCodegenMetadata(widget);
+    node.CodegenMemberAccess = codegenMetadata.value(
+        kEditorCodegenMemberAccessFieldName,
+        std::string(kEditorCodegenMemberAccessPublic));
     if (const std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget)) {
         node.ParentWidgetId = document.GetWidgetId(parent);
         const int childIndex = LogicalWidgetTree::FindLogicalChildIndex(parent, widget);
@@ -137,6 +142,7 @@ bool HasNodeIdentityChange(const FUiTreeNodeInfo& beforeNode, const FUiTreeNodeI
         beforeNode.TypeName != afterNode.TypeName ||
         beforeNode.Name != afterNode.Name ||
         beforeNode.RoleName != afterNode.RoleName ||
+        beforeNode.CodegenMemberAccess != afterNode.CodegenMemberAccess ||
         beforeNode.Depth != afterNode.Depth ||
         beforeNode.ChildIndex != afterNode.ChildIndex;
 }
@@ -166,6 +172,7 @@ void AppendNodeFieldDiffs(
     appendField("type", beforeNode.TypeName, afterNode.TypeName);
     appendField("name", beforeNode.Name, afterNode.Name);
     appendField("role", beforeNode.RoleName, afterNode.RoleName);
+    appendField("codegenMemberAccess", beforeNode.CodegenMemberAccess, afterNode.CodegenMemberAccess);
     appendField("depth", beforeNode.Depth, afterNode.Depth);
     appendField("index", beforeNode.ChildIndex, afterNode.ChildIndex);
 }
@@ -1150,6 +1157,62 @@ FUiMutationResult UiDocumentCli::RenameNode(
 
     result.bSuccess = true;
     result.Node = BuildTreeNodeInfo(widget, document, depth);
+    return result;
+}
+
+FUiMutationResult UiDocumentCli::SetNodeCodegenMemberAccess(
+    const std::filesystem::path& inputPath,
+    const std::string& widgetId,
+    const std::string& memberAccess)
+{
+    FUiMutationResult result;
+    EditorDocument document;
+    std::string error;
+    if (!document.Load(inputPath, &error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    const std::shared_ptr<ImWidget> widget = document.FindWidgetById(widgetId);
+    if (!widget) {
+        result.ErrorMessage = "Widget id was not found: " + widgetId;
+        return result;
+    }
+
+    std::string normalizedAccess = memberAccess;
+    std::transform(
+        normalizedAccess.begin(),
+        normalizedAccess.end(),
+        normalizedAccess.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (normalizedAccess == "public") {
+        normalizedAccess = kEditorCodegenMemberAccessPublic;
+    } else if (normalizedAccess == "private") {
+        normalizedAccess = kEditorCodegenMemberAccessPrivate;
+    } else {
+        result.ErrorMessage = "Codegen member access must be public or private.";
+        return result;
+    }
+
+    json metadata = document.GetWidgetCodegenMetadata(widget);
+    const std::string beforeAccess = metadata.value(
+        kEditorCodegenMemberAccessFieldName,
+        std::string(kEditorCodegenMemberAccessPublic));
+    result.bChanged = beforeAccess != normalizedAccess;
+    if (normalizedAccess == kEditorCodegenMemberAccessPublic) {
+        metadata.erase(kEditorCodegenMemberAccessFieldName);
+    } else {
+        metadata[kEditorCodegenMemberAccessFieldName] = normalizedAccess;
+    }
+    document.SetWidgetCodegenMetadata(widget, metadata);
+
+    if (!document.Save(&error)) {
+        result.ErrorMessage = error;
+        return result;
+    }
+
+    result.Node = BuildTreeNodeInfo(widget, document, CalculateWidgetDepth(document, widget));
+    result.bSuccess = true;
     return result;
 }
 

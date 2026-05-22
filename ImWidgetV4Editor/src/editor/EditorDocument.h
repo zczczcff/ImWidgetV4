@@ -27,6 +27,10 @@ public:
     std::string GetWidgetId(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
     std::shared_ptr<ImWidgetV4::ImWidget> FindWidgetById(const std::string& widgetId);
     std::shared_ptr<ImWidgetV4::ImWidget> FindLogicalParent(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
+    json GetWidgetCodegenMetadata(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const;
+    void SetWidgetCodegenMetadata(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const json& metadata);
 
     void SetDirty(bool bDirty) { m_bDirty = bDirty; }
     bool IsDirty() const { return m_bDirty; }
@@ -50,6 +54,9 @@ private:
     void ApplyWidgetIdsFromJson(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const json& widgetJson);
+    void ApplyWidgetCodegenMetadataFromJson(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const json& widgetJson);
     std::string GenerateNextWidgetId();
     void TrackExistingWidgetId(const std::string& widgetId);
 
@@ -58,6 +65,7 @@ private:
     bool m_bDirty = false;
     std::shared_ptr<ImWidgetV4::ImWidget> m_RootWidget;
     std::unordered_map<const ImWidgetV4::ImWidget*, std::string> m_WidgetIds;
+    std::unordered_map<const ImWidgetV4::ImWidget*, json> m_WidgetCodegenMetadata;
     std::unordered_map<std::string, std::weak_ptr<ImWidgetV4::ImWidget>> m_WidgetsById;
     int m_NextWidgetId = 1;
 };

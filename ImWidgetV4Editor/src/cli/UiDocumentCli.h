@@ -15,6 +15,7 @@ struct FUiTreeNodeInfo {
     std::string TypeName;
     std::string Name;
     std::string RoleName;
+    std::string CodegenMemberAccess;
     std::size_t Depth = 0;
     int ChildIndex = -1;
 };
@@ -107,6 +108,10 @@ public:
         const std::filesystem::path& inputPath,
         const std::string& widgetId,
         const std::string& newName);
+    static FUiMutationResult SetNodeCodegenMemberAccess(
+        const std::filesystem::path& inputPath,
+        const std::string& widgetId,
+        const std::string& memberAccess);
     static FUiMutationResult SetNodeProperty(
         const std::filesystem::path& inputPath,
         const std::string& widgetId,

@@ -22,11 +22,7 @@ class MainView : public ImWidgetV4::ImUserWidget {
 public:
     MainView();
 
-protected:
-    std::shared_ptr<ImWidgetV4::ImWidget> RebuildWidget() override;
-
-private:
-    //===Auto Gen Begin=== (Members)
+    //===Auto Gen Begin=== (Public Members)
     std::shared_ptr<ImWidgetV4::ImVerticalSplitter> RootSplitter;
     std::shared_ptr<ImWidgetV4::ImScrollBox> ConfigScrollBox;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> ConfigPanel;
@@ -67,7 +63,14 @@ private:
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildButtonText;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> LogPanel;
     std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
-    //===Auto Gen End=== (Members)
+    //===Auto Gen End=== (Public Members)
+
+protected:
+    std::shared_ptr<ImWidgetV4::ImWidget> RebuildWidget() override;
+
+private:
+    //===Auto Gen Begin=== (Private Members)
+    //===Auto Gen End=== (Private Members)
 };
 
 } // namespace ImWidgetSDKBuilder

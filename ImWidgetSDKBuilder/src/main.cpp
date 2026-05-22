@@ -117,28 +117,6 @@ std::shared_ptr<T> FindWidgetInTree(const std::shared_ptr<ImWidgetV4::ImWidget>&
     return nullptr;
 }
 
-template<typename T>
-std::shared_ptr<T> FindWidgetByNameInTree(
-    const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
-    const std::string& name)
-{
-    if (!widget || name.empty()) {
-        return nullptr;
-    }
-
-    if (widget->GetName() == name) {
-        return std::dynamic_pointer_cast<T>(widget);
-    }
-
-    for (const std::shared_ptr<ImWidgetV4::ImWidget>& child : widget->GetChildren()) {
-        if (auto typedWidget = FindWidgetByNameInTree<T>(child, name)) {
-            return typedWidget;
-        }
-    }
-
-    return nullptr;
-}
-
 void BindAtLeastOneChecked(
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& first,
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& second)
@@ -420,9 +398,8 @@ std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& a
 {
     auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
     if (titleBarView) {
-        auto titleBarIcon = titleBarView->FindWidgetAs<ImWidgetV4::ImImage>("TitleBarIcon");
-        if (titleBarIcon) {
-            titleBarIcon->SetBrush(application.GetApplicationIcon());
+        if (titleBarView->TitleBarIcon) {
+            titleBarView->TitleBarIcon->SetBrush(application.GetApplicationIcon());
         }
     }
 
@@ -430,21 +407,19 @@ std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& a
     if (!mainView) {
         return nullptr;
     }
-    const std::shared_ptr<ImWidgetV4::ImWidget> mainRoot = mainView->GetRootWidget();
-
     auto state = std::make_shared<FBuilderUiState>();
-    state->Win64 = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "Win64CheckBox");
-    state->Win32 = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "Win32CheckBox");
-    state->Debug = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "DebugCheckBox");
-    state->Release = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "ReleaseCheckBox");
-    state->BuildSdk = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildSdkCheckBox");
-    state->BuildZip = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildZipCheckBox");
-    state->BuildNsis = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildNsisCheckBox");
-    state->SmokeTest = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "SmokeTestCheckBox");
-    state->Toolchain = FindWidgetByNameInTree<ImWidgetV4::ImComboBox>(mainRoot, "ToolchainComboBox");
-    state->BuildButton = FindWidgetByNameInTree<ImWidgetV4::ImButton>(mainRoot, "BuildButton");
-    state->CommandPreview = FindWidgetByNameInTree<ImWidgetV4::ImTextBlock>(mainRoot, "CommandPreviewText");
-    state->LogText = FindWidgetByNameInTree<ImWidgetV4::ImTextBlock>(mainRoot, "LogText");
+    state->Win64 = mainView->Win64CheckBox;
+    state->Win32 = mainView->Win32CheckBox;
+    state->Debug = mainView->DebugCheckBox;
+    state->Release = mainView->ReleaseCheckBox;
+    state->BuildSdk = mainView->BuildSdkCheckBox;
+    state->BuildZip = mainView->BuildZipCheckBox;
+    state->BuildNsis = mainView->BuildNsisCheckBox;
+    state->SmokeTest = mainView->SmokeTestCheckBox;
+    state->Toolchain = mainView->ToolchainComboBox;
+    state->BuildButton = mainView->BuildButton;
+    state->CommandPreview = mainView->CommandPreviewText;
+    state->LogText = mainView->LogText;
     BindAtLeastOneChecked(state->Win64, state->Win32);
     BindAtLeastOneChecked(state->Debug, state->Release);
 

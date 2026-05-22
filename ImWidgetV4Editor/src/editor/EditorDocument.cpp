@@ -37,6 +37,7 @@ void EditorDocument::NewDocument(const std::shared_ptr<ImWidgetV4::ImWidget>& ro
     m_RootWidget = rootWidget;
     m_bDirty = false;
     m_NextWidgetId = 1;
+    m_WidgetCodegenMetadata.clear();
     RebuildWidgetIdIndex(true);
 }
 
@@ -120,6 +121,7 @@ bool EditorDocument::SaveAs(const std::filesystem::path& filePath, std::string* 
 void EditorDocument::SetRootWidget(const std::shared_ptr<ImWidgetV4::ImWidget>& rootWidget)
 {
     m_RootWidget = rootWidget;
+    m_WidgetCodegenMetadata.clear();
     m_bDirty = true;
     RebuildWidgetIdIndex(true);
 }
@@ -191,6 +193,36 @@ std::shared_ptr<ImWidgetV4::ImWidget> EditorDocument::FindLogicalParent(const st
     return LogicalWidgetTree::FindLogicalParentRecursive(m_RootWidget, widget);
 }
 
+json EditorDocument::GetWidgetCodegenMetadata(const std::shared_ptr<ImWidgetV4::ImWidget>& widget) const
+{
+    if (!widget) {
+        return json::object();
+    }
+
+    const auto it = m_WidgetCodegenMetadata.find(widget.get());
+    if (it == m_WidgetCodegenMetadata.end() || !it->second.is_object()) {
+        return json::object();
+    }
+
+    return it->second;
+}
+
+void EditorDocument::SetWidgetCodegenMetadata(
+    const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+    const json& metadata)
+{
+    if (!widget) {
+        return;
+    }
+
+    if (!metadata.is_object() || metadata.empty()) {
+        m_WidgetCodegenMetadata.erase(widget.get());
+    } else {
+        m_WidgetCodegenMetadata[widget.get()] = metadata;
+    }
+    m_bDirty = true;
+}
+
 json EditorDocument::BuildDocumentJson() const
 {
     EditorDocument* self = const_cast<EditorDocument*>(this);
@@ -211,6 +243,12 @@ json EditorDocument::BuildDocumentJson() const
             const auto idIt = self->m_WidgetIds.find(widget.get());
             if (idIt != self->m_WidgetIds.end()) {
                 widgetJson[kEditorIdFieldName] = idIt->second;
+            }
+            const auto codegenIt = self->m_WidgetCodegenMetadata.find(widget.get());
+            if (codegenIt != self->m_WidgetCodegenMetadata.end() &&
+                codegenIt->second.is_object() &&
+                !codegenIt->second.empty()) {
+                widgetJson[kEditorCodegenFieldName] = codegenIt->second;
             }
 
             const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
@@ -272,8 +310,10 @@ bool EditorDocument::LoadFromDocumentJson(const json& documentJson, std::string*
     m_DisplayTitle = documentJson.value("Title", "");
     m_RootWidget = widgetResult.Widget;
     m_NextWidgetId = 1;
+    m_WidgetCodegenMetadata.clear();
     RebuildWidgetIdIndex(false);
     ApplyWidgetIdsFromJson(m_RootWidget, documentJson.at("RootWidget"));
+    ApplyWidgetCodegenMetadataFromJson(m_RootWidget, documentJson.at("RootWidget"));
     RebuildWidgetIdIndex(true);
     return true;
 }
@@ -357,6 +397,35 @@ void EditorDocument::ApplyWidgetIdsFromJson(
             ApplyWidgetIdsFromJson(childWidget, *childJson);
         } else {
             RebuildWidgetIdIndexRecursive(childWidget, true, nullptr);
+        }
+    }
+}
+
+void EditorDocument::ApplyWidgetCodegenMetadataFromJson(
+    const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+    const json& widgetJson)
+{
+    if (!widget || widgetJson.is_null() || !widgetJson.is_object()) {
+        return;
+    }
+
+    if (widgetJson.contains(kEditorCodegenFieldName) &&
+        widgetJson.at(kEditorCodegenFieldName).is_object() &&
+        !widgetJson.at(kEditorCodegenFieldName).empty()) {
+        m_WidgetCodegenMetadata[widget.get()] = widgetJson.at(kEditorCodegenFieldName);
+    }
+
+    const std::size_t childCount = LogicalWidgetTree::GetLogicalChildCount(widget);
+    for (std::size_t childIndex = 0; childIndex < childCount; ++childIndex) {
+        std::shared_ptr<ImWidgetV4::ImWidget> childWidget =
+            LogicalWidgetTree::GetLogicalChildAt(widget, childIndex);
+        if (!childWidget) {
+            continue;
+        }
+
+        const json* childJson = LogicalWidgetTree::ResolveLogicalChildJson(widgetJson, widget, childIndex);
+        if (childJson) {
+            ApplyWidgetCodegenMetadataFromJson(childWidget, *childJson);
         }
     }
 }

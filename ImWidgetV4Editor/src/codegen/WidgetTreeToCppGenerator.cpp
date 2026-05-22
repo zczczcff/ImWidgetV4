@@ -42,6 +42,7 @@ struct FGeneratedNode {
     int ParentIndex = -1;
     std::string TypeName;
     std::string VarName;
+    bool bPrivateMember = false;
     json WidgetJson;
     json SlotJson;
     EGeneratedChildRelation Relation = EGeneratedChildRelation::GenericChild;
@@ -238,6 +239,17 @@ bool IsValidQualifiedName(const std::string& text)
     return true;
 }
 
+std::string ToLowerCopy(const std::string& text)
+{
+    std::string result = text;
+    std::transform(
+        result.begin(),
+        result.end(),
+        result.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return result;
+}
+
 std::string BuildWidgetHeaderInclude(const std::string& typeName)
 {
     const std::string stripped = StripImPrefix(typeName);
@@ -263,6 +275,20 @@ json ExtractWidgetObjectJson(const json& widgetNode)
         widgetJson["Properties"] = json::object();
     }
     return widgetJson;
+}
+
+bool IsPrivateGeneratedMember(const json& widgetNode)
+{
+    if (!widgetNode.is_object() ||
+        !widgetNode.contains(kEditorCodegenFieldName) ||
+        !widgetNode.at(kEditorCodegenFieldName).is_object()) {
+        return false;
+    }
+
+    const json& codegenJson = widgetNode.at(kEditorCodegenFieldName);
+    const std::string memberAccess =
+        codegenJson.value(kEditorCodegenMemberAccessFieldName, std::string());
+    return ToLowerCopy(memberAccess) == "private";
 }
 
 int FindSerializedIntProperty(const json& widgetJson, const std::string& propertySuffix, int defaultValue)
@@ -339,6 +365,7 @@ void CollectGeneratedNodesRecursive(
     node.ParentIndex = parentIndex;
     node.TypeName = typeName;
     node.VarName = std::move(varName);
+    node.bPrivateMember = IsPrivateGeneratedMember(widgetNode);
     node.WidgetJson = widgetJson;
     node.SlotJson = Reflection::FilterPersistentJson(slotJson);
     node.Relation = relation;
@@ -564,6 +591,16 @@ void EmitHeader(
     writer.WriteLine("public:");
     writer.Indent();
     writer.WriteLine(options.ClassName + "();");
+    writer.WriteLine();
+    writer.WriteLine("//===Auto Gen Begin=== (Public Members)");
+    for (const FGeneratedNode& node : nodes) {
+        if (node.bPrivateMember) {
+            continue;
+        }
+        writer.WriteLine(
+            "std::shared_ptr<" + BuildQualifiedWidgetType(node.TypeName) + "> " + node.VarName + ";");
+    }
+    writer.WriteLine("//===Auto Gen End=== (Public Members)");
     writer.Unindent();
     writer.WriteLine();
     writer.WriteLine("protected:");
@@ -573,12 +610,15 @@ void EmitHeader(
     writer.WriteLine();
     writer.WriteLine("private:");
     writer.Indent();
-    writer.WriteLine("//===Auto Gen Begin=== (Members)");
+    writer.WriteLine("//===Auto Gen Begin=== (Private Members)");
     for (const FGeneratedNode& node : nodes) {
+        if (!node.bPrivateMember) {
+            continue;
+        }
         writer.WriteLine(
             "std::shared_ptr<" + BuildQualifiedWidgetType(node.TypeName) + "> " + node.VarName + ";");
     }
-    writer.WriteLine("//===Auto Gen End=== (Members)");
+    writer.WriteLine("//===Auto Gen End=== (Private Members)");
     writer.Unindent();
     writer.WriteLine("};");
 

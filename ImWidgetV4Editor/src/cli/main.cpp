@@ -239,6 +239,7 @@ void PrintUsage()
         << "  ui inspect <input.ui.json> <widget-id> [--json]\n"
         << "  ui diff <before.ui.json> <after.ui.json> [--json]\n"
         << "  ui rename <input.ui.json> <widget-id> <name> [--json]\n"
+        << "  ui codegen-access <input.ui.json> <widget-id> public|private [--json]\n"
         << "  ui set <input.ui.json> <widget-id> <property> <value> [--json]\n"
         << "  ui add <input.ui.json> <parent-widget-id> <widget-type> [--json]\n"
         << "  ui remove <input.ui.json> <widget-id> [--json]\n"
@@ -823,6 +824,8 @@ void PrintUiTreeJson(const std::filesystem::path& inputPath, const FUiDocumentTr
         PrintJsonEscapedString(node.Name);
         std::cout << ",\n      \"role\": ";
         PrintJsonEscapedString(node.RoleName);
+        std::cout << ",\n      \"codegenMemberAccess\": ";
+        PrintJsonEscapedString(node.CodegenMemberAccess);
         std::cout << ",\n      \"depth\": " << node.Depth << "\n";
         std::cout << "    }";
         if (index + 1 < info.Nodes.size()) {
@@ -862,6 +865,8 @@ void PrintUiNodeJsonFields(const FUiTreeNodeInfo& node, const char* indent)
     PrintJsonEscapedString(node.Name);
     std::cout << ",\n" << indent << "\"role\": ";
     PrintJsonEscapedString(node.RoleName);
+    std::cout << ",\n" << indent << "\"codegenMemberAccess\": ";
+    PrintJsonEscapedString(node.CodegenMemberAccess);
     std::cout << ",\n" << indent << "\"parentId\": ";
     PrintJsonEscapedString(node.ParentWidgetId);
     std::cout << ",\n" << indent << "\"index\": " << node.ChildIndex;
@@ -1189,6 +1194,7 @@ json UiNodeToJson(const FUiTreeNodeInfo& node)
     result["type"] = node.TypeName;
     result["name"] = node.Name;
     result["role"] = node.RoleName;
+    result["codegenMemberAccess"] = node.CodegenMemberAccess;
     result["parentId"] = node.ParentWidgetId;
     result["index"] = node.ChildIndex;
     result["depth"] = node.Depth;
@@ -2324,6 +2330,25 @@ int RunUiCommand(const std::vector<std::string>& args)
             std::cerr << "Failed to rename UI node: " << renameResult.ErrorMessage << "\n";
         }
         return renameResult.bSuccess ? 0 : 1;
+    }
+
+    if (args[1] == "codegen-access") {
+        if (args.size() < 5) {
+            std::cerr << "ui codegen-access requires <input.ui.json>, <widget-id>, and public|private.\n";
+            return 1;
+        }
+
+        const std::filesystem::path inputPath = std::filesystem::path(args[2]).lexically_normal();
+        const FUiMutationResult accessResult =
+            UiDocumentCli::SetNodeCodegenMemberAccess(inputPath, args[3], args[4]);
+        if (bJsonOutput) {
+            PrintUiMutationJson(inputPath, accessResult);
+        } else if (accessResult.bSuccess) {
+            PrintUiMutationText(accessResult);
+        } else {
+            std::cerr << "Failed to set UI codegen member access: " << accessResult.ErrorMessage << "\n";
+        }
+        return accessResult.bSuccess ? 0 : 1;
     }
 
     if (args[1] == "set") {

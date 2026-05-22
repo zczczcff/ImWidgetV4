@@ -167,6 +167,9 @@ TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
         result.Files.HeaderText.find(
             "std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel;"),
         std::string::npos);
+    EXPECT_LT(
+        result.Files.HeaderText.find("std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel;"),
+        result.Files.HeaderText.find("protected:"));
     EXPECT_NE(
         result.Files.SourceText.find("ActionButton->SetContent(ButtonLabel);"),
         std::string::npos);
@@ -176,6 +179,43 @@ TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
     EXPECT_NE(result.Files.SourceText.find("return RootPanel;"), std::string::npos);
     ExpectNoTrailingWhitespace(result.Files.HeaderText);
     ExpectNoTrailingWhitespace(result.Files.SourceText);
+}
+
+TEST(EditorCodeGenTest, CanGeneratePrivateMembersFromCodegenMetadata)
+{
+    json rootJson = WidgetSerializer::SerializeWidgetTree(BuildSimpleGeneratedRoot());
+    ASSERT_TRUE(rootJson.contains("Children"));
+    ASSERT_FALSE(rootJson["Children"].empty());
+    rootJson["Children"][0][kEditorCodegenFieldName][kEditorCodegenMemberAccessFieldName] =
+        kEditorCodegenMemberAccessPrivate;
+
+    FCodeGenOptions options;
+    options.ClassName = "GeneratedToolbar";
+
+    const FCodeGenResult result = WidgetTreeToCppGenerator::Generate(rootJson, options);
+
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    const std::size_t publicSection = result.Files.HeaderText.find("public:");
+    const std::size_t protectedSection = result.Files.HeaderText.find("protected:");
+    const std::size_t privateSection = result.Files.HeaderText.find("private:");
+    const std::size_t rootMember =
+        result.Files.HeaderText.find("std::shared_ptr<ImWidgetV4::ImVerticalBox> RootPanel;");
+    const std::size_t actionMember =
+        result.Files.HeaderText.find("std::shared_ptr<ImWidgetV4::ImButton> ActionButton;");
+    const std::size_t labelMember =
+        result.Files.HeaderText.find("std::shared_ptr<ImWidgetV4::ImTextBlock> ButtonLabel;");
+
+    ASSERT_NE(publicSection, std::string::npos);
+    ASSERT_NE(protectedSection, std::string::npos);
+    ASSERT_NE(privateSection, std::string::npos);
+    ASSERT_NE(rootMember, std::string::npos);
+    ASSERT_NE(actionMember, std::string::npos);
+    ASSERT_NE(labelMember, std::string::npos);
+    EXPECT_LT(publicSection, rootMember);
+    EXPECT_LT(rootMember, protectedSection);
+    EXPECT_LT(publicSection, labelMember);
+    EXPECT_LT(labelMember, protectedSection);
+    EXPECT_LT(privateSection, actionMember);
 }
 
 TEST(EditorCodeGenTest, GeneratesTabSpecificRebuildLogic)
@@ -396,4 +436,37 @@ TEST(EditorCodeGenTest, SessionCanWriteGeneratedHeaderAndSourceFiles)
     EXPECT_NE(sourceText.find("return RootPanel;"), std::string::npos);
 
     std::filesystem::remove_all(tempDirectory, errorCode);
+}
+
+TEST(EditorCodeGenTest, EditorDocumentPersistsCodegenMemberAccessMetadata)
+{
+    EditorDocument document;
+    document.NewDocument(BuildSimpleGeneratedRoot(), "Main");
+    const std::shared_ptr<ImWidget> root = document.GetRootWidget();
+    ASSERT_TRUE(root);
+    ASSERT_FALSE(root->GetChildren().empty());
+    const std::shared_ptr<ImWidget> actionButton = root->GetChildren().front();
+
+    json metadata;
+    metadata[kEditorCodegenMemberAccessFieldName] = kEditorCodegenMemberAccessPrivate;
+    document.SetWidgetCodegenMetadata(actionButton, metadata);
+
+    const json documentJson = document.ExportDocumentJson();
+    ASSERT_TRUE(documentJson.contains("RootWidget"));
+    ASSERT_TRUE(documentJson["RootWidget"].contains("Children"));
+    ASSERT_FALSE(documentJson["RootWidget"]["Children"].empty());
+    EXPECT_EQ(
+        documentJson["RootWidget"]["Children"][0][kEditorCodegenFieldName][kEditorCodegenMemberAccessFieldName],
+        kEditorCodegenMemberAccessPrivate);
+
+    EditorDocument restored;
+    std::string error;
+    ASSERT_TRUE(restored.ImportDocumentJson(documentJson, &error)) << error;
+    const std::shared_ptr<ImWidget> restoredRoot = restored.GetRootWidget();
+    ASSERT_TRUE(restoredRoot);
+    ASSERT_FALSE(restoredRoot->GetChildren().empty());
+    const json restoredMetadata = restored.GetWidgetCodegenMetadata(restoredRoot->GetChildren().front());
+    EXPECT_EQ(
+        restoredMetadata.value(kEditorCodegenMemberAccessFieldName, std::string()),
+        kEditorCodegenMemberAccessPrivate);
 }

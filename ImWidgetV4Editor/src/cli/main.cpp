@@ -147,7 +147,7 @@ std::string NormalizeStartupDocumentFileName(const std::string& rawText)
 {
     std::string trimmedName = TrimWhitespaceCopy(rawText);
     if (trimmedName.empty()) {
-        trimmedName = "Main";
+        trimmedName = "MainView";
     }
     if (EndsWithCaseInsensitive(trimmedName, ".ui.json")) {
         return trimmedName;
@@ -159,21 +159,18 @@ std::string NormalizeStartupDocumentFileName(const std::string& rawText)
     return baseName + ".ui.json";
 }
 
-std::string BuildStartupWidgetClassName(const std::string& startupDocumentFileName)
+std::string BuildWidgetClassNameFromUiFileName(const std::string& uiDocumentFileName)
 {
-    std::string baseName = startupDocumentFileName;
+    std::string baseName = uiDocumentFileName;
     if (EndsWithCaseInsensitive(baseName, ".ui.json")) {
         baseName.resize(baseName.size() - std::string(".ui.json").size());
     } else {
         baseName = std::filesystem::path(baseName).stem().string();
     }
 
-    std::string className = NormalizeIdentifier(baseName, "MainView");
+    std::string className = NormalizeIdentifier(baseName, "GeneratedWidget");
     if (!className.empty()) {
         className.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(className.front())));
-    }
-    if (className.size() < 4 || className.substr(className.size() - 4) != "View") {
-        className += "View";
     }
     return className;
 }
@@ -351,7 +348,7 @@ bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldReq
     request.NamespaceName = project.GetNamespaceName();
     request.TemplateName = project.GetTemplateName();
     request.StartupDocumentFileName = project.GetStartupDocumentRelativePath().filename().string();
-    request.StartupWidgetClassName = BuildStartupWidgetClassName(request.StartupDocumentFileName);
+    request.StartupWidgetClassName = BuildWidgetClassNameFromUiFileName(request.StartupDocumentFileName);
     request.TitleBarWidgetClassName = "TitleBarView";
     request.ApplicationSettings = project.GetApplicationSettings();
     if (request.ApplicationSettings.Title.empty()) {
@@ -455,7 +452,7 @@ int RunProjectCreate(const std::vector<std::string>& args)
     }
 
     std::string namespaceName = NormalizeIdentifier(projectName, "AppProject");
-    std::string startupDocumentName = "Main";
+    std::string startupDocumentName = "MainView";
     FEditorApplicationSettings settings;
     settings.Title = projectName;
     settings.bUseTitleBar = true;
@@ -539,7 +536,7 @@ int RunProjectCreate(const std::vector<std::string>& args)
     scaffoldRequest.NamespaceName = namespaceName;
     scaffoldRequest.TemplateName = "Blank App";
     scaffoldRequest.StartupDocumentFileName = startupDocumentFileName;
-    scaffoldRequest.StartupWidgetClassName = BuildStartupWidgetClassName(startupDocumentFileName);
+    scaffoldRequest.StartupWidgetClassName = BuildWidgetClassNameFromUiFileName(startupDocumentFileName);
     scaffoldRequest.TitleBarWidgetClassName = "TitleBarView";
     scaffoldRequest.ApplicationSettings = settings;
     scaffoldRequest.StartupRootWidget = startupDocument.GetRootWidget();

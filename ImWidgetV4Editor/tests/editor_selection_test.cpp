@@ -2387,7 +2387,7 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, "SampleApp"));
     const std::filesystem::path projectRoot = tempRoot / "SampleApp";
     const std::filesystem::path manifestPath = EditorProject::BuildManifestFilePath(projectRoot);
-    const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "Main.ui.json";
+    const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "MainView.ui.json";
     const std::filesystem::path titleBarDocumentPath = projectRoot / "ui" / "TitleBar.ui.json";
     const std::filesystem::path rootCMakeListsPath = projectRoot / "CMakeLists.txt";
     const std::filesystem::path generatedCMakePath = projectRoot / "cmake" / "ImWidgetV4GeneratedProject.cmake";
@@ -2497,7 +2497,7 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtCreatesManifestAn
     EXPECT_EQ(workspaceController->GetProject()->GetTemplateName(), "Blank App");
     EXPECT_EQ(
         workspaceController->GetProject()->GetStartupDocumentRelativePath().generic_string(),
-        std::string("ui/Main.ui.json"));
+        std::string("ui/MainView.ui.json"));
     EXPECT_TRUE(workspaceController->GetProject()->GetApplicationSettings().bUseTitleBar);
     EXPECT_EQ(
         workspaceController->GetProject()->GetTitleBarDocumentRelativePath().generic_string(),
@@ -3407,8 +3407,8 @@ TEST(EditorSelectionTest, WorkspaceControllerCreateAppProjectAtUsesExplicitOptio
     ASSERT_TRUE(workspaceController->CreateAppProjectAt(tempRoot, options));
     const std::filesystem::path projectRoot = tempRoot / "ToolSuite";
     const std::filesystem::path startupDocumentPath = projectRoot / "ui" / "WorkspaceHome.ui.json";
-    const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "WorkspaceHomeView.h";
-    const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "WorkspaceHomeView.cpp";
+    const std::filesystem::path generatedHeaderPath = projectRoot / "generated" / "WorkspaceHome.h";
+    const std::filesystem::path generatedSourcePath = projectRoot / "generated" / "WorkspaceHome.cpp";
 
     ASSERT_TRUE(workspaceController->GetProject());
     EXPECT_EQ(workspaceController->GetProject()->GetProjectName(), "ToolSuite");

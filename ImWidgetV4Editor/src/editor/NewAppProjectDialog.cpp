@@ -92,7 +92,7 @@ std::string NormalizeStartupDocumentName(const std::string& rawText)
 {
     const std::string trimmed = TrimWhitespaceCopy(rawText);
     if (trimmed.empty()) {
-        return "Main";
+        return "MainView";
     }
 
     return std::filesystem::path(trimmed).stem().string();

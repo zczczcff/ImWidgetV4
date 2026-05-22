@@ -19,7 +19,7 @@ struct FProjectScaffoldRequest {
     std::string ProjectName;
     std::string NamespaceName;
     std::string TemplateName = "Blank App";
-    std::string StartupDocumentFileName = "Main.ui.json";
+    std::string StartupDocumentFileName = "MainView.ui.json";
     std::string StartupWidgetClassName = "MainView";
     std::string TitleBarWidgetClassName = "TitleBarView";
     FEditorApplicationSettings ApplicationSettings;

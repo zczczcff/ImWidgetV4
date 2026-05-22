@@ -5,7 +5,7 @@
     "Name": "ImWidgetSDKBuilder",
     "Namespace": "ImWidgetSDKBuilder",
     "Template": "Blank App",
-    "StartupDocument": "ui/Main.ui.json",
+    "StartupDocument": "ui/MainView.ui.json",
     "ActiveBuildProfile": "Windows Debug"
   },
   "Application": {

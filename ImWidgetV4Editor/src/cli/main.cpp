@@ -2,15 +2,13 @@
 #include "cli/UiDocumentCli.h"
 #include "editor/DocumentSnapshotExporter.h"
 #include "editor/EditorDocument.h"
+#include "project/AppProjectCreator.h"
 #include "project/EditorProject.h"
+#include "project/ProjectNaming.h"
+#include "project/ProjectScaffoldRequestBuilder.h"
 #include "serialization/WidgetCatalog.h"
 #include "templates/ProjectScaffolder.h"
 #include "toolchains/EnvironmentProbe.h"
-
-#include <imwidgetv4/widgets/Button.h>
-#include <imwidgetv4/widgets/CanvasPanel.h>
-#include <imwidgetv4/widgets/TextBlock.h>
-#include <imwidgetv4/widgets/TitleBar.h>
 
 #include <algorithm>
 #include <cctype>
@@ -60,160 +58,6 @@ struct FUiAssetScanResult {
     std::string ErrorMessage;
     std::vector<FUiAssetReference> Assets;
 };
-
-std::string TrimWhitespaceCopy(const std::string& text)
-{
-    const std::size_t begin = text.find_first_not_of(" \t\r\n");
-    if (begin == std::string::npos) {
-        return {};
-    }
-
-    const std::size_t end = text.find_last_not_of(" \t\r\n");
-    return text.substr(begin, end - begin + 1);
-}
-
-bool EndsWithCaseInsensitive(const std::string& value, const std::string& suffix)
-{
-    if (suffix.size() > value.size()) {
-        return false;
-    }
-
-    const std::size_t offset = value.size() - suffix.size();
-    for (std::size_t index = 0; index < suffix.size(); ++index) {
-        const char left = static_cast<char>(std::tolower(static_cast<unsigned char>(value[offset + index])));
-        const char right = static_cast<char>(std::tolower(static_cast<unsigned char>(suffix[index])));
-        if (left != right) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool IsIdentifierStartChar(char c)
-{
-    const unsigned char value = static_cast<unsigned char>(c);
-    return std::isalpha(value) != 0 || c == '_';
-}
-
-bool IsIdentifierContinueChar(char c)
-{
-    const unsigned char value = static_cast<unsigned char>(c);
-    return std::isalnum(value) != 0 || c == '_';
-}
-
-bool ContainsPathSeparators(const std::string& text)
-{
-    return text.find('/') != std::string::npos || text.find('\\') != std::string::npos;
-}
-
-std::string NormalizeIdentifier(const std::string& rawText, const std::string& fallback)
-{
-    const std::string source = TrimWhitespaceCopy(rawText);
-    const std::string fallbackSource = TrimWhitespaceCopy(fallback).empty()
-        ? std::string("AppProject")
-        : TrimWhitespaceCopy(fallback);
-
-    auto sanitize = [](const std::string& text) {
-        std::string result;
-        result.reserve(text.size());
-        for (char c : text) {
-            if (IsIdentifierContinueChar(c)) {
-                result.push_back(c);
-            } else if (result.empty() || result.back() != '_') {
-                result.push_back('_');
-            }
-        }
-
-        while (!result.empty() && result.back() == '_') {
-            result.pop_back();
-        }
-        return result;
-    };
-
-    std::string normalized = sanitize(source);
-    if (normalized.empty()) {
-        normalized = sanitize(fallbackSource);
-    }
-    if (normalized.empty()) {
-        normalized = "AppProject";
-    }
-    if (!IsIdentifierStartChar(normalized.front())) {
-        normalized.insert(normalized.begin(), '_');
-    }
-    return normalized;
-}
-
-std::string NormalizeStartupDocumentFileName(const std::string& rawText)
-{
-    std::string trimmedName = TrimWhitespaceCopy(rawText);
-    if (trimmedName.empty()) {
-        trimmedName = "MainView";
-    }
-    if (EndsWithCaseInsensitive(trimmedName, ".ui.json")) {
-        return trimmedName;
-    }
-
-    const std::filesystem::path path(trimmedName);
-    const std::string stem = path.stem().string();
-    const std::string baseName = stem.empty() ? trimmedName : stem;
-    return baseName + ".ui.json";
-}
-
-std::string BuildWidgetClassNameFromUiFileName(const std::string& uiDocumentFileName)
-{
-    std::string baseName = uiDocumentFileName;
-    if (EndsWithCaseInsensitive(baseName, ".ui.json")) {
-        baseName.resize(baseName.size() - std::string(".ui.json").size());
-    } else {
-        baseName = std::filesystem::path(baseName).stem().string();
-    }
-
-    std::string className = NormalizeIdentifier(baseName, "GeneratedWidget");
-    if (!className.empty()) {
-        className.front() = static_cast<char>(std::toupper(static_cast<unsigned char>(className.front())));
-    }
-    return className;
-}
-
-std::shared_ptr<ImWidget> BuildDefaultStartupRoot()
-{
-    auto canvas = std::make_shared<ImCanvasPanel>();
-    canvas->SetName("RootCanvas");
-    canvas->SetDesiredSize(FVector2(1280.0f, 720.0f));
-
-    auto title = std::make_shared<ImTextBlock>();
-    title->SetName("TitleText");
-    title->SetText("ImWidgetV4 App");
-    title->SetFontSize(32.0f);
-    title->SetWrapText(false);
-    if (auto* slot = canvas->AddChildAt(title, FVector2(0.08f, 0.08f))) {
-        slot->SetAutoSize(true);
-    }
-
-    auto button = std::make_shared<ImButton>();
-    button->SetName("PrimaryButton");
-    button->SetText("Action");
-    if (auto* slot = canvas->AddChildAt(button, FVector2(0.08f, 0.20f))) {
-        slot->SetAutoSize(true);
-    }
-
-    return canvas;
-}
-
-std::shared_ptr<ImTitleBar> BuildDefaultTitleBarRoot(const std::string& projectName)
-{
-    auto titleBar = std::make_shared<ImTitleBar>();
-    titleBar->SetName("RootTitleBar");
-    titleBar->SetShowSystemButtons(true);
-
-    auto titleText = std::make_shared<ImTextBlock>();
-    titleText->SetName("ProjectTitleText");
-    titleText->SetText(projectName.empty() ? std::string("Application") : projectName);
-    titleText->SetWrapText(false);
-    titleBar->AddLeadingItem(titleText);
-
-    return titleBar;
-}
 
 void PrintUsage()
 {
@@ -313,109 +157,13 @@ std::string ResolveProfileName(const EditorProject& project, const std::string& 
 
 bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldRequest& outRequest)
 {
-    if (project.GetProjectRoot().empty()) {
-        std::cerr << "Project root is empty.\n";
-        return false;
-    }
-    if (project.GetStartupDocumentRelativePath().empty()) {
-        std::cerr << "Project startup document is not configured.\n";
+    FProjectScaffoldRequestBuildResult result = BuildProjectScaffoldRequest(project);
+    if (!result.bSuccess) {
+        std::cerr << result.ErrorMessage << "\n";
         return false;
     }
 
-    EditorDocument startupDocument;
-    std::string loadError;
-    if (!startupDocument.Load(project.GetStartupDocumentPath(), &loadError)) {
-        std::cerr << "Failed to load startup document: " << loadError << "\n";
-        return false;
-    }
-    json startupDocumentJson;
-    try {
-        std::ifstream startupStream(project.GetStartupDocumentPath());
-        if (startupStream.is_open()) {
-            startupStream >> startupDocumentJson;
-        }
-    } catch (...) {
-        startupDocumentJson = json();
-    }
-    if (!startupDocument.GetRootWidget()) {
-        std::cerr << "Startup document has no root widget.\n";
-        return false;
-    }
-
-    FProjectScaffoldRequest request;
-    request.ProjectRoot = project.GetProjectRoot();
-    request.ProjectName = project.GetProjectName();
-    request.NamespaceName = project.GetNamespaceName();
-    request.TemplateName = project.GetTemplateName();
-    request.StartupDocumentFileName = project.GetStartupDocumentRelativePath().filename().string();
-    request.StartupWidgetClassName = BuildWidgetClassNameFromUiFileName(request.StartupDocumentFileName);
-    request.TitleBarWidgetClassName = "TitleBarView";
-    request.ApplicationSettings = project.GetApplicationSettings();
-    if (request.ApplicationSettings.Title.empty()) {
-        request.ApplicationSettings.Title = request.ProjectName;
-    }
-    request.StartupRootWidget = startupDocument.GetRootWidget();
-    if (startupDocumentJson.is_object() && startupDocumentJson.contains("RootWidget")) {
-        request.StartupRootWidgetJson = startupDocumentJson.at("RootWidget");
-    }
-
-    if (request.ApplicationSettings.bUseTitleBar) {
-        if (request.ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
-            request.ApplicationSettings.TitleBarDocumentRelativePath =
-                std::filesystem::path("ui") / "TitleBar.ui.json";
-        }
-
-        const std::filesystem::path titleBarDocumentPath =
-            (project.GetProjectRoot() / request.ApplicationSettings.TitleBarDocumentRelativePath).lexically_normal();
-        EditorDocument titleBarDocument;
-        if (!std::filesystem::exists(titleBarDocumentPath)) {
-            titleBarDocument.NewDocument(BuildDefaultTitleBarRoot(request.ProjectName), "TitleBar");
-            std::string saveError;
-            if (!titleBarDocument.SaveAs(titleBarDocumentPath, &saveError)) {
-                std::cerr << "Failed to create title bar document: " << saveError << "\n";
-                return false;
-            }
-
-            FEditorApplicationSettings updatedSettings = project.GetApplicationSettings();
-            updatedSettings.TitleBarDocumentRelativePath = request.ApplicationSettings.TitleBarDocumentRelativePath;
-            project.SetApplicationSettings(updatedSettings);
-            std::string projectSaveError;
-            if (!project.Save(&projectSaveError)) {
-                std::cerr << "Failed to save project manifest: " << projectSaveError << "\n";
-                return false;
-            }
-        } else if (!titleBarDocument.Load(titleBarDocumentPath, &loadError)) {
-            std::cerr << "Failed to load title bar document: " << loadError << "\n";
-            return false;
-        }
-
-        auto titleBarRoot = std::dynamic_pointer_cast<ImTitleBar>(titleBarDocument.GetRootWidget());
-        if (!titleBarRoot) {
-            std::cerr << "Title bar document root must be ImTitleBar.\n";
-            return false;
-        }
-        json titleBarDocumentJson;
-        try {
-            std::ifstream titleBarStream(titleBarDocumentPath);
-            if (titleBarStream.is_open()) {
-                titleBarStream >> titleBarDocumentJson;
-            }
-        } catch (...) {
-            titleBarDocumentJson = json();
-        }
-        titleBarRoot->SetShowSystemButtons(request.ApplicationSettings.bShowSystemButtons);
-        request.TitleBarRootWidget = titleBarRoot;
-        if (titleBarDocumentJson.is_object() && titleBarDocumentJson.contains("RootWidget")) {
-            request.TitleBarRootWidgetJson = titleBarDocumentJson.at("RootWidget");
-            if (request.TitleBarRootWidgetJson.contains("Properties") &&
-                request.TitleBarRootWidgetJson["Properties"].is_object()) {
-                request.TitleBarRootWidgetJson["Properties"]["ImTitleBar::ShowSystemButtons"] =
-                    request.ApplicationSettings.bShowSystemButtons;
-            }
-        }
-    }
-
-    outRequest = std::move(request);
+    outRequest = std::move(result.Request);
     return true;
 }
 
@@ -451,7 +199,7 @@ int RunProjectCreate(const std::vector<std::string>& args)
         return 1;
     }
 
-    std::string namespaceName = NormalizeIdentifier(projectName, "AppProject");
+    std::string namespaceName = NormalizeProjectIdentifier(projectName, "AppProject");
     std::string startupDocumentName = "MainView";
     FEditorApplicationSettings settings;
     settings.Title = projectName;
@@ -464,7 +212,7 @@ int RunProjectCreate(const std::vector<std::string>& args)
             if (!ConsumeOptionValue(args, index, args[index], value)) {
                 return 1;
             }
-            namespaceName = NormalizeIdentifier(value, "AppProject");
+            namespaceName = NormalizeProjectIdentifier(value, "AppProject");
         } else if (args[index] == "--startup") {
             if (!ConsumeOptionValue(args, index, args[index], value)) {
                 return 1;
@@ -485,82 +233,20 @@ int RunProjectCreate(const std::vector<std::string>& args)
         }
     }
 
-    const std::filesystem::path projectRoot = (parentDirectory / projectName).lexically_normal();
-    if (std::filesystem::exists(projectRoot)) {
-        std::cerr << "Target folder already exists: " << projectRoot.string() << "\n";
+    FAppProjectCreateRequest createRequest;
+    createRequest.ParentDirectory = parentDirectory;
+    createRequest.ProjectName = projectName;
+    createRequest.NamespaceName = namespaceName;
+    createRequest.StartupDocumentName = startupDocumentName;
+    createRequest.TemplateName = "Blank App";
+    createRequest.ApplicationSettings = settings;
+    const FAppProjectCreateResult createResult = CreateAppProject(createRequest);
+    if (!createResult.bSuccess) {
+        std::cerr << createResult.ErrorMessage << "\n";
         return 1;
     }
 
-    const std::string startupDocumentFileName = NormalizeStartupDocumentFileName(startupDocumentName);
-    if (startupDocumentFileName.empty() ||
-        ContainsPathSeparators(startupDocumentFileName) ||
-        std::filesystem::path(startupDocumentFileName).filename().string() != startupDocumentFileName) {
-        std::cerr << "Startup UI name must not contain path separators.\n";
-        return 1;
-    }
-
-    const std::filesystem::path startupDocumentRelativePath = std::filesystem::path("ui") / startupDocumentFileName;
-    const std::filesystem::path titleBarDocumentRelativePath = std::filesystem::path("ui") / "TitleBar.ui.json";
-
-    std::error_code errorCode;
-    std::filesystem::create_directories(projectRoot / "src", errorCode);
-    std::filesystem::create_directories(projectRoot / "include", errorCode);
-    std::filesystem::create_directories(projectRoot / "ui", errorCode);
-    std::filesystem::create_directories(projectRoot / "generated", errorCode);
-    std::filesystem::create_directories(projectRoot / "cmake", errorCode);
-    if (errorCode) {
-        std::cerr << "Failed to create project directories: " << errorCode.message() << "\n";
-        return 1;
-    }
-
-    EditorDocument startupDocument;
-    startupDocument.NewDocument(BuildDefaultStartupRoot(), "Main");
-    std::string documentError;
-    if (!startupDocument.SaveAs(projectRoot / startupDocumentRelativePath, &documentError)) {
-        std::cerr << documentError << "\n";
-        return 1;
-    }
-
-    EditorDocument titleBarDocument;
-    titleBarDocument.NewDocument(BuildDefaultTitleBarRoot(projectName), "TitleBar");
-    if (!titleBarDocument.SaveAs(projectRoot / titleBarDocumentRelativePath, &documentError)) {
-        std::cerr << documentError << "\n";
-        return 1;
-    }
-
-    settings.TitleBarDocumentRelativePath = titleBarDocumentRelativePath;
-
-    FProjectScaffoldRequest scaffoldRequest;
-    scaffoldRequest.ProjectRoot = projectRoot;
-    scaffoldRequest.ProjectName = projectName;
-    scaffoldRequest.NamespaceName = namespaceName;
-    scaffoldRequest.TemplateName = "Blank App";
-    scaffoldRequest.StartupDocumentFileName = startupDocumentFileName;
-    scaffoldRequest.StartupWidgetClassName = BuildWidgetClassNameFromUiFileName(startupDocumentFileName);
-    scaffoldRequest.TitleBarWidgetClassName = "TitleBarView";
-    scaffoldRequest.ApplicationSettings = settings;
-    scaffoldRequest.StartupRootWidget = startupDocument.GetRootWidget();
-    scaffoldRequest.TitleBarRootWidget = titleBarDocument.GetRootWidget();
-
-    const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
-    if (!scaffoldResult.bSuccess) {
-        std::cerr << scaffoldResult.ErrorMessage << "\n";
-        return 1;
-    }
-
-    EditorProject project;
-    if (!project.CreateNew(projectRoot, projectName, namespaceName, startupDocumentRelativePath, "Blank App")) {
-        std::cerr << "Generated invalid project metadata.\n";
-        return 1;
-    }
-    project.SetApplicationSettings(settings);
-    std::string saveError;
-    if (!project.Save(&saveError)) {
-        std::cerr << saveError << "\n";
-        return 1;
-    }
-
-    std::cout << "Created project: " << projectRoot.string() << "\n";
+    std::cout << "Created project: " << createResult.ProjectRoot.string() << "\n";
     return 0;
 }
 

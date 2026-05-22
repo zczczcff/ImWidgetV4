@@ -2,6 +2,7 @@
 #include "EditorTheme.h"
 #include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
+#include "../project/ProjectNaming.h"
 
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/widgets/Button.h>
@@ -11,7 +12,6 @@
 #include <imwidgetv4/widgets/TextBlock.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
-#include <cctype>
 
 namespace ImWidgetV4Editor {
 
@@ -25,77 +25,6 @@ FVector2 MaxSize(const FVector2& left, const FVector2& right)
     return FVector2(
         std::max(left.X, right.X),
         std::max(left.Y, right.Y));
-}
-
-bool IsIdentifierStartChar(char c)
-{
-    const unsigned char value = static_cast<unsigned char>(c);
-    return std::isalpha(value) != 0 || c == '_';
-}
-
-bool IsIdentifierContinueChar(char c)
-{
-    const unsigned char value = static_cast<unsigned char>(c);
-    return std::isalnum(value) != 0 || c == '_';
-}
-
-std::string TrimWhitespaceCopy(const std::string& text)
-{
-    const std::size_t begin = text.find_first_not_of(" \t\r\n");
-    if (begin == std::string::npos) {
-        return std::string();
-    }
-
-    const std::size_t end = text.find_last_not_of(" \t\r\n");
-    return text.substr(begin, end - begin + 1);
-}
-
-std::string NormalizeProjectIdentifier(const std::string& rawText, const std::string& fallback)
-{
-    const std::string source = TrimWhitespaceCopy(rawText);
-    const std::string fallbackSource = TrimWhitespaceCopy(fallback).empty()
-        ? std::string("AppProject")
-        : TrimWhitespaceCopy(fallback);
-
-    auto sanitize = [](const std::string& text) {
-        std::string result;
-        result.reserve(text.size());
-        for (char c : text) {
-            if (IsIdentifierContinueChar(c)) {
-                result.push_back(c);
-            } else if (result.empty() || result.back() != '_') {
-                result.push_back('_');
-            }
-        }
-
-        while (!result.empty() && result.back() == '_') {
-            result.pop_back();
-        }
-
-        return result;
-    };
-
-    std::string normalized = sanitize(source);
-    if (normalized.empty()) {
-        normalized = sanitize(fallbackSource);
-    }
-    if (normalized.empty()) {
-        normalized = "AppProject";
-    }
-    if (!IsIdentifierStartChar(normalized.front())) {
-        normalized.insert(normalized.begin(), '_');
-    }
-    return normalized;
-}
-
-std::string NormalizeStartupDocumentName(const std::string& rawText)
-{
-    const std::string trimmed = TrimWhitespaceCopy(rawText);
-    if (trimmed.empty()) {
-        return "MainView";
-    }
-
-    return std::filesystem::path(trimmed).stem().string();
 }
 
 } // namespace

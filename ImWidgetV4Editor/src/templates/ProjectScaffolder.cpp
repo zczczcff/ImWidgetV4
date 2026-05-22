@@ -161,6 +161,60 @@ bool WriteTextFile(
     }
 }
 
+bool ReadTextFile(
+    const std::filesystem::path& filePath,
+    std::string& outText,
+    std::string& outError)
+{
+    try {
+        std::ifstream stream(filePath, std::ios::binary);
+        if (!stream.is_open()) {
+            outError = "Failed to open " + filePath.string() + " for reading.";
+            return false;
+        }
+
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        outText = buffer.str();
+        return true;
+    } catch (const std::exception& exception) {
+        outError = exception.what();
+        return false;
+    } catch (...) {
+        outError = "Unknown file read error.";
+        return false;
+    }
+}
+
+void AppendChangedFile(
+    const std::filesystem::path& filePath,
+    const std::string& expectedText,
+    FProjectScaffoldResult& result)
+{
+    auto normalizeLineEndings = [](const std::string& text) {
+        std::string normalized;
+        normalized.reserve(text.size());
+        for (std::size_t index = 0; index < text.size(); ++index) {
+            if (text[index] == '\r') {
+                if (index + 1 < text.size() && text[index + 1] == '\n') {
+                    continue;
+                }
+                normalized.push_back('\n');
+            } else {
+                normalized.push_back(text[index]);
+            }
+        }
+        return normalized;
+    };
+
+    std::string existingText;
+    std::string errorMessage;
+    if (!ReadTextFile(filePath, existingText, errorMessage) ||
+        normalizeLineEndings(existingText) != normalizeLineEndings(expectedText)) {
+        result.GeneratedFiles.push_back(filePath);
+    }
+}
+
 std::string BuildRootCMakeListsText(
     const FProjectScaffoldRequest& request,
     const std::string& cmakeProjectName)
@@ -529,8 +583,9 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
     FCodeGenOptions codeGenOptions;
     codeGenOptions.ClassName = request.StartupWidgetClassName;
     codeGenOptions.Namespace = request.NamespaceName;
-    const FCodeGenResult generatedCode =
-        WidgetTreeToCppGenerator::Generate(request.StartupRootWidget, codeGenOptions);
+    const FCodeGenResult generatedCode = request.StartupRootWidgetJson.is_object()
+        ? WidgetTreeToCppGenerator::Generate(request.StartupRootWidgetJson, codeGenOptions)
+        : WidgetTreeToCppGenerator::Generate(request.StartupRootWidget, codeGenOptions);
     if (!generatedCode.bSuccess) {
         result.ErrorMessage = generatedCode.ErrorMessage.empty()
             ? std::string("Startup widget code generation failed.")
@@ -543,9 +598,9 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
         FCodeGenOptions titleBarCodeGenOptions;
         titleBarCodeGenOptions.ClassName = request.TitleBarWidgetClassName;
         titleBarCodeGenOptions.Namespace = request.NamespaceName;
-        generatedTitleBarCode = WidgetTreeToCppGenerator::Generate(
-            request.TitleBarRootWidget,
-            titleBarCodeGenOptions);
+        generatedTitleBarCode = request.TitleBarRootWidgetJson.is_object()
+            ? WidgetTreeToCppGenerator::Generate(request.TitleBarRootWidgetJson, titleBarCodeGenOptions)
+            : WidgetTreeToCppGenerator::Generate(request.TitleBarRootWidget, titleBarCodeGenOptions);
         if (!generatedTitleBarCode.bSuccess) {
             result.ErrorMessage = generatedTitleBarCode.ErrorMessage.empty()
                 ? std::string("Title bar widget code generation failed.")
@@ -605,6 +660,84 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
         }
         result.GeneratedFiles.push_back(titleBarSourcePath);
     }
+
+    result.bSuccess = true;
+    return result;
+}
+
+FProjectScaffoldResult PreviewBlankAppCode(const FProjectScaffoldRequest& request)
+{
+    FProjectScaffoldResult result;
+    if (request.ProjectRoot.empty()) {
+        result.ErrorMessage = "Project root is empty.";
+        return result;
+    }
+    if (!request.StartupRootWidget) {
+        result.ErrorMessage = "Startup widget tree is empty.";
+        return result;
+    }
+
+    FCodeGenOptions codeGenOptions;
+    codeGenOptions.ClassName = request.StartupWidgetClassName;
+    codeGenOptions.Namespace = request.NamespaceName;
+    const FCodeGenResult generatedCode = request.StartupRootWidgetJson.is_object()
+        ? WidgetTreeToCppGenerator::Generate(request.StartupRootWidgetJson, codeGenOptions)
+        : WidgetTreeToCppGenerator::Generate(request.StartupRootWidget, codeGenOptions);
+    if (!generatedCode.bSuccess) {
+        result.ErrorMessage = generatedCode.ErrorMessage.empty()
+            ? std::string("Startup widget code generation failed.")
+            : generatedCode.ErrorMessage;
+        return result;
+    }
+
+    FCodeGenResult generatedTitleBarCode;
+    if (request.TitleBarRootWidget) {
+        FCodeGenOptions titleBarCodeGenOptions;
+        titleBarCodeGenOptions.ClassName = request.TitleBarWidgetClassName;
+        titleBarCodeGenOptions.Namespace = request.NamespaceName;
+        generatedTitleBarCode = request.TitleBarRootWidgetJson.is_object()
+            ? WidgetTreeToCppGenerator::Generate(request.TitleBarRootWidgetJson, titleBarCodeGenOptions)
+            : WidgetTreeToCppGenerator::Generate(request.TitleBarRootWidget, titleBarCodeGenOptions);
+        if (!generatedTitleBarCode.bSuccess) {
+            result.ErrorMessage = generatedTitleBarCode.ErrorMessage.empty()
+                ? std::string("Title bar widget code generation failed.")
+                : generatedTitleBarCode.ErrorMessage;
+            return result;
+        }
+    }
+
+    AppendChangedFile(
+        request.ProjectRoot / "generated" / "AppProjectConfig.h",
+        BuildAppProjectConfigHeaderText(),
+        result);
+    AppendChangedFile(
+        request.ProjectRoot / "generated" / "AppProjectConfig.cpp",
+        BuildAppProjectConfigSourceText(request),
+        result);
+    AppendChangedFile(
+        request.ProjectRoot / "generated" / generatedCode.Files.HeaderFileName,
+        generatedCode.Files.HeaderText,
+        result);
+    AppendChangedFile(
+        request.ProjectRoot / "generated" / generatedCode.Files.SourceFileName,
+        generatedCode.Files.SourceText,
+        result);
+
+    if (request.TitleBarRootWidget) {
+        AppendChangedFile(
+            request.ProjectRoot / "generated" / generatedTitleBarCode.Files.HeaderFileName,
+            generatedTitleBarCode.Files.HeaderText,
+            result);
+        AppendChangedFile(
+            request.ProjectRoot / "generated" / generatedTitleBarCode.Files.SourceFileName,
+            generatedTitleBarCode.Files.SourceText,
+            result);
+    }
+
+    AppendChangedFile(
+        request.ProjectRoot / "cmake" / "ImWidgetV4GeneratedProject.cmake",
+        BuildGeneratedProjectCMakeText(request),
+        result);
 
     result.bSuccess = true;
     return result;
@@ -695,6 +828,17 @@ FProjectScaffoldResult ProjectScaffolder::GenerateCode(const FProjectScaffoldReq
             cmakeResult.GeneratedFiles.begin(),
             cmakeResult.GeneratedFiles.end());
         return codeResult;
+    }
+
+    FProjectScaffoldResult result;
+    result.ErrorMessage = "Unsupported project template: " + request.TemplateName;
+    return result;
+}
+
+FProjectScaffoldResult ProjectScaffolder::GenerateCodePreview(const FProjectScaffoldRequest& request)
+{
+    if (request.TemplateName.empty() || request.TemplateName == "Blank App") {
+        return PreviewBlankAppCode(request);
     }
 
     FProjectScaffoldResult result;

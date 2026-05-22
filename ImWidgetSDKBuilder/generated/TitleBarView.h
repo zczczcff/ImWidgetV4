@@ -5,10 +5,10 @@
 
 namespace ImWidgetV4 {
     class ImWidget;
-    class ImTitleBar;
     class ImHorizontalBox;
     class ImImage;
     class ImTextBlock;
+    class ImTitleBar;
 } // namespace ImWidgetV4
 
 namespace ImWidgetSDKBuilder {

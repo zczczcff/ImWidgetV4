@@ -8,6 +8,7 @@
 #include <fstream>
 #include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CanvasPanel.h>
+#include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ScrollBox.h>
 #include <imwidgetv4/widgets/TabView.h>
 #include <imwidgetv4/widgets/TextBlock.h>
@@ -117,6 +118,33 @@ std::shared_ptr<ImWidget> BuildVerticalSplitterGeneratedRoot()
     return splitter;
 }
 
+void ExpectNoTrailingWhitespace(const std::string& text)
+{
+    std::size_t lineStart = 0;
+    while (lineStart < text.size()) {
+        std::size_t lineEnd = text.find('\n', lineStart);
+        if (lineEnd == std::string::npos) {
+            lineEnd = text.size();
+        }
+
+        std::size_t contentEnd = lineEnd;
+        if (contentEnd > lineStart && text[contentEnd - 1] == '\r') {
+            --contentEnd;
+        }
+
+        if (contentEnd > lineStart) {
+            const char last = text[contentEnd - 1];
+            EXPECT_NE(last, ' ');
+            EXPECT_NE(last, '\t');
+        }
+
+        if (lineEnd == text.size()) {
+            break;
+        }
+        lineStart = lineEnd + 1;
+    }
+}
+
 } // namespace
 
 TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
@@ -146,6 +174,8 @@ TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
         result.Files.SourceText.find("RootPanel->AddChild(ActionButton);"),
         std::string::npos);
     EXPECT_NE(result.Files.SourceText.find("return RootPanel;"), std::string::npos);
+    ExpectNoTrailingWhitespace(result.Files.HeaderText);
+    ExpectNoTrailingWhitespace(result.Files.SourceText);
 }
 
 TEST(EditorCodeGenTest, GeneratesTabSpecificRebuildLogic)
@@ -192,6 +222,34 @@ TEST(EditorCodeGenTest, GeneratesSlotRestorationForPanelChildren)
     EXPECT_NE(
         result.Files.SourceText.find("slot->FromJson(ParseGeneratedJson("),
         std::string::npos);
+    EXPECT_EQ(result.Files.SourceText.find("ImSlot::SlotPosition"), std::string::npos);
+    EXPECT_EQ(result.Files.SourceText.find("ImSlot::SlotSize"), std::string::npos);
+}
+
+TEST(EditorCodeGenTest, PreservesAuthoredJsonWithoutExpandingDefaultStyle)
+{
+    json rootJson;
+    rootJson["Type"] = "ImCheckBox";
+    rootJson["Properties"] = {
+        {"ImCheckBox::Label", "Build SDK"},
+        {"ImCheckBox::Checked", true},
+        {"ImCheckBox::Disabled", false},
+        {"ImWidget::Name", "BuildSdkCheckBox"},
+        {"ImWidget::Visible", true},
+        {"ImWidget::HitTestVisible", true},
+        {"ImWidget::SupportsKeyboardFocus", true}
+    };
+    rootJson["Children"] = json::array();
+
+    FCodeGenOptions options;
+    options.ClassName = "GeneratedOptions";
+
+    const FCodeGenResult result = WidgetTreeToCppGenerator::Generate(rootJson, options);
+
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    EXPECT_NE(result.Files.SourceText.find("BuildSdkCheckBox->FromJson"), std::string::npos);
+    EXPECT_EQ(result.Files.SourceText.find("ImCheckBox::Style"), std::string::npos);
+    ExpectNoTrailingWhitespace(result.Files.SourceText);
 }
 
 TEST(EditorCodeGenTest, GeneratesTitleBarLeadingAndTrailingItems)

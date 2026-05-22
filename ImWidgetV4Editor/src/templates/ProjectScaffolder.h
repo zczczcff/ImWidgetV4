@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../project/EditorProject.h"
+#include "../serialization/DocumentFormat.h"
 
 #include <filesystem>
 #include <memory>
@@ -24,6 +25,10 @@ struct FProjectScaffoldRequest {
     FEditorApplicationSettings ApplicationSettings;
     std::shared_ptr<ImWidgetV4::ImWidget> StartupRootWidget;
     std::shared_ptr<ImWidgetV4::ImWidget> TitleBarRootWidget;
+    // Prefer the source document JSON for codegen so generated files do not
+    // expand object defaults that were not authored in the .ui.json.
+    json StartupRootWidgetJson;
+    json TitleBarRootWidgetJson;
 };
 
 struct FProjectScaffoldResult {
@@ -35,6 +40,7 @@ struct FProjectScaffoldResult {
 class ProjectScaffolder {
 public:
     static FProjectScaffoldResult GenerateCMake(const FProjectScaffoldRequest& request);
+    static FProjectScaffoldResult GenerateCodePreview(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult GenerateCode(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult ReinitializeMainCpp(const FProjectScaffoldRequest& request);
     static FProjectScaffoldResult Scaffold(const FProjectScaffoldRequest& request);

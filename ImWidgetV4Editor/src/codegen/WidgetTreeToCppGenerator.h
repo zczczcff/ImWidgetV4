@@ -37,6 +37,10 @@ public:
         const FCodeGenOptions& options);
 
     static FCodeGenResult Generate(
+        const json& rootWidgetJson,
+        const FCodeGenOptions& options);
+
+    static FCodeGenResult Generate(
         const EditorDocument& document,
         const FCodeGenOptions& options);
 };

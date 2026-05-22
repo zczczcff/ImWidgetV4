@@ -248,7 +248,7 @@ void PrintUsage()
         << "  project validate [--project <dir>]\n"
         << "  project profiles [--project <dir>]\n"
         << "  project settings get|set [--project <dir>] [key value]\n"
-        << "  codegen regenerate|reinit-main [--project <dir>]\n"
+        << "  codegen check|regenerate|reinit-main [--project <dir>]\n"
         << "  snapshot export <input.ui.json> <output.png> [--width <n>] [--height <n>]\n"
         << "  build configure|build|clean|rebuild [--project <dir>] [--profile <name>]\n"
         << "  probe [--project <dir>] [--profile <name>]\n";
@@ -330,6 +330,15 @@ bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldReq
         std::cerr << "Failed to load startup document: " << loadError << "\n";
         return false;
     }
+    json startupDocumentJson;
+    try {
+        std::ifstream startupStream(project.GetStartupDocumentPath());
+        if (startupStream.is_open()) {
+            startupStream >> startupDocumentJson;
+        }
+    } catch (...) {
+        startupDocumentJson = json();
+    }
     if (!startupDocument.GetRootWidget()) {
         std::cerr << "Startup document has no root widget.\n";
         return false;
@@ -348,6 +357,9 @@ bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldReq
         request.ApplicationSettings.Title = request.ProjectName;
     }
     request.StartupRootWidget = startupDocument.GetRootWidget();
+    if (startupDocumentJson.is_object() && startupDocumentJson.contains("RootWidget")) {
+        request.StartupRootWidgetJson = startupDocumentJson.at("RootWidget");
+    }
 
     if (request.ApplicationSettings.bUseTitleBar) {
         if (request.ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
@@ -384,8 +396,25 @@ bool BuildScaffoldRequestFromProject(EditorProject& project, FProjectScaffoldReq
             std::cerr << "Title bar document root must be ImTitleBar.\n";
             return false;
         }
+        json titleBarDocumentJson;
+        try {
+            std::ifstream titleBarStream(titleBarDocumentPath);
+            if (titleBarStream.is_open()) {
+                titleBarStream >> titleBarDocumentJson;
+            }
+        } catch (...) {
+            titleBarDocumentJson = json();
+        }
         titleBarRoot->SetShowSystemButtons(request.ApplicationSettings.bShowSystemButtons);
         request.TitleBarRootWidget = titleBarRoot;
+        if (titleBarDocumentJson.is_object() && titleBarDocumentJson.contains("RootWidget")) {
+            request.TitleBarRootWidgetJson = titleBarDocumentJson.at("RootWidget");
+            if (request.TitleBarRootWidgetJson.contains("Properties") &&
+                request.TitleBarRootWidgetJson["Properties"].is_object()) {
+                request.TitleBarRootWidgetJson["Properties"]["ImTitleBar::ShowSystemButtons"] =
+                    request.ApplicationSettings.bShowSystemButtons;
+            }
+        }
     }
 
     outRequest = std::move(request);
@@ -2498,7 +2527,9 @@ int RunCodegenCommand(const std::vector<std::string>& args)
     }
 
     FProjectScaffoldResult result;
-    if (args[1] == "regenerate") {
+    if (args[1] == "check") {
+        result = ProjectScaffolder::GenerateCodePreview(scaffoldRequest);
+    } else if (args[1] == "regenerate") {
         result = ProjectScaffolder::GenerateCode(scaffoldRequest);
     } else if (args[1] == "reinit-main") {
         result = ProjectScaffolder::ReinitializeMainCpp(scaffoldRequest);
@@ -2510,6 +2541,19 @@ int RunCodegenCommand(const std::vector<std::string>& args)
     if (!result.bSuccess) {
         std::cerr << result.ErrorMessage << "\n";
         return 1;
+    }
+
+    if (args[1] == "check") {
+        if (result.GeneratedFiles.empty()) {
+            std::cout << "Generated files are up to date.\n";
+            return 0;
+        }
+
+        std::cerr << "Generated files are out of date:\n";
+        for (const std::filesystem::path& filePath : result.GeneratedFiles) {
+            std::cerr << "  " << filePath.string() << "\n";
+        }
+        return 2;
     }
 
     std::cout << "Generated files:\n";

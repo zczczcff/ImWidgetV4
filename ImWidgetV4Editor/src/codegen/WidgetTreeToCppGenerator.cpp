@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -46,10 +47,17 @@ struct FGeneratedNode {
     FTabRelationData TabData;
 };
 
+json NormalizeGeneratedJson(json value);
+
 class FCodeWriter {
 public:
     void WriteLine(const std::string& line = std::string())
     {
+        if (line.empty()) {
+            Stream_ << '\n';
+            return;
+        }
+
         Stream_ << std::string(IndentLevel_ * 4, ' ') << line << '\n';
     }
 
@@ -332,8 +340,8 @@ void CollectGeneratedNodesRecursive(
     node.ParentIndex = parentIndex;
     node.TypeName = typeName;
     node.VarName = std::move(varName);
-    node.WidgetJson = widgetJson;
-    node.SlotJson = slotJson;
+    node.WidgetJson = NormalizeGeneratedJson(widgetJson);
+    node.SlotJson = NormalizeGeneratedJson(slotJson);
     node.Relation = relation;
     if (tabData != nullptr) {
         node.TabData = *tabData;
@@ -455,11 +463,11 @@ void CollectGeneratedNodesRecursive(
 }
 
 std::vector<FGeneratedNode> BuildGeneratedNodes(
-    const std::shared_ptr<ImWidget>& rootWidget,
+    const json& rootJson,
     const std::unordered_set<std::string>& reservedNames)
 {
     std::vector<FGeneratedNode> nodes;
-    if (!rootWidget) {
+    if (!rootJson.is_object()) {
         return nodes;
     }
 
@@ -470,7 +478,6 @@ std::vector<FGeneratedNode> BuildGeneratedNodes(
         }
     }
 
-    const json rootJson = WidgetSerializer::SerializeWidgetTree(rootWidget);
     CollectGeneratedNodesRecursive(
         rootJson,
         -1,
@@ -480,6 +487,19 @@ std::vector<FGeneratedNode> BuildGeneratedNodes(
         nodes,
         usedVarNameCounts);
     return nodes;
+}
+
+std::vector<FGeneratedNode> BuildGeneratedNodes(
+    const std::shared_ptr<ImWidget>& rootWidget,
+    const std::unordered_set<std::string>& reservedNames)
+{
+    if (!rootWidget) {
+        return {};
+    }
+
+    return BuildGeneratedNodes(
+        WidgetSerializer::SerializeWidgetTree(rootWidget),
+        reservedNames);
 }
 
 std::vector<std::string> CollectWidgetIncludes(const std::vector<FGeneratedNode>& nodes)
@@ -570,6 +590,21 @@ void EmitHeader(
 std::string BuildJsonLiteral(const json& value)
 {
     return "R\"IMWJSON(" + value.dump() + ")IMWJSON\"";
+}
+
+json NormalizeGeneratedJson(json value)
+{
+    if (!value.is_object()) {
+        return value;
+    }
+
+    if (value.contains("Properties") && value["Properties"].is_object()) {
+        json& properties = value["Properties"];
+        properties.erase("ImSlot::SlotPosition");
+        properties.erase("ImSlot::SlotSize");
+    }
+
+    return value;
 }
 
 std::string BuildStringLiteral(const std::string& value)
@@ -769,6 +804,29 @@ FCodeGenResult BuildInvalidResult(const std::string& errorMessage)
     return result;
 }
 
+json LoadDocumentRootJson(const EditorDocument& document)
+{
+    if (!document.HasFilePath() || document.IsDirty()) {
+        return json();
+    }
+
+    try {
+        std::ifstream stream(document.GetFilePath());
+        if (!stream.is_open()) {
+            return json();
+        }
+
+        json documentJson;
+        stream >> documentJson;
+        if (documentJson.is_object() && documentJson.contains("RootWidget")) {
+            return documentJson.at("RootWidget");
+        }
+    } catch (...) {
+    }
+
+    return json();
+}
+
 } // namespace
 
 FCodeGenResult WidgetTreeToCppGenerator::Generate(
@@ -776,6 +834,17 @@ FCodeGenResult WidgetTreeToCppGenerator::Generate(
     const FCodeGenOptions& options)
 {
     if (!rootWidget) {
+        return BuildInvalidResult("Cannot generate code for an empty widget tree.");
+    }
+
+    return Generate(WidgetSerializer::SerializeWidgetTree(rootWidget), options);
+}
+
+FCodeGenResult WidgetTreeToCppGenerator::Generate(
+    const json& rootWidgetJson,
+    const FCodeGenOptions& options)
+{
+    if (!rootWidgetJson.is_object()) {
         return BuildInvalidResult("Cannot generate code for an empty widget tree.");
     }
 
@@ -808,7 +877,7 @@ FCodeGenResult WidgetTreeToCppGenerator::Generate(
     result.Files.SourceFileName = options.ClassName + ".cpp";
 
     const std::vector<FGeneratedNode> nodes = BuildGeneratedNodes(
-        rootWidget,
+        rootWidgetJson,
         {options.ClassName});
     if (nodes.empty()) {
         return BuildInvalidResult("Serialized widget tree did not contain a valid root widget.");
@@ -823,6 +892,11 @@ FCodeGenResult WidgetTreeToCppGenerator::Generate(
     const EditorDocument& document,
     const FCodeGenOptions& options)
 {
+    const json sourceRootJson = LoadDocumentRootJson(document);
+    if (sourceRootJson.is_object()) {
+        return Generate(sourceRootJson, options);
+    }
+
     return Generate(document.GetRootWidget(), options);
 }
 

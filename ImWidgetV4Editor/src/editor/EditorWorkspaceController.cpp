@@ -511,6 +511,25 @@ std::string BuildStartupWidgetClassName(const std::string& startupDocumentFileNa
     return className;
 }
 
+json LoadRootWidgetJsonFromFile(const std::filesystem::path& documentPath)
+{
+    try {
+        std::ifstream stream(documentPath);
+        if (!stream.is_open()) {
+            return json();
+        }
+
+        json documentJson;
+        stream >> documentJson;
+        if (documentJson.is_object() && documentJson.contains("RootWidget")) {
+            return documentJson.at("RootWidget");
+        }
+    } catch (...) {
+    }
+
+    return json();
+}
+
 std::shared_ptr<ImTitleBar> BuildDefaultTitleBarRoot(const std::string& projectName)
 {
     auto titleBar = std::make_shared<ImTitleBar>();
@@ -1104,6 +1123,10 @@ bool EditorWorkspaceController::CreateAppProjectAt(
         }
         scaffoldRequest.StartupRootWidget = bootstrapSession->GetDocument()->GetRootWidget();
         scaffoldRequest.TitleBarRootWidget = titleBarDocument.GetRootWidget();
+        {
+            scaffoldRequest.StartupRootWidgetJson = LoadRootWidgetJsonFromFile(startupDocumentPath);
+            scaffoldRequest.TitleBarRootWidgetJson = LoadRootWidgetJsonFromFile(titleBarDocumentPath);
+        }
         const FProjectScaffoldResult scaffoldResult = ProjectScaffolder::Scaffold(scaffoldRequest);
         if (!scaffoldResult.bSuccess) {
             SetLocalizedOutputLine("NewProject.CreateFailed", "Create project failed", ": " + scaffoldResult.ErrorMessage);
@@ -1974,6 +1997,11 @@ bool EditorWorkspaceController::BuildProjectScaffoldRequestForCurrentProject(FPr
         scaffoldRequest.ApplicationSettings.Title = scaffoldRequest.ProjectName;
     }
     scaffoldRequest.StartupRootWidget = startupDocument->GetRootWidget();
+    {
+        if (!startupDocument->IsDirty()) {
+            scaffoldRequest.StartupRootWidgetJson = LoadRootWidgetJsonFromFile(startupDocumentPath);
+        }
+    }
 
     if (scaffoldRequest.ApplicationSettings.bUseTitleBar) {
         if (scaffoldRequest.ApplicationSettings.TitleBarDocumentRelativePath.empty()) {
@@ -2033,6 +2061,11 @@ bool EditorWorkspaceController::BuildProjectScaffoldRequestForCurrentProject(FPr
             }
         }
         scaffoldRequest.TitleBarRootWidget = titleBarDocument->GetRootWidget();
+        {
+            if (!titleBarDocument->IsDirty()) {
+                scaffoldRequest.TitleBarRootWidgetJson = LoadRootWidgetJsonFromFile(titleBarDocumentPath);
+            }
+        }
     }
 
     outRequest = std::move(scaffoldRequest);

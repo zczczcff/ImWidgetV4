@@ -117,6 +117,28 @@ std::shared_ptr<T> FindWidgetInTree(const std::shared_ptr<ImWidgetV4::ImWidget>&
     return nullptr;
 }
 
+template<typename T>
+std::shared_ptr<T> FindWidgetByNameInTree(
+    const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+    const std::string& name)
+{
+    if (!widget || name.empty()) {
+        return nullptr;
+    }
+
+    if (widget->GetName() == name) {
+        return std::dynamic_pointer_cast<T>(widget);
+    }
+
+    for (const std::shared_ptr<ImWidgetV4::ImWidget>& child : widget->GetChildren()) {
+        if (auto typedWidget = FindWidgetByNameInTree<T>(child, name)) {
+            return typedWidget;
+        }
+    }
+
+    return nullptr;
+}
+
 void BindAtLeastOneChecked(
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& first,
     const std::shared_ptr<ImWidgetV4::ImCheckBox>& second)
@@ -234,6 +256,23 @@ struct FBuilderCommandStep {
     std::vector<std::string> Arguments;
 };
 
+struct FBuilderUiState {
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Win64;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Win32;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Debug;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> Release;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> BuildSdk;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> BuildZip;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> BuildNsis;
+    std::shared_ptr<ImWidgetV4::ImCheckBox> SmokeTest;
+    std::shared_ptr<ImWidgetV4::ImComboBox> Toolchain;
+    std::shared_ptr<ImWidgetV4::ImButton> BuildButton;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreview;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
+    bool bBuildRunning = false;
+    std::string LastCommandPreviewText;
+};
+
 std::vector<FBuilderCommandStep> BuildCommandPlan(
     const std::vector<std::string>& architectures,
     const std::vector<std::string>& configurations,
@@ -334,7 +373,50 @@ std::string FormatCommandPreview(const std::vector<FBuilderCommandStep>& steps)
     return stream.str();
 }
 
-void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
+std::vector<FBuilderCommandStep> CollectCurrentCommandPlan(const FBuilderUiState& state)
+{
+    const std::vector<std::string> architectures = CollectCheckedArchitectures(state.Win64, state.Win32);
+    const std::vector<std::string> configurations = CollectCheckedConfigurations(state.Debug, state.Release);
+    const bool bBuildSdk = state.BuildSdk && state.BuildSdk->IsChecked();
+    const bool bBuildZip = state.BuildZip && state.BuildZip->IsChecked();
+    const bool bBuildNsis = state.BuildNsis && state.BuildNsis->IsChecked() && !state.BuildNsis->IsDisabled();
+    const bool bSmokeTest = state.SmokeTest && state.SmokeTest->IsChecked();
+    const std::string selectedGenerator = state.Toolchain ? state.Toolchain->GetSelectedText() : std::string();
+    return BuildCommandPlan(
+        architectures,
+        configurations,
+        bBuildSdk,
+        bBuildZip,
+        bBuildNsis,
+        bSmokeTest,
+        selectedGenerator);
+}
+
+void RefreshCommandPreview(const std::shared_ptr<FBuilderUiState>& state, bool bForce)
+{
+    if (!state) {
+        return;
+    }
+
+    const std::vector<FBuilderCommandStep> steps = CollectCurrentCommandPlan(*state);
+    if (state->BuildButton) {
+        state->BuildButton->SetDisabled(state->bBuildRunning || steps.empty());
+    }
+
+    if (state->bBuildRunning) {
+        return;
+    }
+
+    const std::string previewText = FormatCommandPreview(steps);
+    if (!bForce && previewText == state->LastCommandPreviewText) {
+        return;
+    }
+
+    SetTextIfValid(state->CommandPreview, previewText);
+    state->LastCommandPreviewText = previewText;
+}
+
+std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
     auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
     if (titleBarView) {
@@ -346,116 +428,95 @@ void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 
     auto mainView = FindWidgetInTree<ImWidgetSDKBuilder::MainView>(application.GetRootWidget());
     if (!mainView) {
-        return;
+        return nullptr;
     }
+    const std::shared_ptr<ImWidgetV4::ImWidget> mainRoot = mainView->GetRootWidget();
 
-    auto win64 = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("Win64CheckBox");
-    auto win32 = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("Win32CheckBox");
-    auto debug = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("DebugCheckBox");
-    auto release = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("ReleaseCheckBox");
-    auto buildSdk = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildSdkCheckBox");
-    auto buildZip = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildZipCheckBox");
-    auto buildNsis = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildNsisCheckBox");
-    auto smokeTest = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("SmokeTestCheckBox");
-    auto buildButton = mainView->FindWidgetAs<ImWidgetV4::ImButton>("BuildButton");
-    auto commandPreview = mainView->FindWidgetAs<ImWidgetV4::ImTextBlock>("CommandPreviewText");
-    auto logText = mainView->FindWidgetAs<ImWidgetV4::ImTextBlock>("LogText");
-    BindAtLeastOneChecked(win64, win32);
-    BindAtLeastOneChecked(debug, release);
+    auto state = std::make_shared<FBuilderUiState>();
+    state->Win64 = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "Win64CheckBox");
+    state->Win32 = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "Win32CheckBox");
+    state->Debug = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "DebugCheckBox");
+    state->Release = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "ReleaseCheckBox");
+    state->BuildSdk = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildSdkCheckBox");
+    state->BuildZip = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildZipCheckBox");
+    state->BuildNsis = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "BuildNsisCheckBox");
+    state->SmokeTest = FindWidgetByNameInTree<ImWidgetV4::ImCheckBox>(mainRoot, "SmokeTestCheckBox");
+    state->Toolchain = FindWidgetByNameInTree<ImWidgetV4::ImComboBox>(mainRoot, "ToolchainComboBox");
+    state->BuildButton = FindWidgetByNameInTree<ImWidgetV4::ImButton>(mainRoot, "BuildButton");
+    state->CommandPreview = FindWidgetByNameInTree<ImWidgetV4::ImTextBlock>(mainRoot, "CommandPreviewText");
+    state->LogText = FindWidgetByNameInTree<ImWidgetV4::ImTextBlock>(mainRoot, "LogText");
+    BindAtLeastOneChecked(state->Win64, state->Win32);
+    BindAtLeastOneChecked(state->Debug, state->Release);
 
-    auto toolchain = mainView->FindWidgetAs<ImWidgetV4::ImComboBox>("ToolchainComboBox");
-    if (toolchain) {
+    if (state->Toolchain) {
         const std::vector<std::string> options = DetectToolsetOptions();
-        toolchain->SetItems(options);
-        toolchain->SetSelectedIndex(options.empty() ? -1 : 0);
+        state->Toolchain->SetItems(options);
+        state->Toolchain->SetSelectedIndex(options.empty() ? -1 : 0);
     }
 
     const bool bNsisAvailable = IsCommandAvailable("makensis");
-    if (buildNsis) {
-        buildNsis->SetDisabled(!bNsisAvailable);
-        buildNsis->SetChecked(bNsisAvailable && buildNsis->IsChecked());
+    if (state->BuildNsis) {
+        state->BuildNsis->SetDisabled(!bNsisAvailable);
+        state->BuildNsis->SetChecked(bNsisAvailable && state->BuildNsis->IsChecked());
     }
     if (!bNsisAvailable) {
-        SetTextIfValid(logText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
+        SetTextIfValid(state->LogText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
     }
 
-    auto collectCurrentCommandPlan = [=]() {
-        const std::vector<std::string> architectures = CollectCheckedArchitectures(win64, win32);
-        const std::vector<std::string> configurations = CollectCheckedConfigurations(debug, release);
-        const bool bBuildSdk = buildSdk && buildSdk->IsChecked();
-        const bool bBuildZip = buildZip && buildZip->IsChecked();
-        const bool bBuildNsis = buildNsis && buildNsis->IsChecked() && !buildNsis->IsDisabled();
-        const bool bSmokeTest = smokeTest && smokeTest->IsChecked();
-        const std::string selectedGenerator = toolchain ? toolchain->GetSelectedText() : std::string();
-        return BuildCommandPlan(
-            architectures,
-            configurations,
-            bBuildSdk,
-            bBuildZip,
-            bBuildNsis,
-            bSmokeTest,
-            selectedGenerator);
-    };
-
-    auto updateCommandPreview = [=]() {
-        const std::vector<FBuilderCommandStep> steps = collectCurrentCommandPlan();
-        SetTextIfValid(commandPreview, FormatCommandPreview(steps));
-        if (buildButton) {
-            buildButton->SetDisabled(steps.empty());
-        }
-    };
-
-    const auto bindPreviewRefresh = [updateCommandPreview](const std::shared_ptr<ImWidgetV4::ImCheckBox>& checkBox) {
+    const auto bindPreviewRefresh = [state](const std::shared_ptr<ImWidgetV4::ImCheckBox>& checkBox) {
         if (checkBox) {
             checkBox->OnCheckStateChanged.AddLambda(
-                [updateCommandPreview](ImWidgetV4::ImCheckBox&, bool) {
-                    updateCommandPreview();
+                [state](ImWidgetV4::ImCheckBox&, bool) {
+                    RefreshCommandPreview(state, true);
                 });
         }
     };
 
-    bindPreviewRefresh(win64);
-    bindPreviewRefresh(win32);
-    bindPreviewRefresh(debug);
-    bindPreviewRefresh(release);
-    bindPreviewRefresh(buildSdk);
-    bindPreviewRefresh(buildZip);
-    bindPreviewRefresh(buildNsis);
-    bindPreviewRefresh(smokeTest);
+    bindPreviewRefresh(state->Win64);
+    bindPreviewRefresh(state->Win32);
+    bindPreviewRefresh(state->Debug);
+    bindPreviewRefresh(state->Release);
+    bindPreviewRefresh(state->BuildSdk);
+    bindPreviewRefresh(state->BuildZip);
+    bindPreviewRefresh(state->BuildNsis);
+    bindPreviewRefresh(state->SmokeTest);
 
-    if (toolchain) {
-        toolchain->OnSelectionChanged.AddLambda(
-            [updateCommandPreview](ImWidgetV4::ImComboBox&, int) {
-                updateCommandPreview();
+    if (state->Toolchain) {
+        state->Toolchain->OnSelectionChanged.AddLambda(
+            [state](ImWidgetV4::ImComboBox&, int) {
+                RefreshCommandPreview(state, true);
             });
     }
 
-    updateCommandPreview();
+    RefreshCommandPreview(state, true);
 
-    if (buildButton) {
-        buildButton->OnClicked.AddLambda([=](ImWidgetV4::ImButton& button) {
+    if (state->BuildButton) {
+        state->BuildButton->OnClicked.AddLambda([state](ImWidgetV4::ImButton& button) {
             std::ostringstream logStream;
             bool bAllSucceeded = true;
 
-            const std::vector<FBuilderCommandStep> steps = collectCurrentCommandPlan();
+            const std::vector<FBuilderCommandStep> steps = CollectCurrentCommandPlan(*state);
 
             if (steps.empty()) {
-                SetTextIfValid(logText, "No build tasks selected.");
+                SetTextIfValid(state->LogText, "No build tasks selected.");
                 return;
             }
 
-            SetTextIfValid(commandPreview, "Build in progress...");
-            button.SetDisabled(true);
+            state->bBuildRunning = true;
+            SetTextIfValid(state->CommandPreview, "Build in progress...");
+            RefreshCommandPreview(state, true);
 
             for (const FBuilderCommandStep& step : steps) {
                 RunBuilderCommand(step.Label, step.Arguments, logStream, bAllSucceeded);
             }
 
-            SetTextIfValid(logText, logStream.str());
-            updateCommandPreview();
-            button.SetDisabled(false);
+            SetTextIfValid(state->LogText, logStream.str());
+            state->bBuildRunning = false;
+            RefreshCommandPreview(state, true);
         });
     }
+
+    return state;
 }
 
 class FGeneratedAppHostDelegate final : public ImWidgetV4::IApplicationHostDelegate
@@ -471,7 +532,14 @@ public:
     {
         GeneratedApp::ConfigureApplication(application);
         application.SetApplicationIcon(application.GetCoreIconBrush(ImWidgetV4::ECoreIcon::Package));
-        ConfigureBuilderUi(application);
+        BuilderUiState_ = ConfigureBuilderUi(application);
+    }
+
+    void Tick(ImWidgetV4::ImApplication& application, const ImWidgetV4::FFrameInfo& frameInfo) override
+    {
+        (void)application;
+        (void)frameInfo;
+        RefreshCommandPreview(BuilderUiState_, false);
     }
 
     // Optional host overrides. Uncomment the functions you want to customize.
@@ -503,6 +571,9 @@ public:
     // {
     //     (void)application;
     // }
+
+private:
+    std::shared_ptr<FBuilderUiState> BuilderUiState_;
 };
 
 } // namespace

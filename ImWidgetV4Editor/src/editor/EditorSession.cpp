@@ -534,111 +534,6 @@ bool CanInsertIntoTarget(
     return false;
 }
 
-bool TryDuplicateInParent(
-    const std::shared_ptr<ImWidget>& parent,
-    const std::shared_ptr<ImWidget>& sourceWidget,
-    const std::shared_ptr<ImWidget>& cloneWidget)
-{
-    if (!parent || !sourceWidget || !cloneWidget) {
-        return false;
-    }
-
-    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(parent)) {
-        auto* sourceSlot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(sourceWidget));
-        if (!sourceSlot) {
-            return false;
-        }
-
-        canvas->AddChild(cloneWidget);
-        auto* cloneSlot = dynamic_cast<ImCanvasPanelSlot*>(canvas->GetSlotForChild(cloneWidget));
-        if (!cloneSlot) {
-            return false;
-        }
-
-        cloneSlot->FromJson(sourceSlot->ToJson());
-        const FVector2 duplicatedPosition(
-            std::clamp(sourceSlot->GetRelativePosition().X + 0.03f, 0.0f, 0.95f),
-            std::clamp(sourceSlot->GetRelativePosition().Y + 0.03f, 0.0f, 0.95f));
-        cloneSlot->SetRelativePosition(duplicatedPosition);
-        return true;
-    }
-
-    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
-        const ImSlot* sourceSlot = verticalBox->GetSlotForChild(sourceWidget);
-        verticalBox->AddChild(cloneWidget);
-        if (sourceSlot) {
-            if (auto* cloneSlot = verticalBox->GetSlotForChild(cloneWidget)) {
-                cloneSlot->FromJson(sourceSlot->ToJson());
-            }
-        }
-        return true;
-    }
-
-    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
-        const ImSlot* sourceSlot = horizontalBox->GetSlotForChild(sourceWidget);
-        horizontalBox->AddChild(cloneWidget);
-        if (sourceSlot) {
-            if (auto* cloneSlot = horizontalBox->GetSlotForChild(cloneWidget)) {
-                cloneSlot->FromJson(sourceSlot->ToJson());
-            }
-        }
-        return true;
-    }
-
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
-        std::string insertError;
-        FDocumentInsertOptions options;
-        options.DropPosition = sourceWidget->GetGeometry().Position;
-        options.bStripImPrefixForTabFallback = true;
-        return TryInsertWidgetIntoParent(scrollBox, cloneWidget, insertError, options);
-    }
-
-    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
-        button->SetContent(cloneWidget);
-        return true;
-    }
-
-    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
-        if (expandableBox->GetHeader() == sourceWidget) {
-            expandableBox->SetHeader(cloneWidget);
-            return true;
-        }
-        if (expandableBox->GetBody() == sourceWidget) {
-            expandableBox->SetBody(cloneWidget);
-            expandableBox->SetExpanded(true);
-            return true;
-        }
-        return false;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int sourceTabIndex = LogicalWidgetTree::FindTabContentIndex(tabView, sourceWidget);
-        if (sourceTabIndex < 0) {
-            return false;
-        }
-
-        const FTabViewItem* sourceTab = tabView->GetTab(sourceTabIndex);
-        if (!sourceTab) {
-            return false;
-        }
-
-        int duplicatedIndex = tabView->AddTab(
-            sourceTab->Title + " " + EditorText("Session.Copied", "Copied").Resolve(),
-            cloneWidget);
-        if (duplicatedIndex < 0) {
-            return false;
-        }
-
-        tabView->SetTabEnabled(duplicatedIndex, sourceTab->bEnabled);
-        tabView->SetTabClosable(duplicatedIndex, sourceTab->bClosable);
-        tabView->SetTabDirty(duplicatedIndex, sourceTab->bDirty);
-        tabView->SetActiveTab(duplicatedIndex);
-        return true;
-    }
-
-    return false;
-}
-
 } // namespace
 
 EditorSession::EditorSession(std::function<std::shared_ptr<ImWidget>()> createDefaultDocumentRoot)
@@ -1158,25 +1053,26 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
         return false;
     }
 
-    FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
-    if (!cloneResult.bSuccess || !cloneResult.Widget) {
+    std::string cloneError;
+    std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTreeFromJson(m_CopiedWidgetJson, cloneError);
+    if (!cloneWidget) {
         LogStatus(LocalizedEditorString(
             "Session.PasteFailed",
             "Paste failed",
-            ": " + (cloneResult.ErrorMessage.empty()
+            ": " + (cloneError.empty()
                 ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
-                : cloneResult.ErrorMessage)));
+                : cloneError)));
         return false;
     }
 
-    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneWidget);
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool pasted = ApplyWidgetInsertionAtTreeTarget(
-        cloneResult.Widget,
+        cloneWidget,
         targetWidget,
         zone,
-        cloneResult.Widget,
+        cloneWidget,
         true);
     if (!pasted) {
         LogStatus(LocalizedEditorString("Session.PasteFailedTargetRejectsWidget", "Paste failed: target container cannot accept the copied widget."));
@@ -1186,15 +1082,15 @@ bool EditorSession::PasteCopiedWidgetAtTreeTarget(
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
         EditorText("Session.Command.PasteWidget", "Paste Widget").Resolve(),
-        cloneResult.Widget,
+        cloneWidget,
         targetWidget,
         FVector2(0.0f, 0.0f),
         zone,
         AddWidgetCommand::EInsertionMode::TreeTarget,
-        cloneResult.Widget,
+        cloneWidget,
         bBeforeDirty,
         true));
-    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneResult.Widget->GetTypeName()));
+    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneWidget->GetTypeName()));
     return true;
 }
 
@@ -1210,25 +1106,26 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
         return false;
     }
 
-    FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
-    if (!cloneResult.bSuccess || !cloneResult.Widget) {
+    std::string cloneError;
+    std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTreeFromJson(m_CopiedWidgetJson, cloneError);
+    if (!cloneWidget) {
         LogStatus(LocalizedEditorString(
             "Session.PasteFailed",
             "Paste failed",
-            ": " + (cloneResult.ErrorMessage.empty()
+            ": " + (cloneError.empty()
                 ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
-                : cloneResult.ErrorMessage)));
+                : cloneError)));
         return false;
     }
 
-    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneWidget);
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool pasted = ApplyWidgetInsertion(
-        cloneResult.Widget,
+        cloneWidget,
         nullptr,
         FVector2(24.0f, 24.0f),
-        cloneResult.Widget,
+        cloneWidget,
         true);
     if (!pasted) {
         LogStatus(LocalizedEditorString("Session.PasteFailedAssignRoot", "Paste failed: could not assign document root."));
@@ -1238,18 +1135,18 @@ bool EditorSession::PasteCopiedWidgetAsRoot()
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
         EditorText("Session.Command.PasteRootWidget", "Paste Root Widget").Resolve(),
-        cloneResult.Widget,
+        cloneWidget,
         nullptr,
         FVector2(24.0f, 24.0f),
         ETextOutlineDropZone::OnItem,
         AddWidgetCommand::EInsertionMode::DesignerDrop,
-        cloneResult.Widget,
+        cloneWidget,
         bBeforeDirty,
         true));
     LogStatus(LocalizedEditorString(
         "Session.Pasted",
         "Pasted",
-        " " + cloneResult.Widget->GetTypeName() + " " + EditorText("Session.AsRoot", "as root").Resolve()));
+        " " + cloneWidget->GetTypeName() + " " + EditorText("Session.AsRoot", "as root").Resolve()));
     return true;
 }
 
@@ -1402,18 +1299,19 @@ bool EditorSession::PasteCopiedWidget()
         return false;
     }
 
-    FWidgetSerializationResult cloneResult = WidgetSerializer::DeserializeWidgetTree(m_CopiedWidgetJson);
-    if (!cloneResult.bSuccess || !cloneResult.Widget) {
+    std::string cloneError;
+    std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTreeFromJson(m_CopiedWidgetJson, cloneError);
+    if (!cloneWidget) {
         LogStatus(LocalizedEditorString(
             "Session.PasteFailed",
             "Paste failed",
-            ": " + (cloneResult.ErrorMessage.empty()
+            ": " + (cloneError.empty()
                 ? EditorText("Session.ClipboardWidgetCouldNotBeRestored", "clipboard widget could not be restored.").Resolve()
-                : cloneResult.ErrorMessage)));
+                : cloneError)));
         return false;
     }
 
-    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneResult.Widget);
+    AssignGeneratedUniqueNamesToSubtree(m_Document, cloneWidget);
 
     std::shared_ptr<ImWidget> selectedWidget = m_DesignerSurface
         ? m_DesignerSurface->GetSelectedWidget()
@@ -1421,7 +1319,7 @@ bool EditorSession::PasteCopiedWidget()
     if (m_Document &&
         selectedWidget == m_Document->GetRootWidget() &&
         std::dynamic_pointer_cast<ImTitleBar>(selectedWidget) &&
-        std::dynamic_pointer_cast<ImTitleBar>(cloneResult.Widget)) {
+        std::dynamic_pointer_cast<ImTitleBar>(cloneWidget)) {
         LogStatus(LocalizedEditorString("Session.PasteRejectedTitleBarRoot", "Paste rejected: title bar root cannot be replaced."));
         return false;
     }
@@ -1434,10 +1332,10 @@ bool EditorSession::PasteCopiedWidget()
 
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
     const bool pasted = ApplyWidgetInsertion(
-        cloneResult.Widget,
+        cloneWidget,
         selectedWidget,
         pastePosition,
-        cloneResult.Widget,
+        cloneWidget,
         true);
     if (!pasted) {
         LogStatus(LocalizedEditorString("Session.PasteFailedCurrentSelectionRejectsWidget", "Paste failed: current selection cannot accept the copied widget."));
@@ -1447,15 +1345,15 @@ bool EditorSession::PasteCopiedWidget()
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
         EditorText("Session.Command.PasteWidget", "Paste Widget").Resolve(),
-        cloneResult.Widget,
+        cloneWidget,
         selectedWidget,
         pastePosition,
         ETextOutlineDropZone::OnItem,
         AddWidgetCommand::EInsertionMode::DesignerDrop,
-        cloneResult.Widget,
+        cloneWidget,
         bBeforeDirty,
         true));
-    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneResult.Widget->GetTypeName()));
+    LogStatus(LocalizedEditorString("Session.Pasted", "Pasted", " " + cloneWidget->GetTypeName()));
     return true;
 }
 
@@ -1492,28 +1390,33 @@ bool EditorSession::DuplicateSelectedWidget()
         ? selectedWidget->GetTypeName()
         : selectedWidget->GetTypeName() + " [" + selectedWidget->GetName() + "]";
     const bool bBeforeDirty = m_Document ? m_Document->IsDirty() : false;
-    const bool duplicated = ApplyWidgetInsertion(
-        cloneWidget,
+    FDocumentDuplicateOptions duplicateOptions;
+    duplicateOptions.TabTitleSuffix = " " + EditorText("Session.Copied", "Copied").Resolve();
+    std::string duplicateError;
+    const bool duplicated = TryDuplicateWidgetInParent(
+        parent,
         selectedWidget,
-        selectedWidget->GetGeometry().Position,
         cloneWidget,
-        true);
+        duplicateError,
+        duplicateOptions);
     if (!duplicated) {
         LogStatus(LocalizedEditorString("Session.DuplicateFailedUnsupportedParent", "Duplicate failed: unsupported parent container."));
         return false;
     }
+    ApplyInsertedWidgetRefresh(cloneWidget, cloneWidget, true);
 
     m_CommandStack.PushExecuted(std::make_unique<AddWidgetCommand>(
         shared_from_this(),
         EditorText("Session.Command.DuplicateWidget", "Duplicate Widget").Resolve(),
         cloneWidget,
-        selectedWidget,
+        parent,
         selectedWidget->GetGeometry().Position,
         ETextOutlineDropZone::OnItem,
-        AddWidgetCommand::EInsertionMode::DesignerDrop,
-        cloneWidget,
+        AddWidgetCommand::EInsertionMode::DuplicateInParent,
+        selectedWidget,
         bBeforeDirty,
-        true));
+        true,
+        duplicateOptions.TabTitleSuffix));
     LogStatus(LocalizedEditorString("Session.Duplicated", "Duplicated", " " + sourceLabel));
     return true;
 }
@@ -2014,6 +1917,20 @@ bool EditorSession::ApplyWidgetInsertionAtTreeTarget(
     }
 
     if (!InsertWidgetAtTreeTarget(widget, targetWidget, zone)) {
+        return false;
+    }
+
+    SetDocumentDirtyState(bDirtyState);
+    RefreshDocumentViews(preferredSelection ? preferredSelection : widget);
+    return true;
+}
+
+bool EditorSession::ApplyInsertedWidgetRefresh(
+    const std::shared_ptr<ImWidget>& widget,
+    const std::shared_ptr<ImWidget>& preferredSelection,
+    bool bDirtyState)
+{
+    if (!widget) {
         return false;
     }
 

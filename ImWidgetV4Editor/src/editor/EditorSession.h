@@ -108,6 +108,10 @@ public:
         ImWidgetV4::ETextOutlineDropZone zone,
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
         bool bDirtyState);
+    bool ApplyInsertedWidgetRefresh(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
+        bool bDirtyState);
     bool ApplyWidgetMoveAtTreeTarget(
         const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
         const std::shared_ptr<ImWidgetV4::ImWidget>& targetWidget,

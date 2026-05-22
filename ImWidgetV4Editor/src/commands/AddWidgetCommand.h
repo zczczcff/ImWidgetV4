@@ -18,7 +18,8 @@ class AddWidgetCommand : public EditorCommand {
 public:
     enum class EInsertionMode {
         DesignerDrop,
-        TreeTarget
+        TreeTarget,
+        DuplicateInParent
     };
 
     AddWidgetCommand(
@@ -31,7 +32,8 @@ public:
         EInsertionMode insertionMode,
         const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
         bool bBeforeDirty,
-        bool bAfterDirty);
+        bool bAfterDirty,
+        std::string duplicateTabTitleSuffix = std::string());
 
     virtual bool Execute() override;
     virtual bool Undo() override;
@@ -42,6 +44,7 @@ private:
     std::weak_ptr<ImWidgetV4::ImWidget> m_InsertionTarget;
     std::weak_ptr<ImWidgetV4::ImWidget> m_PreferredSelection;
     ImWidgetV4::FVector2 m_DropPosition {0.0f, 0.0f};
+    std::string m_DuplicateTabTitleSuffix;
     ImWidgetV4::ETextOutlineDropZone m_TreeZone;
     EInsertionMode m_InsertionMode = EInsertionMode::DesignerDrop;
     bool m_bBeforeDirty = false;

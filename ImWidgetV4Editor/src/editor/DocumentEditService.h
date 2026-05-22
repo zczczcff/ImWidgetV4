@@ -22,6 +22,12 @@ struct FDocumentInsertOptions {
     bool bStripImPrefixForTabFallback = false;
 };
 
+struct FDocumentDuplicateOptions {
+    ImWidgetV4::FVector2 CanvasDuplicateOffset {0.03f, 0.03f};
+    std::string TabTitleSuffix;
+    bool bCopySlots = true;
+};
+
 std::string BuildDefaultWidgetName(const std::string& typeName);
 std::string BuildTabTitleForWidget(
     const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
@@ -30,6 +36,9 @@ void InitializeNewWidgetDefaults(const std::shared_ptr<ImWidgetV4::ImWidget>& wi
 
 std::shared_ptr<ImWidgetV4::ImWidget> CloneWidgetTree(
     const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+    std::string& outError);
+std::shared_ptr<ImWidgetV4::ImWidget> CloneWidgetTreeFromJson(
+    const json& widgetJson,
     std::string& outError);
 bool IsLogicalAncestorOf(
     EditorDocument& document,
@@ -49,5 +58,11 @@ bool TryInsertWidgetIntoParentAt(
 bool RemoveWidgetFromParent(
     const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
     const std::shared_ptr<ImWidgetV4::ImWidget>& child);
+bool TryDuplicateWidgetInParent(
+    const std::shared_ptr<ImWidgetV4::ImWidget>& parent,
+    const std::shared_ptr<ImWidgetV4::ImWidget>& sourceWidget,
+    const std::shared_ptr<ImWidgetV4::ImWidget>& cloneWidget,
+    std::string& outError,
+    const FDocumentDuplicateOptions& options = {});
 
 } // namespace ImWidgetV4Editor

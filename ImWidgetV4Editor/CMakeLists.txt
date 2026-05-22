@@ -42,6 +42,7 @@ set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/cli/UiDocumentCli.cpp
     src/codegen/WidgetTreeToCppGenerator.cpp
     src/editor/DocumentEditService.cpp
+    src/editor/DocumentQueryService.cpp
     src/editor/DocumentSnapshotExporter.cpp
     src/editor/EditorDocument.cpp
     src/editor/LogicalWidgetTree.cpp

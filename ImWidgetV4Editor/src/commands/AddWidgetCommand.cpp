@@ -1,5 +1,6 @@
 #include "AddWidgetCommand.h"
 
+#include "../editor/DocumentEditService.h"
 #include "../editor/EditorSession.h"
 #include <imwidgetv4/widgets/TextOutlineView.h>
 
@@ -15,13 +16,15 @@ AddWidgetCommand::AddWidgetCommand(
     EInsertionMode insertionMode,
     const std::shared_ptr<ImWidgetV4::ImWidget>& preferredSelection,
     bool bBeforeDirty,
-    bool bAfterDirty)
+    bool bAfterDirty,
+    std::string duplicateTabTitleSuffix)
     : EditorCommand(std::move(label))
     , m_Session(session)
     , m_Widget(widget)
     , m_InsertionTarget(insertionTarget)
     , m_PreferredSelection(preferredSelection)
     , m_DropPosition(dropPosition)
+    , m_DuplicateTabTitleSuffix(std::move(duplicateTabTitleSuffix))
     , m_TreeZone(treeZone)
     , m_InsertionMode(insertionMode)
     , m_bBeforeDirty(bBeforeDirty)
@@ -43,6 +46,24 @@ bool AddWidgetCommand::Execute()
             m_Widget,
             insertionTarget,
             m_TreeZone,
+            preferredSelection ? preferredSelection : m_Widget,
+            m_bAfterDirty);
+    }
+
+    if (m_InsertionMode == EInsertionMode::DuplicateInParent) {
+        std::string duplicateError;
+        FDocumentDuplicateOptions duplicateOptions;
+        duplicateOptions.TabTitleSuffix = m_DuplicateTabTitleSuffix;
+        if (!TryDuplicateWidgetInParent(
+            insertionTarget,
+            preferredSelection,
+            m_Widget,
+            duplicateError,
+            duplicateOptions)) {
+            return false;
+        }
+        return session->ApplyInsertedWidgetRefresh(
+            m_Widget,
             preferredSelection ? preferredSelection : m_Widget,
             m_bAfterDirty);
     }

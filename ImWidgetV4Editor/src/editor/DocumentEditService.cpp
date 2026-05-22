@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 
 namespace ImWidgetV4Editor {
 
@@ -138,8 +139,17 @@ std::shared_ptr<ImWidget> CloneWidgetTree(const std::shared_ptr<ImWidget>& widge
         return nullptr;
     }
 
-    FWidgetSerializationResult result =
-        WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(widget));
+    return CloneWidgetTreeFromJson(WidgetSerializer::SerializeWidgetTree(widget), outError);
+}
+
+std::shared_ptr<ImWidget> CloneWidgetTreeFromJson(const json& widgetJson, std::string& outError)
+{
+    if (widgetJson.is_null()) {
+        outError = "Widget JSON is empty.";
+        return nullptr;
+    }
+
+    FWidgetSerializationResult result = WidgetSerializer::DeserializeWidgetTree(widgetJson);
     if (!result.bSuccess || !result.Widget) {
         outError = result.ErrorMessage.empty()
             ? "Failed to clone widget tree."
@@ -356,6 +366,122 @@ bool RemoveWidgetFromParent(
         return panelParent->RemoveChild(child);
     }
     return parent->RemoveChild(child);
+}
+
+bool TryDuplicateWidgetInParent(
+    const std::shared_ptr<ImWidget>& parent,
+    const std::shared_ptr<ImWidget>& sourceWidget,
+    const std::shared_ptr<ImWidget>& cloneWidget,
+    std::string& outError,
+    const FDocumentDuplicateOptions& options)
+{
+    if (!parent || !sourceWidget || !cloneWidget) {
+        outError = "Parent, source, and clone widgets are required.";
+        return false;
+    }
+
+    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(parent)) {
+        const auto* sourceSlot = dynamic_cast<const ImCanvasPanelSlot*>(canvas->GetSlotForChild(sourceWidget));
+        if (!sourceSlot) {
+            outError = "Source widget has no CanvasPanel slot.";
+            return false;
+        }
+
+        std::unique_ptr<ImCanvasPanelSlot> slot;
+        if (options.bCopySlots) {
+            slot = std::make_unique<ImCanvasPanelSlot>();
+            slot->FromJson(sourceSlot->ToJson());
+            const FVector2 duplicatedPosition(
+                std::clamp(
+                    sourceSlot->GetRelativePosition().X + options.CanvasDuplicateOffset.X,
+                    0.0f,
+                    0.95f),
+                std::clamp(
+                    sourceSlot->GetRelativePosition().Y + options.CanvasDuplicateOffset.Y,
+                    0.0f,
+                    0.95f));
+            slot->SetRelativePosition(duplicatedPosition);
+        }
+        canvas->AddChildWithSlot(cloneWidget, std::move(slot));
+        return true;
+    }
+
+    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
+        const ImSlot* sourceSlot = verticalBox->GetSlotForChild(sourceWidget);
+        std::unique_ptr<ImBoxSlot> slot;
+        if (options.bCopySlots && sourceSlot) {
+            slot = std::make_unique<ImBoxSlot>();
+            slot->FromJson(sourceSlot->ToJson());
+        }
+        verticalBox->AddChildWithSlot(cloneWidget, std::move(slot));
+        return true;
+    }
+
+    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
+        const ImSlot* sourceSlot = horizontalBox->GetSlotForChild(sourceWidget);
+        std::unique_ptr<ImBoxSlot> slot;
+        if (options.bCopySlots && sourceSlot) {
+            slot = std::make_unique<ImBoxSlot>();
+            slot->FromJson(sourceSlot->ToJson());
+        }
+        horizontalBox->AddChildWithSlot(cloneWidget, std::move(slot));
+        return true;
+    }
+
+    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
+        FDocumentInsertOptions insertOptions;
+        insertOptions.DropPosition = sourceWidget->GetGeometry().Position;
+        insertOptions.bStripImPrefixForTabFallback = true;
+        return TryInsertWidgetIntoParent(scrollBox, cloneWidget, outError, insertOptions);
+    }
+
+    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
+        button->SetContent(cloneWidget);
+        return true;
+    }
+
+    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
+        if (expandableBox->GetHeader() == sourceWidget) {
+            expandableBox->SetHeader(cloneWidget);
+            return true;
+        }
+        if (expandableBox->GetBody() == sourceWidget) {
+            expandableBox->SetBody(cloneWidget);
+            expandableBox->SetExpanded(true);
+            return true;
+        }
+        outError = "Source widget is not an ExpandableBox header or body.";
+        return false;
+    }
+
+    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
+        const int sourceTabIndex = LogicalWidgetTree::FindTabContentIndex(tabView, sourceWidget);
+        if (sourceTabIndex < 0) {
+            outError = "Source widget is not a TabView tab content.";
+            return false;
+        }
+
+        const FTabViewItem* sourceTab = tabView->GetTab(sourceTabIndex);
+        if (!sourceTab) {
+            outError = "Source tab was not found.";
+            return false;
+        }
+
+        const int duplicatedIndex = tabView->AddTab(sourceTab->Title + options.TabTitleSuffix, cloneWidget);
+        if (duplicatedIndex < 0) {
+            outError = "Failed to duplicate tab content.";
+            return false;
+        }
+
+        tabView->SetTabEnabled(duplicatedIndex, sourceTab->bEnabled);
+        tabView->SetTabClosable(duplicatedIndex, sourceTab->bClosable);
+        tabView->SetTabDirty(duplicatedIndex, sourceTab->bDirty);
+        tabView->SetActiveTab(duplicatedIndex);
+        return true;
+    }
+
+    outError = "Parent widget does not support duplicate insertion: " + parent->GetTypeName();
+    return false;
 }
 
 } // namespace ImWidgetV4Editor

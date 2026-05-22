@@ -1,44 +1,12 @@
 #pragma once
 
-#include "../editor/EditorDocument.h"
+#include "../editor/DocumentQueryService.h"
 
-#include <cstddef>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace ImWidgetV4Editor {
-
-struct FUiTreeNodeInfo {
-    std::string WidgetId;
-    std::string ParentWidgetId;
-    std::string TypeName;
-    std::string Name;
-    std::string RoleName;
-    std::string CodegenMemberAccess;
-    std::size_t Depth = 0;
-    int ChildIndex = -1;
-};
-
-struct FUiDocumentTreeInfo {
-    bool bSuccess = false;
-    std::string ErrorMessage;
-    std::vector<FUiTreeNodeInfo> Nodes;
-};
-
-struct FUiFindRequest {
-    std::string WidgetId;
-    std::string TypeName;
-    std::string Name;
-};
-
-struct FUiNodeInspectInfo {
-    bool bSuccess = false;
-    std::string ErrorMessage;
-    FUiTreeNodeInfo Node;
-    json Properties = json::object();
-    std::vector<FUiTreeNodeInfo> Children;
-};
 
 struct FUiMutationResult {
     bool bSuccess = false;
@@ -77,21 +45,6 @@ struct FUiDocumentDiffInfo {
     bool bChanged = false;
     std::string ErrorMessage;
     std::vector<FUiNodeDiffEntry> Entries;
-};
-
-struct FUiLintDiagnostic {
-    std::string Severity;
-    std::string Code;
-    std::string Message;
-    std::string WidgetId;
-    std::string TypeName;
-    std::string FieldName;
-};
-
-struct FUiLintInfo {
-    bool bSuccess = false;
-    std::string ErrorMessage;
-    std::vector<FUiLintDiagnostic> Diagnostics;
 };
 
 class UiDocumentCli {

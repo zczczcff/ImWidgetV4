@@ -176,6 +176,9 @@ TEST(EditorCodeGenTest, GeneratesHeaderAndSourceForSimpleWidgetTree)
     EXPECT_NE(
         result.Files.SourceText.find("RootPanel->AddChild(ActionButton);"),
         std::string::npos);
+    EXPECT_NE(
+        result.Files.SourceText.find("GeneratedToolbar::GeneratedToolbar()\n{\n    SetName(\"GeneratedToolbar\");\n    Rebuild();\n}"),
+        std::string::npos);
     EXPECT_NE(result.Files.SourceText.find("return RootPanel;"), std::string::npos);
     ExpectNoTrailingWhitespace(result.Files.HeaderText);
     ExpectNoTrailingWhitespace(result.Files.SourceText);

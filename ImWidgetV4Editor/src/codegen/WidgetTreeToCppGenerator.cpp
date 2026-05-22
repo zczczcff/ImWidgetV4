@@ -769,6 +769,7 @@ void EmitSource(
     writer.WriteLine("{");
     writer.Indent();
     writer.WriteLine("SetName(\"" + options.ClassName + "\");");
+    writer.WriteLine("Rebuild();");
     writer.Unindent();
     writer.WriteLine("}");
     writer.WriteLine();

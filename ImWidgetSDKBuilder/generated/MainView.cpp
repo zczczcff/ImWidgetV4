@@ -25,6 +25,7 @@ namespace ImWidgetSDKBuilder {
 MainView::MainView()
 {
     SetName("MainView");
+    Rebuild();
 }
 
 std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()

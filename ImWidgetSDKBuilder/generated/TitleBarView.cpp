@@ -20,6 +20,7 @@ namespace ImWidgetSDKBuilder {
 TitleBarView::TitleBarView()
 {
     SetName("TitleBarView");
+    Rebuild();
 }
 
 std::shared_ptr<ImWidgetV4::ImWidget> TitleBarView::RebuildWidget()

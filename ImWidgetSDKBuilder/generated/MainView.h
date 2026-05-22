@@ -62,8 +62,6 @@ public:
     std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
     std::shared_ptr<ImWidgetV4::ImButton> BuildButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildButtonText;
-    std::shared_ptr<ImWidgetV4::ImScrollBox> LogScrollBox;
-    std::shared_ptr<ImWidgetV4::ImVerticalBox> LogPanel;
     std::shared_ptr<ImWidgetV4::ImTextList> LogText;
     //===Auto Gen End=== (Public Members)
 

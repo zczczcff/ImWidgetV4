@@ -2390,30 +2390,46 @@
         "EditorId": "w40"
       },
       {
-        "Type": "ImScrollBox",
+        "Type": "ImTextList",
         "Properties": {
-          "ImScrollBox::ScrollOffset": [
-            0.0,
-            0.0
+          "ImTextList::Items": [
+            "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run."
           ],
-          "ImScrollBox::Style": {
-            "Type": "FScrollBoxStyle",
+          "ImTextList::ScrollOffset": 0.0,
+          "ImTextList::Style": {
+            "Type": "FTextListStyle",
             "Properties": {
-              "FScrollBoxStyle::BackgroundColor": [
+              "FTextListStyle::BackgroundColor": [
                 24,
                 28,
                 34,
                 255
               ],
-              "FScrollBoxStyle::BorderColor": [
+              "FTextListStyle::BorderColor": [
                 16,
                 19,
                 23,
                 255
               ],
-              "FScrollBoxStyle::BorderThickness": 0.0,
-              "FScrollBoxStyle::CornerRadius": 0.0,
-              "FScrollBoxStyle::Padding": {
+              "FTextListStyle::FocusedOutlineColor": [
+                103,
+                177,
+                255,
+                255
+              ],
+              "FTextListStyle::TextColor": [
+                207,
+                216,
+                226,
+                255
+              ],
+              "FTextListStyle::SelectionBackgroundColor": [
+                93,
+                149,
+                212,
+                176
+              ],
+              "FTextListStyle::Padding": {
                 "Type": "FMargin",
                 "Properties": {
                   "FMargin::Left": 0.0,
@@ -2422,169 +2438,46 @@
                   "FMargin::Bottom": 0.0
                 }
               },
-              "FScrollBoxStyle::ScrollbarThickness": 10.0,
-              "FScrollBoxStyle::ScrollbarPadding": 0.0,
-              "FScrollBoxStyle::ScrollbarTrackColor": [
+              "FTextListStyle::MinDesiredSize": [
+                320.0,
+                160.0
+              ],
+              "FTextListStyle::CornerRadius": 0.0,
+              "FTextListStyle::BorderThickness": 0.0,
+              "FTextListStyle::FontSize": 15.0,
+              "FTextListStyle::LineSpacing": 1.15,
+              "FTextListStyle::ScrollbarThickness": 10.0,
+              "FTextListStyle::ScrollbarPadding": 0.0,
+              "FTextListStyle::ScrollbarTrackColor": [
                 38,
                 45,
                 56,
                 255
               ],
-              "FScrollBoxStyle::ScrollbarThumbColor": [
+              "FTextListStyle::ScrollbarThumbColor": [
                 88,
                 102,
                 119,
                 255
               ],
-              "FScrollBoxStyle::ScrollbarThumbHoveredColor": [
+              "FTextListStyle::ScrollbarThumbHoveredColor": [
                 122,
                 143,
                 168,
                 255
               ],
-              "FScrollBoxStyle::ThumbMinLength": 28.0,
-              "FScrollBoxStyle::WheelScrollStep": 32.0
+              "FTextListStyle::ThumbMinLength": 28.0,
+              "FTextListStyle::WheelScrollStep": 32.0,
+              "FTextListStyle::AutoScrollEdgePadding": 24.0,
+              "FTextListStyle::AutoScrollSpeed": 8.0
             }
           },
-          "ImWidget::Name": "LogScrollBox",
+          "ImWidget::Name": "LogText",
           "ImWidget::Visible": true,
           "ImWidget::HitTestVisible": true,
           "ImWidget::SupportsKeyboardFocus": true
         },
-        "Children": [
-          {
-            "Type": "ImVerticalBox",
-            "Properties": {
-              "ImVerticalBox::Spacing": 0.0,
-              "ImWidget::Name": "LogPanel",
-              "ImWidget::Visible": true,
-              "ImWidget::HitTestVisible": true,
-              "ImWidget::SupportsKeyboardFocus": false
-            },
-            "Children": [
-              {
-                "Type": "ImTextList",
-                "Properties": {
-                  "ImTextList::Items": [
-                    "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run."
-                  ],
-                  "ImTextList::ScrollOffset": 0.0,
-                  "ImTextList::Style": {
-                    "Type": "FTextListStyle",
-                    "Properties": {
-                      "FTextListStyle::BackgroundColor": [
-                        24,
-                        28,
-                        34,
-                        255
-                      ],
-                      "FTextListStyle::BorderColor": [
-                        16,
-                        19,
-                        23,
-                        255
-                      ],
-                      "FTextListStyle::FocusedOutlineColor": [
-                        103,
-                        177,
-                        255,
-                        255
-                      ],
-                      "FTextListStyle::TextColor": [
-                        207,
-                        216,
-                        226,
-                        255
-                      ],
-                      "FTextListStyle::SelectionBackgroundColor": [
-                        93,
-                        149,
-                        212,
-                        176
-                      ],
-                      "FTextListStyle::Padding": {
-                        "Type": "FMargin",
-                        "Properties": {
-                          "FMargin::Left": 0.0,
-                          "FMargin::Right": 0.0,
-                          "FMargin::Top": 0.0,
-                          "FMargin::Bottom": 0.0
-                        }
-                      },
-                      "FTextListStyle::MinDesiredSize": [
-                        320.0,
-                        160.0
-                      ],
-                      "FTextListStyle::CornerRadius": 0.0,
-                      "FTextListStyle::BorderThickness": 0.0,
-                      "FTextListStyle::FontSize": 15.0,
-                      "FTextListStyle::LineSpacing": 1.15,
-                      "FTextListStyle::ScrollbarThickness": 10.0,
-                      "FTextListStyle::ScrollbarPadding": 0.0,
-                      "FTextListStyle::ScrollbarTrackColor": [
-                        38,
-                        45,
-                        56,
-                        255
-                      ],
-                      "FTextListStyle::ScrollbarThumbColor": [
-                        88,
-                        102,
-                        119,
-                        255
-                      ],
-                      "FTextListStyle::ScrollbarThumbHoveredColor": [
-                        122,
-                        143,
-                        168,
-                        255
-                      ],
-                      "FTextListStyle::ThumbMinLength": 28.0,
-                      "FTextListStyle::WheelScrollStep": 32.0,
-                      "FTextListStyle::AutoScrollEdgePadding": 24.0,
-                      "FTextListStyle::AutoScrollSpeed": 8.0
-                    }
-                  },
-                  "ImWidget::Name": "LogText",
-                  "ImWidget::Visible": true,
-                  "ImWidget::HitTestVisible": true,
-                  "ImWidget::SupportsKeyboardFocus": true
-                },
-                "Children": [],
-                "Slot": {
-                  "Type": "ImBoxSlot",
-                  "Properties": {
-                    "ImBoxSlot::FillCoefficient": 1.0,
-                    "ImPaddingSlot::PaddingLeft": 0.0,
-                    "ImPaddingSlot::PaddingRight": 0.0,
-                    "ImPaddingSlot::PaddingTop": 0.0,
-                    "ImPaddingSlot::PaddingBottom": 0.0,
-                    "ImSlot::SlotPosition": [
-                      322.67999267578125,
-                      405.5899963378906
-                    ],
-                    "ImSlot::SlotSize": [
-                      808.6400756835938,
-                      309.5899963378906
-                    ]
-                  }
-                },
-                "EditorId": "w38"
-              }
-            ],
-            "Slot": {
-              "Type": "ImBoxSlot",
-              "Properties": {
-                "ImBoxSlot::FillCoefficient": 0.0,
-                "ImPaddingSlot::PaddingLeft": 0.0,
-                "ImPaddingSlot::PaddingRight": 0.0,
-                "ImPaddingSlot::PaddingTop": 0.0,
-                "ImPaddingSlot::PaddingBottom": 0.0
-              }
-            },
-            "EditorId": "w39"
-          }
-        ],
+        "Children": [],
         "Slot": {
           "Type": "ImVerticalSplitterSlot",
           "Properties": {
@@ -2604,7 +2497,7 @@
             ]
           }
         },
-        "EditorId": "w45"
+        "EditorId": "w38"
       }
     ],
     "EditorId": "w1"

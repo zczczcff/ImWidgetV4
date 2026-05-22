@@ -2390,54 +2390,130 @@
         "EditorId": "w40"
       },
       {
-        "Type": "ImVerticalBox",
+        "Type": "ImScrollBox",
         "Properties": {
-          "ImVerticalBox::Spacing": 8.0,
-          "ImWidget::Name": "LogPanel",
+          "ImScrollBox::ScrollOffset": [
+            0.0,
+            0.0
+          ],
+          "ImScrollBox::Style": {
+            "Type": "FScrollBoxStyle",
+            "Properties": {
+              "FScrollBoxStyle::BackgroundColor": [
+                24,
+                28,
+                34,
+                255
+              ],
+              "FScrollBoxStyle::BorderColor": [
+                16,
+                19,
+                23,
+                255
+              ],
+              "FScrollBoxStyle::BorderThickness": 0.0,
+              "FScrollBoxStyle::CornerRadius": 0.0,
+              "FScrollBoxStyle::Padding": {
+                "Type": "FMargin",
+                "Properties": {
+                  "FMargin::Left": 0.0,
+                  "FMargin::Right": 0.0,
+                  "FMargin::Top": 0.0,
+                  "FMargin::Bottom": 0.0
+                }
+              },
+              "FScrollBoxStyle::ScrollbarThickness": 10.0,
+              "FScrollBoxStyle::ScrollbarPadding": 0.0,
+              "FScrollBoxStyle::ScrollbarTrackColor": [
+                38,
+                45,
+                56,
+                255
+              ],
+              "FScrollBoxStyle::ScrollbarThumbColor": [
+                88,
+                102,
+                119,
+                255
+              ],
+              "FScrollBoxStyle::ScrollbarThumbHoveredColor": [
+                122,
+                143,
+                168,
+                255
+              ],
+              "FScrollBoxStyle::ThumbMinLength": 28.0,
+              "FScrollBoxStyle::WheelScrollStep": 32.0
+            }
+          },
+          "ImWidget::Name": "LogScrollBox",
           "ImWidget::Visible": true,
           "ImWidget::HitTestVisible": true,
-          "ImWidget::SupportsKeyboardFocus": false
+          "ImWidget::SupportsKeyboardFocus": true
         },
         "Children": [
           {
-            "Type": "ImTextBlock",
+            "Type": "ImVerticalBox",
             "Properties": {
-              "ImTextBlock::Text": "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run.",
-              "ImTextBlock::TextColor": [
-                207,
-                216,
-                226,
-                255
-              ],
-              "ImTextBlock::FontSize": 15.0,
-              "ImTextBlock::WrapText": true,
-              "ImTextBlock::TextAlignment": "Left",
-              "ImTextBlock::VerticalAlignment": "Top",
-              "ImWidget::Name": "LogText",
+              "ImVerticalBox::Spacing": 0.0,
+              "ImWidget::Name": "LogPanel",
               "ImWidget::Visible": true,
               "ImWidget::HitTestVisible": true,
               "ImWidget::SupportsKeyboardFocus": false
             },
-            "Children": [],
+            "Children": [
+              {
+                "Type": "ImTextBlock",
+                "Properties": {
+                  "ImTextBlock::Text": "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run.",
+                  "ImTextBlock::TextColor": [
+                    207,
+                    216,
+                    226,
+                    255
+                  ],
+                  "ImTextBlock::FontSize": 15.0,
+                  "ImTextBlock::WrapText": true,
+                  "ImTextBlock::TextAlignment": "Left",
+                  "ImTextBlock::VerticalAlignment": "Top",
+                  "ImWidget::Name": "LogText",
+                  "ImWidget::Visible": true,
+                  "ImWidget::HitTestVisible": true,
+                  "ImWidget::SupportsKeyboardFocus": false
+                },
+                "Children": [],
+                "Slot": {
+                  "Type": "ImBoxSlot",
+                  "Properties": {
+                    "ImBoxSlot::FillCoefficient": 1.0,
+                    "ImPaddingSlot::PaddingLeft": 0.0,
+                    "ImPaddingSlot::PaddingRight": 0.0,
+                    "ImPaddingSlot::PaddingTop": 0.0,
+                    "ImPaddingSlot::PaddingBottom": 0.0,
+                    "ImSlot::SlotPosition": [
+                      322.67999267578125,
+                      405.5899963378906
+                    ],
+                    "ImSlot::SlotSize": [
+                      808.6400756835938,
+                      309.5899963378906
+                    ]
+                  }
+                },
+                "EditorId": "w38"
+              }
+            ],
             "Slot": {
               "Type": "ImBoxSlot",
               "Properties": {
-                "ImBoxSlot::FillCoefficient": 1.0,
+                "ImBoxSlot::FillCoefficient": 0.0,
                 "ImPaddingSlot::PaddingLeft": 0.0,
                 "ImPaddingSlot::PaddingRight": 0.0,
                 "ImPaddingSlot::PaddingTop": 0.0,
-                "ImPaddingSlot::PaddingBottom": 0.0,
-                "ImSlot::SlotPosition": [
-                  322.67999267578125,
-                  405.5899963378906
-                ],
-                "ImSlot::SlotSize": [
-                  808.6400756835938,
-                  309.5899963378906
-                ]
+                "ImPaddingSlot::PaddingBottom": 0.0
               }
             },
-            "EditorId": "w38"
+            "EditorId": "w39"
           }
         ],
         "Slot": {
@@ -2459,7 +2535,7 @@
             ]
           }
         },
-        "EditorId": "w39"
+        "EditorId": "w45"
       }
     ],
     "EditorId": "w1"

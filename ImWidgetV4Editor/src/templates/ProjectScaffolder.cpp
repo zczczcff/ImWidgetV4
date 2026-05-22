@@ -2,9 +2,12 @@
 
 #include "../codegen/WidgetTreeToCppGenerator.h"
 
+#include <imwidgetv4/core/CoreIcon.h>
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <vector>
 
@@ -47,6 +50,23 @@ std::string BuildStringLiteral(const std::string& value)
 std::string BuildPathLiteral(const std::filesystem::path& value)
 {
     return BuildStringLiteral(value.generic_string());
+}
+
+std::string BuildColorLiteral(const ImWidgetV4::FColor& color)
+{
+    const auto buildFloatLiteral = [](float value) {
+        std::ostringstream stream;
+        stream << std::fixed << std::setprecision(6) << std::clamp(value, 0.0f, 1.0f) << "f";
+        return stream.str();
+    };
+    std::ostringstream stream;
+    stream
+        << "ImWidgetV4::FColor::FromFloat("
+        << buildFloatLiteral(color.R) << ", "
+        << buildFloatLiteral(color.G) << ", "
+        << buildFloatLiteral(color.B) << ", "
+        << buildFloatLiteral(color.A) << ")";
+    return stream.str();
 }
 
 std::string BuildCMakeQuotedPath(const std::filesystem::path& value)
@@ -159,6 +179,43 @@ bool WriteTextFile(
         outError = "Unknown file write error.";
         return false;
     }
+}
+
+bool WriteCoreIconIcoFile(
+    const std::filesystem::path& filePath,
+    ImWidgetV4::ECoreIcon icon,
+    const ImWidgetV4::FColor& tint,
+    const ImWidgetV4::FColor& background,
+    std::string& outError)
+{
+    if (ImWidgetV4::ExportCoreIconIco(icon, filePath, tint, background)) {
+        return true;
+    }
+
+    outError = "Failed to write " + filePath.string() + ".";
+    return false;
+}
+
+bool ShouldGenerateInternalIconResources(const FEditorApplicationSettings& settings)
+{
+    return settings.IconSource == EEditorApplicationIconSource::InternalCoreIcon;
+}
+
+ImWidgetV4::ECoreIcon ResolveApplicationCoreIcon(const FEditorApplicationSettings& settings)
+{
+    ImWidgetV4::ECoreIcon icon = ImWidgetV4::ECoreIcon::Package;
+    (void)ImWidgetV4::TryParseCoreIconName(settings.InternalIconName, icon);
+    return icon;
+}
+
+std::string BuildAppResourceHeaderText()
+{
+    return "#pragma once\n\n#define IDI_APP_ICON 101\n";
+}
+
+std::string BuildAppResourcesRcText()
+{
+    return "#include \"AppResource.h\"\n\nIDI_APP_ICON ICON \"AppIcon.ico\"\n";
 }
 
 bool ReadTextFile(
@@ -335,6 +392,9 @@ std::string BuildGeneratedProjectCMakeText(
     }
     stream
         << ")\n\n"
+        << "if(WIN32 AND EXISTS \"${CMAKE_CURRENT_SOURCE_DIR}/generated/AppResources.rc\")\n"
+        << "    list(APPEND IMWIDGETV4_APP_SOURCES generated/AppResources.rc)\n"
+        << "endif()\n\n"
         << "if(ANDROID)\n"
         << "    set(IMWIDGETV4_ANDROID_NDK_ROOT \"\")\n"
         << "    if(DEFINED CMAKE_ANDROID_NDK)\n"
@@ -509,6 +569,7 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     stream
         << "#include \"AppProjectConfig.h\"\n\n"
         << "#include <imwidgetv4/core/Application.h>\n"
+        << "#include <imwidgetv4/core/CoreIcon.h>\n"
         << "#include <imwidgetv4/core/Types.h>\n"
         << "#include <imwidgetv4/widgets/Button.h>\n"
         << "#include <imwidgetv4/widgets/TextBlock.h>\n"
@@ -541,7 +602,7 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
         << "        config.InitialWidth = " << std::max(1, settings.InitialWidth) << ";\n"
         << "        config.InitialHeight = " << std::max(1, settings.InitialHeight) << ";\n"
         << "        config.bUseCustomHostChrome = " << (settings.bUseCustomHostChrome ? "true" : "false") << ";\n";
-    if (!settings.IconPath.empty()) {
+    if (settings.IconSource == EEditorApplicationIconSource::File && !settings.IconPath.empty()) {
         stream
             << "        // TODO: load application icon from " << settings.IconPath.generic_string() << " when a runtime image loader is available.\n";
     }
@@ -570,6 +631,15 @@ std::string BuildAppProjectConfigSourceText(const FProjectScaffoldRequest& reque
     }
     stream
         << "        application.SetApplicationTitle(" << BuildStringLiteral(title) << ");\n";
+    if (ShouldGenerateInternalIconResources(settings)) {
+        const ImWidgetV4::ECoreIcon icon = ResolveApplicationCoreIcon(settings);
+        stream
+            << "        application.SetApplicationIcon(application.GetCoreIconBrush(ImWidgetV4::ECoreIcon::"
+            << ImWidgetV4::GetCoreIconName(icon)
+            << ", "
+            << BuildColorLiteral(settings.IconTint)
+            << "));\n";
+    }
 
     if (settings.bUseTitleBar && request.TitleBarRootWidget) {
         stream
@@ -668,6 +738,37 @@ FProjectScaffoldResult GenerateBlankAppCode(const FProjectScaffoldRequest& reque
         return result;
     }
     result.GeneratedFiles.push_back(appProjectConfigSourcePath);
+
+    if (ShouldGenerateInternalIconResources(request.ApplicationSettings)) {
+        const std::filesystem::path appResourceHeaderPath =
+            request.ProjectRoot / "generated" / "AppResource.h";
+        if (!WriteTextFile(appResourceHeaderPath, BuildAppResourceHeaderText(), errorMessage)) {
+            result.ErrorMessage = errorMessage;
+            return result;
+        }
+        result.GeneratedFiles.push_back(appResourceHeaderPath);
+
+        const std::filesystem::path appResourcesRcPath =
+            request.ProjectRoot / "generated" / "AppResources.rc";
+        if (!WriteTextFile(appResourcesRcPath, BuildAppResourcesRcText(), errorMessage)) {
+            result.ErrorMessage = errorMessage;
+            return result;
+        }
+        result.GeneratedFiles.push_back(appResourcesRcPath);
+
+        const std::filesystem::path appIconPath =
+            request.ProjectRoot / "generated" / "AppIcon.ico";
+        if (!WriteCoreIconIcoFile(
+            appIconPath,
+            ResolveApplicationCoreIcon(request.ApplicationSettings),
+            request.ApplicationSettings.IconTint,
+            request.ApplicationSettings.IconBackground,
+            errorMessage)) {
+            result.ErrorMessage = errorMessage;
+            return result;
+        }
+        result.GeneratedFiles.push_back(appIconPath);
+    }
 
     const std::filesystem::path generatedHeaderPath =
         request.ProjectRoot / "generated" / generatedCode.Files.HeaderFileName;

@@ -3,6 +3,8 @@
 #include "../serialization/DocumentFormat.h"
 #include "../toolchains/PlatformConfiguration.h"
 
+#include <imwidgetv4/core/Types.h>
+
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -14,9 +16,19 @@ enum class EEditorLibraryIntegrationMode {
     SDK
 };
 
+enum class EEditorApplicationIconSource {
+    None,
+    File,
+    InternalCoreIcon
+};
+
 struct FEditorApplicationSettings {
     std::string Title;
+    EEditorApplicationIconSource IconSource = EEditorApplicationIconSource::None;
     std::filesystem::path IconPath;
+    std::string InternalIconName = "Package";
+    ImWidgetV4::FColor IconTint = ImWidgetV4::FColor::White;
+    ImWidgetV4::FColor IconBackground = ImWidgetV4::FColor::FromBytes(0, 0, 0, 0);
     int InitialWidth = 1280;
     int InitialHeight = 720;
     bool bEnableIniSettings = false;

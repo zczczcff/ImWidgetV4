@@ -44,6 +44,59 @@ EEditorLibraryIntegrationMode LibraryIntegrationModeFromString(const std::string
         : EEditorLibraryIntegrationMode::Source;
 }
 
+std::string ApplicationIconSourceToString(EEditorApplicationIconSource source)
+{
+    switch (source) {
+    case EEditorApplicationIconSource::File:
+        return "File";
+    case EEditorApplicationIconSource::InternalCoreIcon:
+        return "InternalCoreIcon";
+    case EEditorApplicationIconSource::None:
+    default:
+        return "None";
+    }
+}
+
+EEditorApplicationIconSource ApplicationIconSourceFromString(const std::string& source)
+{
+    if (source == "File") {
+        return EEditorApplicationIconSource::File;
+    }
+    if (source == "InternalCoreIcon" || source == "Internal") {
+        return EEditorApplicationIconSource::InternalCoreIcon;
+    }
+    return EEditorApplicationIconSource::None;
+}
+
+json ColorToJson(const ImWidgetV4::FColor& color)
+{
+    return json::array({
+        static_cast<int>(std::clamp(color.R, 0.0f, 1.0f) * 255.0f + 0.5f),
+        static_cast<int>(std::clamp(color.G, 0.0f, 1.0f) * 255.0f + 0.5f),
+        static_cast<int>(std::clamp(color.B, 0.0f, 1.0f) * 255.0f + 0.5f),
+        static_cast<int>(std::clamp(color.A, 0.0f, 1.0f) * 255.0f + 0.5f)
+    });
+}
+
+ImWidgetV4::FColor ColorFromJson(const json& colorJson, const ImWidgetV4::FColor& fallback)
+{
+    if (!colorJson.is_array() || colorJson.size() < 3) {
+        return fallback;
+    }
+
+    const auto readChannel = [&colorJson](std::size_t index, int fallbackValue) {
+        if (index >= colorJson.size() || !colorJson[index].is_number_integer()) {
+            return fallbackValue;
+        }
+        return std::clamp(colorJson[index].get<int>(), 0, 255);
+    };
+    const int r = readChannel(0, 255);
+    const int g = readChannel(1, 255);
+    const int b = readChannel(2, 255);
+    const int a = readChannel(3, 255);
+    return ImWidgetV4::FColor::FromBytes(r, g, b, a);
+}
+
 std::string NormalizeSdkVersion(const std::string& version)
 {
     const auto first = std::find_if_not(version.begin(), version.end(), [](unsigned char c) {
@@ -62,7 +115,11 @@ FEditorApplicationSettings BuildDefaultApplicationSettings(const std::string& pr
 {
     FEditorApplicationSettings settings;
     settings.Title = projectName;
+    settings.IconSource = EEditorApplicationIconSource::None;
     settings.IconPath.clear();
+    settings.InternalIconName = "Package";
+    settings.IconTint = ImWidgetV4::FColor::White;
+    settings.IconBackground = ImWidgetV4::FColor::FromBytes(0, 0, 0, 0);
     settings.InitialWidth = 1280;
     settings.InitialHeight = 720;
     settings.bEnableIniSettings = false;
@@ -87,7 +144,11 @@ json ApplicationSettingsToJson(const FEditorApplicationSettings& settings)
 {
     json settingsJson;
     settingsJson["Title"] = settings.Title;
+    settingsJson["IconSource"] = ApplicationIconSourceToString(settings.IconSource);
     settingsJson["IconPath"] = NormalizeStoredRelativePath(settings.IconPath).generic_string();
+    settingsJson["InternalIcon"] = settings.InternalIconName;
+    settingsJson["IconTint"] = ColorToJson(settings.IconTint);
+    settingsJson["IconBackground"] = ColorToJson(settings.IconBackground);
     settingsJson["InitialWidth"] = settings.InitialWidth;
     settingsJson["InitialHeight"] = settings.InitialHeight;
     settingsJson["EnableIniSettings"] = settings.bEnableIniSettings;
@@ -125,11 +186,19 @@ FEditorApplicationSettings ApplicationSettingsFromJson(
     }
 
     settings.Title = settingsJson.value("Title", settings.Title);
+    settings.IconSource = ApplicationIconSourceFromString(
+        settingsJson.value("IconSource", std::string()));
     settings.IconPath = NormalizeStoredRelativePath(
         std::filesystem::path(settingsJson.value("IconPath", std::string())));
     if (settings.IconPath.is_absolute()) {
         settings.IconPath.clear();
     }
+    if (settings.IconSource == EEditorApplicationIconSource::None && !settings.IconPath.empty()) {
+        settings.IconSource = EEditorApplicationIconSource::File;
+    }
+    settings.InternalIconName = settingsJson.value("InternalIcon", settings.InternalIconName);
+    settings.IconTint = ColorFromJson(settingsJson.value("IconTint", json()), settings.IconTint);
+    settings.IconBackground = ColorFromJson(settingsJson.value("IconBackground", json()), settings.IconBackground);
     settings.InitialWidth = std::max(1, settingsJson.value("InitialWidth", settings.InitialWidth));
     settings.InitialHeight = std::max(1, settingsJson.value("InitialHeight", settings.InitialHeight));
     settings.bEnableIniSettings = settingsJson.value("EnableIniSettings", settings.bEnableIniSettings);

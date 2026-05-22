@@ -15,6 +15,7 @@
 #include "../src/editor/EditorWidgetTreeHost.h"
 #include "../src/editor/NewAppProjectDialog.h"
 #include "../src/project/EditorProject.h"
+#include "../src/project/ProjectSettingsSchema.h"
 #include "../src/editor/SelectionModel.h"
 #include "../src/palette/WidgetPaletteDragDrop.h"
 #include "../src/palette/WidgetPaletteView.h"
@@ -2762,7 +2763,11 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
 
     FEditorApplicationSettings settings;
     settings.Title = "Configured App";
-    settings.IconPath = std::filesystem::path("assets") / "icon.png";
+    settings.IconSource = EEditorApplicationIconSource::InternalCoreIcon;
+    settings.IconPath.clear();
+    settings.InternalIconName = "Package";
+    settings.IconTint = FColor::FromBytes(238, 242, 247, 255);
+    settings.IconBackground = FColor::FromBytes(0, 0, 0, 0);
     settings.InitialWidth = 1440;
     settings.InitialHeight = 900;
     settings.bEnableIniSettings = true;
@@ -2792,7 +2797,14 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     ASSERT_TRUE(restoredProject.Load(EditorProject::BuildManifestFilePath(tempRoot), &loadError)) << loadError;
     const FEditorApplicationSettings& restoredSettings = restoredProject.GetApplicationSettings();
     EXPECT_EQ(restoredSettings.Title, "Configured App");
-    EXPECT_EQ(restoredSettings.IconPath.generic_string(), "assets/icon.png");
+    EXPECT_EQ(restoredSettings.IconSource, EEditorApplicationIconSource::InternalCoreIcon);
+    EXPECT_TRUE(restoredSettings.IconPath.empty());
+    EXPECT_EQ(restoredSettings.InternalIconName, "Package");
+    EXPECT_FLOAT_EQ(restoredSettings.IconTint.R, FColor::FromBytes(238, 242, 247, 255).R);
+    EXPECT_FLOAT_EQ(restoredSettings.IconTint.G, FColor::FromBytes(238, 242, 247, 255).G);
+    EXPECT_FLOAT_EQ(restoredSettings.IconTint.B, FColor::FromBytes(238, 242, 247, 255).B);
+    EXPECT_FLOAT_EQ(restoredSettings.IconTint.A, 1.0f);
+    EXPECT_FLOAT_EQ(restoredSettings.IconBackground.A, 0.0f);
     EXPECT_EQ(restoredSettings.InitialWidth, 1440);
     EXPECT_EQ(restoredSettings.InitialHeight, 900);
     EXPECT_TRUE(restoredSettings.bEnableIniSettings);
@@ -2816,6 +2828,27 @@ TEST(EditorSelectionTest, EditorProjectPersistsApplicationSettings)
     std::filesystem::remove_all(tempRoot, errorCode);
 }
 
+TEST(EditorSelectionTest, ProjectSettingsSchemaReadsAndWritesIconTint)
+{
+    FEditorApplicationSettings settings;
+    FProjectSettingSetResult result =
+        SetProjectApplicationSettingValue(settings, "iconTint", "12, 34, 56, 200");
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    EXPECT_EQ(settings.IconSource, EEditorApplicationIconSource::InternalCoreIcon);
+    EXPECT_FLOAT_EQ(settings.IconTint.R, FColor::FromBytes(12, 34, 56, 200).R);
+    EXPECT_FLOAT_EQ(settings.IconTint.G, FColor::FromBytes(12, 34, 56, 200).G);
+    EXPECT_FLOAT_EQ(settings.IconTint.B, FColor::FromBytes(12, 34, 56, 200).B);
+    EXPECT_FLOAT_EQ(settings.IconTint.A, FColor::FromBytes(12, 34, 56, 200).A);
+
+    const std::vector<FProjectSettingValue> values =
+        GetProjectApplicationSettingValues(settings, "iconTint");
+    ASSERT_EQ(values.size(), 1U);
+    EXPECT_EQ(values[0].Value, "12,34,56,200");
+
+    result = SetProjectApplicationSettingValue(settings, "iconTint", "invalid");
+    EXPECT_FALSE(result.bSuccess);
+}
+
 TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
 {
     auto rootWidget = std::make_shared<ImCanvasPanel>();
@@ -2836,7 +2869,10 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     request.StartupRootWidget = rootWidget;
     request.TitleBarRootWidget = titleBarRoot;
     request.ApplicationSettings.Title = "Configured App";
-    request.ApplicationSettings.IconPath = std::filesystem::path("assets") / "icon.png";
+    request.ApplicationSettings.IconSource = EEditorApplicationIconSource::InternalCoreIcon;
+    request.ApplicationSettings.InternalIconName = "Package";
+    request.ApplicationSettings.IconTint = FColor::FromBytes(238, 242, 247, 255);
+    request.ApplicationSettings.IconBackground = FColor::FromBytes(0, 0, 0, 0);
     request.ApplicationSettings.InitialWidth = 1440;
     request.ApplicationSettings.InitialHeight = 900;
     request.ApplicationSettings.bEnableIniSettings = true;
@@ -2895,10 +2931,12 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     EXPECT_NE(text.find("application.SetActiveTheme(\"Light\")"), std::string::npos);
     EXPECT_NE(text.find("application.SetCulture(\"zh-CN\")"), std::string::npos);
     EXPECT_NE(text.find("application.LoadStringTable(std::filesystem::path(\"localization/en-US.json\"))"), std::string::npos);
+    EXPECT_NE(text.find("application.SetApplicationIcon(application.GetCoreIconBrush(ImWidgetV4::ECoreIcon::Package"), std::string::npos);
     EXPECT_NE(text.find("#include \"TitleBarView.h\""), std::string::npos);
     EXPECT_NE(text.find("std::make_shared<ConfiguredApp::TitleBarView>()"), std::string::npos);
     EXPECT_EQ(text.find("fileButton->SetText(\"File\")"), std::string::npos);
     EXPECT_NE(text.find("#include <imwidgetv4/core/Types.h>"), std::string::npos);
+    EXPECT_NE(text.find("#include <imwidgetv4/core/CoreIcon.h>"), std::string::npos);
     EXPECT_EQ(text.find("#include <imwidgetv4/core/FrameContext.h>"), std::string::npos);
     EXPECT_NE(text.find("namespace GeneratedApp"), std::string::npos);
     EXPECT_NE(text.find("BuildHostConfig()"), std::string::npos);
@@ -2916,6 +2954,13 @@ TEST(EditorSelectionTest, ProjectScaffolderGeneratesApplicationSettings)
     const std::string cmakeText = cmakeBuffer.str();
     EXPECT_NE(cmakeText.find("set(IMWIDGETV4_LIBRARY_MODE \"Source\""), std::string::npos);
     EXPECT_NE(cmakeText.find("add_subdirectory(\"${IMWIDGETV4_ROOT}\""), std::string::npos);
+    EXPECT_NE(cmakeText.find("generated/AppResources.rc"), std::string::npos);
+
+    EXPECT_TRUE(std::filesystem::exists(request.ProjectRoot / "generated" / "AppResource.h"));
+    EXPECT_TRUE(std::filesystem::exists(request.ProjectRoot / "generated" / "AppResources.rc"));
+    const std::filesystem::path appIconPath = request.ProjectRoot / "generated" / "AppIcon.ico";
+    EXPECT_TRUE(std::filesystem::exists(appIconPath));
+    EXPECT_GT(std::filesystem::file_size(appIconPath), 0U);
 
     const std::filesystem::path titleBarSourcePath = request.ProjectRoot / "generated" / "TitleBarView.cpp";
     std::ifstream titleBarStream(titleBarSourcePath, std::ios::binary);

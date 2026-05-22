@@ -6,8 +6,10 @@
 #include "../project/ProjectSettingsSchema.h"
 #include "../toolchains/EnvironmentProbeFormatter.h"
 
+#include <imwidgetv4/core/CoreIcon.h>
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/widgets/Button.h>
+#include <imwidgetv4/widgets/ColorPicker.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/EditableText.h>
 #include <imwidgetv4/widgets/HorizontalBox.h>
@@ -162,8 +164,20 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     androidNdkClearButton->SetText(EditorText("Build.Clear", "Clear"));
 
     auto applicationTitleEditor = MakeEditableTextField(m_Options.ApplicationSettings.Title);
+    auto iconSourceComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*iconSourceComboBox);
+    iconSourceComboBox->SetItems(GetApplicationIconSourceOptions());
+    iconSourceComboBox->SetSelectedIndex(GetApplicationIconSourceIndex(m_Options.ApplicationSettings.IconSource));
     auto iconPathEditor = MakeEditableTextField(m_Options.ApplicationSettings.IconPath.generic_string());
     iconPathEditor->SetHintText("assets/icon.png");
+    auto internalIconComboBox = std::make_shared<ImComboBox>();
+    ApplyInspectorComboBoxStyle(*internalIconComboBox);
+    internalIconComboBox->SetItems(ImWidgetV4::GetCoreIconNames());
+    ImWidgetV4::ECoreIcon selectedIcon = ImWidgetV4::ECoreIcon::Package;
+    (void)ImWidgetV4::TryParseCoreIconName(m_Options.ApplicationSettings.InternalIconName, selectedIcon);
+    internalIconComboBox->SetSelectedIndex(static_cast<int>(selectedIcon));
+    auto iconTintPicker = std::make_shared<ImColorPicker>();
+    iconTintPicker->SetColor(m_Options.ApplicationSettings.IconTint);
     auto initialWidthEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialWidth));
     auto initialHeightEditor = MakeEditableTextField(std::to_string(m_Options.ApplicationSettings.InitialHeight));
     auto enableIniSettingsSwitch = MakeSwitchField(m_Options.ApplicationSettings.bEnableIniSettings);
@@ -204,7 +218,16 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     auto applicationSettingsGroup = std::make_shared<ImVerticalBox>();
     applicationSettingsGroup->SetSpacing(8.0f);
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.ApplicationTitle", "Application Title").Resolve(), applicationTitleEditor), FMargin(0.0f));
-    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.IconPath", "Icon Path").Resolve(), iconPathEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.IconSource", "Icon Source").Resolve(), iconSourceComboBox), FMargin(0.0f));
+    auto iconPathGroup = std::make_shared<ImVerticalBox>();
+    iconPathGroup->SetSpacing(8.0f);
+    iconPathGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.IconPath", "Icon Path").Resolve(), iconPathEditor), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(iconPathGroup, FMargin(0.0f));
+    auto internalIconGroup = std::make_shared<ImVerticalBox>();
+    internalIconGroup->SetSpacing(8.0f);
+    internalIconGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.InternalIcon", "Internal Icon").Resolve(), internalIconComboBox), FMargin(0.0f));
+    internalIconGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.InternalIconColor", "Internal Icon Color").Resolve(), iconTintPicker), FMargin(0.0f));
+    applicationSettingsGroup->AddChild(internalIconGroup, FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorVerticalPropertyRow(EditorText("ProjectSettings.InitialWindowSize", "Initial Window Size").Resolve(), sizeRow), FMargin(0.0f));
     applicationSettingsGroup->AddChild(MakeInspectorRightAlignedPropertyRow(EditorText("ProjectSettings.EnableIniSettings", "Enable .ini Settings").Resolve(), enableIniSettingsSwitch), FMargin(0.0f));
 
@@ -324,7 +347,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     m_AndroidSdkRootEditor = androidSdkRootEditor;
     m_AndroidNdkRootEditor = androidNdkRootEditor;
     m_ApplicationTitleEditor = applicationTitleEditor;
+    m_IconSourceComboBox = iconSourceComboBox;
     m_IconPathEditor = iconPathEditor;
+    m_InternalIconComboBox = internalIconComboBox;
+    m_IconTintPicker = iconTintPicker;
+    m_IconPathGroup = iconPathGroup;
+    m_InternalIconGroup = internalIconGroup;
     m_InitialWidthEditor = initialWidthEditor;
     m_InitialHeightEditor = initialHeightEditor;
     m_EnableIniSettingsSwitch = enableIniSettingsSwitch;
@@ -420,6 +448,12 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     });
 
     libraryIntegrationModeComboBox->OnSelectionChanged.AddLambda([weakThis](ImComboBox&, int) {
+        if (auto self = weakThis.lock()) {
+            self->RefreshApplicationEditorVisibility();
+        }
+    });
+
+    iconSourceComboBox->OnSelectionChanged.AddLambda([weakThis](ImComboBox&, int) {
         if (auto self = weakThis.lock()) {
             self->RefreshApplicationEditorVisibility();
         }
@@ -623,7 +657,12 @@ void ProjectSettingsDialog::Reset()
     m_AndroidSdkRootEditor.reset();
     m_AndroidNdkRootEditor.reset();
     m_ApplicationTitleEditor.reset();
+    m_IconSourceComboBox.reset();
     m_IconPathEditor.reset();
+    m_InternalIconComboBox.reset();
+    m_IconTintPicker.reset();
+    m_IconPathGroup.reset();
+    m_InternalIconGroup.reset();
     m_InitialWidthEditor.reset();
     m_InitialHeightEditor.reset();
     m_EnableIniSettingsSwitch.reset();
@@ -857,11 +896,26 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     if (settings.Title.empty()) {
         settings.Title = m_Options.ProjectName;
     }
+    settings.IconSource = GetApplicationIconSourceFromIndex(
+        m_IconSourceComboBox ? m_IconSourceComboBox->GetSelectedIndex() : 0);
     settings.IconPath =
         m_IconPathEditor ? std::filesystem::path(m_IconPathEditor->GetText()).lexically_normal() : std::filesystem::path();
     if (settings.IconPath.is_absolute()) {
         if (outError) {
             *outError = EditorText("ProjectSettings.IconPathMustBeRelative", "Icon path must be relative to the project root.").Resolve();
+        }
+        return false;
+    }
+    settings.InternalIconName =
+        m_InternalIconComboBox && m_InternalIconComboBox->HasSelection()
+            ? m_InternalIconComboBox->GetSelectedText()
+            : std::string("Package");
+    if (m_IconTintPicker) {
+        settings.IconTint = m_IconTintPicker->GetColor();
+    }
+    if (settings.IconSource == EEditorApplicationIconSource::File && settings.IconPath.empty()) {
+        if (outError) {
+            *outError = EditorText("ProjectSettings.IconPathRequired", "Icon path is required when icon source is File.").Resolve();
         }
         return false;
     }
@@ -966,9 +1020,19 @@ void ProjectSettingsDialog::RefreshApplicationEditorVisibility()
 {
     const bool bEnableIniSettings = m_EnableIniSettingsSwitch && m_EnableIniSettingsSwitch->IsChecked();
     const bool bUseTitleBar = m_UseTitleBarSwitch && m_UseTitleBarSwitch->IsChecked();
+    const EEditorApplicationIconSource iconSource =
+        m_IconSourceComboBox
+            ? GetApplicationIconSourceFromIndex(m_IconSourceComboBox->GetSelectedIndex())
+            : EEditorApplicationIconSource::None;
     const bool bUseSdk =
         m_LibraryIntegrationModeComboBox &&
         GetLibraryIntegrationModeFromIndex(m_LibraryIntegrationModeComboBox->GetSelectedIndex()) == EEditorLibraryIntegrationMode::SDK;
+    if (m_IconPathGroup) {
+        m_IconPathGroup->SetVisible(iconSource == EEditorApplicationIconSource::File);
+    }
+    if (m_InternalIconGroup) {
+        m_InternalIconGroup->SetVisible(iconSource == EEditorApplicationIconSource::InternalCoreIcon);
+    }
     if (m_IniSettingsGroup) {
         m_IniSettingsGroup->SetVisible(bEnableIniSettings);
     }

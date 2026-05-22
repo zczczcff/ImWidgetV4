@@ -76,6 +76,10 @@ set(IMWIDGETV4_APP_SOURCES
     generated/TitleBarView.cpp
 )
 
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/AppResources.rc")
+    list(APPEND IMWIDGETV4_APP_SOURCES generated/AppResources.rc)
+endif()
+
 if(ANDROID)
     set(IMWIDGETV4_ANDROID_NDK_ROOT "")
     if(DEFINED CMAKE_ANDROID_NDK)

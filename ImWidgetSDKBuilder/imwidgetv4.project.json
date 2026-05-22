@@ -10,7 +10,21 @@
   },
   "Application": {
     "Title": "ImWidget SDK Builder",
+    "IconSource": "InternalCoreIcon",
     "IconPath": "",
+    "InternalIcon": "Package",
+    "IconTint": [
+      124,
+      181,
+      253,
+      255
+    ],
+    "IconBackground": [
+      0,
+      0,
+      0,
+      0
+    ],
     "InitialWidth": 640,
     "InitialHeight": 720,
     "EnableIniSettings": false,

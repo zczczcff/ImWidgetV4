@@ -49,6 +49,11 @@ namespace {
 
 const Reflection::FTypeDesc& FDragDropPayloadReflectionTypeDesc = FDragDropPayload::StaticTypeDesc();
 
+std::uint8_t ColorChannelToByte(float value)
+{
+    return static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+}
+
 void RegisterBaseThemePacks(ImApplication& application)
 {
     FThemePack defaultTheme("Default");
@@ -2379,10 +2384,14 @@ bool ImApplication::TryResolveBrushPixels(
             const std::size_t destinationOffset =
                 (static_cast<std::size_t>(y) * static_cast<std::size_t>(outWidth) +
                  static_cast<std::size_t>(x)) * 4U;
-            outPixels[destinationOffset] = textureData.Pixels[sourceOffset];
-            outPixels[destinationOffset + 1] = textureData.Pixels[sourceOffset + 1];
-            outPixels[destinationOffset + 2] = textureData.Pixels[sourceOffset + 2];
-            outPixels[destinationOffset + 3] = textureData.Pixels[sourceOffset + 3];
+            outPixels[destinationOffset] = ColorChannelToByte(
+                (static_cast<float>(textureData.Pixels[sourceOffset]) / 255.0f) * brush.TintColor.R);
+            outPixels[destinationOffset + 1] = ColorChannelToByte(
+                (static_cast<float>(textureData.Pixels[sourceOffset + 1]) / 255.0f) * brush.TintColor.G);
+            outPixels[destinationOffset + 2] = ColorChannelToByte(
+                (static_cast<float>(textureData.Pixels[sourceOffset + 2]) / 255.0f) * brush.TintColor.B);
+            outPixels[destinationOffset + 3] = ColorChannelToByte(
+                (static_cast<float>(textureData.Pixels[sourceOffset + 3]) / 255.0f) * brush.TintColor.A);
         }
     }
 

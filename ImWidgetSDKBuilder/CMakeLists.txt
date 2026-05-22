@@ -7,6 +7,10 @@ set(IMWIDGET_SDK_BUILDER_SOURCES
     generated/TitleBarView.cpp
 )
 
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/generated/AppResources.rc")
+    list(APPEND IMWIDGET_SDK_BUILDER_SOURCES generated/AppResources.rc)
+endif()
+
 add_executable(ImWidgetSDKBuilder
     ${IMWIDGET_SDK_BUILDER_SOURCES}
 )

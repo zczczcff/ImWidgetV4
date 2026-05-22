@@ -242,6 +242,7 @@ set(IMWIDGETV4_CORE_PUBLIC_HEADERS
 set(IMWIDGETV4_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/ApplicationHost.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Application.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIcon.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/CoreIconData.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/DrawContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core/Localization.cpp

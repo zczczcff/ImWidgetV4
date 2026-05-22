@@ -1,5 +1,12 @@
 #pragma once
 
+#include <imwidgetv4/core/Types.h>
+
+#include <cstdint>
+#include <filesystem>
+#include <string>
+#include <vector>
+
 namespace ImWidgetV4 {
 
 enum class ECoreIcon {
@@ -98,5 +105,26 @@ enum class ECoreIcon {
     MemoryCheck,
     ParallelBuild
 };
+
+const char* GetCoreIconName(ECoreIcon icon);
+std::vector<std::string> GetCoreIconNames();
+bool TryParseCoreIconName(const std::string& name, ECoreIcon& outIcon);
+bool BuildCoreIconRgba(
+    ECoreIcon icon,
+    int size,
+    const FColor& tint,
+    const FColor& background,
+    std::vector<std::uint8_t>& outPixels);
+bool ExportCoreIconIco(
+    ECoreIcon icon,
+    const std::filesystem::path& outputPath,
+    const FColor& tint = FColor::White,
+    const FColor& background = FColor::FromBytes(0, 0, 0, 0));
+bool ExportCoreIconIco(
+    ECoreIcon icon,
+    const std::filesystem::path& outputPath,
+    const std::vector<int>& sizes,
+    const FColor& tint = FColor::White,
+    const FColor& background = FColor::FromBytes(0, 0, 0, 0));
 
 } // namespace ImWidgetV4

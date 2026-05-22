@@ -639,7 +639,6 @@ public:
     void ConfigureApplication(ImWidgetV4::ImApplication& application) override
     {
         GeneratedApp::ConfigureApplication(application);
-        application.SetApplicationIcon(application.GetCoreIconBrush(ImWidgetV4::ECoreIcon::Package));
         BuilderUiState_ = ConfigureBuilderUi(application);
     }
 

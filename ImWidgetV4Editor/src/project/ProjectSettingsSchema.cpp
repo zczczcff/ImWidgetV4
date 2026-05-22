@@ -1,5 +1,7 @@
 #include "ProjectSettingsSchema.h"
 
+#include <imwidgetv4/core/CoreIcon.h>
+
 #include <algorithm>
 #include <cctype>
 #include <sstream>
@@ -22,6 +24,21 @@ bool TryParseInteger(const std::string& text, int& outValue)
     } catch (...) {
         return false;
     }
+}
+
+int ColorChannelToByte(float value)
+{
+    return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+}
+
+std::string TrimCopy(const std::string& text)
+{
+    const std::size_t first = text.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        return {};
+    }
+    const std::size_t last = text.find_last_not_of(" \t\r\n");
+    return text.substr(first, last - first + 1);
 }
 
 } // namespace
@@ -50,6 +67,40 @@ bool TryParseProjectSettingBool(const std::string& text, bool& outValue)
     return false;
 }
 
+std::string ColorToProjectSettingString(const ImWidgetV4::FColor& color)
+{
+    return
+        std::to_string(ColorChannelToByte(color.R)) + "," +
+        std::to_string(ColorChannelToByte(color.G)) + "," +
+        std::to_string(ColorChannelToByte(color.B)) + "," +
+        std::to_string(ColorChannelToByte(color.A));
+}
+
+bool TryParseProjectSettingColor(const std::string& text, ImWidgetV4::FColor& outColor)
+{
+    std::vector<int> channels;
+    std::stringstream stream(text);
+    std::string item;
+    while (std::getline(stream, item, ',')) {
+        int channel = 0;
+        if (!TryParseInteger(TrimCopy(item), channel)) {
+            return false;
+        }
+        channels.push_back(std::clamp(channel, 0, 255));
+    }
+
+    if (channels.size() != 3U && channels.size() != 4U) {
+        return false;
+    }
+
+    outColor = ImWidgetV4::FColor::FromBytes(
+        channels[0],
+        channels[1],
+        channels[2],
+        channels.size() == 4U ? channels[3] : 255);
+    return true;
+}
+
 std::string LibraryIntegrationModeToProjectSettingString(EEditorLibraryIntegrationMode mode)
 {
     return mode == EEditorLibraryIntegrationMode::SDK ? "SDK" : "Source";
@@ -68,6 +119,73 @@ bool TryParseLibraryIntegrationModeProjectSetting(
         return true;
     }
     return false;
+}
+
+std::string ApplicationIconSourceToProjectSettingString(EEditorApplicationIconSource source)
+{
+    switch (source) {
+    case EEditorApplicationIconSource::File:
+        return "File";
+    case EEditorApplicationIconSource::InternalCoreIcon:
+        return "InternalCoreIcon";
+    case EEditorApplicationIconSource::None:
+    default:
+        return "None";
+    }
+}
+
+bool TryParseApplicationIconSourceProjectSetting(
+    const std::string& text,
+    EEditorApplicationIconSource& outSource)
+{
+    std::string normalized = text;
+    std::transform(
+        normalized.begin(),
+        normalized.end(),
+        normalized.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (normalized == "none" || normalized.empty()) {
+        outSource = EEditorApplicationIconSource::None;
+        return true;
+    }
+    if (normalized == "file") {
+        outSource = EEditorApplicationIconSource::File;
+        return true;
+    }
+    if (normalized == "internalcoreicon" || normalized == "internal") {
+        outSource = EEditorApplicationIconSource::InternalCoreIcon;
+        return true;
+    }
+    return false;
+}
+
+std::vector<std::string> GetApplicationIconSourceOptions()
+{
+    return {"None", "File", "InternalCoreIcon"};
+}
+
+int GetApplicationIconSourceIndex(EEditorApplicationIconSource source)
+{
+    switch (source) {
+    case EEditorApplicationIconSource::File:
+        return 1;
+    case EEditorApplicationIconSource::InternalCoreIcon:
+        return 2;
+    case EEditorApplicationIconSource::None:
+    default:
+        return 0;
+    }
+}
+
+EEditorApplicationIconSource GetApplicationIconSourceFromIndex(int index)
+{
+    if (index == 1) {
+        return EEditorApplicationIconSource::File;
+    }
+    if (index == 2) {
+        return EEditorApplicationIconSource::InternalCoreIcon;
+    }
+    return EEditorApplicationIconSource::None;
 }
 
 std::vector<std::string> GetLibraryIntegrationModeOptions()
@@ -128,6 +246,10 @@ std::vector<FProjectSettingValue> GetProjectApplicationSettingValues(
     };
 
     appendValue("title", settings.Title);
+    appendValue("iconSource", ApplicationIconSourceToProjectSettingString(settings.IconSource));
+    appendValue("iconPath", settings.IconPath.generic_string());
+    appendValue("internalIcon", settings.InternalIconName);
+    appendValue("iconTint", ColorToProjectSettingString(settings.IconTint));
     appendValue("libraryMode", LibraryIntegrationModeToProjectSettingString(settings.LibraryIntegrationMode));
     appendValue("sdkPath", settings.SdkPackagePath.generic_string());
     appendValue("minimumSdkVersion", settings.MinimumSdkVersion);
@@ -146,6 +268,34 @@ FProjectSettingSetResult SetProjectApplicationSettingValue(
 {
     if (key == "title") {
         settings.Title = value;
+    } else if (key == "iconSource") {
+        EEditorApplicationIconSource source = EEditorApplicationIconSource::None;
+        if (!TryParseApplicationIconSourceProjectSetting(value, source)) {
+            return {false, "iconSource must be None, File, or InternalCoreIcon."};
+        }
+        settings.IconSource = source;
+    } else if (key == "iconPath") {
+        settings.IconPath = std::filesystem::path(value).lexically_normal();
+        if (settings.IconPath.is_absolute()) {
+            return {false, "iconPath must be project-relative."};
+        }
+        settings.IconSource = value.empty()
+            ? EEditorApplicationIconSource::None
+            : EEditorApplicationIconSource::File;
+    } else if (key == "internalIcon") {
+        ImWidgetV4::ECoreIcon icon = ImWidgetV4::ECoreIcon::Package;
+        if (!value.empty() && !ImWidgetV4::TryParseCoreIconName(value, icon)) {
+            return {false, "internalIcon must be a valid core icon name."};
+        }
+        settings.InternalIconName = value.empty() ? std::string("Package") : value;
+        settings.IconSource = EEditorApplicationIconSource::InternalCoreIcon;
+    } else if (key == "iconTint") {
+        ImWidgetV4::FColor color;
+        if (!TryParseProjectSettingColor(value, color)) {
+            return {false, "iconTint must be r,g,b or r,g,b,a byte channels."};
+        }
+        settings.IconTint = color;
+        settings.IconSource = EEditorApplicationIconSource::InternalCoreIcon;
     } else if (key == "libraryMode") {
         EEditorLibraryIntegrationMode mode = EEditorLibraryIntegrationMode::Source;
         if (!TryParseLibraryIntegrationModeProjectSetting(value, mode)) {

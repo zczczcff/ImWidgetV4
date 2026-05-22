@@ -12,6 +12,7 @@
 
 namespace ImWidgetV4 {
 class ImButton;
+class ImColorPicker;
 class ImComboBox;
 class ImEditableText;
 class ImSwitch;
@@ -71,7 +72,12 @@ private:
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidSdkRootEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_AndroidNdkRootEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_ApplicationTitleEditor;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_IconSourceComboBox;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_IconPathEditor;
+    std::shared_ptr<ImWidgetV4::ImComboBox> m_InternalIconComboBox;
+    std::shared_ptr<ImWidgetV4::ImColorPicker> m_IconTintPicker;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_IconPathGroup;
+    std::shared_ptr<ImWidgetV4::ImVerticalBox> m_InternalIconGroup;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialWidthEditor;
     std::shared_ptr<ImWidgetV4::ImEditableText> m_InitialHeightEditor;
     std::shared_ptr<ImWidgetV4::ImSwitch> m_EnableIniSettingsSwitch;

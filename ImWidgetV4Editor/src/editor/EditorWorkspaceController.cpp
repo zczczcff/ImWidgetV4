@@ -18,6 +18,7 @@
 #include "../inspector/ReflectionDetailsView.h"
 #include "../inspector/PropertyEditorWidgets.h"
 #include "../toolchains/EnvironmentProbe.h"
+#include "../toolchains/EnvironmentProbeFormatter.h"
 
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/platform/PlatformProcess.h>
@@ -4428,9 +4429,8 @@ void EditorWorkspaceController::RebuildProjectView()
                     FEnvironmentProbeReport probeReport;
                     const bool bHasProbeReport = TryGetBuildProfileProbeReport(profile.Name, probeReport);
                     const bool bRefreshingProbe = IsBuildProfileProbeRefreshing(profile.Name);
-                    const std::string readinessLabel = bHasProbeReport
-                        ? (probeReport.bReady ? "Ready" : "Needs Setup")
-                        : (bRefreshingProbe ? "Refreshing" : "Unknown");
+                    const std::string readinessLabel =
+                        FormatBuildProfileReadinessLabel(bHasProbeReport, probeReport, bRefreshingProbe);
 
                     std::string label = profile.Name + " [" +
                         GetTargetPlatformDisplayName(profile.TargetPlatform) + " / " +
@@ -4449,12 +4449,7 @@ void EditorWorkspaceController::RebuildProjectView()
 
                     if (bHasProbeReport) {
                         for (const FEnvironmentProbeItem& probeItem : probeReport.Items) {
-                            std::string probeLabel =
-                                probeItem.Label + " [" + ToDisplayString(probeItem.Status) + "]";
-                            if (!probeItem.Details.empty()) {
-                                probeLabel += " - " + probeItem.Details;
-                            }
-                            m_ProjectView->AddChildItem(profileItem, probeLabel);
+                            m_ProjectView->AddChildItem(profileItem, FormatEnvironmentProbeItemLine(probeItem));
                         }
                     } else {
                         m_ProjectView->AddChildItem(

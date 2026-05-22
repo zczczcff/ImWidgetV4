@@ -6,9 +6,11 @@
 #include "project/EditorProject.h"
 #include "project/ProjectNaming.h"
 #include "project/ProjectScaffoldRequestBuilder.h"
+#include "project/ProjectSettingsSchema.h"
 #include "serialization/WidgetCatalog.h"
 #include "templates/ProjectScaffolder.h"
 #include "toolchains/EnvironmentProbe.h"
+#include "toolchains/EnvironmentProbeFormatter.h"
 
 #include <algorithm>
 #include <cctype>
@@ -248,30 +250,6 @@ int RunProjectCreate(const std::vector<std::string>& args)
 
     std::cout << "Created project: " << createResult.ProjectRoot.string() << "\n";
     return 0;
-}
-
-std::string BoolToString(bool value)
-{
-    return value ? "true" : "false";
-}
-
-bool ParseBool(const std::string& text, bool& outValue)
-{
-    std::string normalized = text;
-    std::transform(
-        normalized.begin(),
-        normalized.end(),
-        normalized.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on") {
-        outValue = true;
-        return true;
-    }
-    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off") {
-        outValue = false;
-        return true;
-    }
-    return false;
 }
 
 bool ParsePositiveInteger(const std::string& text, int& outValue)
@@ -1472,100 +1450,25 @@ void PrintUiBatchText(const FUiBatchResult& result)
 
 bool PrintProjectSetting(const EditorProject& project, const std::string& key)
 {
-    const FEditorApplicationSettings& settings = project.GetApplicationSettings();
-    bool bPrintedAny = false;
-    const auto printValue = [](const std::string& name, const std::string& value) {
-        std::cout << name << "=" << value << "\n";
-    };
-
-    if (key.empty() || key == "title") {
-        printValue("title", settings.Title);
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "libraryMode") {
-        printValue(
-            "libraryMode",
-            settings.LibraryIntegrationMode == EEditorLibraryIntegrationMode::SDK ? "SDK" : "Source");
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "sdkPath") {
-        printValue("sdkPath", settings.SdkPackagePath.generic_string());
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "minimumSdkVersion") {
-        printValue("minimumSdkVersion", settings.MinimumSdkVersion);
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "initialWidth") {
-        printValue("initialWidth", std::to_string(settings.InitialWidth));
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "initialHeight") {
-        printValue("initialHeight", std::to_string(settings.InitialHeight));
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "useTitleBar") {
-        printValue("useTitleBar", BoolToString(settings.bUseTitleBar));
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "showSystemButtons") {
-        printValue("showSystemButtons", BoolToString(settings.bShowSystemButtons));
-        bPrintedAny = true;
-    }
-    if (key.empty() || key == "titleBarDocument") {
-        printValue("titleBarDocument", settings.TitleBarDocumentRelativePath.generic_string());
-        bPrintedAny = true;
-    }
-    if (!bPrintedAny) {
+    const std::vector<FProjectSettingValue> values =
+        GetProjectApplicationSettingValues(project.GetApplicationSettings(), key);
+    if (values.empty()) {
         std::cerr << "Unknown project setting: " << key << "\n";
+        return false;
     }
-    return bPrintedAny;
+
+    for (const FProjectSettingValue& value : values) {
+        std::cout << value.Key << "=" << value.Value << "\n";
+    }
+    return true;
 }
 
 bool SetProjectSetting(EditorProject& project, const std::string& key, const std::string& value)
 {
     FEditorApplicationSettings settings = project.GetApplicationSettings();
-
-    if (key == "title") {
-        settings.Title = value;
-    } else if (key == "libraryMode") {
-        if (value == "SDK" || value == "sdk") {
-            settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::SDK;
-        } else if (value == "Source" || value == "source") {
-            settings.LibraryIntegrationMode = EEditorLibraryIntegrationMode::Source;
-        } else {
-            std::cerr << "libraryMode must be SDK or Source.\n";
-            return false;
-        }
-    } else if (key == "sdkPath") {
-        settings.SdkPackagePath = std::filesystem::path(value).lexically_normal();
-        settings.LibraryIntegrationMode = value.empty()
-            ? EEditorLibraryIntegrationMode::Source
-            : EEditorLibraryIntegrationMode::SDK;
-    } else if (key == "minimumSdkVersion") {
-        settings.MinimumSdkVersion = value;
-    } else if (key == "initialWidth") {
-        settings.InitialWidth = std::max(1, std::stoi(value));
-    } else if (key == "initialHeight") {
-        settings.InitialHeight = std::max(1, std::stoi(value));
-    } else if (key == "useTitleBar") {
-        if (!ParseBool(value, settings.bUseTitleBar)) {
-            std::cerr << "useTitleBar must be a boolean.\n";
-            return false;
-        }
-    } else if (key == "showSystemButtons") {
-        if (!ParseBool(value, settings.bShowSystemButtons)) {
-            std::cerr << "showSystemButtons must be a boolean.\n";
-            return false;
-        }
-    } else if (key == "titleBarDocument") {
-        settings.TitleBarDocumentRelativePath = std::filesystem::path(value).lexically_normal();
-        if (settings.TitleBarDocumentRelativePath.is_absolute()) {
-            std::cerr << "titleBarDocument must be project-relative.\n";
-            return false;
-        }
-    } else {
-        std::cerr << "Unknown project setting: " << key << "\n";
+    const FProjectSettingSetResult setResult = SetProjectApplicationSettingValue(settings, key, value);
+    if (!setResult.bSuccess) {
+        std::cerr << setResult.ErrorMessage << "\n";
         return false;
     }
 
@@ -2364,9 +2267,10 @@ int RunProbeCommand(const std::vector<std::string>& args)
     }
 
     const FEnvironmentProbeReport report = EnvironmentProbe::Probe(*profile);
-    std::cout << "Target: " << GetTargetPlatformDisplayName(report.TargetPlatform) << "\n";
-    for (const FEnvironmentProbeItem& item : report.Items) {
-        std::cout << item.Label << ": " << ToDisplayString(item.Status) << " - " << item.Details << "\n";
+    FEnvironmentProbeFormatOptions formatOptions;
+    formatOptions.bIncludeReadyLine = false;
+    for (const std::string& line : FormatEnvironmentProbeReportLines(report, formatOptions)) {
+        std::cout << line << "\n";
     }
     return report.bReady ? 0 : 1;
 }

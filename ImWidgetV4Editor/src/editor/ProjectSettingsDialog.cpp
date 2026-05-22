@@ -3,6 +3,8 @@
 #include "EditorTheme.h"
 #include "EditorLocalization.h"
 #include "../inspector/PropertyEditorWidgets.h"
+#include "../project/ProjectSettingsSchema.h"
+#include "../toolchains/EnvironmentProbeFormatter.h"
 
 #include <imwidgetv4/core/WindowManager.h>
 #include <imwidgetv4/widgets/Button.h>
@@ -15,7 +17,6 @@
 #include <imwidgetv4/widgets/TextList.h>
 #include <imwidgetv4/widgets/VerticalBox.h>
 #include <algorithm>
-#include <sstream>
 
 namespace ImWidgetV4Editor {
 
@@ -23,22 +24,6 @@ using namespace ImWidgetV4;
 using namespace ImWidgetV4Editor::PropertyEditorWidgets;
 
 namespace {
-
-std::vector<std::string> BuildProbeLines(const FEnvironmentProbeReport& report)
-{
-    std::vector<std::string> lines;
-    lines.push_back(EditorText("ProjectSettings.ProbeTarget", "Target").Resolve() + ": " + GetTargetPlatformDisplayName(report.TargetPlatform));
-    lines.push_back(EditorText("ProjectSettings.ProbeReady", "Ready").Resolve() + ": " +
-        (report.bReady
-            ? EditorText("Common.Yes", "Yes").Resolve()
-            : EditorText("Common.No", "No").Resolve()));
-    lines.push_back("");
-    for (const FEnvironmentProbeItem& item : report.Items) {
-        lines.push_back(item.Label + " [" + ToDisplayString(item.Status) + "]");
-        lines.push_back("  " + item.Details);
-    }
-    return lines;
-}
 
 std::vector<std::string> BuildProfileNames(const std::vector<FEditorBuildProfile>& profiles)
 {
@@ -77,52 +62,6 @@ std::string GetWindowsGeneratorDisplayLabel(const std::string& generator)
 std::vector<std::string> GetWindowsArchitectureOptions()
 {
     return {"win64", "win32"};
-}
-
-std::vector<std::string> GetLibraryIntegrationModeOptions()
-{
-    return {"Source", "SDK"};
-}
-
-int GetLibraryIntegrationModeIndex(EEditorLibraryIntegrationMode mode)
-{
-    return mode == EEditorLibraryIntegrationMode::SDK ? 1 : 0;
-}
-
-EEditorLibraryIntegrationMode GetLibraryIntegrationModeFromIndex(int index)
-{
-    return index == 1 ? EEditorLibraryIntegrationMode::SDK : EEditorLibraryIntegrationMode::Source;
-}
-
-std::string JoinPathList(const std::vector<std::filesystem::path>& paths)
-{
-    std::string result;
-    for (const std::filesystem::path& path : paths) {
-        if (path.empty()) {
-            continue;
-        }
-        if (!result.empty()) {
-            result += ";";
-        }
-        result += path.generic_string();
-    }
-    return result;
-}
-
-std::vector<std::filesystem::path> ParsePathList(const std::string& text)
-{
-    std::vector<std::filesystem::path> paths;
-    std::stringstream stream(text);
-    std::string item;
-    while (std::getline(stream, item, ';')) {
-        const std::size_t first = item.find_first_not_of(" \t\r\n");
-        if (first == std::string::npos) {
-            continue;
-        }
-        const std::size_t last = item.find_last_not_of(" \t\r\n");
-        paths.emplace_back(item.substr(first, last - first + 1));
-    }
-    return paths;
 }
 
 std::shared_ptr<ImEditableText> MakeEditableTextField(const std::string& text = std::string())
@@ -251,7 +190,8 @@ bool ProjectSettingsDialog::Open(ImApplication& app, const FProjectSettingsDialo
     defaultThemeEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
     auto defaultCultureEditor = MakeEditableTextField(m_Options.ApplicationSettings.DefaultCulture);
     defaultCultureEditor->SetHintText(EditorText("Common.Default", "Default").Resolve());
-    auto stringTablePathsEditor = MakeEditableTextField(JoinPathList(m_Options.ApplicationSettings.StringTablePaths));
+    auto stringTablePathsEditor =
+        MakeEditableTextField(JoinProjectPathList(m_Options.ApplicationSettings.StringTablePaths));
     stringTablePathsEditor->SetHintText("localization/en-US.json;localization/zh-CN.json");
     auto generateInitializeStubSwitch = MakeSwitchField(m_Options.ApplicationSettings.bGenerateInitializeStub);
     auto generateTickStubSwitch = MakeSwitchField(m_Options.ApplicationSettings.bGenerateTickStub);
@@ -970,7 +910,8 @@ bool ProjectSettingsDialog::ApplyApplicationEditorValues(std::string* outError)
     settings.MinimumSdkVersion = m_MinimumSdkVersionEditor ? m_MinimumSdkVersionEditor->GetText() : std::string("0.1.0");
     settings.DefaultTheme = m_DefaultThemeEditor ? m_DefaultThemeEditor->GetText() : std::string();
     settings.DefaultCulture = m_DefaultCultureEditor ? m_DefaultCultureEditor->GetText() : std::string();
-    settings.StringTablePaths = ParsePathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());
+    settings.StringTablePaths =
+        ParseProjectPathList(m_StringTablePathsEditor ? m_StringTablePathsEditor->GetText() : std::string());
     for (const std::filesystem::path& stringTablePath : settings.StringTablePaths) {
         if (stringTablePath.is_absolute()) {
             if (outError) {
@@ -995,7 +936,15 @@ void ProjectSettingsDialog::RefreshProbeReport()
         return;
     }
 
-    m_ProbeText->SetItems(BuildProbeLines(EnvironmentProbe::Probe(*selectedProfile)));
+    FEnvironmentProbeFormatOptions formatOptions;
+    formatOptions.TargetLabel = EditorText("ProjectSettings.ProbeTarget", "Target").Resolve();
+    formatOptions.ReadyLabel = EditorText("ProjectSettings.ProbeReady", "Ready").Resolve();
+    formatOptions.ReadyValue = EditorText("Common.Yes", "Yes").Resolve();
+    formatOptions.NotReadyValue = EditorText("Common.No", "No").Resolve();
+    formatOptions.bBlankLineBeforeItems = true;
+    formatOptions.bIndentDetailsOnSeparateLine = true;
+    formatOptions.StatusSeparator = " - ";
+    m_ProbeText->SetItems(FormatEnvironmentProbeReportLines(EnvironmentProbe::Probe(*selectedProfile), formatOptions));
 }
 
 void ProjectSettingsDialog::RefreshAndroidEditorVisibility()

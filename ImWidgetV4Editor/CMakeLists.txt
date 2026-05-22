@@ -48,12 +48,14 @@ set(IMWIDGETV4_EDITOR_CORE_SOURCES
     src/project/EditorProject.cpp
     src/project/ProjectNaming.cpp
     src/project/ProjectScaffoldRequestBuilder.cpp
+    src/project/ProjectSettingsSchema.cpp
     src/project/ProjectTemplateDefaults.cpp
     src/serialization/WidgetCatalog.cpp
     src/serialization/WidgetFactory.cpp
     src/serialization/WidgetSerializer.cpp
     src/templates/ProjectScaffolder.cpp
     src/toolchains/EnvironmentProbe.cpp
+    src/toolchains/EnvironmentProbeFormatter.cpp
     src/toolchains/PlatformConfiguration.cpp
 )
 

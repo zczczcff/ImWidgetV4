@@ -92,14 +92,14 @@ std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()
     BuildNsisCheckBox->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImCheckBox","Properties":{"ImCheckBox::Label":"Build NSIS","ImCheckBox::Checked":true,"ImCheckBox::Disabled":false,"ImWidget::Name":"BuildNsisCheckBox","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":true}})IMWJSON"));
     SmokeTestCheckBox = std::make_shared<ImWidgetV4::ImCheckBox>();
     SmokeTestCheckBox->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImCheckBox","Properties":{"ImCheckBox::Label":"Smoke Test","ImCheckBox::Checked":true,"ImCheckBox::Disabled":false,"ImWidget::Name":"SmokeTestCheckBox","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":true}})IMWJSON"));
+    CommandPreviewText = std::make_shared<ImWidgetV4::ImTextBlock>();
+    CommandPreviewText->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImTextBlock","Properties":{"ImTextBlock::Text":"> Build SDK\n  powershell\n    -NoProfile\n    -ExecutionPolicy\n    Bypass\n    -File\n    scripts/package_sdk.ps1\n    -Architectures\n    win32,win64\n    -Configurations\n    Debug,Release\n    -Generator\n    Visual Studio 17 2022\n\n> Build installer\n  powershell\n    -NoProfile\n    -ExecutionPolicy\n    Bypass\n    -File\n    scripts/package_installer.ps1\n    -Architectures\n    win32,win64\n    -Generator\n    Visual Studio 17 2022\n    -CpackGenerators\n    ZIP\n    NSIS\n    -SkipSdkBuild\n\n> Smoke test\n  powershell\n    -NoProfile\n    -ExecutionPolicy\n    Bypass\n    -File\n    scripts/smoke_sdk_package.ps1\n    -Architecture\n    win64\n    -Configuration\n    Release\n    -Generator\n    Visual Studio 17 2022","ImTextBlock::TextColor":[190,229,209,255],"ImTextBlock::FontSize":15,"ImTextBlock::WrapText":true,"ImTextBlock::TextAlignment":"Left","ImTextBlock::VerticalAlignment":"Top","ImWidget::Name":"CommandPreviewText","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":false}})IMWJSON"));
     BuildButton = std::make_shared<ImWidgetV4::ImButton>();
     BuildButton->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImButton","Properties":{"ImButton::Disabled":false,"ImWidget::Name":"BuildButton","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":true}})IMWJSON"));
     BuildButtonText = std::make_shared<ImWidgetV4::ImTextBlock>();
     BuildButtonText->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImTextBlock","Properties":{"ImTextBlock::Text":"Build","ImTextBlock::TextColor":[50,50,50,255],"ImTextBlock::FontSize":15,"ImTextBlock::WrapText":false,"ImTextBlock::TextAlignment":"Center","ImTextBlock::VerticalAlignment":"Center","ImWidget::Name":"BuildButtonText","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":false}})IMWJSON"));
     LogPanel = std::make_shared<ImWidgetV4::ImVerticalBox>();
     LogPanel->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImVerticalBox","Properties":{"ImVerticalBox::Spacing":8,"ImWidget::Name":"LogPanel","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":false}})IMWJSON"));
-    CommandPreviewText = std::make_shared<ImWidgetV4::ImTextBlock>();
-    CommandPreviewText->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImTextBlock","Properties":{"ImTextBlock::Text":"Select tasks, then click Build.","ImTextBlock::TextColor":[190,229,209,255],"ImTextBlock::FontSize":15,"ImTextBlock::WrapText":true,"ImTextBlock::TextAlignment":"Left","ImTextBlock::VerticalAlignment":"Top","ImWidget::Name":"CommandPreviewText","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":false}})IMWJSON"));
     LogText = std::make_shared<ImWidgetV4::ImTextBlock>();
     LogText->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImTextBlock","Properties":{"ImTextBlock::Text":"Ready. Pick architectures/configurations, select the toolset, choose build steps, then run.","ImTextBlock::TextColor":[207,216,226,255],"ImTextBlock::FontSize":15,"ImTextBlock::WrapText":true,"ImTextBlock::TextAlignment":"Left","ImTextBlock::VerticalAlignment":"Top","ImWidget::Name":"LogText","ImWidget::Visible":true,"ImWidget::HitTestVisible":true,"ImWidget::SupportsKeyboardFocus":false}})IMWJSON"));
 
@@ -134,7 +134,7 @@ std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()
     ToolchainConfigBody->AddChild(ToolchainComboBox);
     ConfigPanel->AddChild(PackageConfigGroup);
     if (auto* slot = ConfigPanel->GetSlotForChild(PackageConfigGroup)) {
-        slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":1}})IMWJSON"));
+        slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":0}})IMWJSON"));
     }
     PackageConfigGroup->SetHeader(PackageConfigHeader);
     PackageConfigHeader->AddChild(PackageConfigIcon);
@@ -157,8 +157,12 @@ std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()
     if (auto* slot = TaskOptionsColumn->GetSlotForChild(SmokeTestCheckBox)) {
         slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":0,"ImPaddingSlot::PaddingLeft":0,"ImPaddingSlot::PaddingRight":0,"ImPaddingSlot::PaddingTop":0,"ImPaddingSlot::PaddingBottom":0}})IMWJSON"));
     }
-    PackageConfigBody->AddChild(BuildButton);
-    if (auto* slot = PackageConfigBody->GetSlotForChild(BuildButton)) {
+    ConfigPanel->AddChild(CommandPreviewText);
+    if (auto* slot = ConfigPanel->GetSlotForChild(CommandPreviewText)) {
+        slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":0,"ImPaddingSlot::PaddingLeft":0,"ImPaddingSlot::PaddingRight":0,"ImPaddingSlot::PaddingTop":4,"ImPaddingSlot::PaddingBottom":4}})IMWJSON"));
+    }
+    ConfigPanel->AddChild(BuildButton);
+    if (auto* slot = ConfigPanel->GetSlotForChild(BuildButton)) {
         slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":0,"ImPaddingSlot::PaddingLeft":0,"ImPaddingSlot::PaddingRight":0,"ImPaddingSlot::PaddingTop":0,"ImPaddingSlot::PaddingBottom":0}})IMWJSON"));
     }
     BuildButton->SetContent(BuildButtonText);
@@ -166,7 +170,6 @@ std::shared_ptr<ImWidgetV4::ImWidget> MainView::RebuildWidget()
     if (auto* slot = RootSplitter->GetSlotForChild(LogPanel)) {
         slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImVerticalSplitterSlot","Properties":{"ImVerticalSplitterSlot::Ratio":1,"ImVerticalSplitterSlot::MinSize":140,"ImPaddingSlot::PaddingLeft":18,"ImPaddingSlot::PaddingRight":18,"ImPaddingSlot::PaddingTop":12,"ImPaddingSlot::PaddingBottom":18}})IMWJSON"));
     }
-    LogPanel->AddChild(CommandPreviewText);
     LogPanel->AddChild(LogText);
     if (auto* slot = LogPanel->GetSlotForChild(LogText)) {
         slot->FromJson(ParseGeneratedJson(R"IMWJSON({"Type":"ImBoxSlot","Properties":{"ImBoxSlot::FillCoefficient":1}})IMWJSON"));

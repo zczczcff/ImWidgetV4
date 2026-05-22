@@ -58,10 +58,10 @@ private:
     std::shared_ptr<ImWidgetV4::ImCheckBox> BuildZipCheckBox;
     std::shared_ptr<ImWidgetV4::ImCheckBox> BuildNsisCheckBox;
     std::shared_ptr<ImWidgetV4::ImCheckBox> SmokeTestCheckBox;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
     std::shared_ptr<ImWidgetV4::ImButton> BuildButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildButtonText;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> LogPanel;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
     std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
     //===Auto Gen End=== (Members)
 };

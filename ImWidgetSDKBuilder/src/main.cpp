@@ -229,6 +229,111 @@ void AppendGeneratorArguments(std::vector<std::string>& arguments, const std::st
     arguments.push_back(generator);
 }
 
+struct FBuilderCommandStep {
+    std::string Label;
+    std::vector<std::string> Arguments;
+};
+
+std::vector<FBuilderCommandStep> BuildCommandPlan(
+    const std::vector<std::string>& architectures,
+    const std::vector<std::string>& configurations,
+    bool bBuildSdk,
+    bool bBuildZip,
+    bool bBuildNsis,
+    bool bSmokeTest,
+    const std::string& selectedGenerator)
+{
+    std::vector<FBuilderCommandStep> steps;
+    const std::string architectureList = JoinValues(architectures, ",");
+    const std::string configurationList = JoinValues(configurations, ",");
+
+    if (bBuildSdk) {
+        std::vector<std::string> sdkArgs {
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/package_sdk.ps1",
+            "-Architectures",
+            architectureList,
+            "-Configurations",
+            configurationList
+        };
+        AppendGeneratorArguments(sdkArgs, selectedGenerator);
+        steps.push_back({"Build SDK", std::move(sdkArgs)});
+    }
+
+    if (bBuildZip || bBuildNsis) {
+        std::vector<std::string> installerArgs {
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/package_installer.ps1",
+            "-Architectures",
+            architectureList
+        };
+        AppendGeneratorArguments(installerArgs, selectedGenerator);
+        installerArgs.push_back("-CpackGenerators");
+        if (bBuildZip) {
+            installerArgs.push_back("ZIP");
+        }
+        if (bBuildNsis) {
+            installerArgs.push_back("NSIS");
+        }
+        installerArgs.push_back("-SkipSdkBuild");
+
+        steps.push_back({"Build installer", std::move(installerArgs)});
+    }
+
+    if (bSmokeTest) {
+        const std::string smokeArchitecture = !architectures.empty() ? architectures.back() : std::string("win64");
+        const std::string smokeConfiguration =
+            std::find(configurations.begin(), configurations.end(), "Release") != configurations.end()
+                ? std::string("Release")
+                : (!configurations.empty() ? configurations.front() : std::string("Release"));
+        std::vector<std::string> smokeArgs {
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "scripts/smoke_sdk_package.ps1",
+            "-Architecture",
+            smokeArchitecture,
+            "-Configuration",
+            smokeConfiguration
+        };
+        AppendGeneratorArguments(smokeArgs, selectedGenerator);
+        steps.push_back({"Smoke test", std::move(smokeArgs)});
+    }
+
+    return steps;
+}
+
+std::string FormatCommandPreview(const std::vector<FBuilderCommandStep>& steps)
+{
+    if (steps.empty()) {
+        return "No build tasks selected.";
+    }
+
+    std::ostringstream stream;
+    for (std::size_t index = 0; index < steps.size(); ++index) {
+        if (index > 0) {
+            stream << "\n";
+        }
+        stream << "> " << steps[index].Label << "\n";
+        for (std::size_t argumentIndex = 0; argumentIndex < steps[index].Arguments.size(); ++argumentIndex) {
+            stream << (argumentIndex == 0 ? "  " : "    ");
+            stream << steps[index].Arguments[argumentIndex];
+            stream << "\n";
+        }
+    }
+    return stream.str();
+}
+
 void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
     auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
@@ -274,24 +379,67 @@ void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
         SetTextIfValid(logText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
     }
 
-    SetTextIfValid(commandPreview, "Select tasks, then click Build.");
+    auto collectCurrentCommandPlan = [=]() {
+        const std::vector<std::string> architectures = CollectCheckedArchitectures(win64, win32);
+        const std::vector<std::string> configurations = CollectCheckedConfigurations(debug, release);
+        const bool bBuildSdk = buildSdk && buildSdk->IsChecked();
+        const bool bBuildZip = buildZip && buildZip->IsChecked();
+        const bool bBuildNsis = buildNsis && buildNsis->IsChecked() && !buildNsis->IsDisabled();
+        const bool bSmokeTest = smokeTest && smokeTest->IsChecked();
+        const std::string selectedGenerator = toolchain ? toolchain->GetSelectedText() : std::string();
+        return BuildCommandPlan(
+            architectures,
+            configurations,
+            bBuildSdk,
+            bBuildZip,
+            bBuildNsis,
+            bSmokeTest,
+            selectedGenerator);
+    };
+
+    auto updateCommandPreview = [=]() {
+        const std::vector<FBuilderCommandStep> steps = collectCurrentCommandPlan();
+        SetTextIfValid(commandPreview, FormatCommandPreview(steps));
+        if (buildButton) {
+            buildButton->SetDisabled(steps.empty());
+        }
+    };
+
+    const auto bindPreviewRefresh = [updateCommandPreview](const std::shared_ptr<ImWidgetV4::ImCheckBox>& checkBox) {
+        if (checkBox) {
+            checkBox->OnCheckStateChanged.AddLambda(
+                [updateCommandPreview](ImWidgetV4::ImCheckBox&, bool) {
+                    updateCommandPreview();
+                });
+        }
+    };
+
+    bindPreviewRefresh(win64);
+    bindPreviewRefresh(win32);
+    bindPreviewRefresh(debug);
+    bindPreviewRefresh(release);
+    bindPreviewRefresh(buildSdk);
+    bindPreviewRefresh(buildZip);
+    bindPreviewRefresh(buildNsis);
+    bindPreviewRefresh(smokeTest);
+
+    if (toolchain) {
+        toolchain->OnSelectionChanged.AddLambda(
+            [updateCommandPreview](ImWidgetV4::ImComboBox&, int) {
+                updateCommandPreview();
+            });
+    }
+
+    updateCommandPreview();
 
     if (buildButton) {
         buildButton->OnClicked.AddLambda([=](ImWidgetV4::ImButton& button) {
             std::ostringstream logStream;
             bool bAllSucceeded = true;
 
-            const std::vector<std::string> architectures = CollectCheckedArchitectures(win64, win32);
-            const std::vector<std::string> configurations = CollectCheckedConfigurations(debug, release);
-            const std::string architectureList = JoinValues(architectures, ",");
-            const std::string configurationList = JoinValues(configurations, ",");
-            const bool bBuildSdk = buildSdk && buildSdk->IsChecked();
-            const bool bBuildZip = buildZip && buildZip->IsChecked();
-            const bool bBuildNsis = buildNsis && buildNsis->IsChecked() && !buildNsis->IsDisabled();
-            const bool bSmokeTest = smokeTest && smokeTest->IsChecked();
-            const std::string selectedGenerator = toolchain ? toolchain->GetSelectedText() : std::string();
+            const std::vector<FBuilderCommandStep> steps = collectCurrentCommandPlan();
 
-            if (!bBuildSdk && !bBuildZip && !bBuildNsis && !bSmokeTest) {
+            if (steps.empty()) {
                 SetTextIfValid(logText, "No build tasks selected.");
                 return;
             }
@@ -299,71 +447,12 @@ void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
             SetTextIfValid(commandPreview, "Build in progress...");
             button.SetDisabled(true);
 
-            if (bBuildSdk) {
-                std::vector<std::string> sdkArgs {
-                    "powershell",
-                    "-NoProfile",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    "scripts/package_sdk.ps1",
-                    "-Architectures",
-                    architectureList,
-                    "-Configurations",
-                    configurationList
-                };
-                AppendGeneratorArguments(sdkArgs, selectedGenerator);
-                RunBuilderCommand("Build SDK", sdkArgs, logStream, bAllSucceeded);
-            }
-
-            if (bBuildZip || bBuildNsis) {
-                std::vector<std::string> installerArgs {
-                    "powershell",
-                    "-NoProfile",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    "scripts/package_installer.ps1",
-                    "-Architectures",
-                    architectureList
-                };
-                AppendGeneratorArguments(installerArgs, selectedGenerator);
-                installerArgs.push_back("-CpackGenerators");
-                if (bBuildZip) {
-                    installerArgs.push_back("ZIP");
-                }
-                if (bBuildNsis) {
-                    installerArgs.push_back("NSIS");
-                }
-                installerArgs.push_back("-SkipSdkBuild");
-
-                RunBuilderCommand("Build installer", installerArgs, logStream, bAllSucceeded);
-            }
-
-            if (bSmokeTest) {
-                const std::string smokeArchitecture = !architectures.empty() ? architectures.back() : std::string("win64");
-                const std::string smokeConfiguration =
-                    std::find(configurations.begin(), configurations.end(), "Release") != configurations.end()
-                        ? std::string("Release")
-                        : (!configurations.empty() ? configurations.front() : std::string("Release"));
-                std::vector<std::string> smokeArgs {
-                    "powershell",
-                    "-NoProfile",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    "scripts/smoke_sdk_package.ps1",
-                    "-Architecture",
-                    smokeArchitecture,
-                    "-Configuration",
-                    smokeConfiguration
-                };
-                AppendGeneratorArguments(smokeArgs, selectedGenerator);
-                RunBuilderCommand("Smoke test", smokeArgs, logStream, bAllSucceeded);
+            for (const FBuilderCommandStep& step : steps) {
+                RunBuilderCommand(step.Label, step.Arguments, logStream, bAllSucceeded);
             }
 
             SetTextIfValid(logText, logStream.str());
-            SetTextIfValid(commandPreview, bAllSucceeded ? "Build tasks finished." : "Build tasks failed.");
+            updateCommandPreview();
             button.SetDisabled(false);
         });
     }

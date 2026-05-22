@@ -1,29 +1,13 @@
 #include "UiDocumentCli.h"
 
+#include "../editor/DocumentEditService.h"
 #include "../editor/LogicalWidgetTree.h"
 #include "../serialization/WidgetCatalog.h"
 #include "../serialization/WidgetFactory.h"
-#include "../serialization/WidgetSerializer.h"
 
 #include <imwidgetv4/core/Widget.h>
 #include <imwidgetv4/reflection/ReflectionTypes.h>
-#include <imwidgetv4/widgets/Button.h>
-#include <imwidgetv4/widgets/CanvasPanel.h>
-#include <imwidgetv4/widgets/CheckBox.h>
-#include <imwidgetv4/widgets/ColorPicker.h>
-#include <imwidgetv4/widgets/ComboBox.h>
-#include <imwidgetv4/widgets/EditableText.h>
-#include <imwidgetv4/widgets/ExpandableBox.h>
-#include <imwidgetv4/widgets/HorizontalBox.h>
 #include <imwidgetv4/widgets/Image.h>
-#include <imwidgetv4/widgets/PanelWidget.h>
-#include <imwidgetv4/widgets/ScrollBox.h>
-#include <imwidgetv4/widgets/TabView.h>
-#include <imwidgetv4/widgets/TextBlock.h>
-#include <imwidgetv4/widgets/TextList.h>
-#include <imwidgetv4/widgets/TitleBar.h>
-#include <imwidgetv4/widgets/UserWidget.h>
-#include <imwidgetv4/widgets/VerticalBox.h>
 
 #include <algorithm>
 #include <fstream>
@@ -441,211 +425,6 @@ void AppendTreeLintDiagnostics(const FUiDocumentTreeInfo& treeInfo, FUiLintInfo&
     }
 }
 
-std::string BuildDefaultWidgetName(const std::string& typeName)
-{
-    std::string name = typeName;
-    if (name.size() > 2 && name[0] == 'I' && name[1] == 'm') {
-        name = name.substr(2);
-    }
-    return name.empty() ? "Widget" : name;
-}
-
-std::string BuildTabTitleForWidget(const std::shared_ptr<ImWidget>& widget)
-{
-    if (!widget) {
-        return "Tab";
-    }
-    return widget->GetName().empty() ? widget->GetTypeName() : widget->GetName();
-}
-
-void InitializeNewWidgetDefaults(const std::shared_ptr<ImWidget>& widget)
-{
-    if (!widget) {
-        return;
-    }
-
-    widget->SetName(BuildDefaultWidgetName(widget->GetTypeName()));
-    if (auto textBlock = std::dynamic_pointer_cast<ImTextBlock>(widget)) {
-        textBlock->SetText("Text");
-    } else if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
-        button->SetText("Button");
-    } else if (auto comboBox = std::dynamic_pointer_cast<ImComboBox>(widget)) {
-        comboBox->SetItems({"Option A", "Option B", "Option C"});
-        comboBox->SetSelectedIndex(0);
-    } else if (auto checkBox = std::dynamic_pointer_cast<ImCheckBox>(widget)) {
-        checkBox->SetLabel("CheckBox");
-    } else if (auto editableText = std::dynamic_pointer_cast<ImEditableText>(widget)) {
-        editableText->SetText("EditableText");
-    } else if (auto textList = std::dynamic_pointer_cast<ImTextList>(widget)) {
-        textList->SetItems({"Item 1", "Item 2", "Item 3"});
-    } else if (auto colorPicker = std::dynamic_pointer_cast<ImColorPicker>(widget)) {
-        colorPicker->SetColor(FColor::FromBytes(86, 156, 214));
-    } else if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
-        auto content = std::make_shared<ImTextBlock>();
-        content->SetName("TabContent");
-        content->SetText("Tab Content");
-        tabView->AddTab("Tab", content);
-    } else if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
-        auto header = std::make_shared<ImTextBlock>();
-        header->SetName("Header");
-        header->SetText("Expandable Header");
-        auto body = std::make_shared<ImTextBlock>();
-        body->SetName("Body");
-        body->SetText("Expandable Body");
-        expandableBox->SetHeader(header);
-        expandableBox->SetBody(body);
-        expandableBox->SetExpanded(true);
-    }
-}
-
-bool InsertWidgetIntoParent(
-    const std::shared_ptr<ImWidget>& parent,
-    const std::shared_ptr<ImWidget>& child,
-    std::string& outError)
-{
-    if (!parent || !child) {
-        outError = "Parent and child widgets are required.";
-        return false;
-    }
-
-    if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(parent)) {
-        canvas->AddChildAt(child, FVector2(0.05f, 0.05f));
-        return true;
-    }
-    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
-        verticalBox->AddChild(child);
-        return true;
-    }
-    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
-        horizontalBox->AddChild(child);
-        return true;
-    }
-    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
-        if (button->GetContent()) {
-            outError = "Button already has content.";
-            return false;
-        }
-        button->SetContent(child);
-        return true;
-    }
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
-        if (!scrollBox->GetContent()) {
-            scrollBox->SetContent(child);
-            return true;
-        }
-        if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
-            contentVerticalBox->AddChild(child);
-            return true;
-        }
-        auto wrapper = std::make_shared<ImVerticalBox>();
-        wrapper->SetName("ScrollContent");
-        wrapper->AddChild(scrollBox->GetContent());
-        wrapper->AddChild(child);
-        scrollBox->SetContent(wrapper);
-        return true;
-    }
-    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
-        if (!expandableBox->GetHeader()) {
-            expandableBox->SetHeader(child);
-            return true;
-        }
-        if (!expandableBox->GetBody()) {
-            expandableBox->SetBody(child);
-            expandableBox->SetExpanded(true);
-            return true;
-        }
-        outError = "ExpandableBox already has header and body.";
-        return false;
-    }
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int tabIndex = tabView->AddTab(BuildTabTitleForWidget(child), child);
-        if (tabIndex < 0) {
-            outError = "Failed to add tab content.";
-            return false;
-        }
-        tabView->SetActiveTab(tabIndex);
-        return true;
-    }
-    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
-        titleBar->AddLeadingItem(child);
-        return true;
-    }
-    if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
-        if (userWidget->GetRootWidget()) {
-            outError = "UserWidget already has a root widget.";
-            return false;
-        }
-        userWidget->SetRootWidget(child);
-        return true;
-    }
-
-    outError = "Parent widget does not accept child widgets: " + parent->GetTypeName();
-    return false;
-}
-
-bool RemoveWidgetFromParent(
-    const std::shared_ptr<ImWidget>& parent,
-    const std::shared_ptr<ImWidget>& child)
-{
-    if (!parent || !child) {
-        return false;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int tabIndex = LogicalWidgetTree::FindTabContentIndex(tabView, child);
-        return tabIndex >= 0 && tabView->RemoveTab(tabIndex);
-    }
-    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
-        return titleBar->RemoveLeadingItem(child) || titleBar->RemoveTrailingItem(child);
-    }
-    if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
-        if (userWidget->GetRootWidget() == child) {
-            userWidget->SetRootWidget(nullptr);
-            return true;
-        }
-    }
-    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
-        if (button->GetContent() == child) {
-            button->SetContent(nullptr);
-            return true;
-        }
-    }
-    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
-        if (expandableBox->GetHeader() == child) {
-            expandableBox->SetHeader(nullptr);
-            return true;
-        }
-        if (expandableBox->GetBody() == child) {
-            expandableBox->SetBody(nullptr);
-            return true;
-        }
-    }
-    if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
-        return panelParent->RemoveChild(child);
-    }
-
-    return parent->RemoveChild(child);
-}
-
-bool IsLogicalAncestorOf(
-    EditorDocument& document,
-    const std::shared_ptr<ImWidget>& possibleAncestor,
-    const std::shared_ptr<ImWidget>& widget)
-{
-    if (!possibleAncestor || !widget) {
-        return false;
-    }
-
-    std::shared_ptr<ImWidget> parent = document.FindLogicalParent(widget);
-    while (parent) {
-        if (parent == possibleAncestor) {
-            return true;
-        }
-        parent = document.FindLogicalParent(parent);
-    }
-    return false;
-}
-
 std::size_t CalculateWidgetDepth(EditorDocument& document, const std::shared_ptr<ImWidget>& widget)
 {
     std::size_t depth = 0;
@@ -807,7 +586,7 @@ bool ApplySinglePatchOperation(
         }
 
         std::string insertError;
-        if (!InsertWidgetIntoParent(parent, child, insertError)) {
+        if (!TryInsertWidgetIntoParent(parent, child, insertError)) {
             outResult.ErrorMessage = insertError;
             return false;
         }
@@ -860,28 +639,26 @@ bool ApplySinglePatchOperation(
             return false;
         }
 
-        FWidgetSerializationResult cloneResult =
-            WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(source));
-        if (!cloneResult.bSuccess || !cloneResult.Widget) {
-            outResult.ErrorMessage = cloneResult.ErrorMessage.empty()
-                ? "Failed to clone widget."
-                : cloneResult.ErrorMessage;
+        std::string cloneError;
+        std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTree(source, cloneError);
+        if (!cloneWidget) {
+            outResult.ErrorMessage = cloneError;
             return false;
         }
         if (operationJson.contains("name")) {
-            cloneResult.Widget->SetName(operationJson.value("name", std::string()));
-        } else if (!cloneResult.Widget->GetName().empty()) {
-            cloneResult.Widget->SetName(cloneResult.Widget->GetName() + "Copy");
+            cloneWidget->SetName(operationJson.value("name", std::string()));
+        } else if (!cloneWidget->GetName().empty()) {
+            cloneWidget->SetName(cloneWidget->GetName() + "Copy");
         }
 
         std::string insertError;
-        if (!InsertWidgetIntoParent(parent, cloneResult.Widget, insertError)) {
+        if (!TryInsertWidgetIntoParent(parent, cloneWidget, insertError)) {
             outResult.ErrorMessage = insertError;
             return false;
         }
 
         outResult.bChanged = true;
-        outResult.Node = BuildTreeNodeInfo(cloneResult.Widget, document, CalculateWidgetDepth(document, cloneResult.Widget));
+        outResult.Node = BuildTreeNodeInfo(cloneWidget, document, CalculateWidgetDepth(document, cloneWidget));
         outResult.bSuccess = true;
         return true;
     }
@@ -925,9 +702,9 @@ bool ApplySinglePatchOperation(
         }
 
         std::string insertError;
-        if (!InsertWidgetIntoParent(newParent, widget, insertError)) {
+        if (!TryInsertWidgetIntoParent(newParent, widget, insertError)) {
             std::string restoreError;
-            (void)InsertWidgetIntoParent(oldParent, widget, restoreError);
+            (void)TryInsertWidgetIntoParent(oldParent, widget, restoreError);
             outResult.ErrorMessage = insertError;
             return false;
         }
@@ -1300,7 +1077,7 @@ FUiMutationResult UiDocumentCli::AddNode(
     }
     InitializeNewWidgetDefaults(child);
 
-    if (!InsertWidgetIntoParent(parent, child, error)) {
+    if (!TryInsertWidgetIntoParent(parent, child, error)) {
         result.ErrorMessage = error;
         return result;
     }
@@ -1401,20 +1178,18 @@ FUiMutationResult UiDocumentCli::DuplicateNode(
         return result;
     }
 
-    FWidgetSerializationResult cloneResult =
-        WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(source));
-    if (!cloneResult.bSuccess || !cloneResult.Widget) {
-        result.ErrorMessage = cloneResult.ErrorMessage.empty()
-            ? "Failed to clone widget."
-            : cloneResult.ErrorMessage;
+    std::string cloneError;
+    std::shared_ptr<ImWidget> cloneWidget = CloneWidgetTree(source, cloneError);
+    if (!cloneWidget) {
+        result.ErrorMessage = cloneError;
         return result;
     }
 
-    if (!cloneResult.Widget->GetName().empty()) {
-        cloneResult.Widget->SetName(cloneResult.Widget->GetName() + "Copy");
+    if (!cloneWidget->GetName().empty()) {
+        cloneWidget->SetName(cloneWidget->GetName() + "Copy");
     }
 
-    if (!InsertWidgetIntoParent(parent, cloneResult.Widget, error)) {
+    if (!TryInsertWidgetIntoParent(parent, cloneWidget, error)) {
         result.ErrorMessage = error;
         return result;
     }
@@ -1427,7 +1202,7 @@ FUiMutationResult UiDocumentCli::DuplicateNode(
 
     result.bSuccess = true;
     result.bChanged = true;
-    result.Node = BuildTreeNodeInfo(cloneResult.Widget, document, 0);
+    result.Node = BuildTreeNodeInfo(cloneWidget, document, 0);
     if (const std::shared_ptr<ImWidget> reloadedClone = document.FindWidgetById(result.Node.WidgetId)) {
         std::size_t depth = 0;
         std::shared_ptr<ImWidget> nodeParent = document.FindLogicalParent(reloadedClone);
@@ -1497,9 +1272,9 @@ FUiMutationResult UiDocumentCli::MoveNode(
         return result;
     }
 
-    if (!InsertWidgetIntoParent(newParent, widget, error)) {
+    if (!TryInsertWidgetIntoParent(newParent, widget, error)) {
         std::string restoreError;
-        (void)InsertWidgetIntoParent(oldParent, widget, restoreError);
+        (void)TryInsertWidgetIntoParent(oldParent, widget, restoreError);
         result.ErrorMessage = error;
         return result;
     }

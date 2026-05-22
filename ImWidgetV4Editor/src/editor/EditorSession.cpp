@@ -2,6 +2,7 @@
 #include "EditorLocalization.h"
 #include "EditorPaths.h"
 #include "EditorTheme.h"
+#include "DocumentEditService.h"
 #include "LogicalWidgetTree.h"
 #include "../codegen/WidgetTreeToCppGenerator.h"
 #include "../commands/AddWidgetCommand.h"
@@ -434,73 +435,9 @@ void AssignGeneratedUniqueNamesToSubtree(
     });
 }
 
-std::string BuildTabTitleForWidget(const std::shared_ptr<ImWidget>& widget)
-{
-    if (!widget) {
-        return "Tab";
-    }
-
-    if (!widget->GetName().empty()) {
-        return widget->GetName();
-    }
-
-    return StripImPrefix(widget->GetTypeName());
-}
-
 std::shared_ptr<ReflectableObject> GetReflectableSelectionTarget(const std::shared_ptr<ImWidget>& selectedWidget)
 {
     return std::dynamic_pointer_cast<ReflectableObject>(selectedWidget);
-}
-
-std::shared_ptr<ImWidget> CloneWidgetTree(const std::shared_ptr<ImWidget>& widget, std::string& outError)
-{
-    if (!widget) {
-        outError = "No widget selected.";
-        return nullptr;
-    }
-
-    FWidgetSerializationResult result =
-        WidgetSerializer::DeserializeWidgetTree(WidgetSerializer::SerializeWidgetTree(widget));
-    if (!result.bSuccess) {
-        outError = result.ErrorMessage.empty()
-            ? "Failed to clone widget tree."
-            : result.ErrorMessage;
-        return nullptr;
-    }
-
-    return result.Widget;
-}
-
-bool TryInsertIntoScrollBoxAt(
-    const std::shared_ptr<ImScrollBox>& scrollBox,
-    int insertIndex,
-    const std::shared_ptr<ImWidget>& widget)
-{
-    if (!scrollBox || !widget) {
-        return false;
-    }
-
-    if (!scrollBox->GetContent()) {
-        scrollBox->SetContent(widget);
-        return true;
-    }
-
-    if (auto contentVerticalBox = std::dynamic_pointer_cast<ImVerticalBox>(scrollBox->GetContent())) {
-        contentVerticalBox->InsertChild(insertIndex, widget);
-        return true;
-    }
-
-    auto existingContent = scrollBox->GetContent();
-    auto wrapper = std::make_shared<ImVerticalBox>();
-    if (insertIndex <= 0) {
-        wrapper->AddChild(widget);
-        wrapper->AddChild(existingContent);
-    } else {
-        wrapper->AddChild(existingContent);
-        wrapper->AddChild(widget);
-    }
-    scrollBox->SetContent(wrapper);
-    return true;
 }
 
 FVector2 ResolveDesignerCanvasDefaultSize(const std::shared_ptr<ImWidget>& widget)
@@ -550,77 +487,23 @@ bool TryInsertIntoTarget(
         return false;
     }
 
+    FDocumentInsertOptions options;
+    options.DropPosition = dropPosition;
+    options.bUseTitleBarDropPosition = true;
+    options.bStripImPrefixForTabFallback = true;
     if (auto canvas = std::dynamic_pointer_cast<ImCanvasPanel>(target)) {
         const FGeometry geometry = canvas->GetGeometry();
-        FVector2 relativePosition(0.05f, 0.05f);
         if (geometry.Size.X > 0.0f && geometry.Size.Y > 0.0f) {
-            relativePosition = FVector2(
+            options.CanvasRelativePosition = FVector2(
                 std::clamp((dropPosition.X - geometry.Position.X) / geometry.Size.X, 0.0f, 0.95f),
                 std::clamp((dropPosition.Y - geometry.Position.Y) / geometry.Size.Y, 0.0f, 0.95f));
         }
-        canvas->AddChildAt(widget, relativePosition, ResolveDesignerCanvasRelativeSize(canvas, widget));
-        return true;
+        options.CanvasRelativeSize = ResolveDesignerCanvasRelativeSize(canvas, widget);
+        options.bUseCanvasRelativeSize = true;
     }
 
-    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(target)) {
-        verticalBox->AddChild(widget);
-        return true;
-    }
-
-    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(target)) {
-        horizontalBox->AddChild(widget);
-        return true;
-    }
-
-    if (auto button = std::dynamic_pointer_cast<ImButton>(target)) {
-        if (button->GetContent()) {
-            return false;
-        }
-        button->SetContent(widget);
-        return true;
-    }
-
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(target)) {
-        return TryInsertIntoScrollBoxAt(scrollBox, std::numeric_limits<int>::max(), widget);
-    }
-
-    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(target)) {
-        if (!expandableBox->GetHeader()) {
-            expandableBox->SetHeader(widget);
-            return true;
-        }
-
-        if (!expandableBox->GetBody()) {
-            expandableBox->SetBody(widget);
-            expandableBox->SetExpanded(true);
-            return true;
-        }
-
-        return false;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(target)) {
-        const int addedIndex = tabView->AddTab(BuildTabTitleForWidget(widget), widget);
-        if (addedIndex >= 0) {
-            tabView->SetActiveTab(addedIndex);
-            return true;
-        }
-        return false;
-    }
-
-    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(target)) {
-        const FGeometry geometry = titleBar->GetGeometry();
-        const bool bTrailing = geometry.Size.X > 0.0f &&
-            dropPosition.X >= geometry.Position.X + geometry.Size.X * 0.5f;
-        if (bTrailing) {
-            titleBar->AddTrailingItem(widget);
-        } else {
-            titleBar->AddLeadingItem(widget);
-        }
-        return true;
-    }
-
-    return false;
+    std::string insertError;
+    return TryInsertWidgetIntoParent(target, widget, insertError, options);
 }
 
 bool CanInsertIntoTarget(
@@ -646,26 +529,6 @@ bool CanInsertIntoTarget(
 
     if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(target)) {
         return expandableBox->GetHeader() == nullptr || expandableBox->GetBody() == nullptr;
-    }
-
-    return false;
-}
-
-bool IsLogicalAncestorOf(
-    const std::shared_ptr<EditorDocument>& document,
-    const std::shared_ptr<ImWidget>& possibleAncestor,
-    const std::shared_ptr<ImWidget>& widget)
-{
-    if (!document || !possibleAncestor || !widget) {
-        return false;
-    }
-
-    std::shared_ptr<ImWidget> current = widget;
-    while (current) {
-        if (current == possibleAncestor) {
-            return true;
-        }
-        current = document->FindLogicalParent(current);
     }
 
     return false;
@@ -723,7 +586,11 @@ bool TryDuplicateInParent(
     }
 
     if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
-        return TryInsertIntoTarget(scrollBox, cloneWidget, sourceWidget->GetGeometry().Position);
+        std::string insertError;
+        FDocumentInsertOptions options;
+        options.DropPosition = sourceWidget->GetGeometry().Position;
+        options.bStripImPrefixForTabFallback = true;
+        return TryInsertWidgetIntoParent(scrollBox, cloneWidget, insertError, options);
     }
 
     if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
@@ -1972,7 +1839,7 @@ void EditorSession::HandleWidgetTreeItemDropped(
         return;
     }
 
-    if (sourceWidget == targetWidget || IsLogicalAncestorOf(m_Document, sourceWidget, targetWidget)) {
+    if (sourceWidget == targetWidget || IsLogicalAncestorOf(*m_Document, sourceWidget, targetWidget)) {
         LogStatus(LocalizedEditorString("Session.MoveRejectedIntoSelf", "Move rejected: cannot move a widget into itself or its descendants."));
         return;
     }
@@ -2377,7 +2244,7 @@ bool EditorSession::ResolveDesignerInsertionTargetForWidget(
 
     while (target) {
         if (widget != target &&
-            !IsLogicalAncestorOf(m_Document, widget, target) &&
+            !IsLogicalAncestorOf(*m_Document, widget, target) &&
             CanInsertIntoTarget(target, widget)) {
             outTargetWidget = target;
             return true;
@@ -2391,7 +2258,7 @@ bool EditorSession::ResolveDesignerInsertionTargetForWidget(
     }
 
     if (widget != root &&
-        !IsLogicalAncestorOf(m_Document, widget, root) &&
+        !IsLogicalAncestorOf(*m_Document, widget, root) &&
         CanInsertIntoTarget(root, widget)) {
         outTargetWidget = root;
         return true;
@@ -2640,53 +2507,7 @@ bool EditorSession::RemoveWidgetFromParent(
     const std::shared_ptr<ImWidget>& parent,
     const std::shared_ptr<ImWidget>& widget)
 {
-    if (!parent || !widget) {
-        return false;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int tabIndex = LogicalWidgetTree::FindTabContentIndex(tabView, widget);
-        if (tabIndex >= 0) {
-            return tabView->RemoveTab(tabIndex);
-        }
-
-        return false;
-    }
-
-    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
-        return titleBar->RemoveLeadingItem(widget) || titleBar->RemoveTrailingItem(widget);
-    }
-
-    if (auto userWidget = std::dynamic_pointer_cast<ImUserWidget>(parent)) {
-        if (userWidget->GetRootWidget() == widget) {
-            userWidget->SetRootWidget(nullptr);
-            return true;
-        }
-    }
-
-    if (auto button = std::dynamic_pointer_cast<ImButton>(parent)) {
-        if (button->GetContent() == widget) {
-            button->SetContent(nullptr);
-            return true;
-        }
-    }
-
-    if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(parent)) {
-        if (expandableBox->GetHeader() == widget) {
-            expandableBox->SetHeader(nullptr);
-            return true;
-        }
-        if (expandableBox->GetBody() == widget) {
-            expandableBox->SetBody(nullptr);
-            return true;
-        }
-    }
-
-    if (auto panelParent = std::dynamic_pointer_cast<ImPanelWidget>(parent)) {
-        return panelParent->RemoveChild(widget);
-    }
-
-    return parent->RemoveChild(widget);
+    return ImWidgetV4Editor::RemoveWidgetFromParent(parent, widget);
 }
 
 bool EditorSession::MoveWidgetInDocument(
@@ -2702,7 +2523,7 @@ bool EditorSession::MoveWidgetInDocument(
         return false;
     }
 
-    if (widget == newParent || IsLogicalAncestorOf(m_Document, widget, newParent)) {
+    if (widget == newParent || IsLogicalAncestorOf(*m_Document, widget, newParent)) {
         return false;
     }
 
@@ -2746,7 +2567,7 @@ bool EditorSession::MoveWidgetInDocumentAtTarget(
         target = m_DesignerSurface->GetSelectedWidget();
     }
 
-    if (target && (widget == target || IsLogicalAncestorOf(m_Document, widget, target))) {
+    if (target && (widget == target || IsLogicalAncestorOf(*m_Document, widget, target))) {
         return false;
     }
 
@@ -2786,45 +2607,10 @@ bool EditorSession::InsertWidgetIntoParentAt(
     int insertIndex,
     const std::shared_ptr<ImWidget>& widget)
 {
-    if (!parent || !widget) {
-        return false;
-    }
-
-    if (auto verticalBox = std::dynamic_pointer_cast<ImVerticalBox>(parent)) {
-        verticalBox->InsertChild(insertIndex, widget);
-        return true;
-    }
-
-    if (auto horizontalBox = std::dynamic_pointer_cast<ImHorizontalBox>(parent)) {
-        horizontalBox->InsertChild(insertIndex, widget);
-        return true;
-    }
-
-    if (auto tabView = std::dynamic_pointer_cast<ImTabView>(parent)) {
-        const int insertedIndex = tabView->InsertTab(insertIndex, BuildTabTitleForWidget(widget), widget);
-        if (insertedIndex >= 0) {
-            tabView->SetActiveTab(insertedIndex);
-            return true;
-        }
-        return false;
-    }
-
-    if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(parent)) {
-        const std::size_t leadingCount = titleBar->GetLeadingItemCount();
-        if (insertIndex <= static_cast<int>(leadingCount)) {
-            return titleBar->InsertLeadingItem(static_cast<std::size_t>(std::max(0, insertIndex)), widget);
-        }
-
-        return titleBar->InsertTrailingItem(
-            static_cast<std::size_t>(std::max(0, insertIndex - static_cast<int>(leadingCount))),
-            widget);
-    }
-
-    if (auto scrollBox = std::dynamic_pointer_cast<ImScrollBox>(parent)) {
-        return TryInsertIntoScrollBoxAt(scrollBox, insertIndex, widget);
-    }
-
-    return false;
+    std::string insertError;
+    FDocumentInsertOptions options;
+    options.bStripImPrefixForTabFallback = true;
+    return TryInsertWidgetIntoParentAt(parent, insertIndex, widget, insertError, options);
 }
 
 bool EditorSession::MoveWidgetRelativeToTarget(
@@ -2843,7 +2629,7 @@ bool EditorSession::MoveWidgetRelativeToTarget(
 
     const std::shared_ptr<ImWidget> targetParent = m_Document->FindLogicalParent(targetWidget);
     const std::shared_ptr<ImWidget> oldParent = m_Document->FindLogicalParent(widget);
-    if (!targetParent || !oldParent || IsLogicalAncestorOf(m_Document, widget, targetParent)) {
+    if (!targetParent || !oldParent || IsLogicalAncestorOf(*m_Document, widget, targetParent)) {
         return false;
     }
 

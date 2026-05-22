@@ -58,6 +58,10 @@ private:
     std::shared_ptr<ImWidgetV4::ImCheckBox> BuildZipCheckBox;
     std::shared_ptr<ImWidgetV4::ImCheckBox> BuildNsisCheckBox;
     std::shared_ptr<ImWidgetV4::ImCheckBox> SmokeTestCheckBox;
+    std::shared_ptr<ImWidgetV4::ImExpandableBox> CommandPreviewGroup;
+    std::shared_ptr<ImWidgetV4::ImHorizontalBox> CommandPreviewHeader;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewIcon;
+    std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewTitle;
     std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreviewText;
     std::shared_ptr<ImWidgetV4::ImButton> BuildButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildButtonText;

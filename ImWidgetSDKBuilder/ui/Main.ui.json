@@ -454,7 +454,7 @@
                     {
                       "Type": "ImVerticalBox",
                       "Properties": {
-                        "ImWidget::Name": "StepOptionsRow",
+                        "ImWidget::Name": "TaskOptionsColumn",
                         "ImWidget::Visible": true,
                         "ImWidget::HitTestVisible": true,
                         "ImWidget::SupportsKeyboardFocus": false,
@@ -462,30 +462,15 @@
                       },
                       "Children": [
                         {
-                          "Type": "ImComboBox",
+                          "Type": "ImCheckBox",
                           "Properties": {
-                            "ImComboBox::Items": [
-                              "Build SDK",
-                              "Skip SDK build"
-                            ],
-                            "ImComboBox::SelectedIndex": 0,
-                            "ImComboBox::PlaceholderText": "SDK build",
-                            "ImComboBox::MaxVisibleItems": 6,
-                            "ImComboBox::Disabled": false,
-                            "ImWidget::Name": "BuildStepComboBox",
+                            "ImCheckBox::Label": "Build SDK",
+                            "ImCheckBox::Checked": true,
+                            "ImCheckBox::Disabled": false,
+                            "ImWidget::Name": "BuildSdkCheckBox",
                             "ImWidget::Visible": true,
                             "ImWidget::HitTestVisible": true,
-                            "ImWidget::SupportsKeyboardFocus": true,
-                            "ImComboBox::Style": {
-                              "Type": "FComboBoxStyle",
-                              "Properties": {
-                                "FComboBoxStyle::CornerRadius": 0,
-                                "FComboBoxStyle::MinDesiredSize": [
-                                  180,
-                                  38
-                                ]
-                              }
-                            }
+                            "ImWidget::SupportsKeyboardFocus": true
                           },
                           "Children": [],
                           "Slot": {
@@ -497,31 +482,15 @@
                           "EditorId": "w23"
                         },
                         {
-                          "Type": "ImComboBox",
+                          "Type": "ImCheckBox",
                           "Properties": {
-                            "ImComboBox::Items": [
-                              "Build ZIP",
-                              "Build NSIS",
-                              "Skip installer"
-                            ],
-                            "ImComboBox::SelectedIndex": 0,
-                            "ImComboBox::PlaceholderText": "Installer",
-                            "ImComboBox::MaxVisibleItems": 6,
-                            "ImComboBox::Disabled": false,
-                            "ImWidget::Name": "InstallerStepComboBox",
+                            "ImCheckBox::Label": "Build ZIP",
+                            "ImCheckBox::Checked": true,
+                            "ImCheckBox::Disabled": false,
+                            "ImWidget::Name": "BuildZipCheckBox",
                             "ImWidget::Visible": true,
                             "ImWidget::HitTestVisible": true,
-                            "ImWidget::SupportsKeyboardFocus": true,
-                            "ImComboBox::Style": {
-                              "Type": "FComboBoxStyle",
-                              "Properties": {
-                                "FComboBoxStyle::CornerRadius": 0,
-                                "FComboBoxStyle::MinDesiredSize": [
-                                  180,
-                                  38
-                                ]
-                              }
-                            }
+                            "ImWidget::SupportsKeyboardFocus": true
                           },
                           "Children": [],
                           "Slot": {
@@ -533,30 +502,15 @@
                           "EditorId": "w24"
                         },
                         {
-                          "Type": "ImComboBox",
+                          "Type": "ImCheckBox",
                           "Properties": {
-                            "ImComboBox::Items": [
-                              "Run smoke tests",
-                              "Skip smoke tests"
-                            ],
-                            "ImComboBox::SelectedIndex": 0,
-                            "ImComboBox::PlaceholderText": "Smoke test",
-                            "ImComboBox::MaxVisibleItems": 6,
-                            "ImComboBox::Disabled": false,
-                            "ImWidget::Name": "SmokeStepComboBox",
+                            "ImCheckBox::Label": "Build NSIS",
+                            "ImCheckBox::Checked": true,
+                            "ImCheckBox::Disabled": false,
+                            "ImWidget::Name": "BuildNsisCheckBox",
                             "ImWidget::Visible": true,
                             "ImWidget::HitTestVisible": true,
-                            "ImWidget::SupportsKeyboardFocus": true,
-                            "ImComboBox::Style": {
-                              "Type": "FComboBoxStyle",
-                              "Properties": {
-                                "FComboBoxStyle::CornerRadius": 0,
-                                "FComboBoxStyle::MinDesiredSize": [
-                                  180,
-                                  38
-                                ]
-                              }
-                            }
+                            "ImWidget::SupportsKeyboardFocus": true
                           },
                           "Children": [],
                           "Slot": {
@@ -566,208 +520,77 @@
                             }
                           },
                           "EditorId": "w25"
-                        }
-                      ],
-                      "EditorId": "w26"
-                    },
-                    {
-                      "Type": "ImVerticalBox",
-                      "Properties": {
-                        "ImVerticalBox::Spacing": 8,
-                        "ImWidget::Name": "ActionButtonColumn",
-                        "ImWidget::Visible": true,
-                        "ImWidget::HitTestVisible": true,
-                        "ImWidget::SupportsKeyboardFocus": false
-                      },
-                      "Children": [
-                        {
-                          "Type": "ImHorizontalBox",
-                          "Properties": {
-                            "ImHorizontalBox::Spacing": 8,
-                            "ImWidget::Name": "ActionButtonRow",
-                            "ImWidget::Visible": true,
-                            "ImWidget::HitTestVisible": true,
-                            "ImWidget::SupportsKeyboardFocus": false
-                          },
-                          "Children": [
-                            {
-                              "Type": "ImButton",
-                              "Properties": {
-                                "ImButton::Disabled": false,
-                                "ImWidget::Name": "RunSelectedButton",
-                                "ImWidget::Visible": true,
-                                "ImWidget::HitTestVisible": true,
-                                "ImWidget::SupportsKeyboardFocus": true
-                              },
-                              "Children": [],
-                              "Content": {
-                                "Type": "ImTextBlock",
-                                "Properties": {
-                                  "ImTextBlock::Text": "Run Selected",
-                                  "ImTextBlock::TextColor": [
-                                    50,
-                                    50,
-                                    50,
-                                    255
-                                  ],
-                                  "ImTextBlock::FontSize": 15,
-                                  "ImTextBlock::WrapText": false,
-                                  "ImTextBlock::TextAlignment": "Center",
-                                  "ImTextBlock::VerticalAlignment": "Center",
-                                  "ImWidget::Name": "RunSelectedButtonText",
-                                  "ImWidget::Visible": true,
-                                  "ImWidget::HitTestVisible": true,
-                                  "ImWidget::SupportsKeyboardFocus": false
-                                },
-                                "Children": [],
-                                "EditorId": "w27t"
-                              },
-                              "Slot": {
-                                "Type": "ImBoxSlot",
-                                "Properties": {
-                                  "ImBoxSlot::FillCoefficient": 1
-                                }
-                              },
-                              "EditorId": "w27"
-                            },
-                            {
-                              "Type": "ImButton",
-                              "Properties": {
-                                "ImButton::Disabled": false,
-                                "ImWidget::Name": "BuildSdkButton",
-                                "ImWidget::Visible": true,
-                                "ImWidget::HitTestVisible": true,
-                                "ImWidget::SupportsKeyboardFocus": true
-                              },
-                              "Children": [],
-                              "Content": {
-                                "Type": "ImTextBlock",
-                                "Properties": {
-                                  "ImTextBlock::Text": "Build SDK",
-                                  "ImTextBlock::TextColor": [
-                                    50,
-                                    50,
-                                    50,
-                                    255
-                                  ],
-                                  "ImTextBlock::FontSize": 15,
-                                  "ImTextBlock::WrapText": false,
-                                  "ImTextBlock::TextAlignment": "Center",
-                                  "ImTextBlock::VerticalAlignment": "Center",
-                                  "ImWidget::Name": "BuildSdkButtonText",
-                                  "ImWidget::Visible": true,
-                                  "ImWidget::HitTestVisible": true,
-                                  "ImWidget::SupportsKeyboardFocus": false
-                                },
-                                "Children": [],
-                                "EditorId": "w28t"
-                              },
-                              "Slot": {
-                                "Type": "ImBoxSlot",
-                                "Properties": {
-                                  "ImBoxSlot::FillCoefficient": 1
-                                }
-                              },
-                              "EditorId": "w28"
-                            }
-                          ],
-                          "EditorId": "w29"
                         },
                         {
-                          "Type": "ImHorizontalBox",
+                          "Type": "ImCheckBox",
                           "Properties": {
-                            "ImHorizontalBox::Spacing": 8,
-                            "ImWidget::Name": "ActionButtonRow2",
+                            "ImCheckBox::Label": "Smoke Test",
+                            "ImCheckBox::Checked": true,
+                            "ImCheckBox::Disabled": false,
+                            "ImWidget::Name": "SmokeTestCheckBox",
                             "ImWidget::Visible": true,
                             "ImWidget::HitTestVisible": true,
-                            "ImWidget::SupportsKeyboardFocus": false
+                            "ImWidget::SupportsKeyboardFocus": true
                           },
-                          "Children": [
-                            {
-                              "Type": "ImButton",
-                              "Properties": {
-                                "ImButton::Disabled": false,
-                                "ImWidget::Name": "BuildInstallerButton",
-                                "ImWidget::Visible": true,
-                                "ImWidget::HitTestVisible": true,
-                                "ImWidget::SupportsKeyboardFocus": true
-                              },
-                              "Children": [],
-                              "Content": {
-                                "Type": "ImTextBlock",
-                                "Properties": {
-                                  "ImTextBlock::Text": "Build Installer",
-                                  "ImTextBlock::TextColor": [
-                                    50,
-                                    50,
-                                    50,
-                                    255
-                                  ],
-                                  "ImTextBlock::FontSize": 15,
-                                  "ImTextBlock::WrapText": false,
-                                  "ImTextBlock::TextAlignment": "Center",
-                                  "ImTextBlock::VerticalAlignment": "Center",
-                                  "ImWidget::Name": "BuildInstallerButtonText",
-                                  "ImWidget::Visible": true,
-                                  "ImWidget::HitTestVisible": true,
-                                  "ImWidget::SupportsKeyboardFocus": false
-                                },
-                                "Children": [],
-                                "EditorId": "w30t"
-                              },
-                              "Slot": {
-                                "Type": "ImBoxSlot",
-                                "Properties": {
-                                  "ImBoxSlot::FillCoefficient": 1
-                                }
-                              },
-                              "EditorId": "w30"
-                            },
-                            {
-                              "Type": "ImButton",
-                              "Properties": {
-                                "ImButton::Disabled": false,
-                                "ImWidget::Name": "SmokeTestButton",
-                                "ImWidget::Visible": true,
-                                "ImWidget::HitTestVisible": true,
-                                "ImWidget::SupportsKeyboardFocus": true
-                              },
-                              "Children": [],
-                              "Content": {
-                                "Type": "ImTextBlock",
-                                "Properties": {
-                                  "ImTextBlock::Text": "Smoke Test",
-                                  "ImTextBlock::TextColor": [
-                                    50,
-                                    50,
-                                    50,
-                                    255
-                                  ],
-                                  "ImTextBlock::FontSize": 15,
-                                  "ImTextBlock::WrapText": false,
-                                  "ImTextBlock::TextAlignment": "Center",
-                                  "ImTextBlock::VerticalAlignment": "Center",
-                                  "ImWidget::Name": "SmokeTestButtonText",
-                                  "ImWidget::Visible": true,
-                                  "ImWidget::HitTestVisible": true,
-                                  "ImWidget::SupportsKeyboardFocus": false
-                                },
-                                "Children": [],
-                                "EditorId": "w31t"
-                              },
-                              "Slot": {
-                                "Type": "ImBoxSlot",
-                                "Properties": {
-                                  "ImBoxSlot::FillCoefficient": 1
-                                }
-                              },
-                              "EditorId": "w31"
+                          "Children": [],
+                          "Slot": {
+                            "Type": "ImBoxSlot",
+                            "Properties": {
+                              "ImBoxSlot::FillCoefficient": 0,
+                              "ImPaddingSlot::PaddingLeft": 0,
+                              "ImPaddingSlot::PaddingRight": 0,
+                              "ImPaddingSlot::PaddingTop": 0,
+                              "ImPaddingSlot::PaddingBottom": 0
                             }
-                          ],
-                          "EditorId": "w32"
+                          },
+                          "EditorId": "w26"
                         }
                       ],
-                      "EditorId": "w33"
+                      "EditorId": "w27"
+                    },
+                    {
+                      "Type": "ImButton",
+                      "Properties": {
+                        "ImButton::Disabled": false,
+                        "ImWidget::Name": "BuildButton",
+                        "ImWidget::Visible": true,
+                        "ImWidget::HitTestVisible": true,
+                        "ImWidget::SupportsKeyboardFocus": true
+                      },
+                      "Children": [],
+                      "Content": {
+                        "Type": "ImTextBlock",
+                        "Properties": {
+                          "ImTextBlock::Text": "Build",
+                          "ImTextBlock::TextColor": [
+                            50,
+                            50,
+                            50,
+                            255
+                          ],
+                          "ImTextBlock::FontSize": 15,
+                          "ImTextBlock::WrapText": false,
+                          "ImTextBlock::TextAlignment": "Center",
+                          "ImTextBlock::VerticalAlignment": "Center",
+                          "ImWidget::Name": "BuildButtonText",
+                          "ImWidget::Visible": true,
+                          "ImWidget::HitTestVisible": true,
+                          "ImWidget::SupportsKeyboardFocus": false
+                        },
+                        "Children": [],
+                        "EditorId": "w28t"
+                      },
+                      "Slot": {
+                        "Type": "ImBoxSlot",
+                        "Properties": {
+                          "ImBoxSlot::FillCoefficient": 0,
+                          "ImPaddingSlot::PaddingLeft": 0,
+                          "ImPaddingSlot::PaddingRight": 0,
+                          "ImPaddingSlot::PaddingTop": 0,
+                          "ImPaddingSlot::PaddingBottom": 0
+                        }
+                      },
+                      "EditorId": "w28"
                     }
                   ],
                   "EditorId": "w34"
@@ -810,7 +633,7 @@
           {
             "Type": "ImTextBlock",
             "Properties": {
-              "ImTextBlock::Text": "package_sdk.ps1 -Architectures win32,win64 -Configurations Debug,Release",
+                "ImTextBlock::Text": "Select tasks, then click Build.",
               "ImTextBlock::TextColor": [
                 190,
                 229,

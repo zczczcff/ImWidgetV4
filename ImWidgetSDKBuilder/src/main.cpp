@@ -9,6 +9,7 @@
 #include <imwidgetv4/core/Application.h>
 #include <imwidgetv4/core/CoreIcon.h>
 #include <imwidgetv4/platform/PlatformProcess.h>
+#include <imwidgetv4/widgets/Button.h>
 #include <imwidgetv4/widgets/CheckBox.h>
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/Image.h>
@@ -18,6 +19,7 @@
 #include <filesystem>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -87,6 +89,14 @@ std::vector<std::string> DetectToolsetOptions()
     return options;
 }
 
+bool IsCommandAvailable(const std::string& command)
+{
+    return ImWidgetV4::ExecuteProcess(
+        std::filesystem::current_path(),
+        {"where", command},
+        nullptr).bSuccess;
+}
+
 template<typename T>
 std::shared_ptr<T> FindWidgetInTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget)
 {
@@ -130,6 +140,95 @@ void BindAtLeastOneChecked(
     second->OnCheckStateChanged.AddLambda(enforceSecond);
 }
 
+std::vector<std::string> CollectCheckedArchitectures(
+    const std::shared_ptr<ImWidgetV4::ImCheckBox>& win64,
+    const std::shared_ptr<ImWidgetV4::ImCheckBox>& win32)
+{
+    std::vector<std::string> architectures;
+    if (win32 && win32->IsChecked()) {
+        architectures.push_back("win32");
+    }
+    if (win64 && win64->IsChecked()) {
+        architectures.push_back("win64");
+    }
+    return architectures;
+}
+
+std::vector<std::string> CollectCheckedConfigurations(
+    const std::shared_ptr<ImWidgetV4::ImCheckBox>& debug,
+    const std::shared_ptr<ImWidgetV4::ImCheckBox>& release)
+{
+    std::vector<std::string> configurations;
+    if (debug && debug->IsChecked()) {
+        configurations.push_back("Debug");
+    }
+    if (release && release->IsChecked()) {
+        configurations.push_back("Release");
+    }
+    return configurations;
+}
+
+std::string JoinValues(const std::vector<std::string>& values, const std::string& separator)
+{
+    std::ostringstream stream;
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index > 0) {
+            stream << separator;
+        }
+        stream << values[index];
+    }
+    return stream.str();
+}
+
+void SetTextIfValid(const std::shared_ptr<ImWidgetV4::ImTextBlock>& textBlock, const std::string& text)
+{
+    if (textBlock) {
+        textBlock->SetText(text);
+    }
+}
+
+void RunBuilderCommand(
+    const std::string& label,
+    const std::vector<std::string>& arguments,
+    std::ostringstream& logStream,
+    bool& bAllSucceeded)
+{
+    logStream << "> " << label << "\n";
+    logStream << ImWidgetV4::BuildProcessCommandLineForDisplay(arguments) << "\n";
+
+    const ImWidgetV4::FProcessExecutionResult result = ImWidgetV4::ExecuteProcess(
+        std::filesystem::current_path(),
+        arguments,
+        [&logStream](const std::string& line) {
+            logStream << line << "\n";
+        });
+
+    if (!result.bSuccess) {
+        bAllSucceeded = false;
+        logStream << "Failed";
+        if (result.ExitCode >= 0) {
+            logStream << " with exit code " << result.ExitCode;
+        }
+        if (!result.ErrorMessage.empty()) {
+            logStream << ": " << result.ErrorMessage;
+        }
+        logStream << "\n";
+        return;
+    }
+
+    logStream << "Done.\n";
+}
+
+void AppendGeneratorArguments(std::vector<std::string>& arguments, const std::string& generator)
+{
+    if (generator.empty() || generator == "Default") {
+        return;
+    }
+
+    arguments.push_back("-Generator");
+    arguments.push_back(generator);
+}
+
 void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
 {
     auto titleBarView = FindWidgetInTree<ImWidgetSDKBuilder::TitleBarView>(application.GetRootWidget());
@@ -149,6 +248,13 @@ void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
     auto win32 = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("Win32CheckBox");
     auto debug = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("DebugCheckBox");
     auto release = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("ReleaseCheckBox");
+    auto buildSdk = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildSdkCheckBox");
+    auto buildZip = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildZipCheckBox");
+    auto buildNsis = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("BuildNsisCheckBox");
+    auto smokeTest = mainView->FindWidgetAs<ImWidgetV4::ImCheckBox>("SmokeTestCheckBox");
+    auto buildButton = mainView->FindWidgetAs<ImWidgetV4::ImButton>("BuildButton");
+    auto commandPreview = mainView->FindWidgetAs<ImWidgetV4::ImTextBlock>("CommandPreviewText");
+    auto logText = mainView->FindWidgetAs<ImWidgetV4::ImTextBlock>("LogText");
     BindAtLeastOneChecked(win64, win32);
     BindAtLeastOneChecked(debug, release);
 
@@ -159,9 +265,107 @@ void ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
         toolchain->SetSelectedIndex(options.empty() ? -1 : 0);
     }
 
-    auto commandPreview = mainView->FindWidgetAs<ImWidgetV4::ImTextBlock>("CommandPreviewText");
-    if (commandPreview) {
-        commandPreview->SetText("package_sdk.ps1 -Architectures win32,win64 -Configurations Debug,Release");
+    const bool bNsisAvailable = IsCommandAvailable("makensis");
+    if (buildNsis) {
+        buildNsis->SetDisabled(!bNsisAvailable);
+        buildNsis->SetChecked(bNsisAvailable && buildNsis->IsChecked());
+    }
+    if (!bNsisAvailable) {
+        SetTextIfValid(logText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
+    }
+
+    SetTextIfValid(commandPreview, "Select tasks, then click Build.");
+
+    if (buildButton) {
+        buildButton->OnClicked.AddLambda([=](ImWidgetV4::ImButton& button) {
+            std::ostringstream logStream;
+            bool bAllSucceeded = true;
+
+            const std::vector<std::string> architectures = CollectCheckedArchitectures(win64, win32);
+            const std::vector<std::string> configurations = CollectCheckedConfigurations(debug, release);
+            const std::string architectureList = JoinValues(architectures, ",");
+            const std::string configurationList = JoinValues(configurations, ",");
+            const bool bBuildSdk = buildSdk && buildSdk->IsChecked();
+            const bool bBuildZip = buildZip && buildZip->IsChecked();
+            const bool bBuildNsis = buildNsis && buildNsis->IsChecked() && !buildNsis->IsDisabled();
+            const bool bSmokeTest = smokeTest && smokeTest->IsChecked();
+            const std::string selectedGenerator = toolchain ? toolchain->GetSelectedText() : std::string();
+
+            if (!bBuildSdk && !bBuildZip && !bBuildNsis && !bSmokeTest) {
+                SetTextIfValid(logText, "No build tasks selected.");
+                return;
+            }
+
+            SetTextIfValid(commandPreview, "Build in progress...");
+            button.SetDisabled(true);
+
+            if (bBuildSdk) {
+                std::vector<std::string> sdkArgs {
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts/package_sdk.ps1",
+                    "-Architectures",
+                    architectureList,
+                    "-Configurations",
+                    configurationList
+                };
+                AppendGeneratorArguments(sdkArgs, selectedGenerator);
+                RunBuilderCommand("Build SDK", sdkArgs, logStream, bAllSucceeded);
+            }
+
+            if (bBuildZip || bBuildNsis) {
+                std::vector<std::string> installerArgs {
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts/package_installer.ps1",
+                    "-Architectures",
+                    architectureList
+                };
+                AppendGeneratorArguments(installerArgs, selectedGenerator);
+                installerArgs.push_back("-CpackGenerators");
+                if (bBuildZip) {
+                    installerArgs.push_back("ZIP");
+                }
+                if (bBuildNsis) {
+                    installerArgs.push_back("NSIS");
+                }
+                installerArgs.push_back("-SkipSdkBuild");
+
+                RunBuilderCommand("Build installer", installerArgs, logStream, bAllSucceeded);
+            }
+
+            if (bSmokeTest) {
+                const std::string smokeArchitecture = !architectures.empty() ? architectures.back() : std::string("win64");
+                const std::string smokeConfiguration =
+                    std::find(configurations.begin(), configurations.end(), "Release") != configurations.end()
+                        ? std::string("Release")
+                        : (!configurations.empty() ? configurations.front() : std::string("Release"));
+                std::vector<std::string> smokeArgs {
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "scripts/smoke_sdk_package.ps1",
+                    "-Architecture",
+                    smokeArchitecture,
+                    "-Configuration",
+                    smokeConfiguration
+                };
+                AppendGeneratorArguments(smokeArgs, selectedGenerator);
+                RunBuilderCommand("Smoke test", smokeArgs, logStream, bAllSucceeded);
+            }
+
+            SetTextIfValid(logText, logStream.str());
+            SetTextIfValid(commandPreview, bAllSucceeded ? "Build tasks finished." : "Build tasks failed.");
+            button.SetDisabled(false);
+        });
     }
 }
 

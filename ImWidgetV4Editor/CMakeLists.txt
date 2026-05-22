@@ -172,23 +172,23 @@ if(IMWIDGETV4_BUILD_EDITOR)
 endif()
 
 if(IMWIDGETV4_BUILD_CLI AND NOT ANDROID)
-    add_executable(ImWidgetV4Cli
+    add_executable(ImWidgetV4EditorCLI
         src/cli/main.cpp
     )
-    target_link_libraries(ImWidgetV4Cli PRIVATE
+    target_link_libraries(ImWidgetV4EditorCLI PRIVATE
         ImWidgetV4EditorCore
     )
-    target_include_directories(ImWidgetV4Cli PRIVATE
+    target_include_directories(ImWidgetV4EditorCLI PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../ImWidgetV4/include
     )
-    set_target_properties(ImWidgetV4Cli PROPERTIES
-        OUTPUT_NAME ImWidgetEditorCLI
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/tools
-        FOLDER "Tools"
+    set_target_properties(ImWidgetV4EditorCLI PROPERTIES
+        OUTPUT_NAME ImWidgetV4EditorCLI
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/editor
+        FOLDER "Editor"
     )
     install(
-        TARGETS ImWidgetV4Cli
+        TARGETS ImWidgetV4EditorCLI
         RUNTIME DESTINATION tools
         COMPONENT Tools
     )
@@ -228,8 +228,8 @@ if(MSVC)
     if(TARGET ImWidgetV4Editor)
         target_compile_options(ImWidgetV4Editor PRIVATE /FS)
     endif()
-    if(TARGET ImWidgetV4Cli)
-        target_compile_options(ImWidgetV4Cli PRIVATE /FS)
+    if(TARGET ImWidgetV4EditorCLI)
+        target_compile_options(ImWidgetV4EditorCLI PRIVATE /FS)
     endif()
     if(TARGET editor_selection_test)
         target_compile_options(editor_selection_test PRIVATE /FS)

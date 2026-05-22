@@ -4,7 +4,7 @@
 
 ## 背景
 
-在使用 `ImWidgetEditorCLI snapshot export` 导出 `ImWidgetSDKBuilder` 快照时，发现 UI JSON 中已经将多个控件的圆角设置为 `0`，但导出的图像里仍然出现圆角。最初肉眼看起来像是 `ImVerticalSplitter` 上半部分或 `ImScrollBox` 的圆角没有清掉，进一步通过像素采样确认后，问题实际存在于多层控件：
+在使用 `ImWidgetV4EditorCLI snapshot export` 导出 `ImWidgetSDKBuilder` 快照时，发现 UI JSON 中已经将多个控件的圆角设置为 `0`，但导出的图像里仍然出现圆角。最初肉眼看起来像是 `ImVerticalSplitter` 上半部分或 `ImScrollBox` 的圆角没有清掉，进一步通过像素采样确认后，问题实际存在于多层控件：
 
 - `ImScrollBox`
 - `ImExpandableBox`

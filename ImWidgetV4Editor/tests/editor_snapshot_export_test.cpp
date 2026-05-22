@@ -62,11 +62,11 @@ std::filesystem::path FindCliExecutable()
     const std::filesystem::path localToolsDirectory = executableDirectory / "tools" / configName;
 
     const std::filesystem::path candidates[] = {
-        executableDirectory / "ImWidgetEditorCLI.exe",
-        executableDirectory.parent_path() / "ImWidgetEditorCLI.exe",
-        debugToolsDirectory / "ImWidgetEditorCLI.exe",
-        siblingToolsDirectory / "ImWidgetEditorCLI.exe",
-        localToolsDirectory / "ImWidgetEditorCLI.exe",
+        executableDirectory / "ImWidgetV4EditorCLI.exe",
+        executableDirectory.parent_path() / "ImWidgetV4EditorCLI.exe",
+        debugToolsDirectory / "ImWidgetV4EditorCLI.exe",
+        siblingToolsDirectory / "ImWidgetV4EditorCLI.exe",
+        localToolsDirectory / "ImWidgetV4EditorCLI.exe",
     };
 
     for (const std::filesystem::path& candidate : candidates) {
@@ -743,7 +743,7 @@ TEST(EditorSnapshotExportTest, CliRunsUiBatchScript)
 
     const std::filesystem::path cliExecutable = FindCliExecutable();
     if (cliExecutable.empty()) {
-        GTEST_SKIP() << "ImWidgetEditorCLI executable was not found in the local build tree.";
+        GTEST_SKIP() << "ImWidgetV4EditorCLI executable was not found in the local build tree.";
     }
 
     const int exitCode = RunCliCommandLine(
@@ -788,7 +788,7 @@ TEST(EditorSnapshotExportTest, CliScansUiAssetReferences)
 
     const std::filesystem::path cliExecutable = FindCliExecutable();
     if (cliExecutable.empty()) {
-        GTEST_SKIP() << "ImWidgetEditorCLI executable was not found in the local build tree.";
+        GTEST_SKIP() << "ImWidgetV4EditorCLI executable was not found in the local build tree.";
     }
 
     const int listExitCode = RunCliCommandLine(
@@ -821,7 +821,7 @@ TEST(EditorSnapshotExportTest, CliExportsSnapshotPng)
 
     const std::filesystem::path cliExecutable = FindCliExecutable();
     if (cliExecutable.empty()) {
-        GTEST_SKIP() << "ImWidgetEditorCLI executable was not found in the local build tree.";
+        GTEST_SKIP() << "ImWidgetV4EditorCLI executable was not found in the local build tree.";
     }
 
     const int exitCode = RunCliCommand(cliExecutable, inputPath, outputPath);

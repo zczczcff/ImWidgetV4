@@ -64,7 +64,7 @@ struct FUiAssetScanResult {
 void PrintUsage()
 {
     std::cout
-        << "Usage: ImWidgetEditorCLI <command> [options]\n\n"
+        << "Usage: ImWidgetV4EditorCLI <command> [options]\n\n"
         << "Commands:\n"
         << "  ui controls list [--json]\n"
         << "  ui controls describe <type-name> [--json]\n"

@@ -202,7 +202,7 @@ This phase reduces future duplication while preserving existing documents.
 - Provide a migration command:
 
 ```text
-ImWidgetEditorCLI ui migrate-relations <input.ui.json> <output.ui.json>
+ImWidgetV4EditorCLI ui migrate-relations <input.ui.json> <output.ui.json>
 ```
 
 This phase makes the file format consistent for agents and tooling.
@@ -212,9 +212,9 @@ This phase makes the file format consistent for agents and tooling.
 - Add role-aware CLI commands:
 
 ```text
-ImWidgetEditorCLI ui roles <file.ui.json> <widget-id>
-ImWidgetEditorCLI ui add <file.ui.json> <parent-id> <type> --role LeadingItems
-ImWidgetEditorCLI ui move <file.ui.json> <widget-id> <parent-id> --role Body --index 0
+ImWidgetV4EditorCLI ui roles <file.ui.json> <widget-id>
+ImWidgetV4EditorCLI ui add <file.ui.json> <parent-id> <type> --role LeadingItems
+ImWidgetV4EditorCLI ui move <file.ui.json> <widget-id> <parent-id> --role Body --index 0
 ```
 
 - Show child roles explicitly in document tree views.

@@ -19,7 +19,7 @@ $sourcePath = Join-Path $smokePath "src"
 $buildPath = Join-Path $smokePath "build"
 $sdkCmakePath = Join-Path $packagePath "sdk/cmake"
 $editorPath = Join-Path $packagePath "tools/ImWidgetEditor.exe"
-$cliPath = Join-Path $packagePath "tools/ImWidgetEditorCLI.exe"
+$cliPath = Join-Path $packagePath "tools/ImWidgetV4EditorCLI.exe"
 
 if ([string]::IsNullOrWhiteSpace($Platform)) {
     if ($architectureName -eq "win32") {
@@ -42,7 +42,7 @@ if (-not (Test-Path $editorPath)) {
 }
 
 if (-not (Test-Path $cliPath)) {
-    throw "ImWidgetEditorCLI.exe was not found under '$cliPath'."
+    throw "ImWidgetV4EditorCLI.exe was not found under '$cliPath'."
 }
 
 Write-Host "[smoke] Checking SDK CLI tool..."

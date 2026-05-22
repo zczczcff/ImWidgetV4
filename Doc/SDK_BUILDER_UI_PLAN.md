@@ -4,14 +4,14 @@
 
 ## 背景
 
-当前 SDK 已经具备脚本化构建、分架构打包、安装包生成和 CLI 辅助 UI 开发能力。下一步需要用这些能力开发一个真实工具，验证 `ImWidgetEditorCLI` 是否足以支撑 agent 协作式 UI 应用开发。
+当前 SDK 已经具备脚本化构建、分架构打包、安装包生成和 CLI 辅助 UI 开发能力。下一步需要用这些能力开发一个真实工具，验证 `ImWidgetV4EditorCLI` 是否足以支撑 agent 协作式 UI 应用开发。
 
 `ImWidgetSDKBuilder` 作为第一个实战项目，目标是提供一个轻量 UI，用于可视化配置、构建和验证 ImWidgetV4 SDK 包。它应当位于仓库根目录，与 `ImWidgetV4`、`ImWidgetV4Editor` 并列，作为第三个独立构建目标。
 
 ## 目标
 
 - 提供面向用户的 SDK 构建器 UI，覆盖常用 SDK 打包参数。
-- 使用已编译 SDK 中的 `ImWidgetEditorCLI` 初始化和维护 UI 文档，真实检验 CLI 能力。
+- 使用已编译 SDK 中的 `ImWidgetV4EditorCLI` 初始化和维护 UI 文档，真实检验 CLI 能力。
 - 构建时直接链接本仓库源码目标，避免开发者必须先拥有完整 SDK。
 - 通过快照导出功能辅助 UI 设计和视觉回归验证。
 - 为后续更多工具型应用沉淀一套 “CLI 生成 UI + 源码内构建” 的工作流。
@@ -84,10 +84,10 @@ UI 文档的初始化、增删查改、校验和快照导出应使用 SDK 包内
 ```powershell
 .\scripts\build_sdk.ps1 -SkipSmoke
 
-.\build\package\ImWidgetV4-SDK\tools\ImWidgetEditorCLI.exe ui controls list
-.\build\package\ImWidgetV4-SDK\tools\ImWidgetEditorCLI.exe ui schema dump
-.\build\package\ImWidgetV4-SDK\tools\ImWidgetEditorCLI.exe ui lint ImWidgetSDKBuilder\ui\Main.ui.json
-.\build\package\ImWidgetV4-SDK\tools\ImWidgetEditorCLI.exe snapshot export ImWidgetSDKBuilder\ui\Main.ui.json ImWidgetSDKBuilder\snapshots\Main.png --width 1280 --height 720
+.\build\package\ImWidgetV4-SDK\tools\ImWidgetV4EditorCLI.exe ui controls list
+.\build\package\ImWidgetV4-SDK\tools\ImWidgetV4EditorCLI.exe ui schema dump
+.\build\package\ImWidgetV4-SDK\tools\ImWidgetV4EditorCLI.exe ui lint ImWidgetSDKBuilder\ui\Main.ui.json
+.\build\package\ImWidgetV4-SDK\tools\ImWidgetV4EditorCLI.exe snapshot export ImWidgetSDKBuilder\ui\Main.ui.json ImWidgetSDKBuilder\snapshots\Main.png --width 1280 --height 720
 ```
 
 如果 CLI 的项目创建命令生成的是独立 SDK 消费项目，则只使用它生成初始 UI 和 generated 文件；随后手动调整 `ImWidgetSDKBuilder/CMakeLists.txt`，使其接入根工程源码构建。
@@ -169,7 +169,7 @@ struct FSdkBuildProfile
 每次较大 UI 调整后执行：
 
 ```powershell
-.\build\package\ImWidgetV4-SDK\tools\ImWidgetEditorCLI.exe snapshot export ImWidgetSDKBuilder\ui\Main.ui.json ImWidgetSDKBuilder\snapshots\Main.png --width 1280 --height 720
+.\build\package\ImWidgetV4-SDK\tools\ImWidgetV4EditorCLI.exe snapshot export ImWidgetSDKBuilder\ui\Main.ui.json ImWidgetSDKBuilder\snapshots\Main.png --width 1280 --height 720
 ```
 
 快照用途：
@@ -195,7 +195,7 @@ struct FSdkBuildProfile
 
 ### 阶段 2：使用 SDK CLI 创建 UI
 
-- 使用 SDK 内 `ImWidgetEditorCLI` 创建或维护 `Main.ui.json`。
+- 使用 SDK 内 `ImWidgetV4EditorCLI` 创建或维护 `Main.ui.json`。
 - 使用 `ui lint`、`ui tree`、`ui validate` 检查文档。
 - 生成 `MainView` 相关代码。
 - 导出首张 `snapshots/Main.png`。

@@ -20,6 +20,31 @@ enum class EPropertyKind : uint8_t {
     Enum
 };
 
+enum class EPropertyFlags : uint32_t {
+    None = 0,
+    Runtime = 1u << 0,
+    EditorOnly = 1u << 1,
+    ReadOnly = 1u << 2,
+    Hidden = 1u << 3
+};
+
+constexpr EPropertyFlags operator|(EPropertyFlags left, EPropertyFlags right)
+{
+    return static_cast<EPropertyFlags>(
+        static_cast<uint32_t>(left) | static_cast<uint32_t>(right));
+}
+
+constexpr EPropertyFlags operator&(EPropertyFlags left, EPropertyFlags right)
+{
+    return static_cast<EPropertyFlags>(
+        static_cast<uint32_t>(left) & static_cast<uint32_t>(right));
+}
+
+constexpr bool HasPropertyFlag(EPropertyFlags flags, EPropertyFlags flag)
+{
+    return (static_cast<uint32_t>(flags) & static_cast<uint32_t>(flag)) != 0;
+}
+
 struct FTypeDesc;
 class IReflectable;
 
@@ -61,6 +86,7 @@ struct FPropertyDesc {
     size_t Size = 0;
     const FTypeDesc* StructType = nullptr;
     FEnumOptions EnumOptions {};
+    EPropertyFlags Flags = EPropertyFlags::None;
     FGetMutablePtr GetMutablePtr = nullptr;
     FGetConstPtr GetConstPtr = nullptr;
     FCopyValue CopyValue = nullptr;

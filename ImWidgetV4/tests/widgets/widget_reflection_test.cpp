@@ -152,6 +152,13 @@ TEST(WidgetReflectionTest, SlotAndStyleClassesAreReflectable)
         Reflection::FindProperty(slot.GetTypeDesc(), "PaddingLeft", "ImPaddingSlot");
     ASSERT_NE(slotPositionDesc, nullptr);
     ASSERT_NE(paddingLeftDesc, nullptr);
+    EXPECT_TRUE(Reflection::HasPropertyFlag(slotPositionDesc->Flags, Reflection::EPropertyFlags::Runtime));
+    json persistentSlotJson = slot.ToPersistentJson();
+    EXPECT_EQ(persistentSlotJson["Type"], "ImPaddingSlot");
+    EXPECT_FALSE(persistentSlotJson["Properties"].contains("ImSlot::SlotPosition"));
+    EXPECT_FALSE(persistentSlotJson["Properties"].contains("ImSlot::SlotSize"));
+    EXPECT_EQ(persistentSlotJson["Properties"]["ImPaddingSlot::PaddingLeft"], 4.0f);
+    EXPECT_EQ(persistentSlotJson["Properties"]["ImPaddingSlot::PaddingBottom"], 7.0f);
     Reflection::FPropertyHandle slotPositionProperty(&slot, slotPositionDesc);
     Reflection::FPropertyHandle paddingLeftProperty(&slot, paddingLeftDesc);
     ASSERT_NE(slotPositionProperty.GetConstAs<FVector2>(), nullptr);

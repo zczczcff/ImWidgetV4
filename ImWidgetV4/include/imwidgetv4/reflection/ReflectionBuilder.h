@@ -193,7 +193,8 @@ FPropertyDesc MakeMemberProperty(
     const char* valueTypeName,
     const char* description = "",
     const FTypeDesc* structType = nullptr,
-    FEnumOptions enumOptions = {})
+    FEnumOptions enumOptions = {},
+    EPropertyFlags flags = EPropertyFlags::None)
 {
     FPropertyDesc desc;
     desc.Name = name;
@@ -205,6 +206,7 @@ FPropertyDesc MakeMemberProperty(
     desc.Size = sizeof(ValueType);
     desc.StructType = structType;
     desc.EnumOptions = enumOptions;
+    desc.Flags = flags;
     desc.GetMutablePtr = &Detail::GetMemberPtr<ClassType, ValueType, Member>;
     desc.GetConstPtr = &Detail::GetConstMemberPtr<ClassType, ValueType, Member>;
     desc.CopyValue = &Detail::CopyValueImpl<ValueType>;
@@ -226,7 +228,8 @@ FPropertyDesc MakeAccessorProperty(
     const char* valueTypeName,
     const char* description = "",
     const FTypeDesc* structType = nullptr,
-    FEnumOptions enumOptions = {})
+    FEnumOptions enumOptions = {},
+    EPropertyFlags flags = EPropertyFlags::None)
 {
     FPropertyDesc desc;
     desc.Name = name;
@@ -238,6 +241,7 @@ FPropertyDesc MakeAccessorProperty(
     desc.Size = sizeof(ValueType);
     desc.StructType = structType;
     desc.EnumOptions = enumOptions;
+    desc.Flags = flags;
     desc.GetMutablePtr = &Detail::GetAccessorPtr<ClassType, ValueType, Getter>;
     desc.GetConstPtr = &Detail::GetConstAccessorPtr<ClassType, ValueType, Getter>;
     desc.CopyValue = nullptr;
@@ -259,7 +263,8 @@ FPropertyDesc MakeObjectAccessorProperty(
     const char* valueTypeName,
     const char* description = "",
     const FTypeDesc* structType = nullptr,
-    FEnumOptions enumOptions = {})
+    FEnumOptions enumOptions = {},
+    EPropertyFlags flags = EPropertyFlags::None)
 {
     FPropertyDesc desc = MakeAccessorProperty<ClassType, ValueType, Setter, Getter>(
         ownerTypeName,
@@ -268,7 +273,8 @@ FPropertyDesc MakeObjectAccessorProperty(
         valueTypeName,
         description,
         structType,
-        enumOptions);
+        enumOptions,
+        flags);
     desc.SetValue = &Detail::CopyThroughAccessor<ClassType, ValueType, Setter>;
     desc.SetObjectValue = &Detail::SetObjectTypedValue<ClassType, ValueType, Setter>;
     return desc;

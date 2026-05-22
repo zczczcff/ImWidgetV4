@@ -14,13 +14,22 @@ struct FWidgetSerializationResult {
     std::shared_ptr<ImWidgetV4::ImWidget> Widget;
 };
 
+struct FWidgetSerializationOptions {
+    bool bPersistent = false;
+};
+
 class WidgetSerializer {
 public:
     static json SerializeWidgetTree(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    static json SerializeWidgetTree(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const FWidgetSerializationOptions& options);
     static FWidgetSerializationResult DeserializeWidgetTree(const json& widgetJson);
 
 private:
-    static json SerializeWidgetNode(const std::shared_ptr<ImWidgetV4::ImWidget>& widget);
+    static json SerializeWidgetNode(
+        const std::shared_ptr<ImWidgetV4::ImWidget>& widget,
+        const FWidgetSerializationOptions& options);
     static FWidgetSerializationResult DeserializeWidgetNode(const json& widgetJson);
 };
 

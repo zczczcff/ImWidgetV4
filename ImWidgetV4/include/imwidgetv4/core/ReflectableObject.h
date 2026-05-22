@@ -13,6 +13,10 @@ namespace ImWidgetV4 {
 
 using json = nlohmann::ordered_json;
 
+namespace Reflection {
+struct FReflectionJsonOptions;
+}
+
 class ReflectableObject;
 
 class FReflectedOptionalProperty {
@@ -38,6 +42,8 @@ public:
     virtual ~ReflectableObject() = default;
 
     json ToJson() const;
+    json ToJson(const Reflection::FReflectionJsonOptions& options) const;
+    json ToPersistentJson() const;
     void FromJson(const json& j);
     virtual std::string GetTypeName() const { return "ReflectableObject"; }
     virtual const Reflection::FTypeDesc& GetTypeDesc() const override;

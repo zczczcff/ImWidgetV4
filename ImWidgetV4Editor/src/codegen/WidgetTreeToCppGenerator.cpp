@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <imwidgetv4/reflection/ReflectionJson.h>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -46,8 +47,6 @@ struct FGeneratedNode {
     EGeneratedChildRelation Relation = EGeneratedChildRelation::GenericChild;
     FTabRelationData TabData;
 };
-
-json NormalizeGeneratedJson(json value);
 
 class FCodeWriter {
 public:
@@ -309,7 +308,7 @@ void CollectGeneratedNodesRecursive(
         return;
     }
 
-    const json widgetJson = ExtractWidgetObjectJson(widgetNode);
+    const json widgetJson = Reflection::FilterPersistentJson(ExtractWidgetObjectJson(widgetNode));
     std::string preferredName;
     if (widgetJson.contains("Properties")) {
         const json& properties = widgetJson.at("Properties");
@@ -340,8 +339,8 @@ void CollectGeneratedNodesRecursive(
     node.ParentIndex = parentIndex;
     node.TypeName = typeName;
     node.VarName = std::move(varName);
-    node.WidgetJson = NormalizeGeneratedJson(widgetJson);
-    node.SlotJson = NormalizeGeneratedJson(slotJson);
+    node.WidgetJson = widgetJson;
+    node.SlotJson = Reflection::FilterPersistentJson(slotJson);
     node.Relation = relation;
     if (tabData != nullptr) {
         node.TabData = *tabData;
@@ -447,7 +446,9 @@ void CollectGeneratedNodesRecursive(
 
     if (widgetNode.contains("Children") && widgetNode.at("Children").is_array()) {
         for (const auto& childJson : widgetNode.at("Children")) {
-            const json childSlotJson = childJson.contains("Slot") ? childJson.at("Slot") : json();
+            const json childSlotJson = childJson.contains("Slot")
+                ? Reflection::FilterPersistentJson(childJson.at("Slot"))
+                : json();
             CollectGeneratedNodesRecursive(
                 childJson,
                 currentIndex,
@@ -497,8 +498,10 @@ std::vector<FGeneratedNode> BuildGeneratedNodes(
         return {};
     }
 
+    FWidgetSerializationOptions options;
+    options.bPersistent = true;
     return BuildGeneratedNodes(
-        WidgetSerializer::SerializeWidgetTree(rootWidget),
+        WidgetSerializer::SerializeWidgetTree(rootWidget, options),
         reservedNames);
 }
 
@@ -590,21 +593,6 @@ void EmitHeader(
 std::string BuildJsonLiteral(const json& value)
 {
     return "R\"IMWJSON(" + value.dump() + ")IMWJSON\"";
-}
-
-json NormalizeGeneratedJson(json value)
-{
-    if (!value.is_object()) {
-        return value;
-    }
-
-    if (value.contains("Properties") && value["Properties"].is_object()) {
-        json& properties = value["Properties"];
-        properties.erase("ImSlot::SlotPosition");
-        properties.erase("ImSlot::SlotSize");
-    }
-
-    return value;
 }
 
 std::string BuildStringLiteral(const std::string& value)

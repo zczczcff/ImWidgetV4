@@ -22,12 +22,17 @@ using namespace ImWidgetV4;
 
 namespace {
 
-json SerializeSlot(const ImSlot* slot)
+json SerializeReflectableObject(const ReflectableObject& object, const FWidgetSerializationOptions& options)
 {
-    return slot ? slot->ToJson() : json();
+    return options.bPersistent ? object.ToPersistentJson() : object.ToJson();
 }
 
-json SerializeTabItems(const std::shared_ptr<ImTabView>& tabView)
+json SerializeSlot(const ImSlot* slot, const FWidgetSerializationOptions& options)
+{
+    return slot ? SerializeReflectableObject(*slot, options) : json();
+}
+
+json SerializeTabItems(const std::shared_ptr<ImTabView>& tabView, const FWidgetSerializationOptions& options)
 {
     json tabItems = json::array();
     if (!tabView) {
@@ -45,14 +50,17 @@ json SerializeTabItems(const std::shared_ptr<ImTabView>& tabView)
         item["Enabled"] = tab->bEnabled;
         item["Closable"] = tab->bClosable;
         item["Dirty"] = tab->bDirty;
-        item["Content"] = WidgetSerializer::SerializeWidgetTree(tab->Content);
+        item["Content"] = WidgetSerializer::SerializeWidgetTree(tab->Content, options);
         tabItems.push_back(std::move(item));
     }
 
     return tabItems;
 }
 
-json SerializeTitleBarItems(const std::shared_ptr<ImTitleBar>& titleBar, bool bTrailing)
+json SerializeTitleBarItems(
+    const std::shared_ptr<ImTitleBar>& titleBar,
+    bool bTrailing,
+    const FWidgetSerializationOptions& options)
 {
     json items = json::array();
     if (!titleBar) {
@@ -64,7 +72,8 @@ json SerializeTitleBarItems(const std::shared_ptr<ImTitleBar>& titleBar, bool bT
         : titleBar->GetLeadingItemCount();
     for (std::size_t index = 0; index < count; ++index) {
         items.push_back(WidgetSerializer::SerializeWidgetTree(
-            bTrailing ? titleBar->GetTrailingItemAt(index) : titleBar->GetLeadingItemAt(index)));
+            bTrailing ? titleBar->GetTrailingItemAt(index) : titleBar->GetLeadingItemAt(index),
+            options));
     }
 
     return items;
@@ -195,37 +204,46 @@ bool TryApplySlotToParent(
 
 json WidgetSerializer::SerializeWidgetTree(const std::shared_ptr<ImWidget>& widget)
 {
-    return SerializeWidgetNode(widget);
+    return SerializeWidgetTree(widget, FWidgetSerializationOptions {});
 }
 
-json WidgetSerializer::SerializeWidgetNode(const std::shared_ptr<ImWidget>& widget)
+json WidgetSerializer::SerializeWidgetTree(
+    const std::shared_ptr<ImWidget>& widget,
+    const FWidgetSerializationOptions& options)
+{
+    return SerializeWidgetNode(widget, options);
+}
+
+json WidgetSerializer::SerializeWidgetNode(
+    const std::shared_ptr<ImWidget>& widget,
+    const FWidgetSerializationOptions& options)
 {
     if (!widget) {
         return json();
     }
 
-    json node = widget->ToJson();
+    json node = SerializeReflectableObject(*widget, options);
     node["Children"] = json::array();
 
     if (auto tabView = std::dynamic_pointer_cast<ImTabView>(widget)) {
-        node["TabItems"] = SerializeTabItems(tabView);
+        node["TabItems"] = SerializeTabItems(tabView, options);
         return node;
     }
 
     if (auto titleBar = std::dynamic_pointer_cast<ImTitleBar>(widget)) {
-        node["LeadingItems"] = SerializeTitleBarItems(titleBar, false);
-        node["TrailingItems"] = SerializeTitleBarItems(titleBar, true);
+        node["LeadingItems"] = SerializeTitleBarItems(titleBar, false, options);
+        node["TrailingItems"] = SerializeTitleBarItems(titleBar, true, options);
         return node;
     }
 
     if (auto button = std::dynamic_pointer_cast<ImButton>(widget)) {
-        node["Content"] = SerializeWidgetNode(button->GetContent());
+        node["Content"] = SerializeWidgetNode(button->GetContent(), options);
         return node;
     }
 
     if (auto expandableBox = std::dynamic_pointer_cast<ImExpandableBox>(widget)) {
-        node["Header"] = SerializeWidgetNode(expandableBox->GetHeader());
-        node["Body"] = SerializeWidgetNode(expandableBox->GetBody());
+        node["Header"] = SerializeWidgetNode(expandableBox->GetHeader(), options);
+        node["Body"] = SerializeWidgetNode(expandableBox->GetBody(), options);
         return node;
     }
 
@@ -238,9 +256,9 @@ json WidgetSerializer::SerializeWidgetNode(const std::shared_ptr<ImWidget>& widg
             continue;
         }
 
-        json childNode = SerializeWidgetNode(child);
+        json childNode = SerializeWidgetNode(child, options);
         if (panel) {
-            childNode["Slot"] = SerializeSlot(panel->GetSlotAt(static_cast<int>(childIndex)));
+            childNode["Slot"] = SerializeSlot(panel->GetSlotAt(static_cast<int>(childIndex)), options);
         } else {
             childNode["Slot"] = json();
         }

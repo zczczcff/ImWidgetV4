@@ -16,13 +16,19 @@ const Reflection::FTypeDesc& ImSlot::StaticTypeDesc()
             "SlotPosition",
             Reflection::EPropertyKind::Vec2,
             "FVector2",
-            "Slot top-left position"),
+            "Slot top-left position",
+            nullptr,
+            {},
+            Reflection::EPropertyFlags::Runtime),
         Reflection::MakeMemberProperty<ImSlot, FVector2, &ImSlot::m_SlotSize>(
             "ImSlot",
             "SlotSize",
             Reflection::EPropertyKind::Vec2,
             "FVector2",
-            "Slot size")
+            "Slot size",
+            nullptr,
+            {},
+            Reflection::EPropertyFlags::Runtime)
     };
 
     static const Reflection::FTypeDesc typeDesc {

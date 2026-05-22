@@ -2,6 +2,7 @@
 
 #include <imwidgetv4/core/ReflectableObject.h>
 #include <imwidgetv4/core/Types.h>
+#include <imwidgetv4/reflection/ReflectionRegistry.h>
 #include <imgui.h>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -66,7 +67,10 @@ FReflectionJson SerializeVec2Value(const FPropertyDesc& property, const void* va
     return vecArray;
 }
 
-FReflectionJson ValueToJson(const FPropertyDesc& property, const FPropertyValue& value)
+FReflectionJson ValueToJson(
+    const FPropertyDesc& property,
+    const FPropertyValue& value,
+    const FReflectionJsonOptions& options)
 {
     switch (property.Kind) {
     case EPropertyKind::Int:
@@ -94,7 +98,7 @@ FReflectionJson ValueToJson(const FPropertyDesc& property, const FPropertyValue&
             if (!nested) {
                 return nullptr;
             }
-            return ToJson(*nested);
+            return ToJson(*nested, options);
         }
         return nullptr;
     default:
@@ -259,6 +263,11 @@ bool WriteReflectedVec2(
 
 FReflectionJson ToJson(const IReflectable& object)
 {
+    return ToJson(object, FReflectionJsonOptions {});
+}
+
+FReflectionJson ToJson(const IReflectable& object, const FReflectionJsonOptions& options)
+{
     const FTypeDesc& typeDesc = object.GetTypeDesc();
 
     FReflectionJson result;
@@ -271,6 +280,9 @@ FReflectionJson ToJson(const IReflectable& object)
         if (!property) {
             continue;
         }
+        if (HasPropertyFlag(property->Flags, options.ExcludedFlags)) {
+            continue;
+        }
 
         FPropertyHandle handle(const_cast<IReflectable*>(&object), property);
         FPropertyValue value;
@@ -278,11 +290,84 @@ FReflectionJson ToJson(const IReflectable& object)
             continue;
         }
 
-        properties[MakePropertyKey(*property)] = ValueToJson(*property, value);
+        properties[MakePropertyKey(*property)] = ValueToJson(*property, value, options);
     }
 
     result["Properties"] = properties;
     return result;
+}
+
+FReflectionJson ToPersistentJson(const IReflectable& object)
+{
+    FReflectionJsonOptions options;
+    options.ExcludedFlags = EPropertyFlags::Runtime;
+    return ToJson(object, options);
+}
+
+FReflectionJson FilterJson(const FReflectionJson& json, const FReflectionJsonOptions& options)
+{
+    if (json.is_array()) {
+        FReflectionJson filtered = FReflectionJson::array();
+        for (const FReflectionJson& item : json) {
+            filtered.push_back(FilterJson(item, options));
+        }
+        return filtered;
+    }
+
+    if (!json.is_object()) {
+        return json;
+    }
+
+    FReflectionJson filtered = json;
+
+    const bool bHasReflectedType =
+        filtered.contains("Type") &&
+        filtered.at("Type").is_string() &&
+        filtered.contains("Properties") &&
+        filtered.at("Properties").is_object();
+
+    if (bHasReflectedType) {
+        const std::string typeName = filtered.at("Type").get<std::string>();
+        const FTypeDesc* typeDesc = FReflectionRegistry::Get().FindType(typeName);
+        if (typeDesc) {
+            FReflectionJson filteredProperties = FReflectionJson::object();
+            const FReflectionJson& properties = filtered.at("Properties");
+            for (auto it = properties.begin(); it != properties.end(); ++it) {
+                const auto key = ParsePropertyKey(it.key());
+                const FPropertyDesc* property = FindProperty(*typeDesc, key.second, key.first);
+                if (property && HasPropertyFlag(property->Flags, options.ExcludedFlags)) {
+                    continue;
+                }
+
+                if (property && property->Kind == EPropertyKind::Struct && it.value().is_object()) {
+                    filteredProperties[it.key()] = FilterJson(it.value(), options);
+                } else {
+                    filteredProperties[it.key()] = it.value();
+                }
+            }
+
+            filtered["Properties"] = std::move(filteredProperties);
+        }
+    }
+
+    for (auto it = filtered.begin(); it != filtered.end(); ++it) {
+        if (it.key() == "Properties") {
+            continue;
+        }
+
+        if (it.value().is_object() || it.value().is_array()) {
+            it.value() = FilterJson(it.value(), options);
+        }
+    }
+
+    return filtered;
+}
+
+FReflectionJson FilterPersistentJson(const FReflectionJson& json)
+{
+    FReflectionJsonOptions options;
+    options.ExcludedFlags = EPropertyFlags::Runtime;
+    return FilterJson(json, options);
 }
 
 bool FromJson(IReflectable& object, const FReflectionJson& json, std::string* error)
@@ -392,6 +477,16 @@ namespace ImWidgetV4 {
 json ReflectableObject::ToJson() const
 {
     return Reflection::ToJson(*this);
+}
+
+json ReflectableObject::ToJson(const Reflection::FReflectionJsonOptions& options) const
+{
+    return Reflection::ToJson(*this, options);
+}
+
+json ReflectableObject::ToPersistentJson() const
+{
+    return Reflection::ToPersistentJson(*this);
 }
 
 void ReflectableObject::FromJson(const json& j)

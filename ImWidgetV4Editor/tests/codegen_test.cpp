@@ -226,6 +226,47 @@ TEST(EditorCodeGenTest, GeneratesSlotRestorationForPanelChildren)
     EXPECT_EQ(result.Files.SourceText.find("ImSlot::SlotSize"), std::string::npos);
 }
 
+TEST(EditorCodeGenTest, FiltersRuntimeSlotPropertiesFromRawJson)
+{
+    json rootJson;
+    rootJson["Type"] = "ImCanvasPanel";
+    rootJson["Properties"] = {
+        {"ImWidget::Name", "CanvasRoot"}
+    };
+    rootJson["Children"] = json::array();
+
+    json childJson;
+    childJson["Type"] = "ImTextBlock";
+    childJson["Properties"] = {
+        {"ImWidget::Name", "FloatingLabel"},
+        {"ImTextBlock::Text", "Floating"}
+    };
+    childJson["Children"] = json::array();
+    childJson["Slot"] = {
+        {"Type", "ImCanvasPanelSlot"},
+        {"Properties", {
+            {"ImSlot::SlotPosition", {10.0f, 20.0f}},
+            {"ImSlot::SlotSize", {200.0f, 80.0f}},
+            {"ImCanvasPanelSlot::RelativePosition", {0.25f, 0.50f}},
+            {"ImCanvasPanelSlot::RelativeSize", {0.40f, 0.20f}},
+            {"ImCanvasPanelSlot::AutoSize", false}
+        }}
+    };
+    rootJson["Children"].push_back(childJson);
+
+    FCodeGenOptions options;
+    options.ClassName = "GeneratedCanvas";
+
+    const FCodeGenResult result = WidgetTreeToCppGenerator::Generate(rootJson, options);
+
+    ASSERT_TRUE(result.bSuccess) << result.ErrorMessage;
+    EXPECT_EQ(result.Files.SourceText.find("ImSlot::SlotPosition"), std::string::npos);
+    EXPECT_EQ(result.Files.SourceText.find("ImSlot::SlotSize"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("ImCanvasPanelSlot::RelativePosition"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("ImCanvasPanelSlot::RelativeSize"), std::string::npos);
+    EXPECT_NE(result.Files.SourceText.find("ImCanvasPanelSlot::AutoSize"), std::string::npos);
+}
+
 TEST(EditorCodeGenTest, PreservesAuthoredJsonWithoutExpandingDefaultStyle)
 {
     json rootJson;

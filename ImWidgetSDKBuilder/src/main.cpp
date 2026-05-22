@@ -14,13 +14,16 @@
 #include <imwidgetv4/widgets/ComboBox.h>
 #include <imwidgetv4/widgets/Image.h>
 #include <imwidgetv4/widgets/TextBlock.h>
+#include <imwidgetv4/widgets/TextList.h>
 
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -167,38 +170,6 @@ void SetTextIfValid(const std::shared_ptr<ImWidgetV4::ImTextBlock>& textBlock, c
     }
 }
 
-void RunBuilderCommand(
-    const std::string& label,
-    const std::vector<std::string>& arguments,
-    std::ostringstream& logStream,
-    bool& bAllSucceeded)
-{
-    logStream << "> " << label << "\n";
-    logStream << ImWidgetV4::BuildProcessCommandLineForDisplay(arguments) << "\n";
-
-    const ImWidgetV4::FProcessExecutionResult result = ImWidgetV4::ExecuteProcess(
-        std::filesystem::current_path(),
-        arguments,
-        [&logStream](const std::string& line) {
-            logStream << line << "\n";
-        });
-
-    if (!result.bSuccess) {
-        bAllSucceeded = false;
-        logStream << "Failed";
-        if (result.ExitCode >= 0) {
-            logStream << " with exit code " << result.ExitCode;
-        }
-        if (!result.ErrorMessage.empty()) {
-            logStream << ": " << result.ErrorMessage;
-        }
-        logStream << "\n";
-        return;
-    }
-
-    logStream << "Done.\n";
-}
-
 void AppendGeneratorArguments(std::vector<std::string>& arguments, const std::string& generator)
 {
     if (generator.empty() || generator == "Default") {
@@ -215,6 +186,13 @@ struct FBuilderCommandStep {
 };
 
 struct FBuilderUiState {
+    ~FBuilderUiState()
+    {
+        if (Worker.joinable()) {
+            Worker.join();
+        }
+    }
+
     std::shared_ptr<ImWidgetV4::ImCheckBox> Win64;
     std::shared_ptr<ImWidgetV4::ImCheckBox> Win32;
     std::shared_ptr<ImWidgetV4::ImCheckBox> Debug;
@@ -226,10 +204,84 @@ struct FBuilderUiState {
     std::shared_ptr<ImWidgetV4::ImComboBox> Toolchain;
     std::shared_ptr<ImWidgetV4::ImButton> BuildButton;
     std::shared_ptr<ImWidgetV4::ImTextBlock> CommandPreview;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
+    std::shared_ptr<ImWidgetV4::ImTextList> LogText;
+    std::thread Worker;
+    std::mutex BuildMutex;
+    std::vector<std::string> PendingLogLines;
     bool bBuildRunning = false;
+    bool bBuildFinished = false;
+    bool bNsisAvailable = false;
     std::string LastCommandPreviewText;
 };
+
+void QueueLogLine(FBuilderUiState* state, const std::string& line)
+{
+    if (!state) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(state->BuildMutex);
+    state->PendingLogLines.push_back(line);
+}
+
+void ClearLogList(const std::shared_ptr<ImWidgetV4::ImTextList>& logList)
+{
+    if (logList) {
+        logList->ClearItems();
+    }
+}
+
+void AppendLogLine(const std::shared_ptr<ImWidgetV4::ImTextList>& logList, const std::string& line)
+{
+    if (!logList) {
+        return;
+    }
+
+    logList->AddItem(line);
+    const int lastIndex = static_cast<int>(logList->GetItems().size()) - 1;
+    if (lastIndex >= 0) {
+        logList->ScrollToItem(lastIndex);
+    }
+}
+
+void SetLogMessage(const std::shared_ptr<ImWidgetV4::ImTextList>& logList, const std::string& message)
+{
+    ClearLogList(logList);
+    AppendLogLine(logList, message);
+}
+
+void RunBuilderCommand(
+    FBuilderUiState* state,
+    const std::string& label,
+    const std::vector<std::string>& arguments,
+    bool& bAllSucceeded)
+{
+    QueueLogLine(state, "> " + label);
+    QueueLogLine(state, ImWidgetV4::BuildProcessCommandLineForDisplay(arguments));
+
+    const ImWidgetV4::FProcessExecutionResult result = ImWidgetV4::ExecuteProcess(
+        std::filesystem::current_path(),
+        arguments,
+        [state](const std::string& line) {
+            QueueLogLine(state, line);
+        });
+
+    if (!result.bSuccess) {
+        bAllSucceeded = false;
+        std::ostringstream stream;
+        stream << "Failed";
+        if (result.ExitCode >= 0) {
+            stream << " with exit code " << result.ExitCode;
+        }
+        if (!result.ErrorMessage.empty()) {
+            stream << ": " << result.ErrorMessage;
+        }
+        QueueLogLine(state, stream.str());
+        return;
+    }
+
+    QueueLogLine(state, "Done.");
+}
 
 std::vector<FBuilderCommandStep> BuildCommandPlan(
     const std::vector<std::string>& architectures,
@@ -337,7 +389,7 @@ std::vector<FBuilderCommandStep> CollectCurrentCommandPlan(const FBuilderUiState
     const std::vector<std::string> configurations = CollectCheckedConfigurations(state.Debug, state.Release);
     const bool bBuildSdk = state.BuildSdk && state.BuildSdk->IsChecked();
     const bool bBuildZip = state.BuildZip && state.BuildZip->IsChecked();
-    const bool bBuildNsis = state.BuildNsis && state.BuildNsis->IsChecked() && !state.BuildNsis->IsDisabled();
+    const bool bBuildNsis = state.BuildNsis && state.BuildNsis->IsChecked() && state.bNsisAvailable;
     const bool bSmokeTest = state.SmokeTest && state.SmokeTest->IsChecked();
     const std::string selectedGenerator = state.Toolchain ? state.Toolchain->GetSelectedText() : std::string();
     return BuildCommandPlan(
@@ -357,8 +409,36 @@ void RefreshCommandPreview(const std::shared_ptr<FBuilderUiState>& state, bool b
     }
 
     const std::vector<FBuilderCommandStep> steps = CollectCurrentCommandPlan(*state);
+    const bool bControlsDisabled = state->bBuildRunning;
+    if (state->Win64) {
+        state->Win64->SetDisabled(bControlsDisabled);
+    }
+    if (state->Win32) {
+        state->Win32->SetDisabled(bControlsDisabled);
+    }
+    if (state->Debug) {
+        state->Debug->SetDisabled(bControlsDisabled);
+    }
+    if (state->Release) {
+        state->Release->SetDisabled(bControlsDisabled);
+    }
+    if (state->BuildSdk) {
+        state->BuildSdk->SetDisabled(bControlsDisabled);
+    }
+    if (state->BuildZip) {
+        state->BuildZip->SetDisabled(bControlsDisabled);
+    }
+    if (state->BuildNsis) {
+        state->BuildNsis->SetDisabled(bControlsDisabled || !state->bNsisAvailable);
+    }
+    if (state->SmokeTest) {
+        state->SmokeTest->SetDisabled(bControlsDisabled);
+    }
+    if (state->Toolchain) {
+        state->Toolchain->SetDisabled(bControlsDisabled);
+    }
     if (state->BuildButton) {
-        state->BuildButton->SetDisabled(state->bBuildRunning || steps.empty());
+        state->BuildButton->SetDisabled(bControlsDisabled || steps.empty());
     }
 
     if (state->bBuildRunning) {
@@ -372,6 +452,81 @@ void RefreshCommandPreview(const std::shared_ptr<FBuilderUiState>& state, bool b
 
     SetTextIfValid(state->CommandPreview, previewText);
     state->LastCommandPreviewText = previewText;
+}
+
+void StartAsyncBuild(const std::shared_ptr<FBuilderUiState>& state, std::vector<FBuilderCommandStep> steps)
+{
+    if (!state || state->bBuildRunning || steps.empty()) {
+        return;
+    }
+
+    if (state->Worker.joinable()) {
+        state->Worker.join();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(state->BuildMutex);
+        state->PendingLogLines.clear();
+        state->bBuildFinished = false;
+    }
+
+    ClearLogList(state->LogText);
+    state->bBuildRunning = true;
+    SetTextIfValid(state->CommandPreview, "Build in progress...");
+    RefreshCommandPreview(state, true);
+
+    FBuilderUiState* stateRaw = state.get();
+    state->Worker = std::thread([stateRaw, steps = std::move(steps)]() {
+        bool bAllSucceeded = true;
+
+        for (std::size_t index = 0; index < steps.size(); ++index) {
+            if (index > 0) {
+                QueueLogLine(stateRaw, "");
+            }
+            RunBuilderCommand(stateRaw, steps[index].Label, steps[index].Arguments, bAllSucceeded);
+        }
+
+        QueueLogLine(stateRaw, "");
+        QueueLogLine(stateRaw, bAllSucceeded ? "Build completed successfully." : "Build failed.");
+
+        std::lock_guard<std::mutex> lock(stateRaw->BuildMutex);
+        stateRaw->bBuildFinished = true;
+    });
+}
+
+void DrainBuildLog(const std::shared_ptr<FBuilderUiState>& state)
+{
+    if (!state) {
+        return;
+    }
+
+    std::vector<std::string> lines;
+    bool bFinished = false;
+    {
+        std::lock_guard<std::mutex> lock(state->BuildMutex);
+        lines.swap(state->PendingLogLines);
+        bFinished = state->bBuildFinished;
+    }
+
+    for (const std::string& line : lines) {
+        AppendLogLine(state->LogText, line);
+    }
+
+    if (!bFinished) {
+        return;
+    }
+
+    if (state->Worker.joinable()) {
+        state->Worker.join();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(state->BuildMutex);
+        state->bBuildFinished = false;
+    }
+
+    state->bBuildRunning = false;
+    RefreshCommandPreview(state, true);
 }
 
 std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& application)
@@ -410,18 +565,22 @@ std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& a
     }
 
     const bool bNsisAvailable = IsCommandAvailable("makensis");
+    state->bNsisAvailable = bNsisAvailable;
     if (state->BuildNsis) {
         state->BuildNsis->SetDisabled(!bNsisAvailable);
         state->BuildNsis->SetChecked(bNsisAvailable && state->BuildNsis->IsChecked());
     }
     if (!bNsisAvailable) {
-        SetTextIfValid(state->LogText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
+        SetLogMessage(state->LogText, "Ready. NSIS was not found on PATH, so Build NSIS is disabled.");
     }
 
-    const auto bindPreviewRefresh = [state](const std::shared_ptr<ImWidgetV4::ImCheckBox>& checkBox) {
+    const std::weak_ptr<FBuilderUiState> weakState = state;
+
+    const auto bindPreviewRefresh = [weakState](const std::shared_ptr<ImWidgetV4::ImCheckBox>& checkBox) {
         if (checkBox) {
             checkBox->OnCheckStateChanged.AddLambda(
-                [state](ImWidgetV4::ImCheckBox&, bool) {
+                [weakState](ImWidgetV4::ImCheckBox&, bool) {
+                    auto state = weakState.lock();
                     RefreshCommandPreview(state, true);
                 });
         }
@@ -438,7 +597,8 @@ std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& a
 
     if (state->Toolchain) {
         state->Toolchain->OnSelectionChanged.AddLambda(
-            [state](ImWidgetV4::ImComboBox&, int) {
+            [weakState](ImWidgetV4::ImComboBox&, int) {
+                auto state = weakState.lock();
                 RefreshCommandPreview(state, true);
             });
     }
@@ -446,28 +606,21 @@ std::shared_ptr<FBuilderUiState> ConfigureBuilderUi(ImWidgetV4::ImApplication& a
     RefreshCommandPreview(state, true);
 
     if (state->BuildButton) {
-        state->BuildButton->OnClicked.AddLambda([state](ImWidgetV4::ImButton& button) {
-            std::ostringstream logStream;
-            bool bAllSucceeded = true;
+        state->BuildButton->OnClicked.AddLambda([weakState](ImWidgetV4::ImButton& button) {
+            (void)button;
+            auto state = weakState.lock();
+            if (!state) {
+                return;
+            }
 
             const std::vector<FBuilderCommandStep> steps = CollectCurrentCommandPlan(*state);
 
             if (steps.empty()) {
-                SetTextIfValid(state->LogText, "No build tasks selected.");
+                SetLogMessage(state->LogText, "No build tasks selected.");
                 return;
             }
 
-            state->bBuildRunning = true;
-            SetTextIfValid(state->CommandPreview, "Build in progress...");
-            RefreshCommandPreview(state, true);
-
-            for (const FBuilderCommandStep& step : steps) {
-                RunBuilderCommand(step.Label, step.Arguments, logStream, bAllSucceeded);
-            }
-
-            SetTextIfValid(state->LogText, logStream.str());
-            state->bBuildRunning = false;
-            RefreshCommandPreview(state, true);
+            StartAsyncBuild(state, steps);
         });
     }
 
@@ -494,6 +647,7 @@ public:
     {
         (void)application;
         (void)frameInfo;
+        DrainBuildLog(BuilderUiState_);
         RefreshCommandPreview(BuilderUiState_, false);
     }
 

@@ -12,6 +12,7 @@ namespace ImWidgetV4 {
     class ImHorizontalBox;
     class ImScrollBox;
     class ImTextBlock;
+    class ImTextList;
     class ImVerticalBox;
     class ImVerticalSplitter;
 } // namespace ImWidgetV4
@@ -63,7 +64,7 @@ public:
     std::shared_ptr<ImWidgetV4::ImTextBlock> BuildButtonText;
     std::shared_ptr<ImWidgetV4::ImScrollBox> LogScrollBox;
     std::shared_ptr<ImWidgetV4::ImVerticalBox> LogPanel;
-    std::shared_ptr<ImWidgetV4::ImTextBlock> LogText;
+    std::shared_ptr<ImWidgetV4::ImTextList> LogText;
     //===Auto Gen End=== (Public Members)
 
 protected:

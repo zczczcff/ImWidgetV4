@@ -2463,23 +2463,92 @@
             },
             "Children": [
               {
-                "Type": "ImTextBlock",
+                "Type": "ImTextList",
                 "Properties": {
-                  "ImTextBlock::Text": "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run.",
-                  "ImTextBlock::TextColor": [
-                    207,
-                    216,
-                    226,
-                    255
+                  "ImTextList::Items": [
+                    "Ready. Pick architectures/configurations, select the toolset, choose build steps, then run."
                   ],
-                  "ImTextBlock::FontSize": 15.0,
-                  "ImTextBlock::WrapText": true,
-                  "ImTextBlock::TextAlignment": "Left",
-                  "ImTextBlock::VerticalAlignment": "Top",
+                  "ImTextList::ScrollOffset": 0.0,
+                  "ImTextList::Style": {
+                    "Type": "FTextListStyle",
+                    "Properties": {
+                      "FTextListStyle::BackgroundColor": [
+                        24,
+                        28,
+                        34,
+                        255
+                      ],
+                      "FTextListStyle::BorderColor": [
+                        16,
+                        19,
+                        23,
+                        255
+                      ],
+                      "FTextListStyle::FocusedOutlineColor": [
+                        103,
+                        177,
+                        255,
+                        255
+                      ],
+                      "FTextListStyle::TextColor": [
+                        207,
+                        216,
+                        226,
+                        255
+                      ],
+                      "FTextListStyle::SelectionBackgroundColor": [
+                        93,
+                        149,
+                        212,
+                        176
+                      ],
+                      "FTextListStyle::Padding": {
+                        "Type": "FMargin",
+                        "Properties": {
+                          "FMargin::Left": 0.0,
+                          "FMargin::Right": 0.0,
+                          "FMargin::Top": 0.0,
+                          "FMargin::Bottom": 0.0
+                        }
+                      },
+                      "FTextListStyle::MinDesiredSize": [
+                        320.0,
+                        160.0
+                      ],
+                      "FTextListStyle::CornerRadius": 0.0,
+                      "FTextListStyle::BorderThickness": 0.0,
+                      "FTextListStyle::FontSize": 15.0,
+                      "FTextListStyle::LineSpacing": 1.15,
+                      "FTextListStyle::ScrollbarThickness": 10.0,
+                      "FTextListStyle::ScrollbarPadding": 0.0,
+                      "FTextListStyle::ScrollbarTrackColor": [
+                        38,
+                        45,
+                        56,
+                        255
+                      ],
+                      "FTextListStyle::ScrollbarThumbColor": [
+                        88,
+                        102,
+                        119,
+                        255
+                      ],
+                      "FTextListStyle::ScrollbarThumbHoveredColor": [
+                        122,
+                        143,
+                        168,
+                        255
+                      ],
+                      "FTextListStyle::ThumbMinLength": 28.0,
+                      "FTextListStyle::WheelScrollStep": 32.0,
+                      "FTextListStyle::AutoScrollEdgePadding": 24.0,
+                      "FTextListStyle::AutoScrollSpeed": 8.0
+                    }
+                  },
                   "ImWidget::Name": "LogText",
                   "ImWidget::Visible": true,
                   "ImWidget::HitTestVisible": true,
-                  "ImWidget::SupportsKeyboardFocus": false
+                  "ImWidget::SupportsKeyboardFocus": true
                 },
                 "Children": [],
                 "Slot": {
